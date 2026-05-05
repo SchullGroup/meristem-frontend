@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
+import QueryProvider from "@/components/providers/query-provider";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -25,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={outfit.variable}>
       <body className="antialiased">
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );
