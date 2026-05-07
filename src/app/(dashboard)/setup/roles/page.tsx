@@ -1,26 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Lock, Trash2, Edit2 } from "lucide-react";
+import { Plus, Lock, Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { useStore } from "@/lib/store";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { useRoles } from "@/hooks/useRoles";
 
 const PERMISSION_GROUPS = [
-  "SETUP", "OFFER ADMINISTRATION", "CERTIFICATE MANAGEMENT",
-  "DIVIDEND MANAGEMENT", "ACCOUNT MAINTENANCE", "ENQUIRY",
-  "REPORTS", "AUDIT TRAIL", "ADMIN"
+  "SETUP",
+  "OFFER ADMINISTRATION",
+  "CERTIFICATE MANAGEMENT",
+  "DIVIDEND MANAGEMENT",
+  "ACCOUNT MAINTENANCE",
+  "ENQUIRY",
+  "REPORTS",
+  "AUDIT TRAIL",
+  "ADMIN",
 ];
 
 const PERMISSION_TYPES = ["View", "Create", "Edit", "Approve", "Reverse"];
 
 export default function RolesPage() {
-  const { users } = useStore();
+  const { data: roles } = useRoles();
+  console.log(roles);
   const [selectedRole, setSelectedRole] = useState("SYSTEM_ADMIN");
 
   // Edit modal
@@ -33,19 +46,9 @@ export default function RolesPage() {
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDesc, setNewRoleDesc] = useState("");
 
-  const builtInRoles = ["SYSTEM_ADMIN", "ENQUIRY_ONLY", "AUDIT_REVIEWER"];
-
-  const roles = Array.from(new Set(users.map(u => u.role))).map(role => ({
-    id: role,
-    name: role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
-    description: role === "SYSTEM_ADMIN"
-      ? "Full system access including configuration"
-      : "Access to specific modules",
-    isBuiltIn: builtInRoles.includes(role),
-  }));
-
-  const activeRole = roles.find(r => r.id === selectedRole) || roles[0];
-  const userCount = users.filter(u => u.role === selectedRole || u.secondaryRole === selectedRole).length;
+  const activeRole = roles?.find(
+    (r: { name: string }) => r.name === selectedRole,
+  );
 
   const openEditModal = () => {
     setEditName(activeRole.name);
@@ -61,7 +64,9 @@ export default function RolesPage() {
 
   const handleCreateRole = () => {
     if (!newRoleName.trim()) return;
-    toast.success(`Role "${newRoleName}" created. Configure permissions below.`);
+    toast.success(
+      `Role "${newRoleName}" created. Configure permissions below.`,
+    );
     setCreateOpen(false);
     setNewRoleName("");
     setNewRoleDesc("");
@@ -85,27 +90,39 @@ export default function RolesPage() {
           </div>
 
           <div className="flex-1 py-2">
-            {roles.map(role => {
-              const count = users.filter(u => u.role === role.id || u.secondaryRole === role.id).length;
-              const isActive = role.id === selectedRole;
-              return (
-                <button
-                  key={role.id}
-                  onClick={() => setSelectedRole(role.id)}
-                  className={`w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors border-l-2 ${
-                    isActive ? "bg-primary/8 text-primary border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium truncate">{role.name}</span>
-                    {role.isBuiltIn && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
-                  </div>
-                  <span className="ml-2 shrink-0 min-w-[20px] text-center text-[11px] font-semibold bg-muted text-foreground rounded-full px-1.5 py-0.5">
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+            {roles.map(
+              (role: {
+                id: number;
+                isBuiltIn: boolean;
+                name: string;
+                userCount: number;
+              }) => {
+                const isActive = role.name === selectedRole;
+                return (
+                  <button
+                    key={role.name}
+                    onClick={() => setSelectedRole(role.name)}
+                    className={`w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors border-l-2 ${
+                      isActive
+                        ? "bg-primary/8 text-primary border-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-medium truncate">
+                        {role.name}
+                      </span>
+                      {role.isBuiltIn && (
+                        <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                      )}
+                    </div>
+                    <span className="ml-2 shrink-0 min-w-[20px] text-center text-[11px] font-semibold bg-muted text-foreground rounded-full px-1.5 py-0.5">
+                      {role?.userCount}
+                    </span>
+                  </button>
+                );
+              },
+            )}
           </div>
         </div>
 
@@ -114,21 +131,26 @@ export default function RolesPage() {
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex justify-between items-start">
               <div>
-                <h2 className="text-xl font-bold">{activeRole.name}</h2>
-                <p className="text-sm text-muted-foreground mt-1">{activeRole.description}</p>
+                <h2 className="text-xl font-bold">{activeRole?.name}</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {activeRole?.description}
+                </p>
                 <div className="text-xs font-medium text-muted-foreground mt-2 bg-muted px-2 py-1 rounded-md inline-block">
-                  {userCount} user{userCount !== 1 ? "s" : ""} assigned to this role
+                  {activeRole?.userCount} user
+                  {activeRole?.userCount !== 1 ? "s" : ""} assigned to this role
                 </div>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={openEditModal}>
                   <Edit2 className="h-4 w-4 mr-2" /> Edit Role
                 </Button>
-                {!activeRole.isBuiltIn && userCount === 0 && (
+                {!activeRole?.isBuiltIn && activeRole?.userCount === 0 && (
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => toast.error("Delete role? This cannot be undone.")}
+                    onClick={() =>
+                      toast.error("Delete role? This cannot be undone.")
+                    }
                   >
                     <Trash2 className="h-4 w-4 mr-2" /> Delete Role
                   </Button>
@@ -139,27 +161,32 @@ export default function RolesPage() {
             <div className="bg-card border border-border/60 rounded-xl overflow-hidden">
               <div className="px-4 py-3 bg-muted/30 border-b flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Permissions</h3>
-                {activeRole.isBuiltIn && (
+                {activeRole?.isBuiltIn && (
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Lock className="h-3 w-3" /> Built-in role — permissions cannot be modified
+                    <Lock className="h-3 w-3" /> Built-in role — permissions
+                    cannot be modified
                   </span>
                 )}
               </div>
               <div className="p-4 grid grid-cols-3 gap-8">
-                {PERMISSION_GROUPS.map(group => (
+                {PERMISSION_GROUPS?.map((group) => (
                   <div key={group} className="space-y-3">
                     <h4 className="text-xs font-bold tracking-widest text-muted-foreground uppercase border-b border-border/60 pb-1">
                       {group}
                     </h4>
                     <div className="space-y-2">
-                      {PERMISSION_TYPES.map(perm => (
-                        <div key={`${group}-${perm}`} className="flex items-center space-x-2">
+                      {PERMISSION_TYPES?.map((perm) => (
+                        <div
+                          key={`${group}-${perm}`}
+                          className="flex items-center space-x-2"
+                        >
                           <Checkbox
                             id={`${group}-${perm}`}
-                            disabled={activeRole.isBuiltIn}
+                            disabled={activeRole?.isBuiltIn}
                             defaultChecked={
-                              activeRole.id === "SYSTEM_ADMIN" ||
-                              (activeRole.id === "ENQUIRY_ONLY" && perm === "View")
+                              activeRole?.id === "SYSTEM_ADMIN" ||
+                              (activeRole?.id === "ENQUIRY_ONLY" &&
+                                perm === "View")
                             }
                           />
                           <label
@@ -176,9 +203,11 @@ export default function RolesPage() {
               </div>
             </div>
 
-            {!activeRole.isBuiltIn && (
+            {!activeRole?.isBuiltIn && (
               <div className="flex justify-end">
-                <Button onClick={() => toast.success("Permissions saved.")}>Save Permissions</Button>
+                <Button onClick={() => toast.success("Permissions saved.")}>
+                  Save Permissions
+                </Button>
               </div>
             )}
           </div>
@@ -190,14 +219,16 @@ export default function RolesPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Role</DialogTitle>
-            <DialogDescription>Update the role name and description.</DialogDescription>
+            <DialogDescription>
+              Update the role name and description.
+            </DialogDescription>
           </DialogHeader>
           <div className="px-8 py-6 space-y-4">
             <div className="space-y-2">
               <label className="mrpsl-label">Role Name *</label>
               <Input
                 value={editName}
-                onChange={e => setEditName(e.target.value)}
+                onChange={(e) => setEditName(e.target.value)}
                 placeholder="e.g. Operations Manager"
               />
             </div>
@@ -205,22 +236,27 @@ export default function RolesPage() {
               <label className="mrpsl-label">Description</label>
               <Textarea
                 value={editDesc}
-                onChange={e => setEditDesc(e.target.value)}
+                onChange={(e) => setEditDesc(e.target.value)}
                 placeholder="Brief description of this role's responsibilities"
                 className="resize-none"
                 rows={3}
               />
             </div>
-            {activeRole.isBuiltIn && (
+            {activeRole?.isBuiltIn && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 shrink-0" />
-                Built-in roles have restricted edits. Permissions cannot be changed.
+                Built-in roles have restricted edits. Permissions cannot be
+                changed.
               </p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleEditRole} disabled={!editName.trim()}>Save Changes</Button>
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditRole} disabled={!editName?.trim()}>
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -239,7 +275,7 @@ export default function RolesPage() {
               <label className="mrpsl-label">Role Name *</label>
               <Input
                 value={newRoleName}
-                onChange={e => setNewRoleName(e.target.value)}
+                onChange={(e) => setNewRoleName(e.target.value)}
                 placeholder="e.g. Operations Manager"
               />
             </div>
@@ -247,7 +283,7 @@ export default function RolesPage() {
               <label className="mrpsl-label">Description</label>
               <Textarea
                 value={newRoleDesc}
-                onChange={e => setNewRoleDesc(e.target.value)}
+                onChange={(e) => setNewRoleDesc(e.target.value)}
                 placeholder="Brief description of this role's responsibilities"
                 className="resize-none"
                 rows={3}
@@ -255,7 +291,14 @@ export default function RolesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { setCreateOpen(false); setNewRoleName(""); setNewRoleDesc(""); }}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setCreateOpen(false);
+                setNewRoleName("");
+                setNewRoleDesc("");
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleCreateRole} disabled={!newRoleName.trim()}>

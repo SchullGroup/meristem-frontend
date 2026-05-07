@@ -6,7 +6,14 @@ import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Mail, KeyRound } from "lucide-react";
+import {
+  Loader2,
+  ArrowLeft,
+  Mail,
+  KeyRound,
+  Eye,
+  EyeClosed,
+} from "lucide-react";
 import { BrandPanel } from "@/components/custom/auth/brand-panel";
 import { SiteLogo } from "@/components/custom/auth/site-logo";
 import { LOGIN, REQUEST_OTP, VERIFY_OTP } from "@/actions/authAction";
@@ -30,13 +37,11 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendCountdown, setResendCountdown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
   // const [resolvedUserId, setResolvedUserId] = useState("");
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  useEffect(() => {
-    seedStore();
-  }, [seedStore]);
   useEffect(() => {
     if (currentUser) router.replace("/");
   }, [currentUser, router]);
@@ -94,10 +99,8 @@ export default function LoginPage() {
   const verifyOtpMutation = useMutation({
     mutationFn: VERIFY_OTP,
     onSuccess: (data) => {
-      console.log("verify otp success", data);
       if (data?.isSuccessful && data?.data) {
         const { token, ...userObject } = data.data;
-
         setUserSession(userObject, token);
         setCurrentUser(userObject);
         router.replace("/");
@@ -288,17 +291,34 @@ export default function LoginPage() {
                       Forgot password?
                     </button>
                   </div>
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setError("");
-                    }}
-                    onKeyDown={(e) => e.key === "Enter" && handleCredentials()}
-                    placeholder="••••••••"
-                    className="mrpsl-input"
-                  />
+                  <div className="flex items-center relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setError("");
+                      }}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleCredentials()
+                      }
+                      placeholder="••••••••"
+                      className="mrpsl-input"
+                    />
+                    <button
+                      type="button"
+                      className="absolute cursor-pointer right-4 top-1/2 -translate-y-1/2"
+                      onClick={() => {
+                        setShowPassword((prev) => !prev);
+                      }}
+                    >
+                      {showPassword ? (
+                        <Eye className="h-4 w-4" />
+                      ) : (
+                        <EyeClosed className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
