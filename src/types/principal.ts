@@ -23,18 +23,18 @@ export interface Principal {
 export interface CreatePrincipalPayload {
   principalName: string;
   billingCategory: string;
-  industrySector: string;
-  dateListedOnNgx: string;
-  registeredAddress: string;
-  officialEmail: string;
-  phoneNumber: string;
-  tin: string;
-  rcNumber: string;
-  sector: string;
-  companySecretary: string;
-  companySecretaryPhone: string;
-  shareHoldersAtSetUp: number;
-  status: PrincipalStatus | string;
+  industrySector?: string;
+  dateListedOnNgx?: string;
+  registeredAddress?: string;
+  officialEmail?: string;
+  phoneNumber?: string;
+  tin?: string;
+  rcNumber?: string;
+  sector?: string;
+  companySecretary?: string;
+  companySecretaryPhone?: string;
+  shareHoldersAtSetUp?: number;
+  status?: PrincipalStatus | string;
 }
 
 export type UpdatePrincipalPayload = Partial<CreatePrincipalPayload>;

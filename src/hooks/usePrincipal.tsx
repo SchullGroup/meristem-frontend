@@ -24,7 +24,7 @@ import {
   UpdatePrincipalPayload,
   UpdatePrincipalStatusPayload,
 } from "@/types/principal";
-import { ApiResponse, PaginatedResponse } from "@/types";
+import { PaginatedResponse } from "@/types";
 
 export const principalKeys = {
   all: ["principals"] as const,
