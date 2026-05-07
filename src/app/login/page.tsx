@@ -9,14 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Mail, KeyRound } from "lucide-react";
 import { BrandPanel } from "@/components/custom/auth/brand-panel";
 import { SiteLogo } from "@/components/custom/auth/site-logo";
+import { LOGIN, REQUEST_OTP, VERIFY_OTP } from "@/actions/authAction";
+import { useMutation } from "@tanstack/react-query";
+import { setUserSession } from "@/services/AuthServices";
 
 type Step = "credentials" | "2fa" | "forgot" | "forgot-sent";
 
-const MOCK_OTP = "123456";
+// const MOCK_OTP = "123456";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { currentUser, setCurrentUser, users, seedStore } = useStore();
+  const { currentUser, setCurrentUser, seedStore } = useStore();
 
   // ── Flow state ────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("credentials");
@@ -27,7 +30,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendCountdown, setResendCountdown] = useState(0);
-  const [resolvedUserId, setResolvedUserId] = useState("");
+  // const [resolvedUserId, setResolvedUserId] = useState("");
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -52,6 +55,77 @@ export default function LoginPage() {
 
   // ── Step handlers ─────────────────────────────────────────────
 
+  const loginMutation = useMutation({
+    mutationFn: LOGIN,
+    onSuccess: (data) => {
+      console.log("login success", data);
+      if (data?.isSuccessful && data?.data) {
+        // If the message contains "Otp Sent", switch to the 2FA step
+        if (data.data.message?.toLowerCase().includes("otp sent")) {
+          setStep("2fa");
+          setOtp(["", "", "", "", "", ""]); // Clear OTP boxes
+          setResendCountdown(30);
+          setError(""); // Clear any previous errors
+          return;
+        }
+
+        // Otherwise, assume it's a direct login success with a token
+        const { token, ...userObject } = data.data;
+
+        if (token) {
+          setUserSession(userObject, token);
+          setCurrentUser(userObject);
+          router.replace("/");
+        } else {
+          setError("Session token not found. Please try again.");
+        }
+      } else {
+        setError(data?.responseMessage || "Login failed. Please try again.");
+      }
+    },
+    onError: (error) => {
+      setError(
+        error?.message || "Invalid email or password. Please try again.",
+      );
+      console.error("Login Error:", error);
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: VERIFY_OTP,
+    onSuccess: (data) => {
+      console.log("verify otp success", data);
+      if (data?.isSuccessful && data?.data) {
+        const { token, ...userObject } = data.data;
+
+        setUserSession(userObject, token);
+        setCurrentUser(userObject);
+        router.replace("/");
+      } else {
+        setError(data?.responseMessage || "Verification failed.");
+      }
+    },
+    onError: (error) => {
+      setError(error?.message || "Invalid Otp. Please try again.");
+      console.error("OTP Verification Error:", error);
+    },
+  });
+
+  const requestOtpMutation = useMutation({
+    mutationFn: REQUEST_OTP,
+    onSuccess: (data) => {
+      if (data?.isSuccessful && data?.data) {
+        setResendCountdown(30);
+        setTimeout(() => otpRefs.current[0]?.focus(), 50);
+      } else {
+        setError(data?.responseMessage || "Verification failed.");
+      }
+    },
+    onError: (error) => {
+      setError(error?.message || "Failed to resend code. Please try again.");
+    },
+  });
+
   const handleCredentials = () => {
     setError("");
     if (!email) {
@@ -62,19 +136,14 @@ export default function LoginPage() {
       setError("Please enter your password.");
       return;
     }
-    setIsLoading(true);
-    setTimeout(() => {
-      // Match by email for prototype; fall back to first user
-      const matched =
-        users.find((u) => u.email.toLowerCase() === email.toLowerCase()) ??
-        users[0];
-      setResolvedUserId(matched?.id ?? "");
-      setIsLoading(false);
-      setOtp(["", "", "", "", "", ""]);
-      setStep("2fa");
-      setResendCountdown(30);
-      setTimeout(() => otpRefs.current[0]?.focus(), 80);
-    }, 900);
+    const payload = {
+      email,
+      password,
+    };
+    loginMutation.mutate({
+      email: payload?.email,
+      password: payload.password,
+    });
   };
 
   const handleVerifyOtp = () => {
@@ -84,28 +153,19 @@ export default function LoginPage() {
       setError("Please enter the full 6-digit code.");
       return;
     }
-    setIsLoading(true);
-    setTimeout(() => {
-      if (code === MOCK_OTP) {
-        const user = users.find((u) => u.id === resolvedUserId) ?? users[0];
-        if (user) {
-          setCurrentUser(user);
-          router.push("/");
-        }
-      } else {
-        setError("Incorrect code. Please try again.");
-        setOtp(["", "", "", "", "", ""]);
-        setTimeout(() => otpRefs.current[0]?.focus(), 50);
-        setIsLoading(false);
-      }
-    }, 800);
+    verifyOtpMutation.mutate({
+      email,
+      otp: code,
+    });
   };
 
   const handleResend = () => {
     setOtp(["", "", "", "", "", ""]);
     setError("");
-    setResendCountdown(30);
-    setTimeout(() => otpRefs.current[0]?.focus(), 50);
+    requestOtpMutation.mutate({
+      email,
+      otpReason: "LOGIN",
+    });
   };
 
   const handleForgot = () => {
@@ -132,23 +192,11 @@ export default function LoginPage() {
     if (digit && index < 5) otpRefs.current[index + 1]?.focus();
     if (next.every((d) => d !== "") && next.join("").length === 6) {
       // auto-submit when complete
-      setTimeout(() => {
-        const code = next.join("");
-        if (code === MOCK_OTP) {
-          setIsLoading(true);
-          setTimeout(() => {
-            const user = users.find((u) => u.id === resolvedUserId) ?? users[0];
-            if (user) {
-              setCurrentUser(user);
-              router.push("/");
-            }
-          }, 600);
-        } else {
-          setError("Incorrect code. Please try again.");
-          setOtp(["", "", "", "", "", ""]);
-          setTimeout(() => otpRefs.current[0]?.focus(), 50);
-        }
-      }, 100);
+      const code = next.join("");
+      verifyOtpMutation.mutate({
+        email,
+        otp: code,
+      });
     }
   };
 
@@ -260,15 +308,15 @@ export default function LoginPage() {
                 )}
 
                 <Button
-                  className="w-full mt-2"
+                  className="w-full mt-2 cursor-pointer"
                   size="lg"
                   onClick={handleCredentials}
-                  disabled={isLoading}
+                  disabled={loginMutation.isPending}
                 >
-                  {isLoading && (
+                  {loginMutation.isPending && (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   )}
-                  {isLoading ? "Verifying…" : "Continue"}
+                  {loginMutation.isPending ? "Verifying…" : "Continue"}
                 </Button>
               </div>
             </div>
@@ -331,15 +379,19 @@ export default function LoginPage() {
                 )}
 
                 <Button
-                  className="w-full"
+                  className="w-full cursor-pointer"
                   size="lg"
                   onClick={handleVerifyOtp}
-                  disabled={isLoading || otp.join("").length < 6}
+                  disabled={
+                    otp.join("").length < 6 || verifyOtpMutation.isPending
+                  }
                 >
-                  {isLoading && (
+                  {verifyOtpMutation.isPending && (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   )}
-                  {isLoading ? "Verifying…" : "Verify & Sign In"}
+                  {verifyOtpMutation.isPending
+                    ? "Verifying…"
+                    : "Verify & Sign In"}
                 </Button>
 
                 {/* Resend */}
@@ -352,10 +404,15 @@ export default function LoginPage() {
                   ) : (
                     <button
                       type="button"
-                      className="text-primary font-medium hover:underline underline-offset-2"
+                      className="text-primary font-medium hover:underline underline-offset-2 cursor-pointer"
                       onClick={handleResend}
                     >
-                      Resend code
+                      <div className="flex items-center gap-1">
+                        Resend code
+                        {requestOtpMutation.isPending && (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        )}
+                      </div>
                     </button>
                   )}
                 </div>
@@ -363,7 +420,7 @@ export default function LoginPage() {
 
               <button
                 type="button"
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto"
+                className="flex items-center cursor-pointer gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto"
                 onClick={() => {
                   setStep("credentials");
                   setOtp(["", "", "", "", "", ""]);

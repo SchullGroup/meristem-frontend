@@ -36,8 +36,8 @@ export const returnErrorMessage = (error: ErrorLike): string => {
     if (data && typeof data === "object") {
       // Try to extract the main error message from common response structures
       return (
-        (data as { error?: string; message?: string }).error ??
         (data as { message?: string }).message ??
+        (data as { error?: string }).error ??
         "An error occurred"
       );
     }

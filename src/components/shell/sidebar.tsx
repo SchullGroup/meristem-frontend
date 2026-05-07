@@ -278,15 +278,20 @@ export function Sidebar() {
           <div className="flex items-center gap-2 mb-3 px-2">
             <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <span className="text-primary font-bold text-[11px]">
-                {currentUser.firstName[0]}{currentUser.lastName[0]}
+                {currentUser.firstName?.[0] ?? currentUser.username?.[0] ?? "U"}
+                {currentUser.lastName?.[0] ?? ""}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold truncate">
-                {currentUser.firstName} {currentUser.lastName}
+                {currentUser.firstName
+                  ? `${currentUser.firstName} ${currentUser.lastName}`
+                  : currentUser.username}
               </p>
               <p className="text-[10px] text-muted-foreground truncate uppercase tracking-wide">
-                {currentUser.role.replace(/_/g, " ")}
+                {currentUser.role?.replace(/_/g, " ") ??
+                  (currentUser.roles && currentUser.roles[0]?.replace(/_/g, " ")) ??
+                  "USER"}
               </p>
             </div>
           </div>
