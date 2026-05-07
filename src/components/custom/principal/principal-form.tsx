@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { principalSchema, PrincipalFormValues } from "@/lib/schemas/principal";
 import { Principal } from "@/types/principal";
+import { useCreatePrincipal, useUpdatePrincipal } from "@/hooks/usePrincipal";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-// import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -41,7 +42,6 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
-import { useCreatePrincipal, useUpdatePrincipal } from "@/hooks/usePrincipal";
 
 interface PrincipalFormProps {
   open: boolean;
@@ -56,137 +56,127 @@ export function PrincipalForm({
   mode,
   initialData,
 }: PrincipalFormProps) {
-  // const [confirmOpen, setConfirmOpen] = useState(false);
-  // const [pendingValues, setPendingValues] =
-  //   useState<PrincipalFormValues | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingValues, setPendingValues] =
+    useState<PrincipalFormValues | null>(null);
 
-  const createPrincipal = useCreatePrincipal();
-  const updatePrincipal = useUpdatePrincipal();
+  const { mutate: createPrincipal, isPending: isCreating } =
+    useCreatePrincipal();
+  const { mutate: updatePrincipal, isPending: isUpdating } =
+    useUpdatePrincipal();
 
   const form = useForm<PrincipalFormValues>({
-    resolver: zodResolver(principalSchema),
-    defaultValues: initialData
-      ? {
-          principalName: initialData.principalName,
-          billingCategory: initialData.billingCategory,
-          industrySector: initialData.industrySector,
-          dateListedOnNgx: new Date(initialData.dateListedOnNgx),
-          registeredAddress: initialData.registeredAddress || "",
-          officialEmail: initialData.officialEmail || "",
-          phoneNumber: initialData.phoneNumber || "",
-          companySecretary: initialData.companySecretary || "",
-          companySecretaryPhone: initialData.companySecretaryPhone || "",
-          tin: initialData.tin || "",
-          rcNumber: initialData.rcNumber || "",
-          shareHoldersAtSetUp: initialData.shareHoldersAtSetUp.toString(),
-          sector: initialData.sector || "",
-        }
-      : {
-          principalName: "",
-          billingCategory: "",
-          industrySector: "",
-          dateListedOnNgx: new Date(),
-          registeredAddress: "",
-          officialEmail: "",
-          phoneNumber: "",
-          tin: "",
-          rcNumber: "",
-          companySecretary: "",
-          companySecretaryPhone: "",
-          shareHoldersAtSetUp: "",
-          sector: "",
-        },
+    resolver: zodResolver(principalSchema) as any,
+    defaultValues: {
+      principalName: "",
+      billingCategory: "A",
+      industrySector: "",
+      registeredAddress: "",
+      officialEmail: "",
+      phoneNumber: "",
+      companySecretary: "",
+      companySecretaryPhone: "",
+      tin: "",
+      rcNumber: "",
+      sector: "",
+      shareHoldersAtSetUp: 0,
+    },
   });
 
-  const onSubmit = (values: PrincipalFormValues) => {
-    // setPendingValues(values);
-    // setConfirmOpen(true);
+  // Reset form when initialData changes or mode changes
+  useEffect(() => {
+    if (initialData && mode === "edit") {
+      form.reset({
+        principalName: initialData.principalName,
+        billingCategory: initialData.billingCategory as "A" | "B" | "C",
+        industrySector: initialData.industrySector,
+        dateListedOnNgx: initialData.dateListedOnNgx
+          ? new Date(initialData.dateListedOnNgx)
+          : undefined,
+        companySecretary: initialData.companySecretary || "",
+        companySecretaryPhone: initialData.companySecretaryPhone || "",
+        registeredAddress: initialData.registeredAddress,
+        officialEmail: initialData.officialEmail,
+        phoneNumber: initialData.phoneNumber,
+        tin: initialData.tin || "",
+        rcNumber: initialData.rcNumber || "",
+        sector: initialData.sector || "",
+        shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
+      });
+    } else {
+      form.reset({
+        principalName: "",
+        billingCategory: "A",
+        industrySector: "",
+        registeredAddress: "",
+        officialEmail: "",
+        phoneNumber: "",
+        companySecretary: "",
+        companySecretaryPhone: "",
+        tin: "",
+        rcNumber: "",
+        sector: "",
+        shareHoldersAtSetUp: 0,
+      });
+    }
+  }, [initialData, mode, form]);
 
-    if (!values) return;
+  const onSubmit = (values: PrincipalFormValues) => {
+    setPendingValues(values);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = () => {
+    if (!pendingValues) return;
 
     const payload = {
-      ...values,
-      dateListedOnNgx: values.dateListedOnNgx.toISOString(),
-      shareHoldersAtSetUp: Number(values.shareHoldersAtSetUp),
+      ...pendingValues,
+      dateListedOnNgx: pendingValues.dateListedOnNgx?.toISOString() || "",
+      status: initialData?.status || "Active",
+      tin: pendingValues.tin,
+      sector: pendingValues.industrySector, // Syncing sector with industrySector for consistency
     };
 
     if (mode === "create") {
-      createPrincipal.mutate(payload, {
+      createPrincipal(payload, {
         onSuccess: () => {
           toast.success(
-            `Principal ${payload.principalName} has been created successfully.`,
+            `Principal ${pendingValues.principalName} has been created successfully.`,
           );
+          setConfirmOpen(false);
+          onOpenChange(false);
+          form.reset();
         },
-        onError: (error) => {
-          toast.error(error.message);
+        onError: (err: any) => {
+          toast.error(
+            err.response?.data?.responseMessage || "Failed to create principal",
+          );
         },
       });
     } else if (mode === "edit" && initialData) {
-      updatePrincipal.mutate(
-        {
-          principalId: initialData.principalId,
-          payload,
-        },
+      updatePrincipal(
+        { principalId: initialData.principalId, payload },
         {
           onSuccess: () => {
             toast.success(
-              `Principal ${values.principalName} has been updated successfully.`,
+              `Principal ${pendingValues.principalName} has been updated successfully.`,
             );
+            setConfirmOpen(false);
+            onOpenChange(false);
+            form.reset();
           },
-          onError: (error) => {
-            toast.error(error.message);
+          onError: (err: any) => {
+            toast.error(
+              err.response?.data?.responseMessage ||
+                "Failed to update principal",
+            );
           },
         },
       );
     }
   };
 
-  // const handleConfirm = () => {
-  //   if (!values) return;
-
-  //   const payload = {
-  //     ...pendingValues,
-  //     dateListedOnNgx: pendingValues.dateListedOnNgx.toISOString(),
-  //     shareHoldersAtSetUp: Number(pendingValues.shareHoldersAtSetUp),
-  //   };
-
-  //   if (mode === "create") {
-  //     createPrincipal.mutate(payload, {
-  //       onSuccess: () => {
-  //         toast.success(
-  //           `Principal ${payload.principalName} has been created successfully.`,
-  //         );
-
-  //       },
-  //       onError: (error) => {
-  //         toast.error(error.message);
-  //       },
-  //     });
-  //   } else if (mode === "edit" && initialData) {
-  //     updatePrincipal.mutate(
-  //       {
-  //         principalId: initialData.principalId,
-  //         payload,
-  //       },
-  //       {
-  //         onSuccess: () => {
-  //           toast.success(
-  //             `Principal ${pendingValues.principalName} has been updated successfully.`,
-  //           );
-
-  //         },
-  //         onError: (error) => {
-  //           toast.error(error.message);
-  //         },
-  //       },
-  //     );
-  //   }
-
-  //   setConfirmOpen(false);
-  //   onOpenChange(false);
-  //   form.reset();
-
-  // };
+  const isPending = isCreating || isUpdating;
 
   return (
     <>
@@ -246,7 +236,7 @@ export function PrincipalForm({
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -273,13 +263,8 @@ export function PrincipalForm({
                             Industry Sector *
                           </FormLabel>
                           <Select
-                            onValueChange={(value) => {
-                              form.setValue("sector", value || "", {
-                                shouldDirty: true,
-                              });
-                              field.onChange(value);
-                            }}
-                            defaultValue={field.value}
+                            onValueChange={field.onChange}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -324,7 +309,6 @@ export function PrincipalForm({
                                   variant={"outline"}
                                   className={`mrpsl-input h-11 pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}
                                 >
-                                  {" "}
                                   {field.value ? (
                                     format(field.value, "PPP")
                                   ) : (
@@ -346,7 +330,7 @@ export function PrincipalForm({
                                   date > new Date() ||
                                   date < new Date("1900-01-01")
                                 }
-                                autoFocus
+                                initialFocus
                               />
                             </PopoverContent>
                           </Popover>
@@ -518,7 +502,7 @@ export function PrincipalForm({
                       render={({ field }) => (
                         <FormItem className="space-y-2 col-span-2">
                           <FormLabel className="mrpsl-label">
-                            Number of Shareholders at Setup *
+                            Shareholders at Setup *
                           </FormLabel>
                           <FormControl>
                             <Input
@@ -548,14 +532,12 @@ export function PrincipalForm({
                 <Button
                   type="submit"
                   className="text-sm font-bold px-10 h-12 rounded-xl"
+                  disabled={isPending}
                 >
-                  {createPrincipal.isPending || updatePrincipal.isPending ? (
+                  {isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : mode === "create" ? (
-                    "Create Principal"
-                  ) : (
-                    "Save Changes"
                   )}
+                  {mode === "create" ? "Create Principal" : "Save Changes"}
                 </Button>
               </DialogFooter>
             </form>
@@ -563,23 +545,33 @@ export function PrincipalForm({
         </DialogContent>
       </Dialog>
 
-      {/* <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirm Action</DialogTitle>
             <DialogDescription>
-              You are about to {mode} {pendingValues?.principalName} as a
-              principal. This action will be recorded in the audit log.
+              You are about to {mode}{" "}
+              <span className="font-semibold">
+                {pendingValues?.principalName}
+              </span>{" "}
+              as a principal. This action will be recorded in the audit log.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmOpen(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirmOpen(false)}
+              disabled={isPending}
+            >
               Cancel
             </Button>
-            <Button onClick={handleConfirm}>Confirm</Button>
+            <Button onClick={handleConfirm} disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm
+            </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog> */}
+      </Dialog>
     </>
   );
 }

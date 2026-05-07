@@ -1,7 +1,13 @@
 import axios from "axios";
 import Cookies from "js-cookie";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL;
+
+if (!BASE_URL && typeof window === "undefined") {
+  console.warn(
+    "Warning: NEXT_PUBLIC_BASE_URL is not defined on the server. API calls may fail or point to localhost.",
+  );
+}
 
 const api = axios.create({
   baseURL: BASE_URL,
