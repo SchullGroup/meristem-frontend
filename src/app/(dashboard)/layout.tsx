@@ -18,9 +18,8 @@ export default function DashboardLayout({
 
   useEffect(() => {
     setMounted(true);
-    if (principals.length === 0) seedStore();
     if (!currentUser) router.replace("/login");
-  }, [currentUser, principals.length, router, seedStore]);
+  }, [currentUser, router]);
 
   if (!mounted || !currentUser) return null;
 

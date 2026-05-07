@@ -22,3 +22,13 @@ export const GET_USER_STATS = async () => {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const CREATE_USER = async (userData: unknown) => {
+  try {
+    const res = await api.post(`/api/v1/auth/create-user`, userData);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};

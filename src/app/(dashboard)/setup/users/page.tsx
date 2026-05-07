@@ -29,12 +29,14 @@ import {
   Pencil,
   Power,
   ShieldCheck,
-  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { User } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { GET_USERS } from "@/actions/userAction";
+
+import { Skeleton } from "@/components/ui/skeleton";
+import { useRoles } from "@/hooks/useRoles";
 
 export default function UsersPage() {
   const { users, setUsers } = useStore();
@@ -45,7 +47,7 @@ export default function UsersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
+  console.log(users);
   const { isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -58,7 +60,7 @@ export default function UsersPage() {
     },
   });
 
-  console.log(users);
+  const { data: roles } = useRoles();
 
   const filteredUsers = (users || []).filter((u) => {
     const firstName = u.firstName || "";
@@ -70,8 +72,7 @@ export default function UsersPage() {
       lastName.toLowerCase().includes(search.toLowerCase()) ||
       email.toLowerCase().includes(search.toLowerCase());
 
-    const matchesRole = roleFilter === "All" || u.role === roleFilter;
-    // Note: Adjust department/status mapping if your API uses different fields
+    const matchesRole = roleFilter === "All" || u?.roles?.includes(roleFilter);
     const matchesDept = deptFilter === "All" || u.department === deptFilter;
     const matchesStatus =
       statusFilter === "All" ||
@@ -83,9 +84,7 @@ export default function UsersPage() {
   const activeCount = users.filter(
     (u) => u.status?.toUpperCase() === "ACTIVE",
   ).length;
-  const pending2FA = users.filter(
-    (u) => !(u as any).twoFAEnabled && !(u as any).enabled,
-  ).length;
+  const pending2FA = users.filter((u) => !u.enabled && !u.enabled).length;
   const inactiveCount = users.filter(
     (u) => u.status?.toUpperCase() === "INACTIVE",
   ).length;
@@ -101,11 +100,57 @@ export default function UsersPage() {
 
   if (isLoading && users.length === 0) {
     return (
-      <div className="h-[400px] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="flex justify-between items-start">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-28" />
+        </div>
+
+        <div className="grid grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+
+        <div className="flex gap-2 items-center">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-10 w-48" />
+          <Skeleton className="h-10 w-36" />
+        </div>
+
+        <Card className="mrpsl-card">
+          <div className="p-4 space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-8 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
     );
   }
+
+  const uniqueDepartments = [
+    ...new Set(
+      users
+        ?.filter((item) => item && item.department)
+        ?.map((item) => item.department),
+    ),
+  ];
 
   return (
     <div className="space-y-6">
@@ -170,9 +215,11 @@ export default function UsersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Roles</SelectItem>
-            <SelectItem value="SYSTEM_ADMIN">System Admin</SelectItem>
-            <SelectItem value="OPS_MANAGER">Ops Manager</SelectItem>
-            <SelectItem value="DIV_INITIATOR">Div Initiator</SelectItem>
+            {roles?.map((role: { id: number; name: string }) => (
+              <SelectItem key={role.id} value={role.name}>
+                {role.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select
@@ -184,9 +231,11 @@ export default function UsersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Departments</SelectItem>
-            <SelectItem value="IT">IT</SelectItem>
-            <SelectItem value="Operations">Operations</SelectItem>
-            <SelectItem value="Internal Control">Internal Control</SelectItem>
+            {uniqueDepartments?.map((department: string) => (
+              <SelectItem key={department} value={department}>
+                {department}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select
@@ -243,14 +292,11 @@ export default function UsersPage() {
                   <td className="px-4 py-3">
                     <div className="flex gap-1 flex-wrap max-w-[150px]">
                       <Badge variant="outline" className="text-xs">
-                        {u.role
-                          ?.replace(/_/g, " ")
-                          .replace(/\b\w/g, (c) => c.toUpperCase()) ??
-                          (u.roles &&
-                            u.roles[0]
-                              ?.replace(/_/g, " ")
-                              .replace(/\b\w/g, (c) => c.toUpperCase())) ??
-                          "USER"}
+                        {u?.roles?.map((role) =>
+                          role
+                            ?.replace(/_/g, " ")
+                            .replace(/\b\w/g, (c) => c.toUpperCase()),
+                        )}
                       </Badge>
                       {u.secondaryRole && (
                         <Badge variant="secondary" className="text-xs">
@@ -263,13 +309,13 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3 text-sm">{u.department}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-sm">
-                    ₦{(u.certLimit || 0).toLocaleString()}
+                    {u.certTransactionLimit || 0}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-sm">
-                    ₦{(u.divLimit || 0).toLocaleString()}
+                    {u.divTransactionLimit || 0}
                   </td>
                   <td className="px-4 py-3">
-                    {u.twoFAEnabled ? (
+                    {u.enabled ? (
                       <Badge className="bg-green-100 text-green-800 border-0 text-xs">
                         Enabled
                       </Badge>
@@ -289,7 +335,7 @@ export default function UsersPage() {
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
-                    3h ago
+                    {u?.lastLoginTime}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <DropdownMenu>

@@ -35,9 +35,6 @@ export default function LoginPage() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    seedStore();
-  }, [seedStore]);
-  useEffect(() => {
     if (currentUser) router.replace("/");
   }, [currentUser, router]);
 
