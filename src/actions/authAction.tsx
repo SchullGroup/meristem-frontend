@@ -5,7 +5,7 @@ import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
 
 export const LOGIN = async (data: unknown) => {
   try {
-    const res = await api.post(`/api/v1/auth/login`, data);
+    const res = await api.post(`/auth/login`, data);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
@@ -16,7 +16,7 @@ export const LOGIN = async (data: unknown) => {
 
 export const VERIFY_OTP = async (data: unknown) => {
   try {
-    const res = await api.post(`/api/v1/otp/verify-otp`, data);
+    const res = await api.post(`/otp/verify-otp`, data);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
@@ -27,7 +27,7 @@ export const VERIFY_OTP = async (data: unknown) => {
 
 export const REQUEST_OTP = async (data: unknown) => {
   try {
-    const res = await api.post(`/api/v1/otp/request-otp`, data);
+    const res = await api.post(`/otp/request-otp`, data);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

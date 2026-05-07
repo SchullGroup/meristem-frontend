@@ -47,7 +47,7 @@ export default function UsersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  console.log(users);
+
   const { isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {

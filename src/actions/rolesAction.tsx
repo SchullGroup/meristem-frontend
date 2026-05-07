@@ -5,7 +5,7 @@ import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
 
 export const GET_ALL_ROLES = async () => {
   try {
-    const res = await api.get(`/api/v1/roles`);
+    const res = await api.get(`/roles`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

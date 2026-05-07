@@ -5,7 +5,7 @@ import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
 
 export const GET_USERS = async () => {
   try {
-    const res = await api.get(`/api/v1/users`);
+    const res = await api.get(`/users`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
@@ -15,7 +15,7 @@ export const GET_USERS = async () => {
 
 export const GET_USER_STATS = async () => {
   try {
-    const res = await api.get(`/api/v1/users/stats`);
+    const res = await api.get(`/users/stats`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
@@ -25,7 +25,7 @@ export const GET_USER_STATS = async () => {
 
 export const CREATE_USER = async (userData: unknown) => {
   try {
-    const res = await api.post(`/api/v1/auth/create-user`, userData);
+    const res = await api.post(`/auth/create-user`, userData);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
