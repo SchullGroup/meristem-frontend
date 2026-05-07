@@ -4,17 +4,17 @@ export interface User {
   lastName: string;
   email: string;
   phone: string;
-  role: UserRole;
-  secondaryRole?: UserRole;
+  roles: string[];
+  secondaryRole?: string;
   department: string;
-  certLimit: number;
-  divLimit: number;
+  certTransactionLimit: number;
+  divTransactionLimit: number;
   status: "ACTIVE" | "INACTIVE";
   twoFAEnabled: boolean;
   lastLogin?: string;
+  enabled: boolean;
+  lastLoginTime: string;
 }
-
-export type UserRole = "SYSTEM_ADMIN" | "OPS_MANAGER" | "DIV_INITIATOR" | "DIV_AUTHORIZER" | "CERT_INITIATOR" | "CERT_AUTHORIZER" | "ICU" | "HEAD_OPS" | "ACCOUNTS" | "IT" | "MANAGEMENT" | "AUDIT_REVIEWER" | "ENQUIRY_ONLY";
 
 export interface Principal {
   id: string;
@@ -54,8 +54,8 @@ export interface Register {
 
 export interface AgentType {
   id: string;
-  code: string;   // e.g. "BANK", "STOCKBROKER"
-  label: string;  // e.g. "Bank", "Stockbroker"
+  code: string; // e.g. "BANK", "STOCKBROKER"
+  label: string; // e.g. "Bank", "Stockbroker"
   builtIn: boolean;
   active: boolean;
 }
@@ -131,7 +131,14 @@ export interface DividendDeclaration {
   whtAmount: number;
   netLiability: number;
   tier: 1 | 2 | 3 | 4;
-  status: "DRAFT" | "PENDING_TIER2" | "PENDING_TIER3" | "PENDING_TIER4" | "AUTHORIZED" | "PAID" | "REJECTED";
+  status:
+    | "DRAFT"
+    | "PENDING_TIER2"
+    | "PENDING_TIER3"
+    | "PENDING_TIER4"
+    | "AUTHORIZED"
+    | "PAID"
+    | "REJECTED";
   initiatorId: string;
   approvals: ApprovalStep[];
   narrative?: string;
@@ -175,7 +182,12 @@ export interface DematRecord {
   brokerName: string;
   certNumbers: string[];
   units: number;
-  status: "DRAFT" | "PENDING_CALLOVER" | "AUTHORIZED" | "ICU_APPROVED" | "LODGED";
+  status:
+    | "DRAFT"
+    | "PENDING_CALLOVER"
+    | "AUTHORIZED"
+    | "ICU_APPROVED"
+    | "LODGED";
   initiatorId: string;
   createdAt: string;
 }
@@ -237,7 +249,7 @@ export interface ApprovalItem {
 }
 
 export interface ApprovalStep {
-  role: UserRole;
+  role: string[];
   approverName?: string;
   approverId?: string;
   decision?: "APPROVED" | "REJECTED";
