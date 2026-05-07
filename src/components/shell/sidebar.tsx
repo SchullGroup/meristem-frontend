@@ -329,10 +329,16 @@ export function Sidebar() {
                 <SelectValue placeholder="Select a user..." />
               </SelectTrigger>
               <SelectContent>
-                {users.map(u => (
+                {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.firstName} {u.lastName}
-                    <span className="ml-2 text-muted-foreground text-xs">({u.role.replace(/_/g, " ")})</span>
+                    <span className="ml-2 text-muted-foreground text-xs">
+                      (
+                      {u.role?.replace(/_/g, " ") ??
+                        (u.roles && u.roles[0]?.replace(/_/g, " ")) ??
+                        "USER"}
+                      )
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

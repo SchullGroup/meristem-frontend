@@ -94,10 +94,8 @@ export default function LoginPage() {
   const verifyOtpMutation = useMutation({
     mutationFn: VERIFY_OTP,
     onSuccess: (data) => {
-      console.log("verify otp success", data);
       if (data?.isSuccessful && data?.data) {
         const { token, ...userObject } = data.data;
-
         setUserSession(userObject, token);
         setCurrentUser(userObject);
         router.replace("/");

@@ -5,38 +5,84 @@ import { useStore } from "@/lib/store";
 import { UserForm } from "@/components/custom/user-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { PlusCircle, MoreHorizontal, KeyRound, History, Pencil, Power, ShieldCheck } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  PlusCircle,
+  MoreHorizontal,
+  KeyRound,
+  History,
+  Pencil,
+  Power,
+  ShieldCheck,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { User } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
+import { GET_USERS } from "@/actions/userAction";
 
 export default function UsersPage() {
-  const { users } = useStore();
+  const { users, setUsers } = useStore();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [deptFilter, setDeptFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
-  
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  const filteredUsers = users.filter(u => {
-    const matchesSearch = u.firstName.toLowerCase().includes(search.toLowerCase()) || 
-                          u.lastName.toLowerCase().includes(search.toLowerCase()) || 
-                          u.email.toLowerCase().includes(search.toLowerCase());
+  const { data, isLoading } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const token = localStorage.getItem("token");
+      const data = await GET_USERS(token);
+      if (data?.isSuccessful && data?.data) {
+        setUsers(data.data);
+        return data.data;
+      }
+      throw new Error(data?.responseMessage || "Failed to fetch users");
+    },
+  });
+
+  console.log(data);
+
+  const filteredUsers = (users || []).filter((u) => {
+    const firstName = u.firstName || "";
+    const lastName = u.lastName || "";
+    const email = u.email || "";
+
+    const matchesSearch =
+      firstName.toLowerCase().includes(search.toLowerCase()) ||
+      lastName.toLowerCase().includes(search.toLowerCase()) ||
+      email.toLowerCase().includes(search.toLowerCase());
+
     const matchesRole = roleFilter === "All" || u.role === roleFilter;
+    // Note: Adjust department/status mapping if your API uses different fields
     const matchesDept = deptFilter === "All" || u.department === deptFilter;
-    const matchesStatus = statusFilter === "All" || u.status === statusFilter.toUpperCase();
+    const matchesStatus =
+      statusFilter === "All" || u.status === statusFilter.toUpperCase();
+
     return matchesSearch && matchesRole && matchesDept && matchesStatus;
   });
 
-  const activeCount = users.filter(u => u.status === "ACTIVE").length;
-  const pending2FA = users.filter(u => !u.twoFAEnabled).length;
-  const inactiveCount = users.filter(u => u.status === "INACTIVE").length;
+  const activeCount = users.filter((u) => u.status === "ACTIVE").length;
+  const pending2FA = users.filter((u) => !u.twoFAEnabled).length;
+  const inactiveCount = users.filter((u) => u.status === "INACTIVE").length;
 
   const handleEdit = (u: User) => {
     setSelectedUser(u);
@@ -44,31 +90,78 @@ export default function UsersPage() {
     setFormOpen(true);
   };
 
-  const getInitials = (f: string, l: string) => `${f[0]}${l[0]}`.toUpperCase();
+  const getInitials = (f: string, l: string) =>
+    `${f?.[0] || ""}${l?.[0] || ""}`.toUpperCase();
+
+  if (isLoading && users.length === 0) {
+    return (
+      <div className="h-[400px] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Users</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage system users, roles, and authorization limits</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage system users, roles, and authorization limits
+          </p>
         </div>
-        <Button onClick={() => { setSelectedUser(null); setFormMode("create"); setFormOpen(true); }}>
+        <Button
+          onClick={() => {
+            setSelectedUser(null);
+            setFormMode("create");
+            setFormOpen(true);
+          }}
+        >
           <PlusCircle className="mr-2 h-4 w-4" /> Add User
         </Button>
       </div>
 
       <div className="grid grid-cols-4 gap-3">
-        <Card className="mrpsl-card p-4"><div className="mrpsl-section-title">Total Users</div><div className="text-2xl font-bold font-mono mt-1">{users.length}</div></Card>
-        <Card className="mrpsl-card p-4"><div className="mrpsl-section-title">Active</div><div className="text-2xl font-bold font-mono mt-1 text-green-600">{activeCount}</div></Card>
-        <Card className="mrpsl-card p-4"><div className="mrpsl-section-title">Pending 2FA</div><div className="text-2xl font-bold font-mono mt-1 text-amber-600">{pending2FA}</div></Card>
-        <Card className="mrpsl-card p-4"><div className="mrpsl-section-title">Inactive</div><div className="text-2xl font-bold font-mono mt-1 text-muted-foreground">{inactiveCount}</div></Card>
+        <Card className="mrpsl-card p-4">
+          <div className="mrpsl-section-title">Total Users</div>
+          <div className="text-2xl font-bold font-mono mt-1">
+            {users.length}
+          </div>
+        </Card>
+        <Card className="mrpsl-card p-4">
+          <div className="mrpsl-section-title">Active</div>
+          <div className="text-2xl font-bold font-mono mt-1 text-green-600">
+            {activeCount}
+          </div>
+        </Card>
+        <Card className="mrpsl-card p-4">
+          <div className="mrpsl-section-title">Pending 2FA</div>
+          <div className="text-2xl font-bold font-mono mt-1 text-amber-600">
+            {pending2FA}
+          </div>
+        </Card>
+        <Card className="mrpsl-card p-4">
+          <div className="mrpsl-section-title">Inactive</div>
+          <div className="text-2xl font-bold font-mono mt-1 text-muted-foreground">
+            {inactiveCount}
+          </div>
+        </Card>
       </div>
 
       <div className="flex gap-2 items-center">
-        <Input placeholder="Search users..." value={search} onChange={e => setSearch(e.target.value)} className="w-64 mrpsl-input" />
-        <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v || "")}>
-          <SelectTrigger className="w-48 mrpsl-input"><SelectValue placeholder="Role" /></SelectTrigger>
+        <Input
+          placeholder="Search users..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-64 mrpsl-input"
+        />
+        <Select
+          value={roleFilter}
+          onValueChange={(v) => setRoleFilter(v || "")}
+        >
+          <SelectTrigger className="w-48 mrpsl-input">
+            <SelectValue placeholder="Role" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Roles</SelectItem>
             <SelectItem value="SYSTEM_ADMIN">System Admin</SelectItem>
@@ -76,8 +169,13 @@ export default function UsersPage() {
             <SelectItem value="DIV_INITIATOR">Div Initiator</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={deptFilter} onValueChange={(v) => setDeptFilter(v || "")}>
-          <SelectTrigger className="w-48 mrpsl-input"><SelectValue placeholder="Department" /></SelectTrigger>
+        <Select
+          value={deptFilter}
+          onValueChange={(v) => setDeptFilter(v || "")}
+        >
+          <SelectTrigger className="w-48 mrpsl-input">
+            <SelectValue placeholder="Department" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Departments</SelectItem>
             <SelectItem value="IT">IT</SelectItem>
@@ -85,8 +183,13 @@ export default function UsersPage() {
             <SelectItem value="Internal Control">Internal Control</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v || "")}>
-          <SelectTrigger className="w-36 mrpsl-input"><SelectValue placeholder="Status" /></SelectTrigger>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => setStatusFilter(v || "")}
+        >
+          <SelectTrigger className="w-36 mrpsl-input">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Status</SelectItem>
             <SelectItem value="Active">Active</SelectItem>
@@ -112,50 +215,113 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map(u => (
+              {filteredUsers.map((u) => (
                 <tr key={u.id} className="mrpsl-table-row">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <span className="text-primary font-bold text-xs">{getInitials(u.firstName, u.lastName)}</span>
+                        <span className="text-primary font-bold text-xs">
+                          {getInitials(u.firstName, u.lastName)}
+                        </span>
                       </div>
                       <div>
-                        <div className="font-semibold text-foreground">{u.firstName} {u.lastName}</div>
-                        <div className="text-xs text-muted-foreground">{u.email}</div>
+                        <div className="font-semibold text-foreground">
+                          {u.firstName} {u.lastName}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {u.email}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 flex-wrap max-w-[150px]">
-                      <Badge variant="outline" className="text-xs">{u.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>
-                      {u.secondaryRole && <Badge variant="secondary" className="text-xs">{u.secondaryRole.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</Badge>}
+                      <Badge variant="outline" className="text-xs">
+                        {u.role
+                          ?.replace(/_/g, " ")
+                          .replace(/\b\w/g, (c) => c.toUpperCase()) ??
+                          (u.roles &&
+                            u.roles[0]
+                              ?.replace(/_/g, " ")
+                              .replace(/\b\w/g, (c) => c.toUpperCase())) ??
+                          "USER"}
+                      </Badge>
+                      {u.secondaryRole && (
+                        <Badge variant="secondary" className="text-xs">
+                          {u.secondaryRole
+                            .replace(/_/g, " ")
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </Badge>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm">{u.department}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-sm">₦{u.certLimit.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-sm">₦{u.divLimit.toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    {u.twoFAEnabled
-                      ? <Badge className="bg-green-100 text-green-800 border-0 text-xs">Enabled</Badge>
-                      : <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">Pending</Badge>
-                    }
+                  <td className="px-4 py-3 text-right tabular-nums text-sm">
+                    ₦{(u.certLimit || 0).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-sm">
+                    ₦{(u.divLimit || 0).toLocaleString()}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge className={`text-xs border-0 ${u.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
+                    {u.twoFAEnabled ? (
+                      <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+                        Enabled
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
+                        Pending
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      className={`text-xs border-0 ${u.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
+                    >
                       {u.status === "ACTIVE" ? "Active" : "Inactive"}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">3h ago</td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    3h ago
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(u)}><Pencil className="mr-2 h-4 w-4" /> Edit User</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toast.success(`Password reset email sent to ${u.email}`)}><KeyRound className="mr-2 h-4 w-4" /> Reset Password</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toast.success("2FA requirements toggled")}><ShieldCheck className="mr-2 h-4 w-4" /> Toggle 2FA</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEdit(u)}>
+                          <Pencil className="mr-2 h-4 w-4" /> Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            toast.success(
+                              `Password reset email sent to ${u.email}`,
+                            )
+                          }
+                        >
+                          <KeyRound className="mr-2 h-4 w-4" /> Reset Password
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            toast.success("2FA requirements toggled")
+                          }
+                        >
+                          <ShieldCheck className="mr-2 h-4 w-4" /> Toggle 2FA
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => toast.success("User status changed")}><Power className="mr-2 h-4 w-4" /> {u.status === "ACTIVE" ? "Deactivate" : "Activate"}</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toast.info("Audit log soon")}><History className="mr-2 h-4 w-4" /> View Audit Log</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => toast.success("User status changed")}
+                        >
+                          <Power className="mr-2 h-4 w-4" />{" "}
+                          {u.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => toast.info("Audit log soon")}
+                        >
+                          <History className="mr-2 h-4 w-4" /> View Audit Log
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
@@ -165,8 +331,15 @@ export default function UsersPage() {
           </table>
         </div>
       </Card>
-      
-      {formOpen && <UserForm open={formOpen} onOpenChange={setFormOpen} mode={formMode} initialData={selectedUser} />}
+
+      {formOpen && (
+        <UserForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          mode={formMode}
+          initialData={selectedUser}
+        />
+      )}
     </div>
   );
 }
