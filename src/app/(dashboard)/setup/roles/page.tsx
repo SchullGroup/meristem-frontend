@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Lock, Edit2, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, Lock, Edit2, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -16,25 +16,20 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useRoles } from "@/hooks/useRoles";
-
-const PERMISSION_GROUPS = [
-  "SETUP",
-  "OFFER ADMINISTRATION",
-  "CERTIFICATE MANAGEMENT",
-  "DIVIDEND MANAGEMENT",
-  "ACCOUNT MAINTENANCE",
-  "ENQUIRY",
-  "REPORTS",
-  "AUDIT TRAIL",
-  "ADMIN",
-];
-
-const PERMISSION_TYPES = ["View", "Create", "Edit", "Approve", "Reverse"];
+import { Role } from "@/lib/types";
+import {
+  CREATE_ROLE,
+  UPDATE_PERMISSIONS,
+  DELETE_ROLE,
+} from "@/actions/rolesAction";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function RolesPage() {
-  const { data: roles } = useRoles();
-  console.log(roles);
-  const [selectedRole, setSelectedRole] = useState("SYSTEM_ADMIN");
+  const queryClient = useQueryClient();
+  const { data: roles, isLoading } = useRoles();
+  const [selectedRole, setSelectedRole] = useState(
+    !isLoading ? roles?.[0]?.name : "ADMIN",
+  );
 
   // Edit modal
   const [editOpen, setEditOpen] = useState(false);
@@ -46,9 +41,101 @@ export default function RolesPage() {
   const [newRoleName, setNewRoleName] = useState("");
   const [newRoleDesc, setNewRoleDesc] = useState("");
 
+  // Delete modal
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const [localPermissions, setLocalPermissions] = useState<string[]>([]);
+
+  // Group all unique permissions into modules
+  const groupedPermissions = useMemo(() => {
+    if (!roles) return {};
+    const groups: Record<string, string[]> = {};
+
+    // Collect all unique permissions from all roles
+    const allPerms = Array.from(
+      new Set<string>(roles.flatMap((r: Role) => r.permissions || [])),
+    );
+
+    allPerms.forEach((perm: string) => {
+      if (typeof perm !== "string") return;
+      const [module, action] = perm.split(":");
+      if (module && action) {
+        if (!groups[module]) groups[module] = [];
+        if (!groups[module].includes(action)) groups[module].push(action);
+      }
+    });
+
+    return groups;
+  }, [roles]);
+
   const activeRole = roles?.find(
     (r: { name: string }) => r.name === selectedRole,
   );
+
+  // Update local permissions when the active role changes
+  useEffect(() => {
+    if (activeRole) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocalPermissions(activeRole.permissions || []);
+    }
+  }, [activeRole]);
+
+  const updatePermissionMutation = useMutation({
+    mutationFn: () => UPDATE_PERMISSIONS(localPermissions, activeRole?.id),
+    onSuccess: () => {
+      toast.success(`Permissions updated successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to update permissions.");
+    },
+  });
+
+  const createRoleMutation = useMutation({
+    mutationFn: CREATE_ROLE,
+    onSuccess: () => {
+      toast.success(`Role created successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      setCreateOpen(false);
+      setNewRoleName("");
+      setNewRoleDesc("");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to create role.");
+    },
+  });
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: () => DELETE_ROLE(activeRole?.id),
+    onSuccess: () => {
+      toast.success(`Role deleted successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      setDeleteOpen(false);
+      // Reset selected role to the first one if it exists
+      if (roles && roles.length > 0) {
+        setSelectedRole(roles[0].name);
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to delete role.");
+    },
+  });
+
+  const handleUpdatePermission = () => {
+    if (!localPermissions) return;
+    updatePermissionMutation.mutate();
+  };
+
+  const handlePermissionToggle = (permString: string) => {
+    setLocalPermissions((prev) =>
+      prev.includes(permString)
+        ? prev.filter((p) => p !== permString)
+        : [...prev, permString],
+    );
+  };
+
+  const formatLabel = (str: string) =>
+    str.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   const openEditModal = () => {
     setEditName(activeRole.name);
@@ -64,12 +151,11 @@ export default function RolesPage() {
 
   const handleCreateRole = () => {
     if (!newRoleName.trim()) return;
-    toast.success(
-      `Role "${newRoleName}" created. Configure permissions below.`,
-    );
-    setCreateOpen(false);
-    setNewRoleName("");
-    setNewRoleDesc("");
+    createRoleMutation.mutate({
+      name: newRoleName,
+      description: newRoleDesc,
+      permissionNames: [],
+    });
   };
 
   return (
@@ -82,7 +168,7 @@ export default function RolesPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+              className="h-8 w-8"
               onClick={() => setCreateOpen(true)}
             >
               <Plus className="h-4 w-4" />
@@ -90,7 +176,7 @@ export default function RolesPage() {
           </div>
 
           <div className="flex-1 py-2">
-            {roles.map(
+            {roles?.map(
               (role: {
                 id: number;
                 isBuiltIn: boolean;
@@ -112,7 +198,7 @@ export default function RolesPage() {
                       <span className="text-sm font-medium truncate">
                         {role.name}
                       </span>
-                      {role.isBuiltIn && (
+                      {role.name === "ADMIN" && (
                         <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
                       )}
                     </div>
@@ -126,8 +212,8 @@ export default function RolesPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="flex-1 p-6 overflow-y-auto bg-muted/10">
+        {/* MAIN CONTENT */}
+        <div className="flex-1 bg-muted/10 overflow-y-auto p-8">
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex justify-between items-start">
               <div>
@@ -144,24 +230,23 @@ export default function RolesPage() {
                 <Button variant="outline" size="sm" onClick={openEditModal}>
                   <Edit2 className="h-4 w-4 mr-2" /> Edit Role
                 </Button>
-                {!activeRole?.isBuiltIn && activeRole?.userCount === 0 && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() =>
-                      toast.error("Delete role? This cannot be undone.")
-                    }
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" /> Delete Role
-                  </Button>
-                )}
+                {activeRole?.name !== "ADMIN" &&
+                  activeRole?.userCount === 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteOpen(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" /> Delete Role
+                    </Button>
+                  )}
               </div>
             </div>
 
             <div className="bg-card border border-border/60 rounded-xl overflow-hidden">
               <div className="px-4 py-3 bg-muted/30 border-b flex items-center justify-between">
                 <h3 className="font-semibold text-sm">Permissions</h3>
-                {activeRole?.isBuiltIn && (
+                {activeRole?.name === "ADMIN" && (
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <Lock className="h-3 w-3" /> Built-in role — permissions
                     cannot be modified
@@ -169,44 +254,55 @@ export default function RolesPage() {
                 )}
               </div>
               <div className="p-4 grid grid-cols-3 gap-8">
-                {PERMISSION_GROUPS?.map((group) => (
-                  <div key={group} className="space-y-3">
-                    <h4 className="text-xs font-bold tracking-widest text-muted-foreground uppercase border-b border-border/60 pb-1">
-                      {group}
-                    </h4>
-                    <div className="space-y-2">
-                      {PERMISSION_TYPES?.map((perm) => (
-                        <div
-                          key={`${group}-${perm}`}
-                          className="flex items-center space-x-2"
-                        >
-                          <Checkbox
-                            id={`${group}-${perm}`}
-                            disabled={activeRole?.isBuiltIn}
-                            defaultChecked={
-                              activeRole?.id === "SYSTEM_ADMIN" ||
-                              (activeRole?.id === "ENQUIRY_ONLY" &&
-                                perm === "View")
-                            }
-                          />
-                          <label
-                            htmlFor={`${group}-${perm}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                {Object.entries(groupedPermissions).map(
+                  ([module, actions]: [string, string[]]) => (
+                    <div key={module} className="space-y-3">
+                      <h4 className="text-xs font-bold tracking-widest text-muted-foreground uppercase border-b border-border/60 pb-1">
+                        {module}
+                      </h4>
+                      <div className="space-y-2">
+                        {actions.map((action: string) => (
+                          <div
+                            key={`${module}-${action}`}
+                            className="flex items-center space-x-2"
                           >
-                            {perm}
-                          </label>
-                        </div>
-                      ))}
+                            <Checkbox
+                              className="cursor-pointer"
+                              id={`${module}-${action}`}
+                              disabled={activeRole?.name === "ADMIN"}
+                              checked={localPermissions.includes(
+                                `${module}:${action}`,
+                              )}
+                              onCheckedChange={() =>
+                                handlePermissionToggle(`${module}:${action}`)
+                              }
+                            />
+                            <label
+                              htmlFor={`${module}-${action}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {formatLabel(action)}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             </div>
 
-            {!activeRole?.isBuiltIn && (
+            {activeRole?.name !== "ADMIN" && (
               <div className="flex justify-end">
-                <Button onClick={() => toast.success("Permissions saved.")}>
+                <Button
+                  className="cursor-pointer"
+                  onClick={handleUpdatePermission}
+                  disabled={updatePermissionMutation.isPending}
+                >
                   Save Permissions
+                  {updatePermissionMutation.isPending && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                 </Button>
               </div>
             )}
@@ -301,8 +397,63 @@ export default function RolesPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleCreateRole} disabled={!newRoleName.trim()}>
+            <Button
+              className="cursor-pointer"
+              onClick={handleCreateRole}
+              disabled={!newRoleName.trim() || createRoleMutation.isPending}
+            >
               Create Role
+              {createRoleMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-[400px] p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <div className="px-6 pt-8 pb-6 flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Trash2 className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-center">
+                Delete Role
+              </DialogTitle>
+              <DialogDescription className="text-center pt-2">
+                This will permanently remove the{" "}
+                <span className="font-semibold text-foreground">
+                  &quot;{activeRole?.name}&quot;
+                </span>{" "}
+                role. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 px-6 py-4 bg-muted/20 border-t border-border/50">
+            <Button
+              variant="ghost"
+              className="flex-1 cursor-pointer"
+              onClick={() => setDeleteOpen(false)}
+              disabled={deleteRoleMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 cursor-pointer shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground"
+              onClick={() => deleteRoleMutation.mutate()}
+              disabled={deleteRoleMutation.isPending}
+            >
+              {deleteRoleMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Confirm Deletion"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
