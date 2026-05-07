@@ -3,11 +3,9 @@
 import api from "@/services/api";
 import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
 
-export const GET_USERS = async (token?: string | null) => {
+export const GET_USERS = async () => {
   try {
-    const res = await api.get(`/api/v1/users`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const res = await api.get(`/api/v1/users`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
@@ -15,11 +13,9 @@ export const GET_USERS = async (token?: string | null) => {
   }
 };
 
-export const GET_USER_STATS = async (token?: string | null) => {
+export const GET_USER_STATS = async () => {
   try {
-    const res = await api.get(`/api/v1/users/stats`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const res = await api.get(`/api/v1/users/stats`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

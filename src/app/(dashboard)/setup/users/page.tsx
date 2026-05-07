@@ -46,11 +46,10 @@ export default function UsersPage() {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
-      const token = localStorage.getItem("token");
-      const data = await GET_USERS(token);
+      const data = await GET_USERS();
       if (data?.isSuccessful && data?.data) {
         setUsers(data.data);
         return data.data;
@@ -59,7 +58,7 @@ export default function UsersPage() {
     },
   });
 
-  console.log(data);
+  console.log(users);
 
   const filteredUsers = (users || []).filter((u) => {
     const firstName = u.firstName || "";
@@ -75,14 +74,21 @@ export default function UsersPage() {
     // Note: Adjust department/status mapping if your API uses different fields
     const matchesDept = deptFilter === "All" || u.department === deptFilter;
     const matchesStatus =
-      statusFilter === "All" || u.status === statusFilter.toUpperCase();
+      statusFilter === "All" ||
+      u.status?.toUpperCase() === statusFilter.toUpperCase();
 
     return matchesSearch && matchesRole && matchesDept && matchesStatus;
   });
 
-  const activeCount = users.filter((u) => u.status === "ACTIVE").length;
-  const pending2FA = users.filter((u) => !u.twoFAEnabled).length;
-  const inactiveCount = users.filter((u) => u.status === "INACTIVE").length;
+  const activeCount = users.filter(
+    (u) => u.status?.toUpperCase() === "ACTIVE",
+  ).length;
+  const pending2FA = users.filter(
+    (u) => !(u as any).twoFAEnabled && !(u as any).enabled,
+  ).length;
+  const inactiveCount = users.filter(
+    (u) => u.status?.toUpperCase() === "INACTIVE",
+  ).length;
 
   const handleEdit = (u: User) => {
     setSelectedUser(u);
@@ -275,9 +281,11 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge
-                      className={`text-xs border-0 ${u.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
+                      className={`text-xs border-0 ${u.status?.toUpperCase() === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
                     >
-                      {u.status === "ACTIVE" ? "Active" : "Inactive"}
+                      {u.status?.toUpperCase() === "ACTIVE"
+                        ? "Active"
+                        : "Inactive"}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">

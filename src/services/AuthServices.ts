@@ -1,19 +1,26 @@
+import Cookies from "js-cookie";
+
+const TOKEN_KEY = "token";
+const USER_KEY = "user";
+
 export const setUserSession = (user: object, token: string) => {
+  // Store token in a cookie so it's accessible by both client and server
+  Cookies.set(TOKEN_KEY, token, { expires: 1 }); // Expires in 1 day
+  
   if (typeof window !== "undefined") {
-    localStorage.setItem("user", JSON.stringify(user));
-    localStorage.setItem("token", token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
   }
 };
 
 export const setUser = (user: object) => {
   if (typeof window !== "undefined") {
-    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
   }
 };
 
 export const getUser = () => {
   if (typeof window === "undefined") return null;
-  const user = localStorage.getItem("user");
+  const user = localStorage.getItem(USER_KEY);
   if (user === "undefined" || !user) {
     return null;
   } else {
@@ -26,15 +33,12 @@ export const getUser = () => {
 };
 
 export const getToken = () => {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("token");
-  }
-  return null;
+  return Cookies.get(TOKEN_KEY) || null;
 };
 
 export const resetUserSession = () => {
+  Cookies.remove(TOKEN_KEY);
   if (typeof window !== "undefined") {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
+    localStorage.removeItem(USER_KEY);
   }
 };
