@@ -72,7 +72,6 @@ export default function RolesPage() {
     (r: { name: string }) => r.name === selectedRole,
   );
 
-  // Update local permissions when the active role changes
   useEffect(() => {
     if (activeRole) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -81,7 +80,15 @@ export default function RolesPage() {
   }, [activeRole]);
 
   const updatePermissionMutation = useMutation({
-    mutationFn: () => UPDATE_PERMISSIONS(localPermissions, activeRole?.id),
+    mutationFn: ({
+      payload,
+      roleId,
+    }: {
+      payload: { permissionNames: string[] };
+      roleId: string;
+    }) => {
+      return UPDATE_PERMISSIONS(payload, roleId);
+    },
     onSuccess: () => {
       toast.success(`Permissions updated successfully.`);
       queryClient.invalidateQueries({ queryKey: ["roles"] });
@@ -122,8 +129,16 @@ export default function RolesPage() {
   });
 
   const handleUpdatePermission = () => {
-    if (!localPermissions) return;
-    updatePermissionMutation.mutate();
+    if (!localPermissions || !activeRole?.id) return;
+
+    const payload = {
+      permissionNames: localPermissions,
+    };
+
+    updatePermissionMutation.mutate({
+      payload,
+      roleId: activeRole.id,
+    });
   };
 
   const handlePermissionToggle = (permString: string) => {

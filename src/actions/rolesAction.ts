@@ -28,18 +28,18 @@ export const CREATE_ROLE = async (data: {
 };
 
 export const UPDATE_PERMISSIONS = async (
-  permissions: string[],
+  payload: { permissionNames: string[] },
   roleId: string,
 ) => {
   try {
-    const res = await api.put(`/roles/${roleId}/permissions`, permissions);
+    const res = await api.put(`/roles/${roleId}/permissions`, payload);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
   }
 };
- 
+
 export const DELETE_ROLE = async (roleId: string) => {
   try {
     const res = await api.delete(`/roles/${roleId}`);
