@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -58,11 +59,11 @@ export default function RegistersPage() {
 
   const principalIdParam = params.get("principalId");
   const [search, setSearch] = useState("");
-  const [principalFilter, setPrincipalFilter] = useState(
-    principalIdParam || "All",
+  const [principalFilter, setPrincipalFilter] = useState<string | null>(
+    principalIdParam || null,
   );
-  const [typeFilter, setTypeFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   // Synchronize principalFilter with URL param
   useEffect(() => {
@@ -75,7 +76,7 @@ export default function RegistersPage() {
   const handlePrincipalFilterChange = (value: string) => {
     setPrincipalFilter(value);
     const newParams = new URLSearchParams(params.toString());
-    if (value === "All") {
+    if (value === null) {
       newParams.delete("principalId");
     } else {
       newParams.set("principalId", value);
@@ -102,9 +103,9 @@ export default function RegistersPage() {
 
   const { data: registers, isLoading } = useGetRegisters({
     search: debouncedSearch !== "" ? debouncedSearch : undefined,
-    principalId: principalFilter !== "All" ? principalFilter : undefined,
-    registerType: typeFilter !== "All" ? typeFilter : undefined,
-    status: statusFilter !== "All" ? statusFilter : undefined,
+    principalId: principalFilter !== null ? principalFilter : undefined,
+    registerType: typeFilter !== null ? typeFilter : undefined,
+    status: statusFilter !== null ? statusFilter : undefined,
     page: currentPage,
     size: PAGE_SIZE,
   });
@@ -240,12 +241,14 @@ export default function RegistersPage() {
             <SelectValue placeholder="Principal" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All Principals</SelectItem>
-            {principals?.content.map((p) => (
-              <SelectItem key={p.principalId} value={p.principalId}>
-                {p.principalName}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              <SelectItem value={null}>All Principals</SelectItem>
+              {principals?.content.map((p) => (
+                <SelectItem key={p.principalId} value={p.principalId}>
+                  {p.principalName}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <Select
@@ -256,11 +259,13 @@ export default function RegistersPage() {
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All Types</SelectItem>
-            <SelectItem value="ORDINARY">Ordinary</SelectItem>
-            <SelectItem value="PREFERENCE">Preference</SelectItem>
-            <SelectItem value="BOND">Bond</SelectItem>
-            <SelectItem value="FUND">Fund</SelectItem>
+            <SelectGroup>
+              <SelectItem value={null}>All Types</SelectItem>
+              <SelectItem value="ORDINARY">Ordinary</SelectItem>
+              <SelectItem value="PREFERENCE">Preference</SelectItem>
+              <SelectItem value="BOND">Bond</SelectItem>
+              <SelectItem value="FUND">Fund</SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
         <Select
@@ -271,25 +276,27 @@ export default function RegistersPage() {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All Status</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="Inactive">Inactive</SelectItem>
-            <SelectItem value="Transaction Disabled">
-              Transaction Disabled
-            </SelectItem>
+            <SelectGroup>
+              <SelectItem value={null}>All Status</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+              <SelectItem value="TRANSACTION_DISABLED">
+                Transaction Disabled
+              </SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
         {(search ||
-          principalFilter !== "All" ||
-          typeFilter !== "All" ||
-          statusFilter !== "All") && (
+          principalFilter !== null ||
+          typeFilter !== null ||
+          statusFilter !== null) && (
           <Button
             variant="ghost"
             onClick={() => {
               setSearch("");
-              setPrincipalFilter("All");
-              setTypeFilter("All");
-              setStatusFilter("All");
+              setPrincipalFilter(null);
+              setTypeFilter(null);
+              setStatusFilter(null);
             }}
           >
             Clear
@@ -374,7 +381,7 @@ export default function RegistersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${
+                        className={`border-0 text-xs capitalize ${
                           r.status === "ACTIVE"
                             ? "bg-green-100 text-green-800"
                             : r.status === "INACTIVE"
@@ -384,9 +391,7 @@ export default function RegistersPage() {
                       >
                         {r.status === "TRANSACTION_DISABLED"
                           ? "Disabled"
-                          : r.status
-                              .toLowerCase()
-                              .replace(/\b\w/g, (c) => c.toUpperCase())}
+                          : r.status}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -397,7 +402,7 @@ export default function RegistersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem
+                          {/* <DropdownMenuItem
                             onClick={() =>
                               router.push(
                                 `/enquiry/holder?registerId=${r.registerId}`,
@@ -405,7 +410,7 @@ export default function RegistersPage() {
                             }
                           >
                             <Users className="mr-2 h-4 w-4" /> View Shareholders
-                          </DropdownMenuItem>
+                          </DropdownMenuItem> */}
                           <DropdownMenuItem onClick={() => handleEdit(r)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Register
                           </DropdownMenuItem>
@@ -425,14 +430,14 @@ export default function RegistersPage() {
                               </>
                             )}
                           </DropdownMenuItem> */}
-                          <DropdownMenuSeparator />
+                          {/* <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() =>
                               toast.info("Audit log sheet coming soon")
                             }
                           >
                             <History className="mr-2 h-4 w-4" /> Audit Log
-                          </DropdownMenuItem>
+                          </DropdownMenuItem> */}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>

@@ -237,6 +237,7 @@ export default function LoginPage() {
   };
 
   // ── Render ────────────────────────────────────────────────────
+  if (currentUser) return null;
 
   return (
     <div className="min-h-screen flex w-full bg-background">

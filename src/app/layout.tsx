@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "@/components/providers/query-provider";
+import StoreHydrationProvider from "@/components/providers/store-hydration-provider";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -26,7 +27,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={outfit.variable}>
       <body className="antialiased">
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <StoreHydrationProvider>{children}</StoreHydrationProvider>
+        </QueryProvider>
       </body>
     </html>
   );
