@@ -134,6 +134,7 @@ export const useGetRegisterStats = (
   return useQuery({
     queryKey: registerKeys.stats(),
     queryFn: getRegisterStats,
+    select: (data) => data.data,
     ...options,
   });
 };

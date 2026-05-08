@@ -68,7 +68,7 @@ export default function PrincipalsPage() {
   );
 
   const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -82,6 +82,13 @@ export default function PrincipalsPage() {
     page: currentPage,
     size: PAGE_SIZE,
   });
+
+  const total = principalStats?.billingBreakdown
+    ? Object.values(principalStats.billingBreakdown).reduce(
+        (sum, value) => sum + value,
+        0,
+      )
+    : 0;
 
   const { mutate, isPending: toggleStatusLoading } = useUpdatePrincipalStatus();
 
@@ -229,7 +236,7 @@ export default function PrincipalsPage() {
                     <div
                       key={key}
                       style={{
-                        width: `${value}%`,
+                        width: `${(value / total) * 100}%`,
                       }}
                       className={colors[index % colors.length]}
                       title={`${key}: ${value}`}
