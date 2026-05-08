@@ -75,6 +75,7 @@ export function RegisterForm({
           shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
           currentStockInIssue: initialData.currentStockInIssue,
           currentShareholdersSize: initialData.currentShareholdersSize,
+          status: initialData.status,
         }
       : {
           registerName: "",
@@ -86,6 +87,7 @@ export function RegisterForm({
           shareholderSizeAtSetup: 0,
           currentStockInIssue: 0,
           currentShareholdersSize: 0,
+          status: "ACTIVE",
         },
   });
 
@@ -105,6 +107,8 @@ export function RegisterForm({
           toast.success(
             `Register ${payload.registerName} has been created successfully.`,
           );
+          onOpenChange(false);
+          form.reset();
         },
         onError: (error) => {
           toast.error(error.message);
@@ -121,6 +125,8 @@ export function RegisterForm({
             toast.success(
               `Register ${values.registerName} has been updated successfully.`,
             );
+            onOpenChange(false);
+            form.reset();
           },
           onError: (error) => {
             toast.error(error.message);
@@ -441,7 +447,7 @@ export function RegisterForm({
                         <FormControl>
                           <RadioGroup
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                             className="flex flex-row gap-8"
                           >
                             <FormItem className="flex items-center space-x-2.5 space-y-0">

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 // import { useStore } from "@/lib/store";
 import {
   PlusCircle,
@@ -54,10 +54,37 @@ const PAGE_SIZE = 10;
 export default function RegistersPage() {
   const router = useRouter();
   // const { registers, principals, updateRegister, logAudit } = useStore();
+  const params = useSearchParams();
+
+  const principalIdParam = params.get("principalId");
   const [search, setSearch] = useState("");
-  const [principalFilter, setPrincipalFilter] = useState("All");
+  const [principalFilter, setPrincipalFilter] = useState(
+    principalIdParam || "All",
+  );
   const [typeFilter, setTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+
+  // Synchronize principalFilter with URL param
+  useEffect(() => {
+    if (principalIdParam) {
+      //eslint-disable-next-line
+      setPrincipalFilter(principalIdParam);
+    }
+  }, [principalIdParam]);
+
+  const handlePrincipalFilterChange = (value: string) => {
+    setPrincipalFilter(value);
+    const newParams = new URLSearchParams(params.toString());
+    if (value === "All") {
+      newParams.delete("principalId");
+    } else {
+      newParams.set("principalId", value);
+    }
+    const queryString = newParams.toString();
+    router.replace(`/setup/registers${queryString ? `?${queryString}` : ""}`, {
+      scroll: false,
+    });
+  };
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -66,7 +93,7 @@ export default function RegistersPage() {
   );
 
   // const [confirmLockOpen, setConfirmLockOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -207,7 +234,7 @@ export default function RegistersPage() {
         />
         <Select
           value={principalFilter}
-          onValueChange={(v) => setPrincipalFilter(v || "")}
+          onValueChange={(value) => handlePrincipalFilterChange(value || "")}
         >
           <SelectTrigger className="w-48 mrpsl-input">
             <SelectValue placeholder="Principal" />
@@ -299,7 +326,7 @@ export default function RegistersPage() {
                 </tr>
               ) : registers?.content && registers?.content?.length > 0 ? (
                 registers?.content?.map((r) => (
-                  <tr key={r.id} className="mrpsl-table-row">
+                  <tr key={r.registerId} className="mrpsl-table-row">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-foreground truncate max-w-[200px]">
                         {r.registerName}
@@ -372,7 +399,9 @@ export default function RegistersPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onClick={() =>
-                              router.push(`/enquiry/holder?registerId=${r.id}`)
+                              router.push(
+                                `/enquiry/holder?registerId=${r.registerId}`,
+                              )
                             }
                           >
                             <Users className="mr-2 h-4 w-4" /> View Shareholders
