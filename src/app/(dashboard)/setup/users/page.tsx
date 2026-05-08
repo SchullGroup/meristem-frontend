@@ -344,7 +344,10 @@ export default function UsersPage() {
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent
+                        className="mrpsl-card w-fit"
+                        align="end"
+                      >
                         <DropdownMenuItem onClick={() => handleEdit(u)}>
                           <Pencil className="mr-2 h-4 w-4" /> Edit User
                         </DropdownMenuItem>

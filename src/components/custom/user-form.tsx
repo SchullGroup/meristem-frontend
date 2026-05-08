@@ -36,22 +36,7 @@ import { User } from "@/lib/types";
 import { CREATE_USER } from "@/actions/userAction";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-
-const ROLES = [
-  "SYSTEM_ADMIN",
-  "OPS_MANAGER",
-  "DIV_INITIATOR",
-  "DIV_AUTHORIZER",
-  "CERT_INITIATOR",
-  "CERT_AUTHORIZER",
-  "ICU",
-  "HEAD_OPS",
-  "ACCOUNTS",
-  "IT",
-  "MANAGEMENT",
-  "AUDIT_REVIEWER",
-  "ENQUIRY_ONLY",
-];
+import { useRoles } from "@/hooks/useRoles";
 
 const DEPARTMENTS = [
   "IT",
@@ -95,6 +80,9 @@ export function UserForm({
   const queryClient = useQueryClient();
   const { users, updateUser } = useStore();
 
+  const { data: roles } = useRoles();
+  const roleNames = roles?.map((r: { name: string }) => r.name);
+
   const addUserMutation = useMutation({
     mutationFn: CREATE_USER,
     onSuccess: () => {
@@ -104,6 +92,7 @@ export function UserForm({
   });
 
   const form = useForm<UserFormValues>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(userSchema) as any,
     defaultValues: initialData
       ? {
@@ -310,7 +299,7 @@ export function UserForm({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {ROLES.map((r) => (
+                            {roleNames?.map((r: string) => (
                               <SelectItem key={r} value={r}>
                                 {r.replace(/_/g, " ")}
                               </SelectItem>
@@ -339,8 +328,8 @@ export function UserForm({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="NONE">None</SelectItem>
-                            {ROLES.map((r) => (
+                            <SelectItem value="">None</SelectItem>
+                            {roleNames?.map((r: string) => (
                               <SelectItem key={r} value={r}>
                                 {r.replace(/_/g, " ")}
                               </SelectItem>

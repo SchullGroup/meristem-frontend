@@ -23,6 +23,7 @@ import {
   DELETE_ROLE,
 } from "@/actions/rolesAction";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function RolesPage() {
   const queryClient = useQueryClient();
@@ -191,39 +192,45 @@ export default function RolesPage() {
           </div>
 
           <div className="flex-1 py-2">
-            {roles?.map(
-              (role: {
-                id: number;
-                isBuiltIn: boolean;
-                name: string;
-                userCount: number;
-              }) => {
-                const isActive = role.name === selectedRole;
-                return (
-                  <button
-                    key={role.name}
-                    onClick={() => setSelectedRole(role.name)}
-                    className={`w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors border-l-2 ${
-                      isActive
-                        ? "bg-primary/8 text-primary border-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium truncate">
-                        {role.name}
-                      </span>
-                      {role.name === "ADMIN" && (
-                        <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
-                      )}
-                    </div>
-                    <span className="ml-2 shrink-0 min-w-[20px] text-center text-[11px] font-semibold bg-muted text-foreground rounded-full px-1.5 py-0.5">
-                      {role?.userCount}
-                    </span>
-                  </button>
-                );
-              },
-            )}
+            {isLoading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="px-4 py-2.5">
+                    <Skeleton className="h-6 w-full rounded" />
+                  </div>
+                ))
+              : roles?.map(
+                  (role: {
+                    id: number;
+                    isBuiltIn: boolean;
+                    name: string;
+                    userCount: number;
+                  }) => {
+                    const isActive = role.name === selectedRole;
+                    return (
+                      <button
+                        key={role.name}
+                        onClick={() => setSelectedRole(role.name)}
+                        className={`w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors border-l-2 ${
+                          isActive
+                            ? "bg-primary/8 text-primary border-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm font-medium truncate">
+                            {role.name}
+                          </span>
+                          {role.name === "ADMIN" && (
+                            <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                          )}
+                        </div>
+                        <span className="ml-2 shrink-0 min-w-[20px] text-center text-[11px] font-semibold bg-muted text-foreground rounded-full px-1.5 py-0.5">
+                          {role?.userCount}
+                        </span>
+                      </button>
+                    );
+                  },
+                )}
           </div>
         </div>
 
@@ -232,14 +239,25 @@ export default function RolesPage() {
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex justify-between items-start">
               <div>
-                <h2 className="text-xl font-bold">{activeRole?.name}</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {activeRole?.description}
-                </p>
-                <div className="text-xs font-medium text-muted-foreground mt-2 bg-muted px-2 py-1 rounded-md inline-block">
-                  {activeRole?.userCount} user
-                  {activeRole?.userCount !== 1 ? "s" : ""} assigned to this role
-                </div>
+                {isLoading ? (
+                  <>
+                    <Skeleton className="h-7 w-48 mb-2" />
+                    <Skeleton className="h-4 w-64 mb-3" />
+                    <Skeleton className="h-5 w-32 rounded-md" />
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-xl font-bold">{activeRole?.name}</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {activeRole?.description}
+                    </p>
+                    <div className="text-xs font-medium text-muted-foreground mt-2 bg-muted px-2 py-1 rounded-md inline-block">
+                      {activeRole?.userCount} user
+                      {activeRole?.userCount !== 1 ? "s" : ""} assigned to this
+                      role
+                    </div>
+                  </>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={openEditModal}>
@@ -269,41 +287,54 @@ export default function RolesPage() {
                 )}
               </div>
               <div className="p-4 grid grid-cols-3 gap-8">
-                {Object.entries(groupedPermissions).map(
-                  ([module, actions]: [string, string[]]) => (
-                    <div key={module} className="space-y-3">
-                      <h4 className="text-xs font-bold tracking-widest text-muted-foreground uppercase border-b border-border/60 pb-1">
-                        {module}
-                      </h4>
-                      <div className="space-y-2">
-                        {actions.map((action: string) => (
-                          <div
-                            key={`${module}-${action}`}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox
-                              className="cursor-pointer"
-                              id={`${module}-${action}`}
-                              disabled={activeRole?.name === "ADMIN"}
-                              checked={localPermissions.includes(
-                                `${module}:${action}`,
-                              )}
-                              onCheckedChange={() =>
-                                handlePermissionToggle(`${module}:${action}`)
-                              }
-                            />
-                            <label
-                              htmlFor={`${module}-${action}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {formatLabel(action)}
-                            </label>
-                          </div>
-                        ))}
+                {isLoading
+                  ? Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="space-y-3">
+                        <Skeleton className="h-4 w-24 mb-1" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-3/4" />
+                        </div>
                       </div>
-                    </div>
-                  ),
-                )}
+                    ))
+                  : Object.entries(groupedPermissions).map(
+                      ([module, actions]: [string, string[]]) => (
+                        <div key={module} className="space-y-3">
+                          <h4 className="text-xs font-bold tracking-widest text-muted-foreground uppercase border-b border-border/60 pb-1">
+                            {module}
+                          </h4>
+                          <div className="space-y-2">
+                            {actions.map((action: string) => (
+                              <div
+                                key={`${module}-${action}`}
+                                className="flex items-center space-x-2"
+                              >
+                                <Checkbox
+                                  className="cursor-pointer"
+                                  id={`${module}-${action}`}
+                                  disabled={activeRole?.name === "ADMIN"}
+                                  checked={localPermissions.includes(
+                                    `${module}:${action}`,
+                                  )}
+                                  onCheckedChange={() =>
+                                    handlePermissionToggle(
+                                      `${module}:${action}`,
+                                    )
+                                  }
+                                />
+                                <label
+                                  htmlFor={`${module}-${action}`}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  {formatLabel(action)}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ),
+                    )}
               </div>
             </div>
 
@@ -450,14 +481,14 @@ export default function RolesPage() {
           <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 px-6 py-4 bg-muted/20 border-t border-border/50">
             <Button
               variant="ghost"
-              className="flex-1 cursor-pointer"
+              className="flex-1 cursor-pointer h-12 rounded-xl"
               onClick={() => setDeleteOpen(false)}
               disabled={deleteRoleMutation.isPending}
             >
               Cancel
             </Button>
             <Button
-              className="flex-1 cursor-pointer shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="flex-1 cursor-pointer shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-xl"
               onClick={() => deleteRoleMutation.mutate()}
               disabled={deleteRoleMutation.isPending}
             >
