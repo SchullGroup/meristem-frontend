@@ -19,7 +19,9 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -58,8 +60,8 @@ export default function PrincipalsPage() {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
-  const [billingFilter, setBillingFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [billingFilter, setBillingFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -77,8 +79,8 @@ export default function PrincipalsPage() {
 
   const { data: principals, isLoading: principalsLoading } = useGetPrincipals({
     search: debouncedSearch !== "" ? debouncedSearch : undefined,
-    billingCategory: billingFilter !== "All" ? billingFilter : undefined,
-    status: statusFilter !== "All" ? statusFilter : undefined,
+    billingCategory: billingFilter !== null ? billingFilter : undefined,
+    status: statusFilter !== null ? statusFilter : undefined,
     page: currentPage,
     size: PAGE_SIZE,
   });
@@ -107,7 +109,9 @@ export default function PrincipalsPage() {
   const toggleStatus = () => {
     if (!selectedPrincipal) return;
     const newStatus =
-      selectedPrincipal.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+      selectedPrincipal.status.toLowerCase() === "active"
+        ? "inactive"
+        : "active";
 
     // if (newStatus === "INACTIVE") {
     //   const hasActiveRegisters = registers.some(
@@ -281,13 +285,16 @@ export default function PrincipalsPage() {
           onValueChange={(v) => setBillingFilter(v || "")}
         >
           <SelectTrigger className="w-36 mrpsl-input">
-            <SelectValue placeholder="Billing" />
+            <SelectValue placeholder="Billing Category" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All Billing</SelectItem>
-            <SelectItem value="A">Category A</SelectItem>
-            <SelectItem value="B">Category B</SelectItem>
-            <SelectItem value="C">Category C</SelectItem>
+            <SelectGroup>
+              <SelectLabel>Billing</SelectLabel>
+              <SelectItem value={null}>Billing Category</SelectItem>
+              <SelectItem value="A">Category A</SelectItem>
+              <SelectItem value="B">Category B</SelectItem>
+              <SelectItem value="C">Category C</SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
         <Select
@@ -298,18 +305,18 @@ export default function PrincipalsPage() {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All Status</SelectItem>
+            <SelectItem value={null}>Status</SelectItem>
             <SelectItem value="Active">Active</SelectItem>
             <SelectItem value="Inactive">Inactive</SelectItem>
           </SelectContent>
         </Select>
-        {(search || billingFilter !== "All" || statusFilter !== "All") && (
+        {(search || billingFilter !== null || statusFilter !== null) && (
           <Button
             variant="ghost"
             onClick={() => {
               setSearch("");
-              setBillingFilter("All");
-              setStatusFilter("All");
+              setBillingFilter(null);
+              setStatusFilter(null);
             }}
           >
             Clear Filters
@@ -387,11 +394,9 @@ export default function PrincipalsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${p.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
+                        className={`border-0 text-xs ${p.status.toLowerCase() === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
                       >
-                        {p.status
-                          .toLowerCase()
-                          .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        {p.status}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -427,7 +432,9 @@ export default function PrincipalsPage() {
                             onClick={() => openStatusConfirm(p)}
                           >
                             <Power className="mr-2 h-4 w-4" />{" "}
-                            {p.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                            {p.status.toLowerCase() === "active"
+                              ? "Deactivate"
+                              : "Activate"}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
