@@ -15,7 +15,9 @@ export const principalSchema = z.object({
   companySecretaryPhone: z
     .string()
     .min(5, "Company secretary phone is required"),
-  shareHoldersAtSetUp: z.string().min(1, "Shareholders at set up is required"),
+  shareHoldersAtSetUp: z.coerce
+    .number<number>()
+    .min(1, "Shareholders at set up is required"),
 });
 
 export type PrincipalFormValues = z.infer<typeof principalSchema>;

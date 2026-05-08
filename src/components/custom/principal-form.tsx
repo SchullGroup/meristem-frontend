@@ -78,7 +78,7 @@ export function PrincipalForm({
           companySecretaryPhone: initialData.companySecretaryPhone || "",
           tin: initialData.tin || "",
           rcNumber: initialData.rcNumber || "",
-          shareHoldersAtSetUp: initialData.shareHoldersAtSetUp.toString(),
+          shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
           sector: initialData.sector || "",
         }
       : {
@@ -93,7 +93,7 @@ export function PrincipalForm({
           rcNumber: "",
           companySecretary: "",
           companySecretaryPhone: "",
-          shareHoldersAtSetUp: "",
+          shareHoldersAtSetUp: 0,
           sector: "",
         },
   });
@@ -116,6 +116,8 @@ export function PrincipalForm({
           toast.success(
             `Principal ${payload.principalName} has been created successfully.`,
           );
+          onOpenChange(false);
+          form.reset();
         },
         onError: (error) => {
           toast.error(error.message);
@@ -132,6 +134,8 @@ export function PrincipalForm({
             toast.success(
               `Principal ${values.principalName} has been updated successfully.`,
             );
+            onOpenChange(false);
+            form.reset();
           },
           onError: (error) => {
             toast.error(error.message);

@@ -1,4 +1,4 @@
-export type RegisterStatus = "Active" | "Inactive" | "Transaction Disabled";
+export type RegisterStatus = "ACTIVE" | "INACTIVE" | "TRANSACTION_DISABLED";
 
 export type RegisterType = "Ordinary" | "Preference" | "Fund" | "Bond";
 
@@ -13,7 +13,7 @@ export interface Register {
   stockInIssueAtSetup: number;
   currentStockInIssue: number;
   nominalValue: number;
-  status: RegisterStatus | string;
+  status: RegisterStatus;
   principalId: string;
   principalName: string;
   createdAt: string;
