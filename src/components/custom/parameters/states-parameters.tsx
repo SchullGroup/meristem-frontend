@@ -21,6 +21,12 @@ import {
   useDeleteState,
 } from "@/hooks/useStates";
 import {
+  useCreateLGA,
+  useUpdateLGA,
+  useDeleteLGA,
+  useGetLGAsByState,
+} from "@/hooks/useLGAs";
+import {
   Search,
   MapPin,
   Map as MapIcon,
@@ -51,10 +57,25 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
   const updateStateMutation = useUpdateState();
   const deleteStateMutation = useDeleteState();
 
+  const createLgaMutation = useCreateLGA();
+  const updateLgaMutation = useUpdateLGA();
+  const deleteLgaMutation = useDeleteLGA();
+
   const [selectedStateId, setSelectedStateId] = useState<number | null>(null);
   const [stateSearch, setStateSearch] = useState("");
   const [lgaSearch, setLgaSearch] = useState("");
 
+  // Selected state logic
+  const selectedState = useMemo(() => {
+    if (selectedStateId !== null) {
+      return states.find((s) => s.id === selectedStateId);
+    }
+    return states[0];
+  }, [states, selectedStateId]);
+
+  const { data: lgasData, isLoading: lgasLoading } = useGetLGAsByState(
+    selectedState?.id,
+  );
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
@@ -81,21 +102,13 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
     );
   }, [states, stateSearch]);
 
-  // Selected state logic
-  const selectedState = useMemo(() => {
-    if (selectedStateId !== null) {
-      return states.find((s) => s.id === selectedStateId);
-    }
-    return states[0];
-  }, [states, selectedStateId]);
-
   // Filtered LGAs based on search
   const filteredLGAs = useMemo(() => {
-    if (!selectedState?.lgas) return [];
-    return selectedState.lgas.filter((lga) =>
+    if (!lgasData) return [];
+    return lgasData?.filter((lga) =>
       lga.name.toLowerCase().includes(lgaSearch.toLowerCase()),
     );
-  }, [selectedState, lgaSearch]);
+  }, [lgasData, lgaSearch]);
 
   const openAddDialog = () => {
     setDialogMode("add");
@@ -177,14 +190,21 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
       return;
     }
 
-    let newLgas: string[];
     if (editingLga) {
-      // Edit: Replace the old name with the new one
-      newLgas = selectedState.lgas.map((l) =>
-        l.id === editingLga.id ? lgaFormName.trim() : l.name,
+      updateLgaMutation.mutate(
+        {
+          id: editingLga.id,
+          payload: { name: lgaFormName.trim(), stateId: selectedState.id },
+        },
+        {
+          onSuccess: () => {
+            toast.success("LGA updated successfully");
+            setIsLgaDialogOpen(false);
+          },
+          onError: (err) => toast.error(err.message || "Failed to update LGA"),
+        },
       );
     } else {
-      // Add: Append to the list
       if (
         selectedState.lgas.some(
           (l) => l.name.toLowerCase() === lgaFormName.trim().toLowerCase(),
@@ -193,24 +213,18 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
         toast.error("LGA name already exists in this state");
         return;
       }
-      newLgas = [...selectedState.lgas.map((l) => l.name), lgaFormName.trim()];
-    }
 
-    updateStateMutation.mutate(
-      {
-        id: selectedState.id,
-        payload: { name: selectedState.name, lgas: newLgas },
-      },
-      {
-        onSuccess: () => {
-          toast.success(
-            editingLga ? "LGA updated successfully" : "LGA added successfully",
-          );
-          setIsLgaDialogOpen(false);
+      createLgaMutation.mutate(
+        { name: lgaFormName.trim(), stateId: selectedState.id },
+        {
+          onSuccess: () => {
+            toast.success("LGA added successfully");
+            setIsLgaDialogOpen(false);
+          },
+          onError: (err) => toast.error(err.message || "Failed to add LGA"),
         },
-        onError: (err) => toast.error(err.message || "Failed to save LGA"),
-      },
-    );
+      );
+    }
   };
 
   const handleDeleteState = () => {
@@ -230,24 +244,14 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
   const handleDeleteLga = () => {
     if (!selectedState || !lgaToDelete) return;
 
-    const newLgas = selectedState.lgas
-      .filter((l) => l.id !== lgaToDelete.id)
-      .map((l) => l.name);
-
-    updateStateMutation.mutate(
-      {
-        id: selectedState.id,
-        payload: { name: selectedState.name, lgas: newLgas },
+    deleteLgaMutation.mutate(lgaToDelete.id, {
+      onSuccess: () => {
+        toast.success("LGA deleted successfully");
+        setIsDeleteDialogOpen(false);
+        setLgaToDelete(null);
       },
-      {
-        onSuccess: () => {
-          toast.success("LGA deleted successfully");
-          setIsDeleteDialogOpen(false);
-          setLgaToDelete(null);
-        },
-        onError: (err) => toast.error(err.message || "Failed to delete LGA"),
-      },
-    );
+      onError: (err) => toast.error(err.message || "Failed to delete LGA"),
+    });
   };
 
   return (
@@ -380,8 +384,7 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
             {selectedState && (
               <div className="flex items-center gap-2">
                 <span className="text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-full font-bold uppercase tracking-wider">
-                  {filteredLGAs.length} of {selectedState.lgas?.length || 0}{" "}
-                  Areas
+                  {filteredLGAs.length} of {lgasData?.length} Areas
                 </span>
                 <Button
                   size="sm"
@@ -420,6 +423,12 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
                 </p>
               </div>
             </div>
+          ) : lgasLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full rounded-xl" />
+              ))}
+            </div>
           ) : filteredLGAs.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-60">
               <div className="h-12 w-12 bg-muted/50 rounded-full flex items-center justify-center">
@@ -428,7 +437,7 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
               <p className="text-xs font-medium">No LGAs match your search</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {filteredLGAs.map((lga) => (
                 <div
                   key={lga.id}
@@ -583,9 +592,11 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
             </Button>
             <Button
               onClick={handleSaveLga}
-              disabled={updateStateMutation.isPending}
+              disabled={
+                createLgaMutation.isPending || updateLgaMutation.isPending
+              }
             >
-              {updateStateMutation.isPending && (
+              {(createLgaMutation.isPending || updateLgaMutation.isPending) && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               {editingLga ? "Save Changes" : "Add LGA"}
@@ -635,10 +646,13 @@ export default function StatesParameters({ tab }: StatesParametersProps) {
               }
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={
-                deleteStateMutation.isPending || updateStateMutation.isPending
+                deleteStateMutation.isPending ||
+                deleteLgaMutation.isPending ||
+                updateStateMutation.isPending
               }
             >
               {(deleteStateMutation.isPending ||
+                deleteLgaMutation.isPending ||
                 updateStateMutation.isPending) && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}

@@ -386,7 +386,7 @@ export default function LoginPage() {
                       onFocus={(e) => e.target.select()}
                       className={`h-14 w-11 rounded-xl border text-center text-xl font-bold tabular-nums outline-none transition-all
                         focus:border-primary focus:ring-2 focus:ring-primary/20
-                        ${digit ? "border-primary/40 bg-primary/5" : "border-border bg-muted/20"}
+                        ${digit ? "border-primary/40 bg-primary/5" : "border-gray-400 bg-muted/20"}
                         ${error ? "border-destructive/50 bg-destructive/5" : ""}
                       `}
                     />

@@ -23,17 +23,33 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { currentUser } = useStore();
+  const { currentUser, isSessionExpired, setIsSessionExpired } = useStore();
   const [mounted, setMounted] = useState(false);
   const [showSessionDialog, setShowSessionDialog] = useState(false);
 
+  const handleRedirect = () => {
+    setIsSessionExpired(false);
+    setShowSessionDialog(false);
+    router.replace("/login");
+  };
+
   useEffect(() => {
-    // eslint-disable-next-line
     setMounted(true);
-    if (!currentUser) {
-      setShowSessionDialog(true);
+
+    // Only proceed if mounted and hydration is complete
+    if (typeof window !== "undefined") {
+      const isHydrated = useStore.persist.hasHydrated();
+
+      if (isHydrated && !currentUser) {
+        if (isSessionExpired) {
+          setShowSessionDialog(true);
+        } else {
+          // Default behavior for unauthenticated access: silent redirect
+          router.replace("/login");
+        }
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, isSessionExpired, router]);
 
   if (!mounted) return null;
 
@@ -42,7 +58,7 @@ export default function DashboardLayout({
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Dialog
           open={showSessionDialog}
-          onOpenChange={() => router.replace("/login")}
+          onOpenChange={handleRedirect}
         >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -61,7 +77,7 @@ export default function DashboardLayout({
               <Button
                 type="button"
                 className="w-full sm:w-auto px-8 cursor-pointer"
-                onClick={() => router.replace("/login")}
+                onClick={handleRedirect}
               >
                 Sign In
               </Button>

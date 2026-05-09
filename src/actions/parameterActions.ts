@@ -1,3 +1,5 @@
+"use server";
+
 import api from "@/services/api";
 import { ApiResponse, PaginatedResponse } from "@/types";
 import {
@@ -9,6 +11,8 @@ import {
   LGA,
   State,
   UpdateStatePayload,
+  CreateLgaPayload,
+  UpdateLgaPayload,
   CautionReason,
   CreateCautionReasonPayload,
   GetCautionReasonsParams,
@@ -141,6 +145,56 @@ export const deleteState = async (id: number) => {
     `/parameters/states/${id}`,
   );
 
+  return response.data;
+};
+
+// ========================================
+// services/lga.ts
+// ========================================
+
+// GET ALL LGAs
+export const getAllLgas = async () => {
+  const response = await api.get<ApiResponse<LGA[]>>("/parameters/lgas/all");
+  return response.data?.data;
+};
+
+// GET LGAs BY STATE
+export const getLgasByState = async (stateId?: number) => {
+  const response = await api.get<ApiResponse<LGA[]>>(
+    `/parameters/lgas/state/${stateId}`,
+  );
+  return response.data?.data;
+};
+
+// GET LGA BY ID
+export const getLgaById = async (id: number) => {
+  const response = await api.get<ApiResponse<LGA>>(`/parameters/lgas/${id}`);
+  return response.data;
+};
+
+// CREATE LGA
+export const createLga = async (payload: CreateLgaPayload) => {
+  const response = await api.post<ApiResponse<LGA>>(
+    "/parameters/lgas",
+    payload,
+  );
+  return response.data;
+};
+
+// UPDATE LGA
+export const updateLga = async (id: number, payload: UpdateLgaPayload) => {
+  const response = await api.put<ApiResponse<LGA>>(
+    `/parameters/lgas/${id}`,
+    payload,
+  );
+  return response.data;
+};
+
+// DELETE LGA
+export const deleteLga = async (id: number) => {
+  const response = await api.delete<ApiResponse<string>>(
+    `/parameters/lgas/${id}`,
+  );
   return response.data;
 };
 
