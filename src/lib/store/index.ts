@@ -30,6 +30,8 @@ export interface AppState {
   // Auth
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
+  isSessionExpired: boolean;
+  setIsSessionExpired: (expired: boolean) => void;
 
   // Master data
   principals: Principal[];
@@ -57,6 +59,7 @@ export interface AppState {
   addRegister: (r: Register) => void;
   updateRegister: (id: string, updates: Partial<Register>) => void;
   addUser: (u: User) => void;
+  setUsers: (users: User[]) => void;
   updateUser: (id: string, updates: Partial<User>) => void;
   addAgent: (a: Agent) => void;
   addAgentType: (t: AgentType) => void;
@@ -81,6 +84,8 @@ export const useStore = create<AppState>()(
     (set) => ({
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
+      isSessionExpired: false,
+      setIsSessionExpired: (expired) => set({ isSessionExpired: expired }),
 
       principals: [],
       registers: [],
@@ -108,6 +113,7 @@ export const useStore = create<AppState>()(
         registers: state.registers.map((r) => (r.id === id ? { ...r, ...updates } : r))
       })),
       addUser: (u) => set((state) => ({ users: [...state.users, u] })),
+      setUsers: (users) => set({ users }),
       updateUser: (id, updates) => set((state) => ({
         users: state.users.map((u) => (u.id === id ? { ...u, ...updates } : u))
       })),
