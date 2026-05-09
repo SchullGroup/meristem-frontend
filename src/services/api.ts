@@ -1,5 +1,6 @@
 import axios from "axios";
 import Cookies from "js-cookie";
+import { useStore } from "@/lib/store";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL;
 
@@ -40,5 +41,19 @@ api.interceptors.request.use(async (config) => {
 
   return config;
 });
+
+// Add a response interceptor to handle 401s
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const store = useStore.getState();
+      store.setCurrentUser(null);
+      store.setIsSessionExpired(true);
+      Cookies.remove("token");
+    }
+    return Promise.reject(error);
+  },
+);
 
 export default api;

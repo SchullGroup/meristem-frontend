@@ -71,6 +71,16 @@ export interface UpdateStatePayload {
   lgas: string[];
 }
 
+export interface CreateLgaPayload {
+  name: string;
+  stateId: number;
+}
+
+export interface UpdateLgaPayload {
+  name: string;
+  stateId: number;
+}
+
 export interface TransformedStates {
   content: State[];
 }
