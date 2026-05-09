@@ -1,30 +1,52 @@
 "use client";
 
 import { useStore } from "@/lib/store";
-import { Building2, BookOpen, ClipboardCheck, Coins, CheckCircle } from "lucide-react";
+import {
+  Building2,
+  BookOpen,
+  ClipboardCheck,
+  Coins,
+  CheckCircle,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 
 export default function DashboardHome() {
-  const { currentUser, principals, registers, pendingApprovals, dividendDeclarations } = useStore();
+  const {
+    currentUser,
+    principals,
+    registers,
+    pendingApprovals,
+    dividendDeclarations,
+  } = useStore();
   const router = useRouter();
 
   if (!currentUser) return null;
 
   const totalPrincipals = principals.length;
-  const activeRegisters = registers.filter(r => r.status === "ACTIVE").length;
-  const pendingCount = pendingApprovals.filter(a => a.status === "PENDING").length;
-  const declaredYTD = dividendDeclarations.filter(d => d.status === "AUTHORIZED").length;
+  const activeRegisters = registers.filter((r) => r.status === "ACTIVE").length;
+  const pendingCount = pendingApprovals.filter(
+    (a) => a.status === "PENDING",
+  ).length;
+  const declaredYTD = dividendDeclarations.filter(
+    (d) => d.status === "AUTHORIZED",
+  ).length;
 
   const recentDividends = [...dividendDeclarations]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
     .slice(0, 5);
 
   const topPending = [...pendingApprovals]
-    .filter(a => a.status === "PENDING")
-    .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+    .filter((a) => a.status === "PENDING")
+    .sort(
+      (a, b) =>
+        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+    )
     .slice(0, 5);
 
   const formatNaira = (num: number) => {
@@ -35,31 +57,94 @@ export default function DashboardHome() {
 
   const getDivStatusBadge = (status: string) => {
     switch (status) {
-      case "DRAFT":         return <Badge className="bg-gray-100      text-gray-600   border-0 text-xs">Draft</Badge>;
-      case "PENDING_TIER2": return <Badge className="bg-amber-100     text-amber-800  border-0 text-xs">Pending Tier 2</Badge>;
-      case "PENDING_TIER3": return <Badge className="bg-orange-100    text-orange-800 border-0 text-xs">Pending Tier 3</Badge>;
-      case "PENDING_TIER4": return <Badge className="bg-yellow-100    text-yellow-800 border-0 text-xs">Pending Tier 4</Badge>;
-      case "AUTHORIZED":    return <Badge className="bg-blue-100      text-blue-800   border-0 text-xs">Authorized</Badge>;
-      case "PAID":          return <Badge className="bg-green-100     text-green-800  border-0 text-xs">Paid</Badge>;
-      case "REJECTED":      return <Badge className="bg-red-100       text-red-700    border-0 text-xs">Rejected</Badge>;
-      default:              return <Badge className="bg-gray-100      text-gray-700   border-0 text-xs">{status}</Badge>;
+      case "DRAFT":
+        return (
+          <Badge className="bg-gray-100      text-gray-600   border-0 text-xs">
+            Draft
+          </Badge>
+        );
+      case "PENDING_TIER2":
+        return (
+          <Badge className="bg-amber-100     text-amber-800  border-0 text-xs">
+            Pending Tier 2
+          </Badge>
+        );
+      case "PENDING_TIER3":
+        return (
+          <Badge className="bg-orange-100    text-orange-800 border-0 text-xs">
+            Pending Tier 3
+          </Badge>
+        );
+      case "PENDING_TIER4":
+        return (
+          <Badge className="bg-yellow-100    text-yellow-800 border-0 text-xs">
+            Pending Tier 4
+          </Badge>
+        );
+      case "AUTHORIZED":
+        return (
+          <Badge className="bg-blue-100      text-blue-800   border-0 text-xs">
+            Authorized
+          </Badge>
+        );
+      case "PAID":
+        return (
+          <Badge className="bg-green-100     text-green-800  border-0 text-xs">
+            Paid
+          </Badge>
+        );
+      case "REJECTED":
+        return (
+          <Badge className="bg-red-100       text-red-700    border-0 text-xs">
+            Rejected
+          </Badge>
+        );
+      default:
+        return (
+          <Badge className="bg-gray-100      text-gray-700   border-0 text-xs">
+            {status}
+          </Badge>
+        );
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "ACTIVE": return <Badge className="bg-green-100 text-green-800 border-0 text-xs">Active</Badge>;
-      case "TRANSACTION_DISABLED": return <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">Disabled</Badge>;
-      case "INACTIVE": return <Badge className="bg-gray-100 text-gray-600 border-0 text-xs">Inactive</Badge>;
-      default: return <Badge className="text-xs">{status}</Badge>;
+      case "ACTIVE":
+        return (
+          <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+            Active
+          </Badge>
+        );
+      case "TRANSACTION_DISABLED":
+        return (
+          <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
+            Disabled
+          </Badge>
+        );
+      case "INACTIVE":
+        return (
+          <Badge className="bg-gray-100 text-gray-600 border-0 text-xs">
+            Inactive
+          </Badge>
+        );
+      default:
+        return <Badge className="text-xs">{status}</Badge>;
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">Good morning, {currentUser.firstName}.</h1>
-        <p className="text-sm text-muted-foreground">{currentUser.role.replace(/_/g, ' ')} Dashboard</p>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Good morning, {currentUser.firstName ?? currentUser.username}.
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {currentUser.role?.replace(/_/g, " ") ??
+            (currentUser?.roles && currentUser?.roles[0]?.replace(/_/g, " ")) ??
+            "User"}{" "}
+          Dashboard
+        </p>
       </div>
 
       {/* Row 1: Stat Cards */}
@@ -70,30 +155,46 @@ export default function DashboardHome() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-bold tabular-nums">{totalPrincipals}</span>
-            <div className="text-xs text-green-600 mt-1 font-medium">+1 this month</div>
+            <span className="text-3xl font-bold tabular-nums">
+              {totalPrincipals}
+            </span>
+            <div className="text-xs text-green-600 mt-1 font-medium">
+              +1 this month
+            </div>
           </div>
         </Card>
-        
+
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <span className="mrpsl-section-title">Active Registers</span>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-bold tabular-nums">{activeRegisters}</span>
-            <div className="text-xs text-muted-foreground mt-1">Across all principals</div>
+            <span className="text-3xl font-bold tabular-nums">
+              {activeRegisters}
+            </span>
+            <div className="text-xs text-muted-foreground mt-1">
+              Across all principals
+            </div>
           </div>
         </Card>
 
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <span className="mrpsl-section-title">Pending Approvals</span>
-            <ClipboardCheck className={`h-4 w-4 ${pendingCount > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+            <ClipboardCheck
+              className={`h-4 w-4 ${pendingCount > 0 ? "text-destructive" : "text-muted-foreground"}`}
+            />
           </div>
           <div className="mt-2">
-            <span className={`text-3xl font-bold tabular-nums ${pendingCount > 0 ? "text-destructive" : ""}`}>{pendingCount}</span>
-            <div className="text-xs text-muted-foreground mt-1">Items awaiting action</div>
+            <span
+              className={`text-3xl font-bold tabular-nums ${pendingCount > 0 ? "text-destructive" : ""}`}
+            >
+              {pendingCount}
+            </span>
+            <div className="text-xs text-muted-foreground mt-1">
+              Items awaiting action
+            </div>
           </div>
         </Card>
 
@@ -103,8 +204,12 @@ export default function DashboardHome() {
             <Coins className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-bold tabular-nums">{declaredYTD}</span>
-            <div className="text-xs text-muted-foreground mt-1">Authorized payouts</div>
+            <span className="text-3xl font-bold tabular-nums">
+              {declaredYTD}
+            </span>
+            <div className="text-xs text-muted-foreground mt-1">
+              Authorized payouts
+            </div>
           </div>
         </Card>
       </div>
@@ -112,7 +217,9 @@ export default function DashboardHome() {
       {/* Row 2: Two Columns */}
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-2 space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Recent Dividend Declarations</h2>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Recent Dividend Declarations
+          </h2>
           <Card className="mrpsl-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -128,28 +235,54 @@ export default function DashboardHome() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentDividends.length > 0 ? recentDividends.map((div) => {
-                    const register = registers.find(r => r.id === div.registerId);
-                    return (
-                      <tr key={div.id} className="mrpsl-table-row">
-                        <td className="px-4 py-3 font-medium">{register?.symbol || div.registerId}</td>
-                        <td className="px-4 py-3">{div.dividendType}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">₦{div.rate.toFixed(4)}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{formatNaira(div.grossLiability)}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className="text-xs">Tier {div.tier}</Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          {getDivStatusBadge(div.status)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => router.push('/dividends/declaration')}>View</Button>
-                        </td>
-                      </tr>
-                    );
-                  }) : (
+                  {recentDividends.length > 0 ? (
+                    recentDividends.map((div) => {
+                      const register = registers.find(
+                        (r) => r.id === div.registerId,
+                      );
+                      return (
+                        <tr key={div.id} className="mrpsl-table-row">
+                          <td className="px-4 py-3 font-medium">
+                            {register?.symbol || div.registerId}
+                          </td>
+                          <td className="px-4 py-3">{div.dividendType}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">
+                            ₦{div.rate.toFixed(4)}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums">
+                            {formatNaira(div.grossLiability)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant="outline" className="text-xs">
+                              Tier {div.tier}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            {getDivStatusBadge(div.status)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() =>
+                                router.push("/dividends/declaration")
+                              }
+                            >
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">No recent declarations found.</td>
+                      <td
+                        colSpan={7}
+                        className="px-4 py-8 text-center text-muted-foreground text-sm"
+                      >
+                        No recent declarations found.
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -159,19 +292,37 @@ export default function DashboardHome() {
         </div>
 
         <div className="col-span-1 space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Pending Approvals Queue</h2>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Pending Approvals Queue
+          </h2>
           <Card className="mrpsl-card">
             {topPending.length > 0 ? (
               <div className="divide-y divide-border">
                 {topPending.map((item) => (
-                  <div key={item.id} className="p-4 flex flex-col gap-2 hover:bg-accent/5 transition-colors">
+                  <div
+                    key={item.id}
+                    className="p-4 flex flex-col gap-2 hover:bg-accent/5 transition-colors"
+                  >
                     <div className="flex justify-between items-start">
-                      <span className="text-sm font-medium line-clamp-1 flex-1 pr-4">{item.description}</span>
-                      {item.tier && <Badge variant="outline" className="text-xs shrink-0">T{item.tier}</Badge>}
+                      <span className="text-sm font-medium line-clamp-1 flex-1 pr-4">
+                        {item.description}
+                      </span>
+                      {item.tier && (
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          T{item.tier}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-muted-foreground">3h ago</span>
-                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => router.push('/approvals')}>
+                      <span className="text-xs text-muted-foreground">
+                        3h ago
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => router.push("/approvals")}
+                      >
                         Review
                       </Button>
                     </div>
@@ -181,12 +332,19 @@ export default function DashboardHome() {
             ) : (
               <div className="p-8 text-center flex flex-col items-center">
                 <CheckCircle className="h-8 w-8 text-muted-foreground mb-2 opacity-20" />
-                <span className="text-sm text-muted-foreground">No pending approvals</span>
+                <span className="text-sm text-muted-foreground">
+                  No pending approvals
+                </span>
               </div>
             )}
             {topPending.length > 0 && (
               <div className="p-2 border-t bg-muted/20">
-                <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => router.push('/approvals')}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground"
+                  onClick={() => router.push("/approvals")}
+                >
                   View all {pendingCount} pending items
                 </Button>
               </div>
@@ -197,7 +355,9 @@ export default function DashboardHome() {
 
       {/* Row 3: Register Overview */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">Register Status Overview</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          Register Status Overview
+        </h2>
         <Card className="mrpsl-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -214,24 +374,45 @@ export default function DashboardHome() {
               </thead>
               <tbody>
                 {registers.map((reg) => {
-                  const principal = principals.find(p => p.id === reg.principalId);
+                  const principal = principals.find(
+                    (p) => p.id === reg.principalId,
+                  );
                   return (
                     <tr key={reg.id} className="mrpsl-table-row">
                       <td className="px-4 py-3">
                         <div className="font-semibold">{reg.symbol}</div>
-                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">{reg.name}</div>
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                          {reg.name}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-xs">{principal?.name || "Unknown"}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {principal?.name || "Unknown"}
+                      </td>
                       <td className="px-4 py-3">
-                        <Badge variant="outline" className="text-xs">{reg.registerType.replace(/\b\w/g, c => c.toUpperCase())}</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {reg.registerType.replace(/\b\w/g, (c) =>
+                            c.toUpperCase(),
+                          )}
+                        </Badge>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums">{reg.shareholdersToday.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{reg.stockToday.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {reg.shareholdersToday.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {reg.stockToday.toLocaleString()}
+                      </td>
                       <td className="px-4 py-3">
                         {getStatusBadge(reg.status)}
                       </td>
                       <td className="px-4 py-3">
-                        <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => router.push(`/setup/registers?search=${reg.symbol}`)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() =>
+                            router.push(`/setup/registers?search=${reg.symbol}`)
+                          }
+                        >
                           View
                         </Button>
                       </td>
