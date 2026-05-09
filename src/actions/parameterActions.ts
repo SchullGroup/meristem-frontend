@@ -1,3 +1,5 @@
+"use server";
+
 import api from "@/services/api";
 import { ApiResponse, PaginatedResponse } from "@/types";
 import {
