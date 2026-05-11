@@ -2,6 +2,7 @@ export interface User {
   id: string;
   firstName: string;
   lastName: string;
+  username?: string;
   email: string;
   phone: string;
   roles: string[];
@@ -251,7 +252,7 @@ export interface ApprovalItem {
 }
 
 export interface ApprovalStep {
-  role: string[];
+  roles: string[];
   approverName?: string;
   approverId?: string;
   decision?: "APPROVED" | "REJECTED";

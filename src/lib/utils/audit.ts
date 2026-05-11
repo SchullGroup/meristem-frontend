@@ -20,8 +20,10 @@ export function logAudit(params: LogAuditParams) {
     entityId: params.entityId,
     before: params.before,
     after: params.after,
-    actor: currentUser ? `${currentUser.firstName} ${currentUser.lastName}` : "System",
+    actor: currentUser
+      ? `${currentUser.firstName} ${currentUser.lastName}`
+      : "System",
     actorId: currentUser?.id || "SYS",
-    role: currentUser?.role || "SYSTEM",
+    role: currentUser?.roles?.[0] || "SYSTEM",
   });
 }
