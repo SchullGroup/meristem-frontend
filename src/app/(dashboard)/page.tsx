@@ -137,10 +137,10 @@ export default function DashboardHome() {
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight">
-          Good morning, {currentUser.firstName ?? currentUser.username}.
+          Good morning, {currentUser?.firstName ?? currentUser?.username}.
         </h1>
         <p className="text-sm text-muted-foreground">
-          {currentUser.role?.replace(/_/g, " ") ??
+          {currentUser.roles?.[0]?.replace(/_/g, " ") ??
             (currentUser?.roles && currentUser?.roles[0]?.replace(/_/g, " ")) ??
             "User"}{" "}
           Dashboard
