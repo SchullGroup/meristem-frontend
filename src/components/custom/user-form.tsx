@@ -56,8 +56,8 @@ const userSchema = z.object({
   department: z.string().min(1, "Department is required"),
   role: z.string().min(1, "Primary role is required"),
   secondaryRole: z.string().optional(),
-  certTransactionLimit: z.coerce.number().min(0),
-  divTransactionLimit: z.coerce.number().min(0),
+  certificateTransactionLimit: z.coerce.number().min(0),
+  dividendTransactionLimit: z.coerce.number().min(0),
   status: z.enum(["ACTIVE", "INACTIVE"]),
   firstTimeLogin: z.boolean().default(true),
 });
@@ -103,8 +103,8 @@ export function UserForm({
           department: initialData.department,
           role: initialData.roles[0],
           secondaryRole: initialData.roles[1] || "",
-          certTransactionLimit: initialData.certTransactionLimit,
-          divTransactionLimit: initialData.divTransactionLimit,
+          certificateTransactionLimit: initialData.certificateTransactionLimit,
+          dividendTransactionLimit: initialData.dividendTransactionLimit,
           status: initialData.status,
           firstTimeLogin: false,
         }
@@ -116,8 +116,8 @@ export function UserForm({
           department: "",
           role: "",
           secondaryRole: "",
-          certTransactionLimit: 0,
-          divTransactionLimit: 0,
+          certificateTransactionLimit: 0,
+          dividendTransactionLimit: 0,
           status: "ACTIVE",
           firstTimeLogin: true,
         },
@@ -144,8 +144,8 @@ export function UserForm({
         department: values.department,
         roles: [values.role],
         secondaryRole: values.secondaryRole ? values.secondaryRole : undefined,
-        certTransactionLimit: values.certTransactionLimit,
-        divTransactionLimit: values.divTransactionLimit,
+        certificateTransactionLimit: values.certificateTransactionLimit,
+        dividendTransactionLimit: values.dividendTransactionLimit,
         status: values.status,
       });
     }
@@ -341,7 +341,7 @@ export function UserForm({
                   />
                   <FormField
                     control={form.control}
-                    name="certTransactionLimit"
+                    name="certificateTransactionLimit"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
                         <FormLabel className="mrpsl-label">
@@ -360,7 +360,7 @@ export function UserForm({
                   />
                   <FormField
                     control={form.control}
-                    name="divTransactionLimit"
+                    name="dividendTransactionLimit"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
                         <FormLabel className="mrpsl-label">

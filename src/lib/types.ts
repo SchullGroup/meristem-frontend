@@ -7,8 +7,10 @@ export interface User {
   roles: string[];
   secondaryRole?: string;
   department: string;
-  certTransactionLimit: number;
-  divTransactionLimit: number;
+  certificateTransactionLimit: number;
+  certTransactionLimit?: number;
+  dividendTransactionLimit: number;
+  divTransactionLimit?: number;
   status: "ACTIVE" | "INACTIVE";
   twoFAEnabled: boolean;
   lastLogin?: string;
