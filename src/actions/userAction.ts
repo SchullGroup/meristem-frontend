@@ -1,4 +1,4 @@
-"use server";
+// "use server";
 
 import api from "@/services/api";
 import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
