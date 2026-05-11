@@ -6,13 +6,36 @@ import Link from "next/link";
 import Image from "next/image";
 import { useStore } from "@/lib/store";
 import {
-  LayoutDashboard, Settings, TrendingUp, FileText, Coins, UserCog,
-  Search, BarChart3, ClipboardCheck, ChevronRight, LogOut, Users
+  LayoutDashboard,
+  Settings,
+  TrendingUp,
+  FileText,
+  Coins,
+  UserCog,
+  Search,
+  BarChart3,
+  ClipboardCheck,
+  ChevronRight,
+  LogOut,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +44,7 @@ const NAV_GROUPS = [
     title: "Dashboard",
     icon: LayoutDashboard,
     href: "/",
-    items: []
+    items: [],
   },
   {
     title: "Setup",
@@ -33,7 +56,7 @@ const NAV_GROUPS = [
       { label: "Users", href: "/setup/users" },
       { label: "Agents", href: "/setup/agents" },
       { label: "Other Parameters", href: "/setup/parameters" },
-    ]
+    ],
   },
   {
     title: "Offer Administration",
@@ -42,7 +65,7 @@ const NAV_GROUPS = [
       { label: "IPO / Public Offer", href: "/offers/ipo" },
       { label: "Rights Issue", href: "/offers/rights-issue" },
       { label: "Bonus Issue", href: "/offers/bonus-issue" },
-    ]
+    ],
   },
   {
     title: "Certificate Management",
@@ -54,7 +77,7 @@ const NAV_GROUPS = [
       { label: "Certificate Split", href: "/certificates/split" },
       { label: "Consolidation", href: "/certificates/consolidation" },
       { label: "Transfer", href: "/certificates/transfer" },
-    ]
+    ],
   },
   {
     title: "Dividend Management",
@@ -65,16 +88,19 @@ const NAV_GROUPS = [
       { label: "Dividend Payment", href: "/dividends/payment" },
       { label: "Dividend Split", href: "/dividends/split" },
       { label: "Warrant Mark-Off", href: "/dividends/warrant-markoff" },
-    ]
+    ],
   },
   {
     title: "Account Maintenance",
     icon: UserCog,
     items: [
-      { label: "Account Consolidation", href: "/account-maintenance/consolidation" },
+      {
+        label: "Account Consolidation",
+        href: "/account-maintenance/consolidation",
+      },
       { label: "KYC Update", href: "/account-maintenance/kyc-update" },
       { label: "Administration (ADMON)", href: "/account-maintenance/admon" },
-    ]
+    ],
   },
   {
     title: "Enquiry",
@@ -85,8 +111,8 @@ const NAV_GROUPS = [
       { label: "Warrant", href: "/enquiry/warrant" },
       { label: "Rights", href: "/enquiry/rights" },
       { label: "Agent", href: "/enquiry/agent" },
-    ]
-  }
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -94,16 +120,16 @@ export function Sidebar() {
   const router = useRouter();
   const { currentUser, users, setCurrentUser, pendingApprovals } = useStore();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    "Setup": true,
-    "Certificate Management": true
+    Setup: true,
+    "Certificate Management": true,
   });
   const [switchRoleOpen, setSwitchRoleOpen] = useState(false);
   const [switchUserId, setSwitchUserId] = useState<string>("");
 
   useEffect(() => {
-    NAV_GROUPS.forEach(group => {
-      if (group.items?.some(item => pathname.startsWith(item.href))) {
-        setOpenGroups(prev => ({ ...prev, [group.title]: true }));
+    NAV_GROUPS.forEach((group) => {
+      if (group.items?.some((item) => pathname.startsWith(item.href))) {
+        setOpenGroups((prev) => ({ ...prev, [group.title]: true }));
       }
     });
   }, [pathname]);
@@ -111,16 +137,18 @@ export function Sidebar() {
   if (!currentUser) return null;
 
   const toggleGroup = (title: string) => {
-    setOpenGroups(prev => ({ ...prev, [title]: !prev[title] }));
+    setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
   };
 
   const handleSwitchRole = () => {
-    const user = users.find(u => u.id === switchUserId);
+    const user = users.find((u) => u.id === switchUserId);
     if (user) {
       setCurrentUser(user);
       setSwitchRoleOpen(false);
       setSwitchUserId("");
-      toast.success(`Switched to ${user.firstName} ${user.lastName} (${user.role})`);
+      toast.success(
+        `Switched to ${user.firstName} ${user.lastName} (${user.roles?.[0]})`,
+      );
     }
   };
 
@@ -129,7 +157,9 @@ export function Sidebar() {
     router.push("/login");
   };
 
-  const pendingCount = pendingApprovals.filter(a => a.status === "PENDING").length;
+  const pendingCount = pendingApprovals.filter(
+    (a) => a.status === "PENDING",
+  ).length;
 
   return (
     <>
@@ -154,9 +184,14 @@ export function Sidebar() {
             {NAV_GROUPS.map((group) => {
               const isOpen = openGroups[group.title];
               const hasItems = group.items && group.items.length > 0;
-              const isGroupActive = hasItems && group.items.some(item => pathname.startsWith(item.href));
-              const isSingleActive = !hasItems && group.href &&
-                (pathname === group.href || (group.href !== "/" && pathname.startsWith(group.href)));
+              const isGroupActive =
+                hasItems &&
+                group.items.some((item) => pathname.startsWith(item.href));
+              const isSingleActive =
+                !hasItems &&
+                group.href &&
+                (pathname === group.href ||
+                  (group.href !== "/" && pathname.startsWith(group.href)));
 
               return (
                 <div key={group.title}>
@@ -168,20 +203,28 @@ export function Sidebar() {
                           "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group text-sm",
                           isGroupActive
                             ? "text-foreground font-medium"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
                         )}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <group.icon className={cn(
-                            "h-4 w-4 shrink-0",
-                            isGroupActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                          )} />
-                          <span className="whitespace-nowrap">{group.title}</span>
+                          <group.icon
+                            className={cn(
+                              "h-4 w-4 shrink-0",
+                              isGroupActive
+                                ? "text-primary"
+                                : "text-muted-foreground group-hover:text-foreground",
+                            )}
+                          />
+                          <span className="whitespace-nowrap">
+                            {group.title}
+                          </span>
                         </div>
-                        <ChevronRight className={cn(
-                          "h-3.5 w-3.5 shrink-0 transition-transform text-muted-foreground",
-                          isOpen ? "rotate-90" : ""
-                        )} />
+                        <ChevronRight
+                          className={cn(
+                            "h-3.5 w-3.5 shrink-0 transition-transform text-muted-foreground",
+                            isOpen ? "rotate-90" : "",
+                          )}
+                        />
                       </button>
 
                       {isOpen && (
@@ -196,7 +239,7 @@ export function Sidebar() {
                                   "flex items-center pl-10 pr-3 py-1.5 rounded-lg text-[13px] transition-colors relative whitespace-nowrap",
                                   isActive
                                     ? "bg-primary/8 text-primary font-semibold"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
                                 )}
                               >
                                 {isActive && (
@@ -216,13 +259,17 @@ export function Sidebar() {
                         "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors group text-sm",
                         isSingleActive
                           ? "text-foreground font-medium bg-muted/50"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
                       )}
                     >
-                      <group.icon className={cn(
-                        "h-4 w-4 shrink-0",
-                        isSingleActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                      )} />
+                      <group.icon
+                        className={cn(
+                          "h-4 w-4 shrink-0",
+                          isSingleActive
+                            ? "text-primary"
+                            : "text-muted-foreground group-hover:text-foreground",
+                        )}
+                      />
                       <span className="whitespace-nowrap">{group.title}</span>
                     </Link>
                   )}
@@ -237,13 +284,17 @@ export function Sidebar() {
                   "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors group text-sm",
                   pathname.startsWith("/reports")
                     ? "text-foreground font-medium bg-muted/50"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
                 )}
               >
-                <BarChart3 className={cn(
-                  "h-4 w-4 shrink-0",
-                  pathname.startsWith("/reports") ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                )} />
+                <BarChart3
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    pathname.startsWith("/reports")
+                      ? "text-primary"
+                      : "text-muted-foreground group-hover:text-foreground",
+                  )}
+                />
                 <span className="whitespace-nowrap">Reports</span>
               </Link>
 
@@ -253,18 +304,25 @@ export function Sidebar() {
                   "flex items-center justify-between px-3 py-2 rounded-lg transition-colors group text-sm",
                   pathname.startsWith("/approvals")
                     ? "text-foreground font-medium bg-muted/50"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
                 )}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <ClipboardCheck className={cn(
-                    "h-4 w-4 shrink-0",
-                    pathname.startsWith("/approvals") ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
-                  )} />
+                  <ClipboardCheck
+                    className={cn(
+                      "h-4 w-4 shrink-0",
+                      pathname.startsWith("/approvals")
+                        ? "text-primary"
+                        : "text-muted-foreground group-hover:text-foreground",
+                    )}
+                  />
                   <span className="whitespace-nowrap">Approvals</span>
                 </div>
                 {pendingCount > 0 && (
-                  <Badge variant="destructive" className="h-5 px-1.5 text-[10px] rounded-full shrink-0">
+                  <Badge
+                    variant="destructive"
+                    className="h-5 px-1.5 text-[10px] rounded-full shrink-0"
+                  >
                     {pendingCount}
                   </Badge>
                 )}
@@ -286,11 +344,12 @@ export function Sidebar() {
               <p className="text-[13px] font-semibold truncate">
                 {currentUser.firstName
                   ? `${currentUser.firstName} ${currentUser.lastName}`
-                  : currentUser.username}
+                  : currentUser?.username}
               </p>
               <p className="text-[10px] text-muted-foreground truncate uppercase tracking-wide">
-                {currentUser.role?.replace(/_/g, " ") ??
-                  (currentUser.roles && currentUser.roles[0]?.replace(/_/g, " ")) ??
+                {currentUser?.roles?.[0]?.replace(/_/g, " ") ??
+                  (currentUser?.roles &&
+                    currentUser.roles[0]?.replace(/_/g, " ")) ??
                   "USER"}
               </p>
             </div>
@@ -324,7 +383,10 @@ export function Sidebar() {
             </DialogDescription>
           </DialogHeader>
           <div className="px-8 py-6">
-            <Select value={switchUserId} onValueChange={(v) => setSwitchUserId(v || "")}>
+            <Select
+              value={switchUserId}
+              onValueChange={(v) => setSwitchUserId(v || "")}
+            >
               <SelectTrigger className="h-10">
                 <SelectValue placeholder="Select a user..." />
               </SelectTrigger>
@@ -334,7 +396,7 @@ export function Sidebar() {
                     {u.firstName} {u.lastName}
                     <span className="ml-2 text-muted-foreground text-xs">
                       (
-                      {u.role?.replace(/_/g, " ") ??
+                      {u.roles?.[0]?.replace(/_/g, " ") ??
                         (u.roles && u.roles[0]?.replace(/_/g, " ")) ??
                         "USER"}
                       )
@@ -345,7 +407,13 @@ export function Sidebar() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { setSwitchRoleOpen(false); setSwitchUserId(""); }}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSwitchRoleOpen(false);
+                setSwitchUserId("");
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleSwitchRole} disabled={!switchUserId}>
