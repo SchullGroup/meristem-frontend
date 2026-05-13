@@ -33,7 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { User } from "@/lib/types";
-import { CREATE_USER } from "@/actions/userAction";
+import { CREATE_USER, UPDATE_USER } from "@/actions/userAction";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useRoles } from "@/hooks/useRoles";
@@ -58,7 +58,7 @@ const userSchema = z.object({
   secondaryRole: z.string().optional(),
   certificateTransactionLimit: z.coerce.number().min(0),
   dividendTransactionLimit: z.coerce.number().min(0),
-  status: z.enum(["ACTIVE", "INACTIVE"]),
+  status: z.enum(["Active", "Inactive"]),
   firstTimeLogin: z.boolean().default(true),
 });
 
@@ -78,13 +78,21 @@ export function UserForm({
   initialData,
 }: UserFormProps) {
   const queryClient = useQueryClient();
-  const { users, updateUser } = useStore();
+  const { users } = useStore();
 
   const { data: roles } = useRoles();
   const roleNames = roles?.map((r: { name: string }) => r.name);
 
   const addUserMutation = useMutation({
     mutationFn: CREATE_USER,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      onOpenChange(false);
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: UPDATE_USER,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       onOpenChange(false);
@@ -99,13 +107,14 @@ export function UserForm({
           firstName: initialData.firstName,
           lastName: initialData.lastName,
           email: initialData.email,
-          phone: initialData.phone,
-          department: initialData.department,
+          phone: initialData.phone ?? "",
+          department: initialData.department ?? "",
           role: initialData.roles[0],
           secondaryRole: initialData.roles[1] || "",
-          certificateTransactionLimit: initialData.certificateTransactionLimit,
-          dividendTransactionLimit: initialData.dividendTransactionLimit,
-          status: initialData.status,
+          certificateTransactionLimit:
+            initialData.certificateTransactionLimit ?? 0,
+          dividendTransactionLimit: initialData.dividendTransactionLimit ?? 0,
+          status: initialData.status ?? "Active",
           firstTimeLogin: false,
         }
       : {
@@ -118,7 +127,7 @@ export function UserForm({
           secondaryRole: "",
           certificateTransactionLimit: 0,
           dividendTransactionLimit: 0,
-          status: "ACTIVE",
+          status: "Active",
           firstTimeLogin: true,
         },
   });
@@ -136,17 +145,22 @@ export function UserForm({
     if (mode === "create") {
       addUserMutation.mutate(values);
     } else if (initialData) {
-      updateUser(initialData.id, {
-        firstName: values.firstName,
-        lastName: values.lastName,
-        email: values.email,
-        phone: values.phone,
-        department: values.department,
-        roles: [values.role],
-        secondaryRole: values.secondaryRole ? values.secondaryRole : undefined,
-        certificateTransactionLimit: values.certificateTransactionLimit,
-        dividendTransactionLimit: values.dividendTransactionLimit,
-        status: values.status,
+      updateUserMutation.mutate({
+        id: initialData.id,
+        userData: {
+          firstName: values.firstName,
+          lastName: values.lastName,
+          email: values.email,
+          phone: values.phone,
+          department: values.department,
+          roles: [values.role],
+          secondaryRole: values.secondaryRole
+            ? values.secondaryRole
+            : undefined,
+          certificateTransactionLimit: values.certificateTransactionLimit,
+          dividendTransactionLimit: values.dividendTransactionLimit,
+          status: values.status,
+        },
       });
     }
   };
@@ -339,7 +353,7 @@ export function UserForm({
                       </FormItem>
                     )}
                   />
-                  <FormField
+                  {/* <FormField
                     control={form.control}
                     name="certificateTransactionLimit"
                     render={({ field }) => (
@@ -357,8 +371,8 @@ export function UserForm({
                         <FormMessage className="text-[10px] text-destructive mt-1" />
                       </FormItem>
                     )}
-                  />
-                  <FormField
+                  /> */}
+                  {/* <FormField
                     control={form.control}
                     name="dividendTransactionLimit"
                     render={({ field }) => (
@@ -376,7 +390,7 @@ export function UserForm({
                         <FormMessage className="text-[10px] text-destructive mt-1" />
                       </FormItem>
                     )}
-                  />
+                  /> */}
                 </div>
               </div>
 
@@ -401,7 +415,7 @@ export function UserForm({
                           >
                             <div className="flex items-center space-x-2.5">
                               <RadioGroupItem
-                                value="ACTIVE"
+                                value="Active"
                                 id="u-active"
                                 className="h-5 w-5"
                               />
@@ -414,7 +428,7 @@ export function UserForm({
                             </div>
                             <div className="flex items-center space-x-2.5">
                               <RadioGroupItem
-                                value="INACTIVE"
+                                value="Inactive"
                                 id="u-inactive"
                                 className="h-5 w-5"
                               />

@@ -38,7 +38,7 @@ export const useGetAllLGAs = (
   options?: Omit<UseQueryOptions<LGA[], Error>, "queryKey" | "queryFn">,
 ) => {
   return useQuery({
-    queryKey: lgaKeys.lists(),
+    queryKey: ["lgas"],
     queryFn: getAllLgas,
     ...options,
   });
@@ -52,7 +52,7 @@ export const useGetLGAsByState = (
   options?: Omit<UseQueryOptions<LGA[], Error>, "queryKey" | "queryFn">,
 ) => {
   return useQuery({
-    queryKey: lgaKeys.list(),
+    queryKey: ["lgas", stateId],
     queryFn: () => getLgasByState(stateId),
     enabled: !!stateId,
     ...options,
@@ -79,7 +79,7 @@ export const useCreateLGA = (
         queryKey: stateKeys.all,
       });
       queryClient.invalidateQueries({
-        queryKey: lgaKeys.all,
+        queryKey: ["lgas"],
       });
 
       options?.onSuccess?.(...args);
@@ -107,12 +107,8 @@ export const useUpdateLGA = (
     mutationFn: ({ id, payload }) => updateLga(id, payload),
 
     onSuccess: (...args) => {
-      queryClient.invalidateQueries({
-        queryKey: stateKeys.all,
-      });
-      queryClient.invalidateQueries({
-        queryKey: lgaKeys.all,
-      });
+      queryClient.invalidateQueries({ queryKey: ["states"] });
+      queryClient.invalidateQueries({ queryKey: ["lgas"] });
 
       options?.onSuccess?.(...args);
     },

@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
   useGetCautionReasons,
@@ -30,12 +29,13 @@ import {
   CautionReasonStatus,
 } from "@/types/parameters";
 import { SearchableSelect } from "@/components/custom/searchable-select";
+import { Pagination } from "../pagination";
 
-const SEVERITY_OPTIONS = ["High", "Medium", "Low"];
+const SEVERITY_OPTIONS = ["HIGH", "MEDIUM", "LOW"];
 const severityColor: Record<string, string> = {
-  High: "border-red-200   bg-red-50   text-red-700",
-  Medium: "border-amber-200 bg-amber-50 text-amber-700",
-  Low: "border-blue-200  bg-blue-50  text-blue-700",
+  HIGH: "border-red-200   bg-red-50   text-red-700",
+  MEDIUM: "border-amber-200 bg-amber-50 text-amber-700",
+  LOW: "border-blue-200  bg-blue-50  text-blue-700",
 };
 
 const labelClass =
@@ -59,9 +59,9 @@ export default function CautionParameters({
   const [cautR, setCautR] = useState("");
   const [cautS, setCautS] = useState("Medium");
   const [cautNote, setCautNote] = useState("");
-  const [currentPage, setCurrentPage] = useState(0);
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  // const [sortBy, setSortBy] = useState("createdAt");
+  // const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   // ── Caution Reasons ─────────────────────────────────────────
   const { data: cautionsData, isLoading: cautionsLoading } =
@@ -69,8 +69,6 @@ export default function CautionParameters({
       {
         page: currentPage,
         size: PAGE_SIZE,
-        sortBy,
-        sortDirection,
       },
       { enabled: tab === "caution" },
     );
@@ -205,16 +203,15 @@ export default function CautionParameters({
                   </td>
                   <td className="px-5 py-3 font-semibold">{x.reason}</td>
                   <td className="px-5 py-3">
-                    {/* <Badge
+                    <Badge
                       variant="outline"
                       className={cn(
                         "font-semibold uppercase tracking-wide text-xs px-2.5 py-0.5",
-                        severityColor[x.status],
+                        severityColor[x.severity as CautionReasonSeverity],
                       )}
                     >
                       {x.severity}
-                    </Badge> */}
-                    -----
+                    </Badge>
                   </td>
                   <td className="px-5 py-3 text-center">
                     <Switch
@@ -270,6 +267,12 @@ export default function CautionParameters({
             )}
           </tbody>
         </table>
+
+        <Pagination
+          currentPage={currentPage}
+          onPageChange={(page) => setCurrentPage(page)}
+          totalPages={cautionsData?.pagination?.totalPages || 0}
+        />
       </Card>
 
       <Dialog open={cautOpen} onOpenChange={setCautOpen}>
