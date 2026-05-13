@@ -250,7 +250,7 @@ export function PrincipalForm({
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -283,7 +283,7 @@ export function PrincipalForm({
                               });
                               field.onChange(value);
                             }}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">

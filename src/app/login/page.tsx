@@ -26,7 +26,7 @@ type Step = "credentials" | "2fa" | "forgot" | "forgot-sent";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { currentUser, setCurrentUser, seedStore } = useStore();
+  const { currentUser, setCurrentUser } = useStore();
 
   // ── Flow state ────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("credentials");

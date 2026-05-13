@@ -101,12 +101,16 @@ export const useGetRegistersByStatus = (status: string) => {
 
 export const useGetRegistersByType = (
   registerType: string,
-  options?: UseQueryOptions,
+  options?: Omit<
+    UseQueryOptions<ApiResponse<Register[]>, Error, Register[]>,
+    "queryKey" | "queryFn"
+  >,
 ) => {
   return useQuery({
     queryKey: registerKeys.type(registerType),
     queryFn: () => getRegistersByType(registerType),
     enabled: !!registerType,
+    select: (data) => data.data,
     ...options,
   });
 };

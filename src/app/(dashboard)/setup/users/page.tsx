@@ -321,7 +321,8 @@ export default function UsersPage() {
                       </Badge>
                     ) : (
                       <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
-                        Pending
+                        {/* Pending */}
+                        Disabled
                       </Badge>
                     )}
                   </td>
@@ -372,7 +373,9 @@ export default function UsersPage() {
                           onClick={() => toast.success("User status changed")}
                         >
                           <Power className="mr-2 h-4 w-4" />{" "}
-                          {u.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                          {u.status.toUpperCase() === "ACTIVE"
+                            ? "Deactivate"
+                            : "Activate"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => toast.info("Audit log soon")}

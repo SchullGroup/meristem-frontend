@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   PlusCircle,
@@ -166,6 +166,20 @@ export default function PrincipalsPage() {
     setConfirmStatusOpen(true);
   };
 
+  // const principalFStats = useMemo(() => {
+  //   const inactive = principals?.content?.filter(
+  //     (p) => p.status.toLowerCase() === "inactive",
+  //   );
+  //   const active = principals?.content?.filter(
+  //     (p) => p.status.toLowerCase() === "active",
+  //   );
+
+  //   return {
+  //     active: active?.length ?? 0,
+  //     inactive: inactive?.length ?? 0,
+  //   };
+  // }, [principals]);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -210,6 +224,7 @@ export default function PrincipalsPage() {
               <div className="w-14 h-6 bg-gray-300 animate-pulse rounded-md" />
             ) : (
               <div className="text-2xl font-bold font-mono text-green-600">
+                {/* {principalStats?.activePrincipals ?? 0} */}
                 {principalStats?.activePrincipals ?? 0}
               </div>
             )}
@@ -225,6 +240,7 @@ export default function PrincipalsPage() {
               <div className="w-14 h-6 bg-gray-300 animate-pulse rounded-md" />
             ) : (
               <div className="text-2xl font-bold font-mono text-muted-foreground">
+                {/* {principalStats?.inactivePrincipals ?? 0} */}
                 {principalStats?.inactivePrincipals ?? 0}
               </div>
             )}
@@ -275,6 +291,7 @@ export default function PrincipalsPage() {
       {/* Filter Bar */}
       <div className="flex gap-2 items-center">
         <Input
+          type="search"
           placeholder="Search principals..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}

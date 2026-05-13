@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, CheckCircle2, Lock } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { BrandPanel } from "@/components/custom/auth/brand-panel";
 import { SiteLogo } from "@/components/custom/auth/site-logo";
 
@@ -21,12 +21,12 @@ export default function ResetPasswordPage() {
 
   const handleReset = () => {
     setError("");
-    
+
     if (!password) {
       setError("Please enter a new password.");
       return;
     }
-    
+
     if (password.length < 8) {
       setError("Password must be at least 8 characters long.");
       return;
@@ -38,12 +38,12 @@ export default function ResetPasswordPage() {
     }
 
     setIsLoading(true);
-    
+
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
       setIsSuccess(true);
-      
+
       // Redirect to login after 3 seconds
       setTimeout(() => {
         router.push("/login");
@@ -119,7 +119,7 @@ export default function ResetPasswordPage() {
                   )}
                   {isLoading ? "Resetting…" : "Reset Password"}
                 </Button>
-                
+
                 {!token && (
                   <p className="text-[10px] text-center text-destructive/80">
                     Invalid or missing reset token. Please request a new link.
