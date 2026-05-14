@@ -33,55 +33,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-
-// ── Nigerian states ────────────────────────────────────────────────
-
-const NG_STATES = [
-  "Abia",
-  "Adamawa",
-  "Akwa Ibom",
-  "Anambra",
-  "Bauchi",
-  "Bayelsa",
-  "Benue",
-  "Borno",
-  "Cross River",
-  "Delta",
-  "Ebonyi",
-  "Edo",
-  "Ekiti",
-  "Enugu",
-  "FCT (Abuja)",
-  "Gombe",
-  "Imo",
-  "Jigawa",
-  "Kaduna",
-  "Kano",
-  "Katsina",
-  "Kebbi",
-  "Kogi",
-  "Kwara",
-  "Lagos",
-  "Nasarawa",
-  "Niger",
-  "Ogun",
-  "Ondo",
-  "Osun",
-  "Oyo",
-  "Plateau",
-  "Rivers",
-  "Sokoto",
-  "Taraba",
-  "Yobe",
-  "Zamfara",
-];
+import { usePagination } from "@/lib/use-pagination";
+import { TablePagination } from "@/components/custom/table-pagination";
+import { NIGERIA_STATE_NAMES } from "@/lib/mocks/nigeria-geo";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -112,7 +73,7 @@ const INITIAL_RECORDS: AddressRecord[] = [
     phone: "08031234567",
     email: "c.obi@email.com",
     address: "45 Aminu Kano Crescent, Wuse 2",
-    detectedState: "FCT (Abuja)",
+    detectedState: "Abuja (FCT)",
     confirmedState: null,
   },
   {
@@ -276,6 +237,233 @@ const REGISTER_COLORS: Record<string, string> = {
   GTCO: "bg-teal-100 text-teal-800",
 };
 
+type ProcessedLogEntry = {
+  id: string;
+  date: string;
+  batchRef: string;
+  chn: string;
+  register: string;
+  holder: string;
+  transferNo: string;
+  type: "Buy" | "Sell";
+  units: number;
+  balanceAfter: number;
+  processedBy: string;
+};
+
+const PROCESSED_LOG: ProcessedLogEntry[] = [
+  {
+    id: "l01",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-001",
+    chn: "C00001045EL",
+    register: "DANGCEM",
+    holder: "Binta Lawal",
+    transferNo: "TRN-8944521",
+    type: "Buy",
+    units: 5000,
+    balanceAfter: 15000,
+    processedBy: "Chidi Okafor",
+  },
+  {
+    id: "l02",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-001",
+    chn: "C00002198KL",
+    register: "DANGCEM",
+    holder: "Chukwuemeka Obi",
+    transferNo: "TRN-8944522",
+    type: "Sell",
+    units: 3000,
+    balanceAfter: 12000,
+    processedBy: "Chidi Okafor",
+  },
+  {
+    id: "l03",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-001",
+    chn: "C00003312MN",
+    register: "DANGCEM",
+    holder: "Fatima Aliyu",
+    transferNo: "TRN-8944523",
+    type: "Buy",
+    units: 8000,
+    balanceAfter: 28000,
+    processedBy: "Chidi Okafor",
+  },
+  {
+    id: "l04",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-002",
+    chn: "C00008821AB",
+    register: "ZENITHBANK",
+    holder: "Adaeze Nwosu",
+    transferNo: "TRN-9012001",
+    type: "Buy",
+    units: 12000,
+    balanceAfter: 42000,
+    processedBy: "Ngozi Eze",
+  },
+  {
+    id: "l05",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-002",
+    chn: "C00009102XY",
+    register: "ZENITHBANK",
+    holder: "Emeka Eze",
+    transferNo: "TRN-9012002",
+    type: "Sell",
+    units: 6500,
+    balanceAfter: 18500,
+    processedBy: "Ngozi Eze",
+  },
+  {
+    id: "l06",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-002",
+    chn: "C00010344PQ",
+    register: "ZENITHBANK",
+    holder: "Tunde Adeyemi",
+    transferNo: "TRN-9012003",
+    type: "Buy",
+    units: 9000,
+    balanceAfter: 31000,
+    processedBy: "Ngozi Eze",
+  },
+  {
+    id: "l07",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-003",
+    chn: "C00011299PQ",
+    register: "ACCESSCORP",
+    holder: "Ngozi Okafor",
+    transferNo: "TRN-9012344",
+    type: "Sell",
+    units: 4200,
+    balanceAfter: 11800,
+    processedBy: "Adaeze Uche",
+  },
+  {
+    id: "l08",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-004",
+    chn: "C00015001ZA",
+    register: "GTCO",
+    holder: "Bello Musa",
+    transferNo: "TRN-9013001",
+    type: "Buy",
+    units: 7500,
+    balanceAfter: 22500,
+    processedBy: "Ibrahim Musa",
+  },
+  {
+    id: "l09",
+    date: "29 Apr 2026",
+    batchRef: "BATCH-CSCS-20260429-004",
+    chn: "C00015894TW",
+    register: "GTCO",
+    holder: "Chioma Ike",
+    transferNo: "TRN-9013002",
+    type: "Sell",
+    units: 2000,
+    balanceAfter: 13000,
+    processedBy: "Ibrahim Musa",
+  },
+  {
+    id: "l10",
+    date: "28 Apr 2026",
+    batchRef: "BATCH-CSCS-20260428-001",
+    chn: "C00005023RT",
+    register: "DANGCEM",
+    holder: "Yusuf Mohammed",
+    transferNo: "TRN-8811101",
+    type: "Buy",
+    units: 15000,
+    balanceAfter: 35000,
+    processedBy: "Chidi Okafor",
+  },
+  {
+    id: "l11",
+    date: "28 Apr 2026",
+    batchRef: "BATCH-CSCS-20260428-001",
+    chn: "C00006112BC",
+    register: "DANGCEM",
+    holder: "Halima Yusuf",
+    transferNo: "TRN-8811102",
+    type: "Sell",
+    units: 5000,
+    balanceAfter: 20000,
+    processedBy: "Chidi Okafor",
+  },
+  {
+    id: "l12",
+    date: "28 Apr 2026",
+    batchRef: "BATCH-CSCS-20260428-002",
+    chn: "C00009102XY",
+    register: "ZENITHBANK",
+    holder: "Emeka Eze",
+    transferNo: "TRN-8811201",
+    type: "Buy",
+    units: 10000,
+    balanceAfter: 25000,
+    processedBy: "Ngozi Eze",
+  },
+  {
+    id: "l13",
+    date: "28 Apr 2026",
+    batchRef: "BATCH-CSCS-20260428-002",
+    chn: "C00010344PQ",
+    register: "ZENITHBANK",
+    holder: "Tunde Adeyemi",
+    transferNo: "TRN-8811202",
+    type: "Sell",
+    units: 3500,
+    balanceAfter: 18500,
+    processedBy: "Ngozi Eze",
+  },
+  {
+    id: "l14",
+    date: "28 Apr 2026",
+    batchRef: "BATCH-CSCS-20260428-002",
+    chn: "C00012580RS",
+    register: "ACCESSCORP",
+    holder: "Uche Okeke",
+    transferNo: "TRN-8811301",
+    type: "Buy",
+    units: 6000,
+    balanceAfter: 21000,
+    processedBy: "Adaeze Uche",
+  },
+  {
+    id: "l15",
+    date: "28 Apr 2026",
+    batchRef: "BATCH-CSCS-20260428-002",
+    chn: "C00016230WX",
+    register: "GTCO",
+    holder: "Suleiman Garba",
+    transferNo: "TRN-8811401",
+    type: "Buy",
+    units: 4000,
+    balanceAfter: 14000,
+    processedBy: "Ibrahim Musa",
+  },
+];
+
+
+const SortIcon = ({
+  col,
+  sortCol,
+  sortDir,
+}: {
+  col: string;
+  sortCol: string;
+  sortDir: string;
+}) => (
+  <ChevronDown
+    className={`inline h-3 w-3 ml-1 transition-transform ${sortCol === col && sortDir === "asc" ? "rotate-180" : ""} ${sortCol !== col ? "opacity-20" : ""}`}
+  />
+);
+
 export default function CSCSUpdatesPage() {
   // ── Page state ─────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState("upload");
@@ -288,6 +476,7 @@ export default function CSCSUpdatesPage() {
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [records, setRecords] = useState<AddressRecord[]>(INITIAL_RECORDS);
   const [flagSheetOpen, setFlagSheetOpen] = useState(false);
+  const [insertMode, setInsertMode] = useState(false);
 
   // ── Review filters ────────────────────────────────────────────
   const [registerFilter, setRegisterFilter] = useState("All");
@@ -303,6 +492,11 @@ export default function CSCSUpdatesPage() {
   const [flaggedSearch, setFlaggedSearch] = useState("");
   const [sortCol, setSortCol] = useState("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  // ── Processed Log filters ─────────────────────────────────────
+  const [logSearch, setLogSearch] = useState("");
+  const [logRegister, setLogRegister] = useState("All");
+  const [logType, setLogType] = useState("All");
 
   // ── Derived ───────────────────────────────────────────────────
   const allRegisters = useMemo(
@@ -336,6 +530,29 @@ export default function CSCSUpdatesPage() {
     (r) => r.confirmedState === null,
   ).length;
   const allConfirmed = totalUnconfirmed === 0;
+
+  const logFiltered = useMemo(
+    () =>
+      PROCESSED_LOG.filter(
+        (r) =>
+          (logRegister === "All" || r.register === logRegister) &&
+          (logType === "All" || r.type === logType) &&
+          (logSearch === "" ||
+            r.holder.toLowerCase().includes(logSearch.toLowerCase()) ||
+            r.chn.toLowerCase().includes(logSearch.toLowerCase()) ||
+            r.transferNo.toLowerCase().includes(logSearch.toLowerCase()) ||
+            r.batchRef.toLowerCase().includes(logSearch.toLowerCase())),
+      ),
+    [logRegister, logType, logSearch],
+  );
+
+  const logTotalBuys = logFiltered
+    .filter((r) => r.type === "Buy")
+    .reduce((s, r) => s + r.units, 0);
+  const logTotalSells = logFiltered
+    .filter((r) => r.type === "Sell")
+    .reduce((s, r) => s + r.units, 0);
+  const logPg = usePagination(logFiltered);
 
   // ── Actions ───────────────────────────────────────────────────
   const confirmState = (id: string, state: string) => {
@@ -419,6 +636,8 @@ export default function CSCSUpdatesPage() {
     }
   };
 
+
+
   const tabTriggerClass =
     "rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground " +
     "data-active:bg-background data-active:text-foreground data-active:shadow-sm " +
@@ -491,9 +710,9 @@ export default function CSCSUpdatesPage() {
                   </p>
                   <p className="text-sm text-muted-foreground mt-1.5">
                     Drag &amp; drop or click —{" "}
-                    <span className="font-mono text-xs">.zip</span> only
+                    <span className="font-mono text-[13px]">.zip</span> only
                   </p>
-                  <p className="text-xs text-muted-foreground/50 mt-3">
+                  <p className="text-[13px] text-muted-foreground/50 mt-3">
                     Contains master file + transaction file for all active
                     registers
                   </p>
@@ -519,14 +738,14 @@ export default function CSCSUpdatesPage() {
                 </div>
                 <div className="w-full max-w-md space-y-2">
                   <Progress value={progress} className="h-2" />
-                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <div className="flex justify-between text-[13px] text-muted-foreground">
                     <span className="font-mono truncate max-w-[260px]">
                       {zipFileName}
                     </span>
                     <span>{progress}%</span>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[13px] text-muted-foreground">
                   Running GIS state detection across all address records…
                 </p>
               </Card>
@@ -601,7 +820,7 @@ export default function CSCSUpdatesPage() {
                     </SelectContent>
                   </Select>
                   <div className="ml-auto flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[13px] text-muted-foreground">
                       <span className="text-primary font-semibold">
                         {totalConfirmed}
                       </span>{" "}
@@ -611,7 +830,7 @@ export default function CSCSUpdatesPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-9 text-xs"
+                        className="h-9 text-[13px]"
                         onClick={confirmAllVisible}
                       >
                         Accept all GIS suggestions
@@ -647,14 +866,14 @@ export default function CSCSUpdatesPage() {
                             {/* Register */}
                             <td className="px-4 py-4">
                               <Badge
-                                className={`border-0 text-xs ${REGISTER_COLORS[r.register] ?? "bg-gray-100 text-gray-800"}`}
+                                className={`border-0 text-[13px] ${REGISTER_COLORS[r.register] ?? "bg-gray-100 text-gray-800"}`}
                               >
                                 {r.register}
                               </Badge>
                             </td>
 
                             {/* Holder details */}
-                            <td className="px-4 py-4 text-xs space-y-0.5 min-w-[180px]">
+                            <td className="px-4 py-4 text-[13px] space-y-0.5 min-w-[180px]">
                               <div className="font-semibold text-sm text-foreground">
                                 {r.holderName}
                               </div>
@@ -673,7 +892,7 @@ export default function CSCSUpdatesPage() {
                             </td>
 
                             {/* New address from CSCS */}
-                            <td className="px-4 py-4 text-xs text-muted-foreground leading-relaxed max-w-[220px]">
+                            <td className="px-4 py-4 text-[13px] text-muted-foreground leading-relaxed max-w-[220px]">
                               {r.address}
                             </td>
 
@@ -692,7 +911,7 @@ export default function CSCSUpdatesPage() {
                                     }}
                                   >
                                     <SelectTrigger
-                                      className={`h-9 text-xs flex-1 min-w-0 ${
+                                      className={`h-9 text-[13px] flex-1 min-w-0 ${
                                         r.confirmedState === null
                                           ? "border-amber-300 bg-amber-50 text-amber-900"
                                           : "border-green-300 bg-green-50 text-green-900"
@@ -705,7 +924,7 @@ export default function CSCSUpdatesPage() {
                                       alignItemWithTrigger={false}
                                       className="max-h-60"
                                     >
-                                      {NG_STATES.map((s) => (
+                                      {NIGERIA_STATE_NAMES.map((s) => (
                                         <SelectItem key={s} value={s}>
                                           {s}
                                         </SelectItem>
@@ -732,7 +951,7 @@ export default function CSCSUpdatesPage() {
                                 </div>
                                 {r.confirmedState !== null &&
                                   r.confirmedState !== r.detectedState && (
-                                    <div className="text-[10px] text-muted-foreground">
+                                    <div className="text-[13px] text-muted-foreground">
                                       GIS suggested:{" "}
                                       <span className="font-medium">
                                         {r.detectedState}
@@ -745,11 +964,11 @@ export default function CSCSUpdatesPage() {
                             {/* Status */}
                             <td className="px-4 py-4">
                               {r.confirmedState !== null ? (
-                                <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+                                <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
                                   Confirmed
                                 </Badge>
                               ) : (
-                                <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
+                                <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
                                   Pending
                                 </Badge>
                               )}
@@ -769,7 +988,7 @@ export default function CSCSUpdatesPage() {
                       </tbody>
                     </table>
                   </div>
-                  <div className="px-4 py-2.5 border-t bg-muted/10 flex items-center justify-between text-[11px] text-muted-foreground">
+                  <div className="px-4 py-2.5 border-t bg-muted/10 flex items-center justify-between text-[13px] text-muted-foreground">
                     <span>
                       Showing {filtered.length} of {records.length} records
                     </span>
@@ -822,12 +1041,12 @@ export default function CSCSUpdatesPage() {
                           <th className="px-4 py-3">STATUS</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y text-xs">
+                      <tbody className="divide-y text-[13px]">
                         {records.map((r) => (
                           <tr key={r.id} className="mrpsl-table-row">
                             <td className="px-4 py-3">
                               <Badge
-                                className={`border-0 text-xs ${REGISTER_COLORS[r.register] ?? "bg-gray-100 text-gray-800"}`}
+                                className={`border-0 text-[13px] ${REGISTER_COLORS[r.register] ?? "bg-gray-100 text-gray-800"}`}
                               >
                                 {r.register}
                               </Badge>
@@ -844,13 +1063,13 @@ export default function CSCSUpdatesPage() {
                             <td className="px-4 py-3 font-medium">
                               {r.confirmedState}
                               {r.confirmedState !== r.detectedState && (
-                                <span className="text-[10px] text-muted-foreground ml-1">
+                                <span className="text-[13px] text-muted-foreground ml-1">
                                   (overridden)
                                 </span>
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+                              <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
                                 Committed
                               </Badge>
                             </td>
@@ -924,45 +1143,25 @@ export default function CSCSUpdatesPage() {
                         className="px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleSort("ref")}
                       >
-                        BATCH REF{" "}
-                        <SortIcon
-                          sortDir={sortDir}
-                          sortCol={sortCol}
-                          col="ref"
-                        />
+                        BATCH REF <SortIcon col="ref" sortCol={sortCol} sortDir={sortDir} />
                       </th>
                       <th
                         className="px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleSort("register")}
                       >
-                        REGISTER{" "}
-                        <SortIcon
-                          sortDir={sortDir}
-                          sortCol={sortCol}
-                          col="register"
-                        />
+                        REGISTER <SortIcon col="register" sortCol={sortCol} sortDir={sortDir} />
                       </th>
                       <th
                         className="px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleSort("date")}
                       >
-                        DATE{" "}
-                        <SortIcon
-                          sortDir={sortDir}
-                          sortCol={sortCol}
-                          col="date"
-                        />
+                        DATE <SortIcon col="date" sortCol={sortCol} sortDir={sortDir} />
                       </th>
                       <th
                         className="px-4 py-3 text-right cursor-pointer select-none"
                         onClick={() => toggleSort("total")}
                       >
-                        TOTAL{" "}
-                        <SortIcon
-                          sortDir={sortDir}
-                          sortCol={sortCol}
-                          col="total"
-                        />
+                        TOTAL <SortIcon col="total" sortCol={sortCol} sortDir={sortDir} />
                       </th>
                       <th className="px-4 py-3 text-right">BUYS</th>
                       <th className="px-4 py-3 text-right">SELLS</th>
@@ -1047,17 +1246,17 @@ export default function CSCSUpdatesPage() {
                       )
                       .map((row) => (
                         <tr key={row.ref} className="mrpsl-table-row">
-                          <td className="px-4 py-3 tabular-nums text-xs text-muted-foreground">
+                          <td className="px-4 py-3 tabular-nums text-[13px] text-muted-foreground">
                             {row.ref}
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-xs ${REGISTER_COLORS[row.reg] ?? "bg-gray-100 text-gray-800"}`}
+                              className={`border-0 text-[13px] ${REGISTER_COLORS[row.reg] ?? "bg-gray-100 text-gray-800"}`}
                             >
                               {row.reg}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                          <td className="px-4 py-3 text-muted-foreground text-[13px]">
                             {row.date}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums font-semibold">
@@ -1080,7 +1279,7 @@ export default function CSCSUpdatesPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-xs ${row.status === "Complete" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                              className={`border-0 text-[13px] ${row.status === "Complete" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
                             >
                               {row.status}
                             </Badge>
@@ -1186,12 +1385,7 @@ export default function CSCSUpdatesPage() {
                         className="px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleSort("chn")}
                       >
-                        CHN{" "}
-                        <SortIcon
-                          sortDir={sortDir}
-                          sortCol={sortCol}
-                          col="chn"
-                        />
+                        CHN <SortIcon col="chn" sortCol={sortCol} sortDir={sortDir} />
                       </th>
                       <th className="px-4 py-3">REGISTER</th>
                       <th className="px-4 py-3">HOLDER</th>
@@ -1201,24 +1395,14 @@ export default function CSCSUpdatesPage() {
                         className="px-4 py-3 text-right cursor-pointer select-none"
                         onClick={() => toggleSort("attempted")}
                       >
-                        ATTEMPTED{" "}
-                        <SortIcon
-                          sortDir={sortDir}
-                          sortCol={sortCol}
-                          col="attempted"
-                        />
+                        ATTEMPTED <SortIcon col="attempted" sortCol={sortCol} sortDir={sortDir} />
                       </th>
                       <th className="px-4 py-3 text-right">HOLDINGS</th>
                       <th
                         className="px-4 py-3 text-right cursor-pointer select-none"
                         onClick={() => toggleSort("shortfall")}
                       >
-                        SHORTFALL{" "}
-                        <SortIcon
-                          sortDir={sortDir}
-                          sortCol={sortCol}
-                          col="shortfall"
-                        />
+                        SHORTFALL <SortIcon col="shortfall" sortCol={sortCol} sortDir={sortDir} />
                       </th>
                       <th className="px-4 py-3">STATUS</th>
                       <th className="px-4 py-3 text-right">ACTIONS</th>
@@ -1284,12 +1468,12 @@ export default function CSCSUpdatesPage() {
                       )
                       .map((row) => (
                         <tr key={row.chn} className="mrpsl-table-row">
-                          <td className="px-4 py-3 text-xs text-muted-foreground tabular-nums">
+                          <td className="px-4 py-3 text-[13px] text-muted-foreground tabular-nums">
                             {row.chn}
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-xs ${REGISTER_COLORS[row.reg] ?? "bg-gray-100 text-gray-800"}`}
+                              className={`border-0 text-[13px] ${REGISTER_COLORS[row.reg] ?? "bg-gray-100 text-gray-800"}`}
                             >
                               {row.reg}
                             </Badge>
@@ -1297,12 +1481,12 @@ export default function CSCSUpdatesPage() {
                           <td className="px-4 py-3 font-semibold">
                             {row.holder}
                           </td>
-                          <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">
+                          <td className="px-4 py-3 text-[13px] tabular-nums text-muted-foreground">
                             {row.trn}
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-xs ${row.type === "Sell" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-800"}`}
+                              className={`border-0 text-[13px] ${row.type === "Sell" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-800"}`}
                             >
                               {row.type}
                             </Badge>
@@ -1318,7 +1502,7 @@ export default function CSCSUpdatesPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-xs ${row.status === "Resolved" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                              className={`border-0 text-[13px] ${row.status === "Resolved" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
                             >
                               {row.status}
                             </Badge>
@@ -1341,18 +1525,23 @@ export default function CSCSUpdatesPage() {
           </TabsContent>
 
           {/* ── Processed Log ────────────────────────────────────── */}
-          <TabsContent value="log">
-            <div className="flex gap-2 mb-4 flex-wrap">
+          <TabsContent value="log" className="space-y-4">
+            <div className="flex gap-2 items-center flex-wrap">
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search CHN, account, holder…"
+                  placeholder="Search CHN, holder, transfer no…"
                   className="pl-9 mrpsl-input"
+                  value={logSearch}
+                  onChange={(e) => setLogSearch(e.target.value)}
                 />
               </div>
-              <Select defaultValue="All">
+              <Select
+                value={logRegister}
+                onValueChange={(v) => setLogRegister(v || "All")}
+              >
                 <SelectTrigger className="w-44 mrpsl-input">
-                  <SelectValue />
+                  <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="All">All Registers</SelectItem>
@@ -1363,9 +1552,12 @@ export default function CSCSUpdatesPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select defaultValue="All">
+              <Select
+                value={logType}
+                onValueChange={(v) => setLogType(v || "All")}
+              >
                 <SelectTrigger className="w-32 mrpsl-input">
-                  <SelectValue />
+                  <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="All">All Types</SelectItem>
@@ -1373,125 +1565,314 @@ export default function CSCSUpdatesPage() {
                   <SelectItem value="Sell">Sell</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="ml-auto flex items-center gap-4 text-[13px] text-muted-foreground">
+                <span className="text-green-600 font-semibold tabular-nums">
+                  Buys: +{logTotalBuys.toLocaleString()}
+                </span>
+                <span className="text-red-600 font-semibold tabular-nums">
+                  Sells: −{logTotalSells.toLocaleString()}
+                </span>
+                <span className="font-medium">
+                  {logPg.total} record{logPg.total !== 1 ? "s" : ""}
+                </span>
+              </div>
             </div>
-            <Card className="mrpsl-card p-12 text-center text-sm text-muted-foreground">
-              Searchable log of all committed transactions will appear here.
+
+            <Card className="mrpsl-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="px-4 py-3">DATE</th>
+                      <th className="px-4 py-3">BATCH REF</th>
+                      <th className="px-4 py-3">CHN</th>
+                      <th className="px-4 py-3">REGISTER</th>
+                      <th className="px-4 py-3">HOLDER</th>
+                      <th className="px-4 py-3">TRANSFER NO</th>
+                      <th className="px-4 py-3">TYPE</th>
+                      <th className="px-4 py-3 text-right">UNITS</th>
+                      <th className="px-4 py-3 text-right">BALANCE AFTER</th>
+                      <th className="px-4 py-3">PROCESSED BY</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {logPg.paged.map((row) => (
+                      <tr key={row.id} className="mrpsl-table-row">
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
+                          {row.date}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                          {row.batchRef}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                          {row.chn}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={`border-0 text-[13px] ${REGISTER_COLORS[row.register] ?? "bg-gray-100 text-gray-800"}`}
+                          >
+                            {row.register}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-sm">
+                          {row.holder}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                          {row.transferNo}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={`border-0 text-[13px] ${row.type === "Buy" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
+                          >
+                            {row.type}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums font-semibold">
+                          {row.units.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {row.balanceAfter.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {row.processedBy}
+                        </td>
+                      </tr>
+                    ))}
+                    {logPg.total === 0 && (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="px-4 py-12 text-center text-muted-foreground text-sm"
+                        >
+                          No transactions match your filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 py-2.5 border-t bg-muted/10 flex items-center justify-between text-[13px] text-muted-foreground">
+                <span>
+                  Showing {logPg.from}–{logPg.to} of {logPg.total} transactions
+                </span>
+                <span className="tabular-nums">
+                  Net movement:{" "}
+                  <span
+                    className={
+                      logTotalBuys - logTotalSells >= 0
+                        ? "text-green-600 font-semibold"
+                        : "text-red-600 font-semibold"
+                    }
+                  >
+                    {logTotalBuys - logTotalSells >= 0 ? "+" : ""}
+                    {(logTotalBuys - logTotalSells).toLocaleString()} units
+                  </span>
+                </span>
+              </div>
             </Card>
+            <TablePagination
+              page={logPg.page}
+              pageSize={logPg.pageSize}
+              totalPages={logPg.totalPages}
+              from={logPg.from}
+              to={logPg.to}
+              total={logPg.total}
+              onPageChange={logPg.setPage}
+              onPageSizeChange={logPg.setPageSize}
+            />
           </TabsContent>
         </div>
       </Tabs>
 
-      {/* Pull History Sheet */}
-      <Sheet open={flagSheetOpen} onOpenChange={setFlagSheetOpen}>
-        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
-          <SheetHeader className="border-b pb-4 mb-4">
-            <SheetTitle>Transaction History</SheetTitle>
-            <SheetDescription className="tabular-nums mt-1">
+      {/* Pull History Dialog */}
+      <Dialog
+        open={flagSheetOpen}
+        onOpenChange={(open) => {
+          setFlagSheetOpen(open);
+          if (!open) setInsertMode(false);
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {insertMode
+                ? "Insert Missing Transaction"
+                : "Transaction History"}
+            </DialogTitle>
+            <DialogDescription className="tabular-nums">
               CHN: C00001045EL | Binta Lawal | DANGCEM
-            </SheetDescription>
-          </SheetHeader>
-          <div className="space-y-6">
-            <div className="bg-muted p-4 rounded-xl">
-              <h4 className="font-semibold text-sm mb-2">
-                Upload Historical CSCS Data
-              </h4>
-              <div className="flex gap-2">
-                <Input type="file" className="mrpsl-input bg-background" />
-                <Button variant="secondary">Load</Button>
+            </DialogDescription>
+          </DialogHeader>
+
+          {!insertMode ? (
+            /* ── History view ─────────────────────────────────── */
+            <div className="space-y-5 px-8 pb-8">
+              <div className="bg-muted/40 p-4 rounded-xl">
+                <h4 className="font-semibold text-sm mb-2">
+                  Upload Historical CSCS Data
+                </h4>
+                <div className="flex gap-2">
+                  <Input type="file" className="mrpsl-input bg-background" />
+                  <Button variant="outline">Load</Button>
+                </div>
+              </div>
+
+              <div className="border border-border/60 rounded-xl overflow-hidden">
+                <div className="px-3 py-2.5 bg-amber-50 text-amber-800 text-[13px] font-semibold flex items-center gap-2 border-b border-amber-200">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Flagged Sell: 15,000 units on 29 Apr 2026. Current balance:
+                  10,000. Shortfall: 5,000.
+                </div>
+                <table className="w-full text-[13px] text-left">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="px-3 py-2.5">Date</th>
+                      <th className="px-3 py-2.5">Type</th>
+                      <th className="px-3 py-2.5">Transfer No</th>
+                      <th className="px-3 py-2.5 text-right">Units</th>
+                      <th className="px-3 py-2.5 text-right">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    <tr className="bg-green-50/60">
+                      <td className="px-3 py-2.5 tabular-nums">25 Apr 2026</td>
+                      <td className="px-3 py-2.5 text-green-700 font-semibold">
+                        Buy
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-muted-foreground">
+                        TRN-8944521
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-green-700 font-semibold">
+                        +5,000
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">
+                        15,000
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/40">
+                      <td
+                        className="px-3 py-2.5 text-amber-700 italic text-[13px]"
+                        colSpan={5}
+                      >
+                        ⚠ Missing in MRPSL register — CSCS shows this Buy but
+                        MRPSL does not.
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2.5 tabular-nums">01 Jan 2026</td>
+                      <td className="px-3 py-2.5 text-green-700 font-semibold">
+                        Buy
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-muted-foreground">
+                        TRN-8100001
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums text-green-700 font-semibold">
+                        +10,000
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">
+                        10,000
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t border-border/60">
+                <Button className="w-full" onClick={() => setInsertMode(true)}>
+                  Insert Missing Transaction &amp; Resolve
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="destructive"
+                  onClick={() => {
+                    toast.error("Force commit logged for audit review.");
+                    setFlagSheetOpen(false);
+                    setInsertMode(false);
+                  }}
+                >
+                  Override and Force Commit
+                </Button>
               </div>
             </div>
-            <div className="border border-border/60 rounded-xl overflow-hidden">
-              <div className="px-3 py-2.5 bg-amber-50 text-amber-800 text-xs font-semibold flex items-center gap-2 border-b border-amber-200">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                Flagged Sell: 15,000 units on 29 Apr 2026. Current balance:
-                10,000.
+          ) : (
+            /* ── Insert form ──────────────────────────────────── */
+            <div className="space-y-5 px-8 pb-8">
+              <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                <AlertTriangle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-900">
+                  This will insert the missing Buy transaction into the MRPSL
+                  register and submit for checker approval before the flagged
+                  sell is committed.
+                </p>
               </div>
-              <table className="w-full text-xs text-left">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="px-3 py-2.5">Date</th>
-                    <th className="px-3 py-2.5">Type</th>
-                    <th className="px-3 py-2.5 text-right">Units</th>
-                    <th className="px-3 py-2.5 text-right">Balance</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  <tr className="bg-green-50">
-                    <td className="px-3 py-2.5 tabular-nums">25 Apr 2026</td>
-                    <td className="px-3 py-2.5 text-green-600 font-semibold">
-                      Buy
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      5,000
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      15,000
-                    </td>
-                  </tr>
-                  <tr>
-                    <td
-                      className="px-3 py-2.5 text-muted-foreground italic text-[11px]"
-                      colSpan={4}
-                    >
-                      Missing Buy transaction in MRPSL — not reflected in
-                      register.
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-2.5 tabular-nums">01 Jan 2026</td>
-                    <td className="px-3 py-2.5 text-green-600 font-semibold">
-                      Buy
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      10,000
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      10,000
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="mrpsl-label">Transaction Date *</label>
+                  <Input defaultValue="25 Apr 2026" className="mrpsl-input" />
+                </div>
+                <div className="space-y-2">
+                  <label className="mrpsl-label">Transfer No *</label>
+                  <Input
+                    defaultValue="TRN-8944521"
+                    className="mrpsl-input font-mono"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="mrpsl-label">Transaction Type</label>
+                  <Select defaultValue="Buy">
+                    <SelectTrigger className="mrpsl-input">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Buy">Buy</SelectItem>
+                      <SelectItem value="Sell">Sell</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="mrpsl-label">Units *</label>
+                  <Input
+                    defaultValue="5000"
+                    className="mrpsl-input font-mono"
+                    type="number"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="mrpsl-label">Resolution Reason *</label>
+                <textarea
+                  className="w-full mrpsl-input rounded-lg border border-input bg-background px-3 py-2 text-sm resize-none h-20 focus-visible:outline-none"
+                  placeholder="Explain why this transaction was missing from the MRPSL register…"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2 border-t border-border/60">
+                <Button
+                  variant="ghost"
+                  className="flex-1"
+                  onClick={() => setInsertMode(false)}
+                >
+                  Back
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    toast.success(
+                      "Missing transaction inserted. Flagged sell sent to checker for approval.",
+                    );
+                    setFlagSheetOpen(false);
+                    setInsertMode(false);
+                  }}
+                >
+                  Submit for Checker Approval
+                </Button>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Button
-                className="w-full"
-                onClick={() => {
-                  toast.success(
-                    "Transaction inserted. Awaiting checker approval.",
-                  );
-                  setFlagSheetOpen(false);
-                }}
-              >
-                Insert Missing Transaction &amp; Resolve
-              </Button>
-              <Button
-                className="w-full"
-                variant="destructive"
-                onClick={() => {
-                  toast.error("Force commit logged for audit review.");
-                  setFlagSheetOpen(false);
-                }}
-              >
-                Override and Force Commit
-              </Button>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-const SortIcon = ({
-  sortCol,
-  sortDir,
-  col,
-}: {
-  sortCol: string;
-  sortDir: "asc" | "desc";
-  col: string;
-}) => (
-  <ChevronDown
-    className={`inline h-3 w-3 ml-1 transition-transform ${sortCol === col && sortDir === "asc" ? "rotate-180" : ""} ${sortCol !== col ? "opacity-20" : ""}`}
-  />
-);
