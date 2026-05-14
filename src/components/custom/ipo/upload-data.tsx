@@ -69,7 +69,7 @@ export default function UploadIPOData({ tab }: { tab: string }) {
     uploadIpoMutation.mutate(form, {
       onSuccess: (data) => {
         toast.success(
-          `Batch ${data.batchReference ?? ""} processs with status ${data.status ?? "Pending"} and `,
+          `Batch ${data.batchReference ?? ""} processs with status ${data.status.toLowerCase() ?? "Pending"} `,
         );
         // setUploadStatus("complete");
         setProcessedBatch(data);
@@ -130,7 +130,8 @@ export default function UploadIPOData({ tab }: { tab: string }) {
             <div className="flex items-center gap-3 text-green-800 mb-5">
               <CheckCircle className="h-6 w-6 shrink-0" />
               <h3 className="font-semibold text-lg">
-                Batch {processedBatch.batchReference} processed successfully
+                Batch {processedBatch.batchReference} is{" "}
+                {processedBatch?.status.toLowerCase()}
               </h3>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
