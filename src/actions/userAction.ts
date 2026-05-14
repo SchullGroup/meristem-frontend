@@ -77,9 +77,7 @@ export const REMOVE_USER_ROLE = async ({
   roleName: string;
 }) => {
   try {
-    const res = await api.delete(
-      `/users/${id}/roles/${roleName.toLocaleLowerCase()}`,
-    );
+    const res = await api.delete(`/users/${id}/roles/${roleName}`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

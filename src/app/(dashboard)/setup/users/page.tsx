@@ -37,7 +37,6 @@ import {
   Pencil,
   Power,
   ShieldCheck,
-  UserX,
   UserX2,
   UserCog,
   AlertTriangle,
@@ -68,7 +67,7 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-
+  console.log(users);
   const { isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -142,8 +141,11 @@ export default function UsersPage() {
     roleName,
   }: {
     id: string;
-    roleName: string;
+    roleName: string | undefined;
   }) => {
+    if (!roleName) {
+      return;
+    }
     handleRemoveUserRoleMutation.mutate({ id, roleName });
   };
 
@@ -388,21 +390,30 @@ export default function UsersPage() {
                   <td className="px-4 py-3">
                     <div className="flex gap-1 flex-wrap max-w-[150px]">
                       {u?.roles?.length > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                          {u?.roles?.map((role) =>
-                            role
-                              ?.replace(/_/g, " ")
-                              .replace(/\b\w/g, (c) => c.toUpperCase()),
-                          )}
-                        </Badge>
+                        // <Badge variant="outline" className="text-xs">
+
+                        // </Badge>
+                        <div>
+                          {u?.roles?.map((role) => (
+                            <Badge
+                              key={role}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {role
+                                ?.replace(/_/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
-                      {u.secondaryRole && (
+                      {/* {u.secondaryRole && (
                         <Badge variant="secondary" className="text-xs">
                           {u.secondaryRole
                             .replace(/_/g, " ")
                             .replace(/\b\w/g, (c) => c.toUpperCase())}
                         </Badge>
-                      )}
+                      )} */}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm">{u.department}</td>
@@ -472,11 +483,11 @@ export default function UsersPage() {
                           <History className="mr-2 h-4 w-4" /> View Audit Log
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          disabled={u?.roles?.length === 0}
+                          disabled={!u?.roles[0] && !u.secondaryRole}
                           onClick={() =>
                             handleRemoveUserRole({
                               id: u.id,
-                              roleName: u.roles[0],
+                              roleName: u.roles[0] || u.secondaryRole,
                             })
                           }
                         >

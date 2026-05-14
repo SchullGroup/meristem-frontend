@@ -4,7 +4,7 @@ export interface User {
   lastName: string;
   username?: string;
   email: string;
-  phone: string;
+  phoneNumber: string;
   roles: string[];
   secondaryRole?: string;
   department: string;
