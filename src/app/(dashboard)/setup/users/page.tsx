@@ -67,7 +67,7 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  console.log(users);
+
   const { isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
