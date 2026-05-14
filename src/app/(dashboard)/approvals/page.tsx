@@ -1,7 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldX, Eye } from "lucide-react";
+import { format } from "date-fns";
+import {
+  ClipboardCheck,
+  ShieldX,
+  Eye,
+  Pencil,
+  RotateCcw,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -17,14 +27,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { ApprovalItem } from "@/lib/types";
+import { usePagination } from "@/lib/use-pagination";
+import { TablePagination } from "@/components/custom/table-pagination";
 
 export default function ApprovalsPage() {
   const { pendingApprovals, currentUser, updateApprovalItem, logAudit } =
@@ -34,8 +48,17 @@ export default function ApprovalsPage() {
   const [tierFilter, setTierFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("PENDING");
 
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ApprovalItem | null>(null);
+  // Review dialog (approver)
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewItem, setReviewItem] = useState<ApprovalItem | null>(null);
+  const [reviewComment, setReviewComment] = useState("");
+
+  // Edit & Resubmit dialog (initiator)
+  const [editOpen, setEditOpen] = useState(false);
+  const [editItem, setEditItem] = useState<ApprovalItem | null>(null);
+  const [editDescription, setEditDescription] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [resubmitNote, setResubmitNote] = useState("");
 
   const filtered = pendingApprovals.filter((a) => {
     const matchesSearch =
@@ -47,12 +70,13 @@ export default function ApprovalsPage() {
     const matchesStatus = statusFilter === "All" || a.status === statusFilter;
     return matchesSearch && matchesModule && matchesTier && matchesStatus;
   });
+  const pg = usePagination(filtered);
 
   const myPendingCount = pendingApprovals.filter(
     (a) =>
       a.status === "PENDING" &&
-      currentUser?.roles?.some((role) =>
-        a.approvalSteps.some((s) => s.roles?.includes(role) && !s.decision),
+      a.approvalSteps.some(
+        (s) => s.roles?.[0] === currentUser?.roles?.[0] && !s.decision,
       ),
   ).length;
   const overdueCount = pendingApprovals.filter(
@@ -68,10 +92,120 @@ export default function ApprovalsPage() {
       a.status === "APPROVED" &&
       new Date(a.submittedAt).toDateString() === new Date().toDateString(),
   ).length;
+  const myRejectedItems = pendingApprovals.filter(
+    (a) => a.status === "REJECTED" && a.initiatorId === currentUser?.id,
+  );
 
   const handleReview = (item: ApprovalItem) => {
-    setSelectedItem(item);
-    setSheetOpen(true);
+    setReviewItem(item);
+    setReviewComment("");
+    setReviewOpen(true);
+  };
+
+  const handleApprove = () => {
+    if (!reviewItem || !currentUser) return;
+    const updatedSteps = reviewItem.approvalSteps.map((s) =>
+      s.roles?.[0] === currentUser.roles?.[0] && !s.decision
+        ? {
+            ...s,
+            decision: "APPROVED" as const,
+            comment: reviewComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
+        : s,
+    );
+    const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
+    updateApprovalItem(reviewItem.id, {
+      approvalSteps: updatedSteps,
+      status: allApproved ? "APPROVED" : "PENDING",
+    });
+    logAudit({
+      actor: `${currentUser.firstName} ${currentUser.lastName}`,
+      actorId: currentUser.id,
+      role: currentUser.roles?.[0],
+      action: "APPROVE",
+      entityType: "APPROVAL",
+      entityId: reviewItem.id,
+      before: { status: reviewItem.status },
+      after: { status: allApproved ? "APPROVED" : "PENDING" },
+    });
+    toast.success("Transaction approved and committed.");
+    setReviewOpen(false);
+  };
+
+  const handleReject = () => {
+    if (!reviewItem || !currentUser) return;
+    if (!reviewComment.trim()) {
+      toast.error("A rejection comment is required.");
+      return;
+    }
+    const updatedSteps = reviewItem.approvalSteps.map((s) =>
+      s.roles?.[0] === currentUser.roles?.[0] && !s.decision
+        ? {
+            ...s,
+            decision: "REJECTED" as const,
+            comment: reviewComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
+        : s,
+    );
+    updateApprovalItem(reviewItem.id, {
+      approvalSteps: updatedSteps,
+      status: "REJECTED",
+    });
+    logAudit({
+      actor: `${currentUser.firstName} ${currentUser.lastName}`,
+      actorId: currentUser.id,
+      role: currentUser.roles?.[0],
+      action: "REJECT",
+      entityType: "APPROVAL",
+      entityId: reviewItem.id,
+      before: { status: "PENDING" },
+      after: { status: "REJECTED", comment: reviewComment },
+    });
+    toast.error("Transaction rejected and returned to initiator.");
+    setReviewOpen(false);
+  };
+
+  const handleEditResubmit = (item: ApprovalItem) => {
+    setEditItem(item);
+    setEditDescription(item.description);
+    setEditAmount(item.amount != null ? item.amount.toLocaleString() : "");
+    setResubmitNote("");
+    setEditOpen(true);
+  };
+
+  const handleResubmit = () => {
+    if (!editItem || !currentUser) return;
+    if (!resubmitNote.trim()) {
+      toast.error("Please describe the changes you made before resubmitting.");
+      return;
+    }
+    const resetSteps = editItem.approvalSteps.map((s) => ({ roles: s.roles }));
+    const parsedAmount = editAmount.replace(/,/g, "").trim();
+    updateApprovalItem(editItem.id, {
+      status: "PENDING",
+      submittedAt: new Date().toISOString(),
+      description: editDescription.trim() || editItem.description,
+      ...(parsedAmount !== "" ? { amount: parseFloat(parsedAmount) } : {}),
+      approvalSteps: resetSteps,
+    });
+    logAudit({
+      actor: `${currentUser.firstName} ${currentUser.lastName}`,
+      actorId: currentUser.id,
+      role: currentUser.roles?.[0],
+      action: "RESUBMIT",
+      entityType: "APPROVAL",
+      entityId: editItem.id,
+      before: { status: "REJECTED" },
+      after: { status: "PENDING", resubmitNote },
+    });
+    toast.success(`${editItem.transactionType} resubmitted for approval.`);
+    setEditOpen(false);
   };
 
   const getInitials = (name: string) => {
@@ -90,6 +224,8 @@ export default function ApprovalsPage() {
     };
   };
 
+  if (!currentUser) return null;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
@@ -100,6 +236,27 @@ export default function ApprovalsPage() {
           </p>
         </div>
       </div>
+
+      {/* My Rejected alert banner */}
+      {myRejectedItems.length > 0 && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800">
+            {myRejectedItems.length} of your submission
+            {myRejectedItems.length !== 1 ? "s have" : " has"} been rejected
+          </AlertTitle>
+          <AlertDescription className="text-amber-700 flex items-center gap-3">
+            Review the rejection reason, edit the data, and resubmit for
+            approval.
+            <button
+              className="underline font-semibold text-amber-800 hover:text-amber-900 whitespace-nowrap"
+              onClick={() => setStatusFilter("REJECTED")}
+            >
+              Show rejected items →
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-4 gap-3">
         <Card
@@ -128,11 +285,23 @@ export default function ApprovalsPage() {
             {allPendingCount}
           </div>
         </Card>
-        <Card className="mrpsl-card p-4">
-          <div className="mrpsl-section-title">Approved Today</div>
-          <div className="text-2xl font-mono mt-1 font-bold text-green-600">
-            {approvedTodayCount}
+        <Card
+          className={`p-4 cursor-pointer transition-colors ${myRejectedItems.length > 0 ? "bg-red-50 border-red-200 hover:bg-red-100" : "mrpsl-card"}`}
+          onClick={() =>
+            myRejectedItems.length > 0 && setStatusFilter("REJECTED")
+          }
+        >
+          <div className="mrpsl-section-title">My Rejected</div>
+          <div
+            className={`text-2xl font-mono mt-1 font-bold ${myRejectedItems.length > 0 ? "text-red-600" : ""}`}
+          >
+            {myRejectedItems.length}
           </div>
+          {myRejectedItems.length > 0 && (
+            <div className="text-[12px] text-red-500 mt-0.5">
+              Click to review
+            </div>
+          )}
         </Card>
       </div>
 
@@ -206,25 +375,26 @@ export default function ApprovalsPage() {
               <th className="p-3 text-right">ACTIONS</th>
             </tr>
           </thead>
-          <tbody className="divide-y text-xs">
-            {filtered.map((a) => {
+          <tbody className="divide-y text-[13px]">
+            {pg.paged.map((a) => {
               const aging = getAging(a.submittedAt);
-              const isMine = a.initiatorId === currentUser?.id;
+              const isMine = a.initiatorId === currentUser.id;
               const canAction =
                 a.status === "PENDING" &&
-                currentUser?.roles?.some((role) =>
-                  a.approvalSteps.some(
-                    (s) => s.roles?.includes(role) && !s.decision,
-                  ),
+                a.approvalSteps.some(
+                  (s) => s.roles?.[0] === currentUser.roles?.[0] && !s.decision,
                 );
 
               return (
-                <tr key={a.id} className="hover:bg-accent/5">
-                  <td className="p-3 font-mono text-xs text-muted-foreground">
+                <tr
+                  key={a.id}
+                  className={`hover:bg-accent/5 ${a.status === "REJECTED" && isMine ? "bg-red-50/40" : ""}`}
+                >
+                  <td className="p-3 font-mono text-[13px] text-muted-foreground">
                     {a.id}
                   </td>
                   <td className="p-3">
-                    <Badge className="bg-gray-100 text-gray-800 border-0 text-xs">
+                    <Badge className="bg-gray-100 text-gray-800 border-0 text-[13px]">
                       {a.module
                         .toLowerCase()
                         .replace(/\b\w/g, (c) => c.toUpperCase())}
@@ -245,7 +415,7 @@ export default function ApprovalsPage() {
                   <td className="p-3">
                     {a.tier ? (
                       <Badge
-                        className={`border-0 text-xs ${a.tier === 1 ? "bg-green-100 text-green-800" : a.tier === 2 ? "bg-blue-100 text-blue-800" : a.tier === 3 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"}`}
+                        className={`border-0 text-[13px] ${a.tier === 1 ? "bg-green-100 text-green-800" : a.tier === 2 ? "bg-blue-100 text-blue-800" : a.tier === 3 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"}`}
                       >
                         T{a.tier}
                       </Badge>
@@ -256,7 +426,7 @@ export default function ApprovalsPage() {
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <span className="text-xs font-bold text-primary">
+                        <span className="text-[13px] font-bold text-primary">
                           {getInitials(a.initiatorName)}
                         </span>
                       </div>
@@ -267,7 +437,7 @@ export default function ApprovalsPage() {
                     <div className="flex items-center gap-2 w-24">
                       <Progress value={aging.pct} className="h-1.5" />
                       <span
-                        className={`text-xs whitespace-nowrap ${aging.overdue ? "text-red-600 font-bold" : "text-muted-foreground"}`}
+                        className={`text-[13px] whitespace-nowrap ${aging.overdue ? "text-red-600 font-bold" : "text-muted-foreground"}`}
                       >
                         {aging.text}
                       </span>
@@ -275,7 +445,7 @@ export default function ApprovalsPage() {
                   </td>
                   <td className="p-3">
                     <Badge
-                      className={`border-0 text-xs ${a.status === "PENDING" ? "bg-amber-100 text-amber-800" : a.status === "APPROVED" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
+                      className={`border-0 text-[13px] ${a.status === "PENDING" ? "bg-amber-100 text-amber-800" : a.status === "APPROVED" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
                     >
                       {a.status
                         .toLowerCase()
@@ -298,18 +468,34 @@ export default function ApprovalsPage() {
                           Recall
                         </Button>
                       ) : (
-                        <span className="text-muted-foreground">Locked</span>
+                        <span className="text-muted-foreground text-[13px]">
+                          Locked
+                        </span>
                       )
+                    ) : a.status === "REJECTED" && isMine ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-amber-300 text-amber-800 hover:bg-amber-50 hover:text-amber-900"
+                        onClick={() => handleEditResubmit(a)}
+                      >
+                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                        Edit &amp; Resubmit
+                      </Button>
                     ) : (
-                      <Button size="sm" variant="ghost">
-                        <Eye className="mr-2 h-4 w-4" /> View
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleReview(a)}
+                      >
+                        <Eye className="mr-1.5 h-3.5 w-3.5" /> View
                       </Button>
                     )}
                   </td>
                 </tr>
               );
             })}
-            {filtered.length === 0 && (
+            {pg.paged.length === 0 && (
               <tr>
                 <td
                   colSpan={10}
@@ -323,96 +509,152 @@ export default function ApprovalsPage() {
         </table>
       </Card>
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-[720px] sm:max-w-[720px] overflow-y-auto">
-          {selectedItem && (
-            <>
-              <SheetHeader className="border-b pb-4 mb-4">
-                <SheetTitle>{selectedItem.transactionType} Review</SheetTitle>
-                <div className="font-mono text-sm text-muted-foreground">
-                  {selectedItem.id}
-                </div>
-              </SheetHeader>
+      <TablePagination
+        page={pg.page}
+        pageSize={pg.pageSize}
+        totalPages={pg.totalPages}
+        from={pg.from}
+        to={pg.to}
+        total={pg.total}
+        onPageChange={pg.setPage}
+        onPageSizeChange={pg.setPageSize}
+      />
 
-              <div className="space-y-6">
-                <div className="grid grid-cols-4 gap-4 p-4 bg-muted/20 border rounded-md">
+      {/* ── Review Dialog (Approver / View) ──────────────────────────── */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {reviewItem && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{reviewItem.transactionType} Review</DialogTitle>
+                <div className="font-mono text-sm text-muted-foreground">
+                  {reviewItem.id}
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-5 pt-2">
+                <div className="grid grid-cols-4 gap-4 p-4 bg-muted/20 border rounded-xl">
                   <div>
-                    <div className="text-xs uppercase font-bold text-muted-foreground">
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground">
                       Module
                     </div>
                     <div className="font-medium text-sm mt-1">
-                      {selectedItem.module}
+                      {reviewItem.module}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase font-bold text-muted-foreground">
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground">
                       Type
                     </div>
                     <div className="font-medium text-sm mt-1">
-                      {selectedItem.transactionType}
+                      {reviewItem.transactionType}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase font-bold text-muted-foreground">
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground">
                       Amount
                     </div>
                     <div className="font-medium text-sm mt-1 font-mono">
-                      {selectedItem.amount
-                        ? `₦${selectedItem.amount.toLocaleString()}`
+                      {reviewItem.amount
+                        ? `₦${reviewItem.amount.toLocaleString()}`
                         : "—"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase font-bold text-muted-foreground">
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground">
                       Tier
                     </div>
                     <div className="font-medium text-sm mt-1">
-                      {selectedItem.tier ? `Tier ${selectedItem.tier}` : "—"}
+                      {reviewItem.tier ? `Tier ${reviewItem.tier}` : "—"}
                     </div>
                   </div>
-                  <div className="col-span-4 mt-2">
-                    <div className="text-xs uppercase font-bold text-muted-foreground mb-1">
+                  <div className="col-span-4">
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground mb-1">
                       Description
                     </div>
-                    <p className="text-sm">{selectedItem.description}</p>
+                    <p className="text-sm">{reviewItem.description}</p>
                   </div>
                 </div>
 
-                <div className="p-4 border rounded-md">
+                <div className="p-4 border rounded-xl">
                   <h4 className="text-sm font-bold border-b pb-2 mb-3">
                     Approval Chain
                   </h4>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
-                        <div className="h-2 w-2 rounded-full bg-green-500" />
-                      </div>
+                      <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                       <div className="text-sm">
                         <span className="font-semibold">
-                          {selectedItem.initiatorName} (Initiator)
+                          {reviewItem.initiatorName}
                         </span>{" "}
                         <span className="text-muted-foreground">
-                          ✓ Submitted
+                          · Submitted
                         </span>
                       </div>
                     </div>
-                    {selectedItem.approvalSteps.map((s, idx) => (
-                      <div key={idx} className="flex items-center gap-3">
-                        <div className="h-5 w-5 rounded-full bg-amber-100 flex items-center justify-center animate-pulse">
-                          <div className="h-2 w-2 rounded-full bg-amber-500" />
-                        </div>
+                    {reviewItem.approvalSteps.map((s, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        {s.decision === "APPROVED" ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                        ) : s.decision === "REJECTED" ? (
+                          <XCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full border-2 border-amber-400 shrink-0 mt-0.5 animate-pulse" />
+                        )}
                         <div className="text-sm">
                           <span className="font-semibold">
-                            {s.roles.join(", ").replace(/_/g, " ")}
-                          </span>{" "}
-                          <span className="text-amber-600">⏳ Pending</span>
+                            {s.roles?.[0]?.replace(/_/g, " ") ?? "Unknown Role"}
+                          </span>
+                          {s.decision ? (
+                            <span
+                              className={`ml-2 ${s.decision === "APPROVED" ? "text-green-600" : "text-red-600"}`}
+                            >
+                              {s.decision === "APPROVED"
+                                ? "Approved"
+                                : "Rejected"}
+                            </span>
+                          ) : (
+                            <span className="ml-2 text-amber-600">
+                              Awaiting
+                            </span>
+                          )}
+                          {s.approverName && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · {s.approverName}
+                            </span>
+                          )}
+                          {s.comment && (
+                            <div className="text-muted-foreground mt-0.5 text-[13px] italic">
+                              &quot;{s.comment}&quot;
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {currentUser?.id === selectedItem.initiatorId && (
+                {reviewItem.status === "REJECTED" ? (
+                  <Alert variant="destructive">
+                    <XCircle className="h-4 w-4" />
+                    <AlertTitle>This transaction was rejected</AlertTitle>
+                    <AlertDescription>
+                      The initiator must edit and resubmit before further action
+                      is possible.
+                    </AlertDescription>
+                  </Alert>
+                ) : reviewItem.status === "APPROVED" ? (
+                  <Alert className="border-green-300 bg-green-50">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <AlertTitle className="text-green-800">
+                      Transaction fully approved
+                    </AlertTitle>
+                    <AlertDescription className="text-green-700">
+                      This transaction has been approved and committed.
+                    </AlertDescription>
+                  </Alert>
+                ) : currentUser.id === reviewItem.initiatorId ? (
                   <Alert variant="destructive">
                     <ShieldX className="h-4 w-4" />
                     <AlertTitle>Maker-Checker Rule Enforced</AlertTitle>
@@ -421,44 +663,207 @@ export default function ApprovalsPage() {
                       authorised user must action this item.
                     </AlertDescription>
                   </Alert>
-                )}
+                ) : null}
 
-                <div className="space-y-2">
-                  <label className="mrpsl-label">Comment</label>
-                  <Textarea placeholder="Required for rejection, optional for approval" />
-                </div>
+                {reviewItem.status === "PENDING" &&
+                  currentUser.id !== reviewItem.initiatorId && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="mrpsl-label">Comment</label>
+                        <Textarea
+                          placeholder="Required for rejection, optional for approval"
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                        />
+                      </div>
 
-                <div className="flex gap-4 pt-4 border-t">
-                  <Button variant="ghost" className="mr-auto">
-                    Delegate to Colleague
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    disabled={currentUser?.id === selectedItem.initiatorId}
-                    onClick={() => {
-                      toast.error("Transaction rejected");
-                      setSheetOpen(false);
-                    }}
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    disabled={currentUser?.id === selectedItem.initiatorId}
-                    onClick={() => {
-                      toast.success(
-                        "Transaction fully authorised and committed.",
-                      );
-                      setSheetOpen(false);
-                    }}
-                  >
-                    Approve
-                  </Button>
-                </div>
+                      <div className="flex gap-3 pt-2 border-t">
+                        <Button
+                          variant="ghost"
+                          className="mr-auto"
+                          onClick={() =>
+                            toast.success("Delegated to colleague")
+                          }
+                        >
+                          Delegate
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          disabled={currentUser.id === reviewItem.initiatorId}
+                          onClick={handleReject}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          disabled={currentUser.id === reviewItem.initiatorId}
+                          onClick={handleApprove}
+                        >
+                          Approve
+                        </Button>
+                      </div>
+                    </>
+                  )}
               </div>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit & Resubmit Dialog (Initiator) ───────────────────────── */}
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          if (!open) setEditOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[92vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
+            <DialogTitle className="text-[15px] font-bold tracking-tight">
+              Edit &amp; Resubmit
+            </DialogTitle>
+            {editItem && (
+              <p className="text-[13px] text-muted-foreground mt-0.5">
+                {editItem.transactionType} &mdash;{" "}
+                <span className="font-mono">{editItem.id}</span>
+              </p>
+            )}
+          </DialogHeader>
+
+          {editItem &&
+            (() => {
+              const rejectedStep = editItem.approvalSteps.find(
+                (s) => s.decision === "REJECTED",
+              );
+              return (
+                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+                  {/* Rejection reason */}
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-red-700">
+                      <XCircle className="h-4 w-4 shrink-0" />
+                      <span className="text-[13px] font-semibold">
+                        Rejected by{" "}
+                        {rejectedStep?.approverName ??
+                          rejectedStep?.roles?.[0]?.replace(/_/g, " ") ??
+                          "Approver"}
+                        {rejectedStep?.decidedAt && (
+                          <span className="font-normal text-red-600">
+                            {" "}
+                            ·{" "}
+                            {format(
+                              new Date(rejectedStep.decidedAt),
+                              "d MMM yyyy, HH:mm",
+                            )}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    {rejectedStep?.comment ? (
+                      <p className="text-[13px] text-red-800 leading-relaxed pl-6">
+                        &ldquo;{rejectedStep.comment}&rdquo;
+                      </p>
+                    ) : (
+                      <p className="text-[13px] text-red-600 pl-6 italic">
+                        No comment provided.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Original transaction info (read-only) */}
+                  <div>
+                    <h4 className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      Transaction Details
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3 p-4 bg-muted/20 border rounded-xl text-[13px]">
+                      <div>
+                        <div className="text-muted-foreground mb-1">Module</div>
+                        <Badge className="bg-gray-100 text-gray-800 border-0">
+                          {editItem.module}
+                        </Badge>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground mb-1">Type</div>
+                        <span className="font-medium">
+                          {editItem.transactionType}
+                        </span>
+                      </div>
+                      {editItem.tier && (
+                        <div>
+                          <div className="text-muted-foreground mb-1">Tier</div>
+                          <Badge
+                            className={`border-0 ${editItem.tier === 1 ? "bg-green-100 text-green-800" : editItem.tier === 2 ? "bg-blue-100 text-blue-800" : editItem.tier === 3 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"}`}
+                          >
+                            Tier {editItem.tier}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Editable fields */}
+                  <div className="space-y-4">
+                    <h4 className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Edit Before Resubmitting
+                    </h4>
+
+                    <div className="space-y-1.5">
+                      <label className="mrpsl-label">Description</label>
+                      <Textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        rows={3}
+                        className="text-[13px] resize-none"
+                      />
+                    </div>
+
+                    {editItem.amount != null && (
+                      <div className="space-y-1.5">
+                        <label className="mrpsl-label">Amount (₦)</label>
+                        <Input
+                          value={editAmount}
+                          onChange={(e) => setEditAmount(e.target.value)}
+                          className="mrpsl-input font-mono"
+                          placeholder="e.g. 387,500"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Resubmit note (required) */}
+                  <div className="space-y-1.5">
+                    <label className="mrpsl-label">
+                      Summary of Changes <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-[13px] text-muted-foreground">
+                      Briefly describe what you corrected or updated. This is
+                      visible to the approver.
+                    </p>
+                    <Textarea
+                      value={resubmitNote}
+                      onChange={(e) => setResubmitNote(e.target.value)}
+                      placeholder="e.g. Corrected the unit count to match the executed transfer deed. Verified figures with the principal's transfer register."
+                      rows={3}
+                      className="text-[13px] resize-none"
+                    />
+                  </div>
+                </div>
+              );
+            })()}
+
+          <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background gap-2">
+            <Button variant="ghost" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleResubmit} disabled={!resubmitNote.trim()}>
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Resubmit for Approval
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
