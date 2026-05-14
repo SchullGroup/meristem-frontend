@@ -53,5 +53,119 @@ export const ipoTemplateFields = [
   "chn",
   "units",
   "amount",
+  "bank",
+  "broker",
   "remark",
+];
+
+export const MOCK_APPROVED = [
+  {
+    name: "ADEBISI FUNMILAYO",
+    chn: "C00001001EL",
+    broker: "Meristem",
+    bank: "GTBank",
+    acct: "0012345678",
+    units: 50000,
+    amount: 2500000,
+  },
+  {
+    name: "OKAFOR CHUKWUEMEKA",
+    chn: "C00004509EL",
+    broker: "Stanbic IBTC",
+    bank: "Zenith",
+    acct: "2023456781",
+    units: 10000,
+    amount: 500000,
+  },
+  {
+    name: "IBRAHIM FATIMA",
+    chn: "C00009821EL",
+    broker: "CardinalStone",
+    bank: "Access",
+    acct: "0987654321",
+    units: 25000,
+    amount: 1250000,
+  },
+  {
+    name: "OLAWALE DAVID",
+    chn: "C00002200EL",
+    broker: "ARM Securities",
+    bank: "UBA",
+    acct: "3012345600",
+    units: 100000,
+    amount: 5000000,
+  },
+  {
+    name: "NWOSU CHIDINMA",
+    chn: "C00007811EL",
+    broker: "FCMB Capital",
+    bank: "Fidelity",
+    acct: "5009871234",
+    units: 5000,
+    amount: 250000,
+  },
+  {
+    name: "ALIYU SADIQ",
+    chn: "C00003312EL",
+    broker: "Meristem",
+    bank: "First Bank",
+    acct: "3098765432",
+    units: 20000,
+    amount: 1000000,
+  },
+  {
+    name: "ADELEKE GRACE",
+    chn: "C00005678EL",
+    broker: "Vetiva",
+    bank: "Sterling",
+    acct: "0071234567",
+    units: 15000,
+    amount: 750000,
+  },
+  {
+    name: "JAMES PATIENCE",
+    chn: "C00008899EL",
+    broker: "Afrinvest",
+    bank: "Polaris",
+    acct: "4056789012",
+    units: 30000,
+    amount: 1500000,
+  },
+];
+
+export const MOCK_DISAPPROVED = [
+  {
+    name: "OKORO BLESSING",
+    bank: "GTBank",
+    acct: "0045678901",
+    amount: 250000,
+    reason: "Account name mismatch",
+  },
+  {
+    name: "HASSAN MUHAMMED",
+    bank: "Zenith",
+    acct: "2011223344",
+    amount: 100000,
+    reason: "Duplicate application",
+  },
+  {
+    name: "AFOLABI TAIWO",
+    bank: "Access",
+    acct: "0067890123",
+    amount: 500000,
+    reason: "Incomplete KYC documentation",
+  },
+];
+
+export const MOCK_INVALID = [
+  {
+    name: "UCHENNA EMEKA",
+    amount: 50000,
+    reason: "Subscription below minimum threshold (₦100,000)",
+  },
+  {
+    name: "BADMUS LATEEF",
+    amount: 200000,
+    reason: "Invalid CHN — not found in CSCS database",
+  },
 ];

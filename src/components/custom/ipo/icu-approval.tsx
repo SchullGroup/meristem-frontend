@@ -9,8 +9,8 @@ import {
   Loader2,
   X,
   FileSpreadsheet,
+  History,
 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -34,21 +34,24 @@ import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { useGetRegistersByType } from "@/hooks/useRegisters";
 import {
-  useGetPendingApprovals,
+  useGetIcuApprovals,
   useGetIpoBatch,
   useGetIpoBatchSubscribers,
-  useOpsRejectIpo,
-  useOpsApproveIpo,
+  useIcuReviewIpo,
 } from "@/hooks/useIPO";
 import { Pagination } from "@/components/custom/pagination";
 import { IPOBatchType } from "@/types/ipo";
 import { exportIpoBatch } from "@/actions/ipoActions";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
-import { BatchDetailSkeleton, DataErrorState } from "./loaders";
+import {
+  BatchDetailSkeleton,
+  DataErrorState,
+  PendingListSkeleton,
+} from "./loaders";
 
 const PAGE_SIZE = 10;
 
-export default function PendingApprovalIPO({ tab }: { tab: string }) {
+export default function IcuApprovalIPO({ tab }: { tab: string }) {
   const { currentUser } = useStore();
   const [reviewingBatch, setReviewingBatch] = useState<string | null>(null);
   const [reviewTab, setReviewTab] = useState<IPOBatchType>("APPROVED");
@@ -56,37 +59,35 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [subscribersPage, setSubscribersPage] = useState(0);
 
-  // Pending Approval filters
-  const [authRegister, setAuthRegister] = useState<string>("");
-  const [authDateRange, setAuthDateRange] = useState<DateRange | undefined>(
+  // Filters
+  const [icuRegister, setIcuRegister] = useState<string>("");
+  const [icuDateRange, setIcuDateRange] = useState<DateRange | undefined>(
     undefined,
   );
-  const [authCalOpen, setAuthCalOpen] = useState(false);
+  const [icuCalOpen, setIcuCalOpen] = useState(false);
 
   // Queries
   const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
-    enabled: tab === "auth",
+    enabled: tab === "icu",
   });
 
   const {
-    data: pendingData,
-    isLoading: pendingLoading,
-    isError: pendingError,
-    error: pendingErrorData,
-    refetch: refetchPending,
-  } = useGetPendingApprovals(
+    data: icuData,
+    isLoading: icuLoading,
+    isError: icuError,
+    error: icuErrorData,
+    refetch: refetchIcu,
+  } = useGetIcuApprovals(
     {
-      register: authRegister === "all" ? "" : authRegister,
-      from: authDateRange?.from
-        ? format(authDateRange.from, "yyyy-MM-dd")
+      register: icuRegister === "all" ? "" : icuRegister,
+      from: icuDateRange?.from
+        ? format(icuDateRange.from, "yyyy-MM-dd")
         : undefined,
-      to: authDateRange?.to
-        ? format(authDateRange.to, "yyyy-MM-dd")
-        : undefined,
+      to: icuDateRange?.to ? format(icuDateRange.to, "yyyy-MM-dd") : undefined,
       page: currentPage,
       size: PAGE_SIZE,
     },
-    { enabled: tab === "auth" && !reviewingBatch },
+    { enabled: tab === "icu" && !reviewingBatch },
   );
 
   const {
@@ -116,61 +117,40 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   );
 
   // Mutations
-  const approveMutation = useOpsApproveIpo();
-  const rejectMutation = useOpsRejectIpo();
+  const icuReviewMutation = useIcuReviewIpo();
 
   // Handlers
-  const handleApprove = () => {
+  const handleFinalReview = (approved: boolean) => {
     if (!reviewingBatch) return;
 
-    approveMutation.mutate(
-      {
-        batchRef: reviewingBatch,
-        payload: {
-          comment: reviewComment,
-          approvedBy: currentUser?.id || "ADMIN",
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Batch approved and forwarded to ICU.");
-          setReviewingBatch(null);
-          setReviewComment("");
-        },
-        onError: (err) => {
-          const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
-          toast.error(errorMessage?.message || "Failed to forward to ICU");
-        },
-      },
-    );
-  };
-
-  const handleReject = () => {
-    if (!reviewingBatch) return;
-    if (!reviewComment.trim()) {
+    if (!approved && !reviewComment.trim()) {
       toast.error(
-        "Please provide a reason for rejection in the comment field.",
+        "Please provide a reason for returning the batch to Operations.",
       );
       return;
     }
 
-    rejectMutation.mutate(
+    icuReviewMutation.mutate(
       {
         batchRef: reviewingBatch,
         payload: {
+          approved,
           comment: reviewComment,
-          rejectedBy: currentUser?.id || "unknown",
+          reviewedBy: currentUser?.id || "ICU-ADMIN",
         },
       },
       {
         onSuccess: () => {
-          toast.success("Batch rejected.");
+          toast.success(
+            approved
+              ? "ICU approved. Batch cleared for lodgment."
+              : "Batch returned to Operations.",
+          );
           setReviewingBatch(null);
           setReviewComment("");
         },
         onError: (err) => {
-          const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
-          toast.error(errorMessage?.message || "Failed to reject Batch");
+          toast.error(returnErrorMessage(err as ErrorLike));
         },
       },
     );
@@ -184,41 +164,44 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${reviewingBatch}_${reviewTab.toLowerCase()}.csv`;
+      a.download = `ICU_${reviewingBatch}_${reviewTab.toLowerCase()}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       toast.success("Export successful");
     } catch (error) {
-      const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
-      toast.error(errorMessge?.message || "Failed to export data");
+      toast.error(
+        returnErrorMessage(error as ErrorLike) || "Failed to export data",
+      );
     }
   };
 
   const resetFilters = () => {
-    setAuthRegister("");
-    setAuthDateRange(undefined);
+    setIcuRegister("");
+    setIcuDateRange(undefined);
     setCurrentPage(0);
   };
+
+  // ── Helper Components ──
 
   // ── Render Logic ──
 
   if (!reviewingBatch) {
-    if (pendingError) {
+    if (icuError) {
       return (
         <div className="space-y-6">
           <Card className="mrpsl-card p-5">
             <div className="flex justify-between items-center">
-              <h2 className="font-semibold">Pending Approvals</h2>
+              <h2 className="font-semibold">ICU Approval Queue</h2>
               <Button variant="ghost" size="sm" onClick={resetFilters}>
                 Reset Filters
               </Button>
             </div>
           </Card>
           <DataErrorState
-            message={returnErrorMessage(pendingErrorData as ErrorLike)}
-            onRetry={refetchPending}
+            message={returnErrorMessage(icuErrorData as ErrorLike)}
+            onRetry={refetchIcu}
           />
         </div>
       );
@@ -233,8 +216,8 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
               <div className="space-y-1.5">
                 <label className="mrpsl-label">Register</label>
                 <Select
-                  value={authRegister}
-                  onValueChange={(value) => setAuthRegister(value || "")}
+                  value={icuRegister}
+                  onValueChange={(value) => setIcuRegister(value || "")}
                 >
                   <SelectTrigger className="mrpsl-input w-full">
                     <SelectValue placeholder="All Registers" />
@@ -253,10 +236,10 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
               <div className="space-y-1.5">
                 <label className="mrpsl-label">Date Range</label>
                 <Popover
-                  open={authCalOpen}
+                  open={icuCalOpen}
                   onOpenChange={(v) => {
-                    if (!v && authDateRange?.from && !authDateRange?.to) return;
-                    setAuthCalOpen(v);
+                    if (!v && icuDateRange?.from && !icuDateRange?.to) return;
+                    setIcuCalOpen(v);
                   }}
                 >
                   <PopoverTrigger asChild>
@@ -264,23 +247,23 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                       variant="outline"
                       className={cn(
                         "mrpsl-input w-full justify-start gap-2 px-3 font-normal text-sm",
-                        !authDateRange && "text-muted-foreground",
+                        !icuDateRange && "text-muted-foreground",
                       )}
                     >
                       <CalendarRange className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="flex-1 text-left truncate">
-                        {authDateRange?.from
-                          ? authDateRange.to
-                            ? `${format(authDateRange.from, "dd MMM yyyy")} – ${format(authDateRange.to, "dd MMM yyyy")}`
-                            : format(authDateRange.from, "dd MMM yyyy")
+                        {icuDateRange?.from
+                          ? icuDateRange.to
+                            ? `${format(icuDateRange.from, "dd MMM yyyy")} – ${format(icuDateRange.to, "dd MMM yyyy")}`
+                            : format(icuDateRange.from, "dd MMM yyyy")
                           : "Select date range"}
                       </span>
-                      {authDateRange && (
+                      {icuDateRange && (
                         <span
                           role="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setAuthDateRange(undefined);
+                            setIcuDateRange(undefined);
                           }}
                           className="ml-auto rounded-full hover:bg-muted p-0.5 shrink-0"
                         >
@@ -292,10 +275,10 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="range"
-                      selected={authDateRange}
+                      selected={icuDateRange}
                       onSelect={(r) => {
-                        setAuthDateRange(r);
-                        if (r?.from && r?.to) setAuthCalOpen(false);
+                        setIcuDateRange(r);
+                        if (r?.from && r?.to) setIcuCalOpen(false);
                       }}
                       numberOfMonths={2}
                     />
@@ -322,36 +305,20 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                   <th className="px-4 py-3 text-right">DISAPPROVED</th>
                   <th className="px-4 py-3 text-right">INVALID</th>
                   <th className="px-4 py-3 text-right">TOTAL AMOUNT</th>
+                  <th className="px-4 py-3">OPS APPROVAL</th>
                   <th className="px-4 py-3">STATUS</th>
                   <th className="px-4 py-3 text-right">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {pendingLoading ? (
+                {icuLoading ? (
                   <tr>
-                    <td colSpan={9} className="p-0">
-                      <div className="flex flex-col gap-px">
-                        {[...Array(PAGE_SIZE)].map((_, i) => (
-                          <div
-                            key={i}
-                            className="flex gap-4 px-4 py-3.5 items-center bg-background"
-                          >
-                            <Skeleton className="h-3 w-32" />
-                            <Skeleton className="h-3 w-24" />
-                            <Skeleton className="h-3 w-20" />
-                            <div className="flex-1" />
-                            <Skeleton className="h-3 w-16" />
-                            <Skeleton className="h-3 w-16" />
-                            <Skeleton className="h-3 w-24" />
-                            <Skeleton className="h-6 w-16 rounded-full" />
-                            <Skeleton className="h-8 w-24 rounded-lg" />
-                          </div>
-                        ))}
-                      </div>
+                    <td colSpan={10} className="p-0">
+                      <PendingListSkeleton />
                     </td>
                   </tr>
-                ) : pendingData?.content && pendingData.content.length > 0 ? (
-                  pendingData.content.map((batch) => (
+                ) : icuData?.content && icuData.content.length > 0 ? (
+                  icuData.content.map((batch) => (
                     <tr key={batch.batchReference} className="mrpsl-table-row">
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                         {batch.batchReference}
@@ -377,7 +344,20 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                         ₦{batch.totalAmount?.toLocaleString() || 0}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
+                        <div className="text-xs font-medium">
+                          {batch.opsApprovedBy || "—"}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {batch.opsApprovedAt
+                            ? format(
+                                new Date(batch.opsApprovedAt),
+                                "dd MMM yyyy, HH:mm",
+                              )
+                            : "Pending"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge className="bg-blue-100 text-blue-800 border-0 text-xs">
                           {batch.status}
                         </Badge>
                       </td>
@@ -390,7 +370,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                             setSubscribersPage(0);
                           }}
                         >
-                          Review &amp; Approve
+                          ICU Review
                         </Button>
                       </td>
                     </tr>
@@ -398,20 +378,20 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                 ) : (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-4 py-12 text-center text-muted-foreground"
                     >
-                      No pending batches found.
+                      No batches awaiting ICU approval.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          {pendingData?.pagination && (
+          {icuData?.pagination && (
             <Pagination
               currentPage={currentPage}
-              totalPages={pendingData.pagination.totalPages}
+              totalPages={icuData.pagination.totalPages}
               onPageChange={setCurrentPage}
             />
           )}
@@ -454,7 +434,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
             setReviewComment("");
           }}
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Pending Approval
+          <ArrowLeft className="h-4 w-4" /> Back to ICU Queue
         </Button>
         <div className="h-5 w-px bg-border mx-1" />
         <span className="font-mono text-sm font-semibold">
@@ -466,37 +446,79 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
             ? format(new Date(batchDetails.batchDate), "dd MMM yyyy")
             : "—"}
         </span>
-        <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
-          {batchDetails?.status || "Pending"}
+        <Badge className="bg-blue-100 text-blue-800 border-0 text-xs">
+          {batchDetails?.status || "Awaiting ICU"}
         </Badge>
         <div className="flex-1" />
+
         <Button
           variant="destructive"
           size="sm"
-          disabled={rejectMutation.isPending || approveMutation.isPending}
-          onClick={handleReject}
+          disabled={icuReviewMutation.isPending}
+          onClick={() => handleFinalReview(false)}
         >
-          {rejectMutation.isPending ? (
+          {icuReviewMutation.isPending &&
+          !icuReviewMutation.variables?.payload.approved ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
-            "Reject Batch"
+            "Return to Ops"
           )}
         </Button>
         <Button
           size="sm"
-          disabled={rejectMutation.isPending || approveMutation.isPending}
-          onClick={handleApprove}
+          disabled={icuReviewMutation.isPending}
+          onClick={() => handleFinalReview(true)}
         >
-          {approveMutation.isPending ? (
+          {icuReviewMutation.isPending &&
+          icuReviewMutation.variables?.payload.approved ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <>
               <Check className="h-4 w-4 mr-1.5" />
-              Approve &amp; Forward to ICU
+              ICU Approve &amp; Clear
             </>
           )}
         </Button>
       </div>
+
+      {/* Audit Record */}
+      <Card className="mrpsl-card p-4 bg-muted/20 border-l-4 border-l-primary flex items-start gap-4">
+        <div className="p-2 rounded-full bg-primary/10 text-primary">
+          <History className="h-5 w-5" />
+        </div>
+        <div className="flex-1 space-y-3">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+            Operations Approval Record
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm">
+            <div>
+              <div className="mrpsl-section-title">Approved By</div>
+              <div className="font-semibold mt-0.5">
+                {batchDetails?.opsApprovedBy || "System Authorizer"}
+              </div>
+            </div>
+            <div>
+              <div className="mrpsl-section-title">
+                Approval Date &amp; Time
+              </div>
+              <div className="font-mono mt-0.5">
+                {batchDetails?.opsApprovedAt
+                  ? format(
+                      new Date(batchDetails.opsApprovedAt),
+                      "dd MMM yyyy, HH:mm:ss",
+                    )
+                  : "—"}
+              </div>
+            </div>
+            <div>
+              <div className="mrpsl-section-title">Operations Status</div>
+              <div className="mt-0.5 flex items-center gap-1.5 text-green-700 font-medium">
+                <Check className="h-3.5 w-3.5" /> Verified & Forwarded
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Summary stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -563,13 +585,13 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         ))}
       </div>
 
-      {/* Authorizer comment */}
+      {/* ICU comment */}
       <div className="space-y-1.5">
-        <label className="mrpsl-label">Authorizer Comment</label>
+        <label className="mrpsl-label">ICU Review Comment</label>
         <Textarea
           value={reviewComment}
           onChange={(e) => setReviewComment(e.target.value)}
-          placeholder="Add a comment (required for rejection)..."
+          placeholder="Add ICU review comment (required for return to Ops)..."
           rows={2}
           className="resize-none text-sm focus-visible:ring-primary rounded-xl"
         />

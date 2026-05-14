@@ -1,27 +1,23 @@
 // "use server"
 
 import api from "@/services/api";
-import { ApiResponse, PaginatedResponse } from "@/types";
-import { IPO } from "@/types/ipo";
+import { ApiResponse, ContentPaginatedResponse } from "@/types";
+import {
+  IPO,
+  IPOBatchType,
+  IPOSubscriber,
+  PendingApprovalParams,
+} from "@/types/ipo";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 
-// GET ALL DOCUMENT TYPES
-export const getIpoRegisters = async () => {
+// GET PENDING APPROVALS
+export const getIPOPendingApprovals = async (
+  params?: PendingApprovalParams,
+) => {
   try {
-    const response = await api.get<ApiResponse<string[]>>("/ipo/registers");
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-// GET DOCUMENT TYPE BY CODE
-export const getIPOPendingApprovals = async () => {
-  try {
-    const response = await api.get<PaginatedResponse<IPO>>(
+    const response = await api.get<ContentPaginatedResponse<IPO>>(
       `/ipo/batches/pending-approval`,
+      { params },
     );
 
     return response.data;
@@ -31,11 +27,12 @@ export const getIPOPendingApprovals = async () => {
   }
 };
 
-//
-export const getIPOICUApprovals = async () => {
+// GET ICU APPROVALS
+export const getIPOICUApprovals = async (params?: PendingApprovalParams) => {
   try {
-    const response = await api.get<PaginatedResponse<IPO>>(
+    const response = await api.get<ContentPaginatedResponse<IPO>>(
       `/ipo/batches/icu-approval`,
+      { params },
     );
 
     return response.data;
@@ -45,7 +42,7 @@ export const getIPOICUApprovals = async () => {
   }
 };
 
-// CREATE DOCUMENT TYPE
+// UPLOAD BATCH
 export const uploadBatchIpo = async (payload: FormData) => {
   try {
     const response = await api.post<IPO>("/ipo/batches/upload", payload, {
@@ -61,11 +58,12 @@ export const uploadBatchIpo = async (payload: FormData) => {
   }
 };
 
-// UPDATE DOCUMENT TYPE
+// APPROVE IPO BATCH
 export const opsApproveIpo = async (
   batchRef: string,
   payload: {
     approvedBy: string;
+    comment?: string;
   },
 ) => {
   try {
@@ -81,6 +79,28 @@ export const opsApproveIpo = async (
   }
 };
 
+// REJECT IPO BATCH
+export const opsRejectIpo = async (
+  batchRef: string,
+  payload: {
+    comment: string;
+    rejectedBy: string;
+  },
+) => {
+  try {
+    const response = await api.patch<ApiResponse<IPO>>(
+      `/ipo/batches/${batchRef}/ops-reject`,
+      payload,
+    );
+
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// REVIEW IPO AS ICU
 export const icuReviewIpo = async (
   batchRef: string,
   payload: {
@@ -95,6 +115,50 @@ export const icuReviewIpo = async (
       payload,
     );
 
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// GET IPO BATCH
+export const getIpoBatch = async (batchRef?: string) => {
+  try {
+    const response = await api.get<IPO>(`/ipo/batches/${batchRef}`);
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// GET SUBSCRIBERS BY BATCH
+export const getIpoBatchSubscribers = async (params: {
+  batchRef: string;
+  type?: IPOBatchType;
+  page?: number;
+  size?: number;
+}) => {
+  const { batchRef, ...rest } = params;
+  try {
+    const response = await api.get<ContentPaginatedResponse<IPOSubscriber>>(
+      `/ipo/batches/${batchRef}/subscribers`,
+      { params: rest },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// EXPORT BATCH TO SHEET
+export const exportIpoBatch = async (batchRef: string, type: IPOBatchType) => {
+  try {
+    const response = await api.get<string>(
+      `/ipo/batches/${batchRef}/export/${type}`,
+    );
     return response.data;
   } catch (error) {
     const err = error as ErrorLike;
