@@ -259,3 +259,15 @@ export interface ApprovalStep {
   comment?: string;
   decidedAt?: string;
 }
+
+export interface EmailJob {
+  id: string;
+  offerName: string;
+  companyName: string;
+  totalRecipients: number;
+  sent: number;
+  bounced: number;
+  status: "sending" | "complete" | "failed";
+  startedAt: string;
+  completedAt?: string;
+}

@@ -58,6 +58,9 @@ const NAV_GROUPS = [
       { label: "Other Parameters", href: "/setup/parameters" },
     ],
   },
+];
+
+const OPERATIONS_GROUPS = [
   {
     title: "Offer Administration",
     icon: TrendingUp,
@@ -127,7 +130,7 @@ export function Sidebar() {
   const [switchUserId, setSwitchUserId] = useState<string>("");
 
   useEffect(() => {
-    NAV_GROUPS.forEach((group) => {
+    [...NAV_GROUPS, ...OPERATIONS_GROUPS].forEach((group) => {
       if (group.items?.some((item) => pathname.startsWith(item.href))) {
         setOpenGroups((prev) => ({ ...prev, [group.title]: true }));
       }
@@ -147,7 +150,7 @@ export function Sidebar() {
       setSwitchRoleOpen(false);
       setSwitchUserId("");
       toast.success(
-        `Switched to ${user.firstName} ${user.lastName} (${user.roles?.[0]})`,
+        `Switched to ${user.firstName} ${user.lastName} (${user.roles[0]})`,
       );
     }
   };
@@ -181,12 +184,12 @@ export function Sidebar() {
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-3 no-scrollbar">
           <div className="space-y-0.5 px-3">
-            {NAV_GROUPS.map((group) => {
+            {[...NAV_GROUPS, ...OPERATIONS_GROUPS].map((group: any) => {
               const isOpen = openGroups[group.title];
               const hasItems = group.items && group.items.length > 0;
               const isGroupActive =
                 hasItems &&
-                group.items.some((item) => pathname.startsWith(item.href));
+                group.items.some((item: any) => pathname.startsWith(item.href));
               const isSingleActive =
                 !hasItems &&
                 group.href &&
@@ -200,19 +203,17 @@ export function Sidebar() {
                       <button
                         onClick={() => toggleGroup(group.title)}
                         className={cn(
-                          "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group text-sm",
-                          isGroupActive
-                            ? "text-foreground font-medium"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                          "w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group text-sm font-semibold text-foreground",
+                          isGroupActive ? "bg-muted/50" : "hover:bg-muted/40",
                         )}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <group.icon
                             className={cn(
-                              "h-4 w-4 shrink-0",
+                              "h-[15px] w-[15px] shrink-0",
                               isGroupActive
                                 ? "text-primary"
-                                : "text-muted-foreground group-hover:text-foreground",
+                                : "text-foreground/70",
                             )}
                           />
                           <span className="whitespace-nowrap">
@@ -221,7 +222,7 @@ export function Sidebar() {
                         </div>
                         <ChevronRight
                           className={cn(
-                            "h-3.5 w-3.5 shrink-0 transition-transform text-muted-foreground",
+                            "h-3.5 w-3.5 shrink-0 transition-transform text-foreground/40",
                             isOpen ? "rotate-90" : "",
                           )}
                         />
@@ -229,7 +230,7 @@ export function Sidebar() {
 
                       {isOpen && (
                         <div className="mt-0.5 mb-1 space-y-0.5">
-                          {group.items.map((item) => {
+                          {group.items.map((item: any) => {
                             const isActive = pathname === item.href;
                             return (
                               <Link
@@ -256,18 +257,16 @@ export function Sidebar() {
                     <Link
                       href={group.href || "#"}
                       className={cn(
-                        "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors group text-sm",
-                        isSingleActive
-                          ? "text-foreground font-medium bg-muted/50"
-                          : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                        "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors group text-sm font-semibold text-foreground",
+                        isSingleActive ? "bg-muted/50" : "hover:bg-muted/40",
                       )}
                     >
                       <group.icon
                         className={cn(
-                          "h-4 w-4 shrink-0",
+                          "h-[15px] w-[15px] shrink-0",
                           isSingleActive
                             ? "text-primary"
-                            : "text-muted-foreground group-hover:text-foreground",
+                            : "text-foreground/70",
                         )}
                       />
                       <span className="whitespace-nowrap">{group.title}</span>
@@ -281,18 +280,18 @@ export function Sidebar() {
               <Link
                 href="/reports"
                 className={cn(
-                  "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors group text-sm",
+                  "flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors group text-sm font-semibold text-foreground",
                   pathname.startsWith("/reports")
-                    ? "text-foreground font-medium bg-muted/50"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                    ? "bg-muted/50"
+                    : "hover:bg-muted/40",
                 )}
               >
                 <BarChart3
                   className={cn(
-                    "h-4 w-4 shrink-0",
+                    "h-[15px] w-[15px] shrink-0",
                     pathname.startsWith("/reports")
                       ? "text-primary"
-                      : "text-muted-foreground group-hover:text-foreground",
+                      : "text-foreground/70",
                   )}
                 />
                 <span className="whitespace-nowrap">Reports</span>
@@ -301,19 +300,19 @@ export function Sidebar() {
               <Link
                 href="/approvals"
                 className={cn(
-                  "flex items-center justify-between px-3 py-2 rounded-lg transition-colors group text-sm",
+                  "flex items-center justify-between px-3 py-2 rounded-lg transition-colors group text-sm font-semibold text-foreground",
                   pathname.startsWith("/approvals")
-                    ? "text-foreground font-medium bg-muted/50"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                    ? "bg-muted/50"
+                    : "hover:bg-muted/40",
                 )}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <ClipboardCheck
                     className={cn(
-                      "h-4 w-4 shrink-0",
+                      "h-[15px] w-[15px] shrink-0",
                       pathname.startsWith("/approvals")
                         ? "text-primary"
-                        : "text-muted-foreground group-hover:text-foreground",
+                        : "text-foreground/70",
                     )}
                   />
                   <span className="whitespace-nowrap">Approvals</span>
@@ -321,7 +320,7 @@ export function Sidebar() {
                 {pendingCount > 0 && (
                   <Badge
                     variant="destructive"
-                    className="h-5 px-1.5 text-[10px] rounded-full shrink-0"
+                    className="h-5 px-1.5 text-[13px] rounded-full shrink-0"
                   >
                     {pendingCount}
                   </Badge>
@@ -335,22 +334,17 @@ export function Sidebar() {
         <div className="border-t border-border/60 p-4 shrink-0">
           <div className="flex items-center gap-2 mb-3 px-2">
             <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <span className="text-primary font-bold text-[11px]">
-                {currentUser.firstName?.[0] ?? currentUser.username?.[0] ?? "U"}
-                {currentUser.lastName?.[0] ?? ""}
+              <span className="text-primary font-bold text-[13px]">
+                {currentUser?.username?.split(" ")[0]?.[0]?.toUpperCase()}
+                {currentUser?.username?.split(" ")[1]?.[0]?.toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold truncate">
-                {currentUser.firstName
-                  ? `${currentUser.firstName} ${currentUser.lastName}`
-                  : currentUser?.username}
+                {currentUser.username}
               </p>
-              <p className="text-[10px] text-muted-foreground truncate uppercase tracking-wide">
-                {currentUser?.roles?.[0]?.replace(/_/g, " ") ??
-                  (currentUser?.roles &&
-                    currentUser.roles[0]?.replace(/_/g, " ")) ??
-                  "USER"}
+              <p className="text-[13px] text-muted-foreground truncate uppercase tracking-wide">
+                {currentUser.roles[0]?.replace(/_/g, " ")}
               </p>
             </div>
           </div>
@@ -394,12 +388,8 @@ export function Sidebar() {
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.firstName} {u.lastName}
-                    <span className="ml-2 text-muted-foreground text-xs">
-                      (
-                      {u.roles?.[0]?.replace(/_/g, " ") ??
-                        (u.roles && u.roles[0]?.replace(/_/g, " ")) ??
-                        "USER"}
-                      )
+                    <span className="ml-2 text-muted-foreground text-[13px]">
+                      ({u.roles[0]?.replace(/_/g, " ")})
                     </span>
                   </SelectItem>
                 ))}
