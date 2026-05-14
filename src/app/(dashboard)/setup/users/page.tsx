@@ -141,11 +141,8 @@ export default function UsersPage() {
     roleName,
   }: {
     id: string;
-    roleName: string | undefined;
+    roleName: string;
   }) => {
-    if (!roleName) {
-      return;
-    }
     handleRemoveUserRoleMutation.mutate({ id, roleName });
   };
 
@@ -483,11 +480,11 @@ export default function UsersPage() {
                           <History className="mr-2 h-4 w-4" /> View Audit Log
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          disabled={!u?.roles[0] && !u.secondaryRole}
+                          disabled={u?.roles.length === 0}
                           onClick={() =>
                             handleRemoveUserRole({
                               id: u.id,
-                              roleName: u.roles[0] || u.secondaryRole,
+                              roleName: u.roles[0],
                             })
                           }
                         >
