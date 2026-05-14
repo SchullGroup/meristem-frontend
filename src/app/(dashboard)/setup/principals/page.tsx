@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   PlusCircle,
@@ -10,7 +10,6 @@ import {
   MoreHorizontal,
   BookOpen,
   Pencil,
-  // History,
   Power,
   FileSearch,
 } from "lucide-react";
@@ -393,9 +392,8 @@ export default function PrincipalsPage() {
                         Category {p.billingCategory}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {/* {registers.filter((r) => r.principalId === p.id).length} */}{" "}
-                      -----
+                    <td className="px-4 py-3 tabular-nums text-sm text-center">
+                      {p?.numberOfRegisters || 0}
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">{p.officialEmail}</div>

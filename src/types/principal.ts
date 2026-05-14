@@ -15,6 +15,7 @@ export interface Principal {
   companySecretary: string;
   companySecretaryPhone: string;
   shareHoldersAtSetUp: number;
+  numberOfRegisters?: number;
   status: PrincipalStatus | string;
   createdAt: string;
   updatedAt: string;

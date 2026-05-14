@@ -44,3 +44,12 @@ export interface Pageable {
     empty: boolean;
   };
 }
+
+export interface ContentPaginatedResponse<T> {
+  content: T[];
+  last: boolean;
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}

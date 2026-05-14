@@ -6,23 +6,34 @@ import {
 } from "@tanstack/react-query";
 
 import {
+  getIpoBatch,
+  getIpoBatchSubscribers,
   getIPOICUApprovals,
   getIPOPendingApprovals,
-  getIpoRegisters,
   icuReviewIpo,
   opsApproveIpo,
+  opsRejectIpo,
   uploadBatchIpo,
 } from "@/actions/ipoActions";
 
-import { ApiResponse, PaginatedResponse } from "@/types";
-import { IPO } from "@/types/ipo";
+import { ContentPaginatedResponse } from "@/types";
+import {
+  IPO,
+  IPOBatchType,
+  IPOSubscriber,
+  PendingApprovalParams,
+} from "@/types/ipo";
 
 export const ipoKeys = {
   all: ["ipo"] as const,
   registers: () => [...ipoKeys.all, "registers"] as const,
-  pending: () => [...ipoKeys.all, "pending"] as const,
-  icu: () => [...ipoKeys.all, "icu"] as const,
-  detail: (batchRef: string) => [...ipoKeys.all, "detail", batchRef] as const,
+  pending: (params?: PendingApprovalParams) =>
+    [...ipoKeys.all, "pending", params] as const,
+  icu: (params?: PendingApprovalParams) =>
+    [...ipoKeys.all, "icu", params] as const,
+  detail: (batchRef?: string) => [...ipoKeys.all, "detail", batchRef] as const,
+  subscribers: (type?: IPOBatchType) =>
+    [...ipoKeys.all, "subscribers", type] as const,
 };
 
 export interface TransformedIPO {
@@ -33,37 +44,32 @@ export interface TransformedIPO {
     totalPages: number;
   };
 }
+export interface TransformedSubscribers {
+  content: IPOSubscriber[];
+  pagination: {
+    total: number;
+    page: number;
+    totalPages: number;
+  };
+}
 
-export const useGetIpoRegisters = (
+export const useGetPendingApprovals = (
+  params?: PendingApprovalParams,
   options?: Omit<
-    UseQueryOptions<ApiResponse<string[]>, Error, string[]>,
+    UseQueryOptions<ContentPaginatedResponse<IPO>, Error, TransformedIPO>,
     "queryKey" | "queryFn"
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.registers(),
-    queryFn: getIpoRegisters,
-    select: (data) => data.data,
-    ...options,
-  });
-};
-
-export const useGetIPOPendingApprovals = (
-  options?: Omit<
-    UseQueryOptions<PaginatedResponse<IPO>, Error, TransformedIPO>,
-    "queryKey" | "queryFn"
-  >,
-) => {
-  return useQuery({
-    queryKey: ipoKeys.pending(),
-    queryFn: getIPOPendingApprovals,
+    queryKey: ipoKeys.pending(params),
+    queryFn: () => getIPOPendingApprovals(params),
     select: (data) => {
       return {
-        content: data.data.content,
+        content: data?.content,
         pagination: {
-          total: data.data.totalElements,
-          page: data.data.number,
-          totalPages: data.data.totalPages,
+          total: data?.totalElements,
+          page: data?.page,
+          totalPages: data?.totalPages,
         },
       };
     },
@@ -71,22 +77,24 @@ export const useGetIPOPendingApprovals = (
   });
 };
 
-export const useGetIPOICUApprovals = (
+export const useGetIcuApprovals = (
+  params?: PendingApprovalParams,
+
   options?: Omit<
-    UseQueryOptions<PaginatedResponse<IPO>, Error, TransformedIPO>,
+    UseQueryOptions<ContentPaginatedResponse<IPO>, Error, TransformedIPO>,
     "queryKey" | "queryFn"
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.icu(),
-    queryFn: getIPOICUApprovals,
+    queryKey: ipoKeys.icu(params),
+    queryFn: () => getIPOICUApprovals(params),
     select: (data) => {
       return {
-        content: data.data.content,
+        content: data?.content,
         pagination: {
-          total: data.data.totalElements,
-          page: data.data.number,
-          totalPages: data.data.totalPages,
+          total: data?.totalElements,
+          page: data?.page,
+          totalPages: data?.totalPages,
         },
       };
     },
@@ -117,8 +125,35 @@ export const useOpsApproveIpo = () => {
       payload,
     }: {
       batchRef: string;
-      payload: { approvedBy: string };
+      payload: { comment?: string; approvedBy: string };
     }) => opsApproveIpo(batchRef, payload),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ipoKeys.all,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ipoKeys.detail(variables.batchRef),
+      });
+    },
+  });
+};
+
+export const useOpsRejectIpo = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      batchRef,
+      payload,
+    }: {
+      batchRef: string;
+      payload: {
+        comment: string;
+        rejectedBy: string;
+      };
+    }) => opsRejectIpo(batchRef, payload),
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -153,5 +188,50 @@ export const useIcuReviewIpo = () => {
         queryKey: ipoKeys.detail(variables.batchRef),
       });
     },
+  });
+};
+
+export const useGetIpoBatch = (
+  batchRef?: string,
+  options?: Omit<UseQueryOptions<IPO, Error, IPO>, "queryKey" | "queryFn">,
+) => {
+  return useQuery({
+    queryKey: ipoKeys.detail(batchRef),
+    queryFn: () => getIpoBatch(batchRef),
+    enabled: !!batchRef,
+    ...options,
+  });
+};
+
+export const useGetIpoBatchSubscribers = (
+  params: {
+    batchRef: string;
+    type?: IPOBatchType;
+    page?: number;
+    size?: number;
+  },
+  options?: Omit<
+    UseQueryOptions<
+      ContentPaginatedResponse<IPOSubscriber>,
+      Error,
+      TransformedSubscribers
+    >,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ipoKeys.subscribers(params.type),
+    queryFn: () => getIpoBatchSubscribers(params),
+    select: (data) => {
+      return {
+        content: data?.content,
+        pagination: {
+          total: data?.totalElements,
+          page: data?.page,
+          totalPages: data?.totalPages,
+        },
+      };
+    },
+    ...options,
   });
 };
