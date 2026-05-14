@@ -12,8 +12,8 @@ export interface User {
   certTransactionLimit?: number;
   dividendTransactionLimit: number;
   divTransactionLimit?: number;
-  status: "Active" | "Inactive";
-  twoFAEnabled: boolean;
+  status: "ACTIVE" | "IN_ACTIVE";
+  twoFaEnabled: boolean;
   lastLogin?: string;
   enabled: boolean;
   lastLoginTime: string;
