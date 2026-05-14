@@ -32,13 +32,15 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
+import { usePagination } from "@/lib/use-pagination";
+import { TablePagination } from "@/components/custom/table-pagination";
 
 export default function DeclarationPage() {
   const { currentUser, registers, shareholders, dividendDeclarations } =
@@ -127,6 +129,9 @@ export default function DeclarationPage() {
     d.status.startsWith("PENDING"),
   );
   const icuDecs = pendingDecs.filter((d) => d.tier >= 3);
+  const pendingDecsPg = usePagination(pendingDecs);
+  const icuDecsPg = usePagination(icuDecs);
+  const historyDecsPg = usePagination(dividendDeclarations);
 
   return (
     <div className="space-y-6">
@@ -176,7 +181,7 @@ export default function DeclarationPage() {
           {/* ── New Declaration ── */}
           <TabsContent value="new">
             {["ENQUIRY_ONLY", "AUDIT_REVIEWER"].includes(
-              currentUser?.roles?.join(",") || "",
+              currentUser?.roles[0] || "",
             ) ? (
               <Card className="mrpsl-card p-12 text-center text-muted-foreground">
                 You do not have permission to initiate dividend declarations.
@@ -206,7 +211,7 @@ export default function DeclarationPage() {
                         </SelectContent>
                       </Select>
                       {register && (
-                        <p className="text-xs bg-muted/60 p-1.5 rounded text-muted-foreground">
+                        <p className="text-[13px] bg-muted/60 p-1.5 rounded text-muted-foreground">
                           Type: {register.registerType} · Shareholders:{" "}
                           {register.shareholdersToday.toLocaleString()}
                         </p>
@@ -304,7 +309,7 @@ export default function DeclarationPage() {
                       <span className="font-bold tracking-widest text-sm uppercase">
                         TIER {tier} — {tierInfo.label}
                       </span>
-                      <p className="text-xs mt-0.5 opacity-80">
+                      <p className="text-[13px] mt-0.5 opacity-80">
                         Requires: {tierInfo.req}
                       </p>
                     </div>
@@ -384,7 +389,7 @@ export default function DeclarationPage() {
                         Once authorised, computation results are immutable
                       </li>
                       <li className="flex items-center gap-2">
-                        <span className="h-4 w-4 flex items-center justify-center shrink-0 text-xs">
+                        <span className="h-4 w-4 flex items-center justify-center shrink-0 text-[13px]">
                           ●
                         </span>
                         Register status:{" "}
@@ -443,7 +448,7 @@ export default function DeclarationPage() {
                             <th className="px-4 py-3 text-right">NET AMOUNT</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y text-xs">
+                        <tbody className="divide-y text-[13px]">
                           {shareholders.slice(0, 10).map((s) => {
                             const g =
                               s.holdings *
@@ -503,11 +508,11 @@ export default function DeclarationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {pendingDecs.map((d) => {
+                    {pendingDecsPg.paged.map((d) => {
                       const reg = registers.find((r) => r.id === d.registerId);
                       return (
                         <tr key={d.id} className="mrpsl-table-row">
-                          <td className="px-4 py-3 tabular text-xs text-muted-foreground">
+                          <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
                             {d.paymentNumber}
                           </td>
                           <td className="px-4 py-3 font-semibold">
@@ -521,13 +526,13 @@ export default function DeclarationPage() {
                             {formatNaira(d.grossLiability)}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge className="bg-gray-100 text-gray-700 border-0 text-xs">
+                            <Badge className="bg-gray-100 text-gray-700 border-0 text-[13px]">
                               Tier {d.tier}
                             </Badge>
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-xs ${
+                              className={`border-0 text-[13px] ${
                                 d.status === "DRAFT"
                                   ? "bg-gray-100 text-gray-600"
                                   : d.status === "AUTHORIZED"
@@ -559,7 +564,7 @@ export default function DeclarationPage() {
                         </tr>
                       );
                     })}
-                    {pendingDecs.length === 0 && (
+                    {pendingDecsPg.total === 0 && (
                       <tr>
                         <td
                           colSpan={8}
@@ -573,6 +578,16 @@ export default function DeclarationPage() {
                 </table>
               </div>
             </Card>
+            <TablePagination
+              page={pendingDecsPg.page}
+              pageSize={pendingDecsPg.pageSize}
+              totalPages={pendingDecsPg.totalPages}
+              from={pendingDecsPg.from}
+              to={pendingDecsPg.to}
+              total={pendingDecsPg.total}
+              onPageChange={pendingDecsPg.setPage}
+              onPageSizeChange={pendingDecsPg.setPageSize}
+            />
           </TabsContent>
 
           <TabsContent value="icu">
@@ -592,11 +607,11 @@ export default function DeclarationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {icuDecs.map((d) => {
+                    {icuDecsPg.paged.map((d) => {
                       const reg = registers.find((r) => r.id === d.registerId);
                       return (
                         <tr key={d.id} className="mrpsl-table-row">
-                          <td className="px-4 py-3 tabular text-xs text-muted-foreground">
+                          <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
                             {d.paymentNumber}
                           </td>
                           <td className="px-4 py-3 font-semibold">
@@ -610,13 +625,13 @@ export default function DeclarationPage() {
                             {formatNaira(d.grossLiability)}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge className="bg-purple-100 text-purple-800 border-0 text-xs">
+                            <Badge className="bg-purple-100 text-purple-800 border-0 text-[13px]">
                               Tier {d.tier}
                             </Badge>
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-xs ${
+                              className={`border-0 text-[13px] ${
                                 d.status === "AUTHORIZED"
                                   ? "bg-blue-100 text-blue-800"
                                   : d.status === "REJECTED"
@@ -644,7 +659,7 @@ export default function DeclarationPage() {
                         </tr>
                       );
                     })}
-                    {icuDecs.length === 0 && (
+                    {icuDecsPg.total === 0 && (
                       <tr>
                         <td
                           colSpan={8}
@@ -658,6 +673,16 @@ export default function DeclarationPage() {
                 </table>
               </div>
             </Card>
+            <TablePagination
+              page={icuDecsPg.page}
+              pageSize={icuDecsPg.pageSize}
+              totalPages={icuDecsPg.totalPages}
+              from={icuDecsPg.from}
+              to={icuDecsPg.to}
+              total={icuDecsPg.total}
+              onPageChange={icuDecsPg.setPage}
+              onPageSizeChange={icuDecsPg.setPageSize}
+            />
           </TabsContent>
 
           <TabsContent value="history">
@@ -677,11 +702,11 @@ export default function DeclarationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {dividendDeclarations.map((d) => {
+                    {historyDecsPg.paged.map((d) => {
                       const reg = registers.find((r) => r.id === d.registerId);
                       return (
                         <tr key={d.id} className="mrpsl-table-row">
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                          <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                             {d.paymentNumber}
                           </td>
                           <td className="px-4 py-3 font-semibold">
@@ -690,7 +715,7 @@ export default function DeclarationPage() {
                           <td className="px-4 py-3">
                             {d.dividendType === "FINAL" ? "Final" : "Interim"}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs">
+                          <td className="px-4 py-3 text-muted-foreground text-[13px]">
                             {d.qualificationDate
                               ? format(
                                   new Date(d.qualificationDate),
@@ -706,7 +731,7 @@ export default function DeclarationPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-xs ${
+                              className={`border-0 text-[13px] ${
                                 d.status === "DRAFT"
                                   ? "bg-gray-100 text-gray-600"
                                   : d.status === "AUTHORIZED"
@@ -782,7 +807,7 @@ export default function DeclarationPage() {
                         </tr>
                       );
                     })}
-                    {dividendDeclarations.length === 0 && (
+                    {historyDecsPg.total === 0 && (
                       <tr>
                         <td
                           colSpan={8}
@@ -796,26 +821,36 @@ export default function DeclarationPage() {
                 </table>
               </div>
             </Card>
+            <TablePagination
+              page={historyDecsPg.page}
+              pageSize={historyDecsPg.pageSize}
+              totalPages={historyDecsPg.totalPages}
+              from={historyDecsPg.from}
+              to={historyDecsPg.to}
+              total={historyDecsPg.total}
+              onPageChange={historyDecsPg.setPage}
+              onPageSizeChange={historyDecsPg.setPageSize}
+            />
           </TabsContent>
         </div>
       </Tabs>
 
-      {/* Review Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-[680px] sm:max-w-[680px] overflow-y-auto">
-          <SheetHeader className="border-b pb-4 mb-6">
-            <SheetTitle>Review Dividend Declaration</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-6">
+      {/* Review Dialog */}
+      <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Review Dividend Declaration</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 px-8 pb-8">
             <div className="flex flex-wrap gap-2">
-              <Badge className="bg-blue-100 text-blue-800 border-0 text-xs">
+              <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
                 {selectedDecl?.dividendType ?? "—"}
               </Badge>
-              <Badge className="bg-gray-100 text-gray-700 border-0 text-xs tabular-nums">
+              <Badge className="bg-gray-100 text-gray-700 border-0 text-[13px] tabular-nums">
                 Rate: ₦{selectedDecl?.rate.toFixed(4) ?? "0.0000"}
               </Badge>
               <Badge
-                className={`border-0 text-xs ${selectedDecl && selectedDecl.tier >= 3 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}
+                className={`border-0 text-[13px] ${selectedDecl && selectedDecl.tier >= 3 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}
               >
                 Tier {selectedDecl?.tier ?? "—"}
               </Badge>
@@ -831,7 +866,7 @@ export default function DeclarationPage() {
                 </div>
               </Card>
               <Card className="mrpsl-card p-4 bg-amber-50 border-amber-200">
-                <div className="text-xs font-bold uppercase tracking-widest text-amber-700/80">
+                <div className="text-[13px] font-bold uppercase tracking-widest text-amber-700/80">
                   WHT Amount
                 </div>
                 <div className="text-xl tabular mt-1 font-bold text-amber-600">
@@ -839,7 +874,7 @@ export default function DeclarationPage() {
                 </div>
               </Card>
               <Card className="mrpsl-card p-4 bg-green-50 border-green-200">
-                <div className="text-xs font-bold uppercase tracking-widest text-green-700/80">
+                <div className="text-[13px] font-bold uppercase tracking-widest text-green-700/80">
                   Net Liability
                 </div>
                 <div className="text-xl tabular mt-1 font-bold text-green-700">
@@ -868,7 +903,7 @@ export default function DeclarationPage() {
                   <span className="h-5 w-5 rounded-full bg-amber-200 flex items-center justify-center animate-pulse" />
                   <div className="text-sm">
                     <span className="font-semibold">
-                      {currentUser?.roles?.join(", ").replace(/_/g, " ")}
+                      {currentUser?.roles[0].replace(/_/g, " ")}
                     </span>
                     <span className="text-amber-600 ml-2">
                       ⏳ Pending your action
@@ -914,8 +949,8 @@ export default function DeclarationPage() {
               </Button>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
