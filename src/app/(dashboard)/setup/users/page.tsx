@@ -22,6 +22,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   PlusCircle,
   MoreHorizontal,
   KeyRound,
@@ -29,16 +37,26 @@ import {
   Pencil,
   Power,
   ShieldCheck,
+  UserX2,
+  UserCog,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { User } from "@/lib/types";
-import { useQuery } from "@tanstack/react-query";
-import { GET_USERS } from "@/actions/userAction";
-
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  DELETE_USER,
+  GET_USERS,
+  REMOVE_USER_ROLE,
+  TOGGLE_USER,
+  TOGGLE_USER_2FA,
+} from "@/actions/userAction";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoles } from "@/hooks/useRoles";
 
 export default function UsersPage() {
+  const queryClient = useQueryClient();
   const { users, setUsers } = useStore();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
@@ -47,7 +65,9 @@ export default function UsersPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  console.log(users);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+
   const { isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: async () => {
@@ -61,6 +81,81 @@ export default function UsersPage() {
   });
 
   const { data: roles } = useRoles();
+
+  const handleToggleUserMutation = useMutation({
+    mutationFn: TOGGLE_USER,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User toggled successfully");
+    },
+    onError: () => {
+      toast.error("Failed to toggle user");
+    },
+  });
+
+  const handle2FAToggleUserMutation = useMutation({
+    mutationFn: TOGGLE_USER_2FA,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User 2FA toggled successfully");
+    },
+    onError: () => {
+      toast.error("Failed to toggle user 2FA");
+    },
+  });
+
+  const handleRemoveUserRoleMutation = useMutation({
+    mutationFn: REMOVE_USER_ROLE,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User role removed successfully");
+    },
+    onError: () => {
+      toast.error("Failed to toggle user 2FA");
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: DELETE_USER,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User deleted successfully");
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+    },
+    onError: () => {
+      toast.error("Failed to delete user");
+    },
+  });
+
+  const handleToggleUser = (id: string) => {
+    handleToggleUserMutation.mutate(id);
+  };
+
+  const handleToggle2FAUser = (id: string) => {
+    handle2FAToggleUserMutation.mutate(id);
+  };
+
+  const handleRemoveUserRole = ({
+    id,
+    roleName,
+  }: {
+    id: string;
+    roleName: string;
+  }) => {
+    handleRemoveUserRoleMutation.mutate({ id, roleName });
+  };
+
+  const handleDeleteClick = (u: User) => {
+    setUserToDelete(u);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (userToDelete) {
+      deleteUserMutation.mutate({ id: userToDelete.id });
+    }
+  };
 
   const filteredUsers = (users || []).filter((u) => {
     const firstName = u.firstName || "";
@@ -86,7 +181,7 @@ export default function UsersPage() {
   ).length;
   const pending2FA = users.filter((u) => !u.enabled && !u.enabled).length;
   const inactiveCount = users.filter(
-    (u) => u.status?.toUpperCase() === "INACTIVE",
+    (u) => u.status?.toUpperCase() === "IN_ACTIVE",
   ).length;
 
   const handleEdit = (u: User) => {
@@ -247,8 +342,8 @@ export default function UsersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Status</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="Inactive">Inactive</SelectItem>
+            <SelectItem value="ACTIVE">Active</SelectItem>
+            <SelectItem value="IN_ACTIVE">Inactive</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -291,20 +386,31 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 flex-wrap max-w-[150px]">
-                      <Badge variant="outline" className="text-xs">
-                        {u?.roles?.map((role) =>
-                          role
-                            ?.replace(/_/g, " ")
-                            .replace(/\b\w/g, (c) => c.toUpperCase()),
-                        )}
-                      </Badge>
-                      {u.secondaryRole && (
+                      {u?.roles?.length > 0 && (
+                        // <Badge variant="outline" className="text-xs">
+
+                        // </Badge>
+                        <div>
+                          {u?.roles?.map((role) => (
+                            <Badge
+                              key={role}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {role
+                                ?.replace(/_/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {/* {u.secondaryRole && (
                         <Badge variant="secondary" className="text-xs">
                           {u.secondaryRole
                             .replace(/_/g, " ")
                             .replace(/\b\w/g, (c) => c.toUpperCase())}
                         </Badge>
-                      )}
+                      )} */}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm">{u.department}</td>
@@ -315,7 +421,7 @@ export default function UsersPage() {
                     {u.divTransactionLimit || 0}
                   </td>
                   <td className="px-4 py-3">
-                    {u.enabled ? (
+                    {u.twoFaEnabled ? (
                       <Badge className="bg-green-100 text-green-800 border-0 text-xs">
                         Enabled
                       </Badge>
@@ -362,15 +468,30 @@ export default function UsersPage() {
                           <KeyRound className="mr-2 h-4 w-4" /> Reset Password
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() =>
-                            toast.success("2FA requirements toggled")
-                          }
+                          onClick={() => handleToggle2FAUser(u.id)}
                         >
                           <ShieldCheck className="mr-2 h-4 w-4" /> Toggle 2FA
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+
                         <DropdownMenuItem
-                          onClick={() => toast.success("User status changed")}
+                          onClick={() => toast.info("Audit log soon")}
+                        >
+                          <History className="mr-2 h-4 w-4" /> View Audit Log
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={u?.roles.length === 0}
+                          onClick={() =>
+                            handleRemoveUserRole({
+                              id: u.id,
+                              roleName: u.roles[0],
+                            })
+                          }
+                        >
+                          <UserCog className="mr-2 h-4 w-4" /> Unassign Role
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleToggleUser(u.id)}
                         >
                           <Power className="mr-2 h-4 w-4" />{" "}
                           {u.status.toUpperCase() === "ACTIVE"
@@ -378,9 +499,10 @@ export default function UsersPage() {
                             : "Activate"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => toast.info("Audit log soon")}
+                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                          onClick={() => handleDeleteClick(u)}
                         >
-                          <History className="mr-2 h-4 w-4" /> View Audit Log
+                          <UserX2 className="mr-2 h-4 w-4" /> Delete User
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -400,6 +522,48 @@ export default function UsersPage() {
           initialData={selectedUser}
         />
       )}
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Confirm Deletion
+            </DialogTitle>
+            <DialogDescription className="pt-3">
+              Are you sure you want to delete{" "}
+              <span className="font-bold text-foreground">
+                {userToDelete?.firstName} {userToDelete?.lastName}
+              </span>
+              ? This action cannot be undone and will immediately revoke all
+              access.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleteUserMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteUserMutation.isPending}
+            >
+              {deleteUserMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete User"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

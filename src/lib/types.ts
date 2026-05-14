@@ -4,7 +4,7 @@ export interface User {
   lastName: string;
   username?: string;
   email: string;
-  phone: string;
+  phoneNumber: string;
   roles: string[];
   secondaryRole?: string;
   department: string;
@@ -12,8 +12,8 @@ export interface User {
   certTransactionLimit?: number;
   dividendTransactionLimit: number;
   divTransactionLimit?: number;
-  status: "Active" | "Inactive";
-  twoFAEnabled: boolean;
+  status: "ACTIVE" | "IN_ACTIVE";
+  twoFaEnabled: boolean;
   lastLogin?: string;
   enabled: boolean;
   lastLoginTime: string;
@@ -258,4 +258,16 @@ export interface ApprovalStep {
   decision?: "APPROVED" | "REJECTED";
   comment?: string;
   decidedAt?: string;
+}
+
+export interface EmailJob {
+  id: string;
+  offerName: string;
+  companyName: string;
+  totalRecipients: number;
+  sent: number;
+  bounced: number;
+  status: "sending" | "complete" | "failed";
+  startedAt: string;
+  completedAt?: string;
 }

@@ -20,6 +20,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -58,7 +59,7 @@ const userSchema = z.object({
   secondaryRole: z.string().optional(),
   certificateTransactionLimit: z.coerce.number().min(0),
   dividendTransactionLimit: z.coerce.number().min(0),
-  status: z.enum(["Active", "Inactive"]),
+  status: z.enum(["ACTIVE", "IN_ACTIVE"]),
   firstTimeLogin: z.boolean().default(true),
 });
 
@@ -87,15 +88,23 @@ export function UserForm({
     mutationFn: CREATE_USER,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User created successfully");
       onOpenChange(false);
+    },
+    onError: () => {
+      toast.error("Failed to create user");
     },
   });
 
   const updateUserMutation = useMutation({
     mutationFn: UPDATE_USER,
     onSuccess: () => {
+      toast.success("User updated successfully");
       queryClient.invalidateQueries({ queryKey: ["users"] });
       onOpenChange(false);
+    },
+    onError: () => {
+      toast.error("Failed to update user");
     },
   });
 
@@ -107,14 +116,13 @@ export function UserForm({
           firstName: initialData.firstName,
           lastName: initialData.lastName,
           email: initialData.email,
-          phone: initialData.phone ?? "",
+          phone: initialData.phoneNumber ?? "",
           department: initialData.department ?? "",
           role: initialData.roles[0],
-          secondaryRole: initialData.roles[1] || "",
-          certificateTransactionLimit:
-            initialData.certificateTransactionLimit ?? 0,
-          dividendTransactionLimit: initialData.dividendTransactionLimit ?? 0,
-          status: initialData.status ?? "Active",
+          secondaryRole: initialData.secondaryRole || "",
+          certificateTransactionLimit: initialData.certTransactionLimit ?? 0,
+          dividendTransactionLimit: initialData.divTransactionLimit ?? 0,
+          status: (initialData.status?.toUpperCase() as any) ?? "ACTIVE",
           firstTimeLogin: false,
         }
       : {
@@ -127,7 +135,7 @@ export function UserForm({
           secondaryRole: "",
           certificateTransactionLimit: 0,
           dividendTransactionLimit: 0,
-          status: "Active",
+          status: "ACTIVE",
           firstTimeLogin: true,
         },
   });
@@ -159,7 +167,7 @@ export function UserForm({
             : undefined,
           certificateTransactionLimit: values.certificateTransactionLimit,
           dividendTransactionLimit: values.dividendTransactionLimit,
-          status: values.status,
+          status: values?.status?.toUpperCase(),
         },
       });
     }
@@ -353,7 +361,7 @@ export function UserForm({
                       </FormItem>
                     )}
                   />
-                  {/* <FormField
+                  <FormField
                     control={form.control}
                     name="certificateTransactionLimit"
                     render={({ field }) => (
@@ -371,8 +379,8 @@ export function UserForm({
                         <FormMessage className="text-[10px] text-destructive mt-1" />
                       </FormItem>
                     )}
-                  /> */}
-                  {/* <FormField
+                  />
+                  <FormField
                     control={form.control}
                     name="dividendTransactionLimit"
                     render={({ field }) => (
@@ -390,7 +398,7 @@ export function UserForm({
                         <FormMessage className="text-[10px] text-destructive mt-1" />
                       </FormItem>
                     )}
-                  /> */}
+                  />
                 </div>
               </div>
 
@@ -415,7 +423,7 @@ export function UserForm({
                           >
                             <div className="flex items-center space-x-2.5">
                               <RadioGroupItem
-                                value="Active"
+                                value="ACTIVE"
                                 id="u-active"
                                 className="h-5 w-5"
                               />
@@ -428,7 +436,7 @@ export function UserForm({
                             </div>
                             <div className="flex items-center space-x-2.5">
                               <RadioGroupItem
-                                value="Inactive"
+                                value="IN_ACTIVE"
                                 id="u-inactive"
                                 className="h-5 w-5"
                               />
@@ -484,10 +492,13 @@ export function UserForm({
               <Button
                 type="submit"
                 className="text-sm font-bold px-10 h-12 rounded-xl cursor-pointer"
-                disabled={addUserMutation.isPending}
+                disabled={
+                  addUserMutation.isPending || updateUserMutation.isPending
+                }
               >
                 {mode === "create" ? "Create User" : "Save Changes"}
-                {addUserMutation.isPending && (
+                {(addUserMutation.isPending ||
+                  updateUserMutation.isPending) && (
                   <Loader2 className="ml-1 h-4 w-4 animate-spin" />
                 )}
               </Button>
