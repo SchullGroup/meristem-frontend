@@ -71,6 +71,7 @@ export interface AppState {
   addRegister: (r: Register) => void;
   updateRegister: (id: string, updates: Partial<Register>) => void;
   addUser: (u: User) => void;
+  setUsers: (users: User[]) => void;
   updateUser: (id: string, updates: Partial<User>) => void;
   addAgent: (a: Agent) => void;
   addAgentType: (t: AgentType) => void;
@@ -136,6 +137,7 @@ export const useStore = create<AppState>()(
           ),
         })),
       addUser: (u) => set((state) => ({ users: [...state.users, u] })),
+      setUsers: (users) => set({ users }),
       updateUser: (id, updates) =>
         set((state) => ({
           users: state.users.map((u) =>

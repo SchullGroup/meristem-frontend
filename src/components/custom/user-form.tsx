@@ -116,13 +116,12 @@ export function UserForm({
           firstName: initialData.firstName,
           lastName: initialData.lastName,
           email: initialData.email,
-          phone: initialData.phone ?? "",
+          phone: initialData.phoneNumber ?? "",
           department: initialData.department ?? "",
           role: initialData.roles[0],
-          secondaryRole: initialData.roles[1] || "",
-          certificateTransactionLimit:
-            initialData.certificateTransactionLimit ?? 0,
-          dividendTransactionLimit: initialData.dividendTransactionLimit ?? 0,
+          secondaryRole: initialData.secondaryRole || "",
+          certificateTransactionLimit: initialData.certTransactionLimit ?? 0,
+          dividendTransactionLimit: initialData.divTransactionLimit ?? 0,
           status: (initialData.status?.toUpperCase() as any) ?? "ACTIVE",
           firstTimeLogin: false,
         }
@@ -152,8 +151,7 @@ export function UserForm({
     }
 
     if (mode === "create") {
-      console.log(values);
-      // addUserMutation.mutate(values);
+      addUserMutation.mutate(values);
     } else if (initialData) {
       updateUserMutation.mutate({
         id: initialData.id,
@@ -363,7 +361,7 @@ export function UserForm({
                       </FormItem>
                     )}
                   />
-                  {/* <FormField
+                  <FormField
                     control={form.control}
                     name="certificateTransactionLimit"
                     render={({ field }) => (
@@ -381,8 +379,8 @@ export function UserForm({
                         <FormMessage className="text-[10px] text-destructive mt-1" />
                       </FormItem>
                     )}
-                  /> */}
-                  {/* <FormField
+                  />
+                  <FormField
                     control={form.control}
                     name="dividendTransactionLimit"
                     render={({ field }) => (
@@ -400,7 +398,7 @@ export function UserForm({
                         <FormMessage className="text-[10px] text-destructive mt-1" />
                       </FormItem>
                     )}
-                  /> */}
+                  />
                 </div>
               </div>
 

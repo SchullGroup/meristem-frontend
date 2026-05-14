@@ -37,7 +37,6 @@ import {
   Pencil,
   Power,
   ShieldCheck,
-  UserX,
   UserX2,
   UserCog,
   AlertTriangle,
@@ -388,21 +387,30 @@ export default function UsersPage() {
                   <td className="px-4 py-3">
                     <div className="flex gap-1 flex-wrap max-w-[150px]">
                       {u?.roles?.length > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                          {u?.roles?.map((role) =>
-                            role
-                              ?.replace(/_/g, " ")
-                              .replace(/\b\w/g, (c) => c.toUpperCase()),
-                          )}
-                        </Badge>
+                        // <Badge variant="outline" className="text-xs">
+
+                        // </Badge>
+                        <div>
+                          {u?.roles?.map((role) => (
+                            <Badge
+                              key={role}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {role
+                                ?.replace(/_/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
-                      {u.secondaryRole && (
+                      {/* {u.secondaryRole && (
                         <Badge variant="secondary" className="text-xs">
                           {u.secondaryRole
                             .replace(/_/g, " ")
                             .replace(/\b\w/g, (c) => c.toUpperCase())}
                         </Badge>
-                      )}
+                      )} */}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm">{u.department}</td>
@@ -472,7 +480,7 @@ export default function UsersPage() {
                           <History className="mr-2 h-4 w-4" /> View Audit Log
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          disabled={u?.roles?.length === 0}
+                          disabled={u?.roles.length === 0}
                           onClick={() =>
                             handleRemoveUserRole({
                               id: u.id,
