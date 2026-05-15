@@ -350,8 +350,6 @@ export default function PrincipalsPage() {
                 <th className="px-4 py-3">Principal Name</th>
                 <th className="px-4 py-3">Billing Category</th>
                 <th className="px-4 py-3 text-right">Registers</th>
-                <th className="px-4 py-3 text-right">Shareholders at Setup</th>
-
                 <th className="px-4 py-3">Contact</th>
                 <th className="px-4 py-3">Tax / Identity</th>
                 <th className="px-4 py-3">Status</th>
@@ -396,9 +394,6 @@ export default function PrincipalsPage() {
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-center">
                       {p?.numberOfRegisters || 0}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums text-sm text-center">
-                      {p?.shareHoldersAtSetUp || 0}
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">{p.officialEmail}</div>
