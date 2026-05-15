@@ -62,6 +62,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import type { Shareholder } from "@/lib/types";
+import CreateRightsDeclaration from "@/components/custom/rights-issue/create-rights-declaration";
 
 /* ─── module-level constants & helpers ─── */
 
@@ -655,7 +656,7 @@ export default function RightsIssuePage() {
         <div className="mt-6">
           {/* ── Declaration ── */}
           <TabsContent value="declaration" className="space-y-6">
-            {rejectedDecl && (
+            {/* {rejectedDecl && (
               <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -680,193 +681,8 @@ export default function RightsIssuePage() {
                   </button>
                 </div>
               </Card>
-            )}
-
-            <Card className="mrpsl-card p-6">
-              <h2 className="font-semibold text-lg border-b pb-2 mb-4">
-                New Rights Declaration
-              </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="mrpsl-label">Register *</label>
-                    <Select>
-                      <SelectTrigger className="mrpsl-input">
-                        <SelectValue placeholder="Select Register" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeRegisters.map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.symbol}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="mrpsl-label">Rights Issue Name *</label>
-                    <Input
-                      placeholder="e.g. Zenith Bank 2026 Rights Issue 1-for-2"
-                      className="mrpsl-input"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="mrpsl-label">Rights Ratio</label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="number"
-                      defaultValue="1"
-                      className="w-20 font-mono mrpsl-input"
-                    />
-                    <span className="text-sm font-medium">for</span>
-                    <Input
-                      type="number"
-                      defaultValue="2"
-                      className="w-20 font-mono mrpsl-input"
-                    />
-                    <span className="text-sm text-muted-foreground ml-2 italic">
-                      1 new share for every 2 held
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  {[
-                    ["Record Date", date1, setDate1],
-                    ["Acceptance Open", date2, setDate2],
-                    ["Acceptance Close", date3, setDate3],
-                  ].map(([lbl, val, setter]: any) => (
-                    <div key={lbl} className="space-y-2">
-                      <label className="mrpsl-label">{lbl}</label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="w-full mrpsl-input justify-start text-left font-normal"
-                          >
-                            {val ? (
-                              format(val, "PPP")
-                            ) : (
-                              <span className="text-muted-foreground">
-                                Pick a date
-                              </span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={val}
-                            onSelect={setter}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="mrpsl-label">Issue Price (₦) *</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      className="mrpsl-input font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="mrpsl-label">
-                      Offer Circular Reference
-                    </label>
-                    <Input className="mrpsl-input" />
-                  </div>
-                </div>
-
-                <Button className="mt-2" onClick={handleCompute}>
-                  Compute Rights Due
-                </Button>
-              </div>
-            </Card>
-
-            {computed && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                <div className="grid grid-cols-4 gap-4">
-                  {[
-                    {
-                      label: "Total Rights Declared",
-                      value: "12,500,000",
-                      color: "",
-                    },
-                    {
-                      label: "Eligible Shareholders",
-                      value: "180,248",
-                      color: "text-blue-600",
-                    },
-                    {
-                      label: "Total Amount Due (₦)",
-                      value: "₦6.25B",
-                      color: "",
-                    },
-                    {
-                      label: "Fractional Shares",
-                      value: "1,204.5",
-                      color: "text-amber-600",
-                    },
-                  ].map((s) => (
-                    <Card key={s.label} className="mrpsl-card p-4">
-                      <div className="mrpsl-section-title">{s.label}</div>
-                      <div
-                        className={cn(
-                          "text-2xl font-mono mt-1 font-bold",
-                          s.color,
-                        )}
-                      >
-                        {s.value}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-
-                <Card className="mrpsl-card overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-[13px]">
-                      <ShholderTableHead />
-                      <tbody className="divide-y">
-                        <ShholderRows rows={declRows} pageStart={declStart} />
-                      </tbody>
-                      <ShholderTfoot
-                        rows={declRows}
-                        total={shareholders.length}
-                      />
-                    </table>
-                  </div>
-                  <PaginationBar
-                    page={declPage}
-                    total={shareholders.length}
-                    onPageChange={setDeclPage}
-                    pageSize={pageSize}
-                    onPageSizeChange={handlePageSizeChange}
-                  />
-                </Card>
-
-                <div className="flex justify-between items-center border-t pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      toast.info("Downloading entitlement list...")
-                    }
-                  >
-                    <Download className="mr-2 h-4 w-4" /> Download Excel
-                  </Button>
-                  <Button size="lg" onClick={handleSubmit}>
-                    Submit Declaration for Approval
-                  </Button>
-                </div>
-              </div>
-            )}
+            )} */}
+            <CreateRightsDeclaration />
           </TabsContent>
 
           {/* ── Pending Approval ── */}
