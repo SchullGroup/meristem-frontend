@@ -12,6 +12,7 @@ import {
   X,
   Mail,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { EmailPreviewModal } from "@/components/custom/shareholder-outreach-modals";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,6 +46,16 @@ import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  CREATE_BONUS_ISSUE_DECLARATION,
+  GET_DECLARATIONS,
+  GET_SHAREHOLDERS_BY_DECLARATION_ID,
+  GET_DECLARATION_BY_ID,
+  APPROVE_DECLARATION,
+} from "@/actions/bonusIssuesAction";
+import { getUser } from "@/services/AuthServices";
 
 /* ─── constants & helpers ─── */
 
@@ -158,7 +169,19 @@ function BonusTableHead() {
   );
 }
 
-function BonusTableRows({ rows, startIdx }: { rows: any[]; startIdx: number }) {
+function BonusTableRows({
+  rows,
+  startIdx,
+}: {
+  rows: {
+    holdings: number;
+    accountNumber: string;
+    firstName: string;
+    lastName: string;
+    id: string;
+  }[];
+  startIdx: number;
+}) {
   return (
     <>
       {rows.map((s, i) => {
@@ -189,7 +212,48 @@ function BonusTableRows({ rows, startIdx }: { rows: any[]; startIdx: number }) {
   );
 }
 
-function BonusTfoot({ rows, total }: { rows: any[]; total: number }) {
+function EntitlementTableRows({
+  rows,
+  startIdx,
+}: {
+  rows: any[];
+  startIdx: number;
+}) {
+  if (!rows) return null;
+  return (
+    <>
+      {rows.map((s, i) => (
+        <tr
+          key={s.accountNumber}
+          className="mrpsl-table-row font-mono text-[13px]"
+        >
+          <td className="px-4 py-2.5 text-muted-foreground">
+            {startIdx + i + 1}
+          </td>
+          <td className="px-4 py-2.5">{s.accountNumber}</td>
+          <td className="px-4 py-2.5 font-sans font-medium">{s.name}</td>
+          <td className="px-4 py-2.5 text-right">
+            {s.unitsAtQualDate?.toLocaleString()}
+          </td>
+          <td className="px-4 py-2.5 text-right text-green-600 font-bold">
+            {s.bonusDue?.toLocaleString()}
+          </td>
+          <td className="px-4 py-2.5 text-right text-amber-600">
+            {s.fractionalRemainder?.toFixed(4)}
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function BonusTfoot({
+  rows,
+  total,
+}: {
+  rows: { holdings: number }[];
+  total: number;
+}) {
   return (
     <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
       <tr>
@@ -201,13 +265,17 @@ function BonusTfoot({ rows, total }: { rows: any[]; total: number }) {
         </td>
         <td className="px-4 py-2.5 text-right text-green-600">
           {rows
-            .reduce((a: number, s: any) => a + Math.floor(s.holdings / 4), 0)
+            .reduce(
+              (a: number, s: { holdings: number }) =>
+                a + Math.floor(s.holdings / 4),
+              0,
+            )
             .toLocaleString()}
         </td>
         <td className="px-4 py-2.5 text-right text-amber-600">
           {rows
             .reduce(
-              (a: number, s: any) =>
+              (a: number, s: { holdings: number }) =>
                 a + (s.holdings / 4 - Math.floor(s.holdings / 4)),
               0,
             )
@@ -218,8 +286,35 @@ function BonusTfoot({ rows, total }: { rows: any[]; total: number }) {
   );
 }
 
+function EntitlementTfoot({ rows, total }: { rows: any[]; total: number }) {
+  if (!rows) return null;
+  return (
+    <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
+      <tr>
+        <td
+          colSpan={4}
+          className="px-4 py-2.5 text-right text-muted-foreground"
+        >
+          PAGE TOTALS ({total.toLocaleString()} total shareholders)
+        </td>
+        <td className="px-4 py-2.5 text-right text-green-600">
+          {rows
+            .reduce((a: number, s: any) => a + (s.bonusDue || 0), 0)
+            .toLocaleString()}
+        </td>
+        <td className="px-4 py-2.5 text-right text-amber-600">
+          {rows
+            .reduce((a: number, s: any) => a + (s.fractionalRemainder || 0), 0)
+            .toFixed(4)}
+        </td>
+      </tr>
+    </tfoot>
+  );
+}
+
 /* Declaration detail card — reused in both Approval and ICU */
-function DeclDetailCard() {
+function DeclDetailCard({ decl }: { decl: any }) {
+  if (!decl) return null;
   return (
     <Card className="mrpsl-card p-4">
       <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
@@ -228,36 +323,36 @@ function DeclDetailCard() {
       <div className="grid grid-cols-4 gap-x-8 gap-y-3 text-sm">
         <div>
           <div className="mrpsl-section-title">Register</div>
-          <div className="font-semibold mt-0.5">{MOCK_DECL.register}</div>
+          <div className="font-semibold mt-0.5">{decl.registerName}</div>
         </div>
         <div>
           <div className="mrpsl-section-title">Bonus Name</div>
-          <div className="font-semibold mt-0.5">{MOCK_DECL.bonusName}</div>
+          <div className="font-semibold mt-0.5">{decl.bonusName}</div>
         </div>
         <div>
           <div className="mrpsl-section-title">Bonus Ratio</div>
-          <div className="font-mono mt-0.5">{MOCK_DECL.ratio}</div>
+          <div className="font-mono mt-0.5">{decl.ratio}</div>
         </div>
         <div>
           <div className="mrpsl-section-title">Rounding Rule</div>
-          <div className="mt-0.5">{MOCK_DECL.rounding}</div>
+          <div className="mt-0.5">{decl.roundingRule}</div>
         </div>
         <div>
           <div className="mrpsl-section-title">Qualification Date</div>
-          <div className="font-mono mt-0.5">{MOCK_DECL.qualDate}</div>
+          <div className="font-mono mt-0.5">{decl.qualificationDate}</div>
         </div>
         <div>
           <div className="mrpsl-section-title">Closure Date</div>
-          <div className="font-mono mt-0.5">{MOCK_DECL.closureDate}</div>
+          <div className="font-mono mt-0.5">{decl.closureDate}</div>
         </div>
         <div>
           <div className="mrpsl-section-title">Allotment Date</div>
-          <div className="font-mono mt-0.5">{MOCK_DECL.allotDate}</div>
+          <div className="font-mono mt-0.5">{decl.allotmentDate}</div>
         </div>
         <div className="col-span-1">
           <div className="mrpsl-section-title">Narrative</div>
           <div className="text-muted-foreground mt-0.5 italic text-[13px]">
-            &quot;{MOCK_DECL.narrative}&quot;
+            &quot;{decl.narrative || "No narrative provided."}&quot;
           </div>
         </div>
       </div>
@@ -268,6 +363,11 @@ function DeclDetailCard() {
 /* ─── main component ─── */
 
 export default function BonusIssuePage() {
+  const { data: registersData } = useGetRegisters();
+  const queryClient = useQueryClient();
+  const user = getUser();
+  const registerList = registersData?.content;
+
   const { registers, shareholders } = useStore();
   const activeRegisters = registers.filter((r) => r.status === "ACTIVE");
 
@@ -278,6 +378,12 @@ export default function BonusIssuePage() {
   const [date1, setDate1] = useState<Date>();
   const [date2, setDate2] = useState<Date>();
   const [date3, setDate3] = useState<Date>();
+  const [selectedRegister, setSelectedRegister] = useState<string>("");
+  const [bonusName, setBonusName] = useState<string>("");
+  const [ratioNumerator, setRatioNumerator] = useState<string>("1");
+  const [ratioDenominator, setRatioDenominator] = useState<string>("4");
+  const [roundingRule, setRoundingRule] = useState<string>("ROUND_DOWN");
+  const [narrative, setNarrative] = useState<string>("");
 
   // Approval (2-step)
   const [authReviewing, setAuthReviewing] = useState<string | null>(null);
@@ -318,30 +424,136 @@ export default function BonusIssuePage() {
   const [reportGenerated, setReportGenerated] = useState(false);
   const [reportPage, setReportPage] = useState(1);
 
+  const { data: declarationsData } = useQuery({
+    queryKey: ["bonus-declarations"],
+    queryFn: GET_DECLARATIONS,
+  });
+
+  const declarationList = declarationsData?.data?.content;
+
+  const { data: activeReviewData, isLoading: isActiveReviewLoading } = useQuery(
+    {
+      queryKey: ["bonus-declaration", authReviewing || icuReviewing],
+      queryFn: () =>
+        GET_DECLARATION_BY_ID((authReviewing || icuReviewing) as string),
+      enabled: !!(authReviewing || icuReviewing),
+    },
+  );
+
+  const activeReview = activeReviewData?.data;
+
+  const { data: entitlementData, isLoading: isEntitlementLoading } = useQuery({
+    queryKey: ["bonus-entitlements", authReviewing || icuReviewing],
+    queryFn: () =>
+      GET_SHAREHOLDERS_BY_DECLARATION_ID(
+        (authReviewing || icuReviewing) as string,
+      ),
+    enabled: !!(authReviewing || icuReviewing),
+  });
+
+  const entitlementList = entitlementData?.data?.content;
+  const entitlementTotal = entitlementData?.data?.totalElements || 0;
+
+  const createDeclarationMutation = useMutation({
+    mutationFn: CREATE_BONUS_ISSUE_DECLARATION,
+    onSuccess: (data) => {
+      console.log("Data", data);
+      toast.success("Declaration created successfully.");
+      queryClient.invalidateQueries({
+        queryKey: ["bonus-declarations"],
+      });
+      // setComputed(false);
+      setComputed(true);
+      setSelectedRegister("");
+      setBonusName("");
+      setRatioNumerator("");
+      setRatioDenominator("");
+      setRoundingRule("");
+      setDate1(undefined);
+      setDate2(undefined);
+      setDate3(undefined);
+      setNarrative("");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const approveDeclarationMutation = useMutation({
+    mutationFn: APPROVE_DECLARATION,
+    onSuccess: () => {
+      toast.success("Declaration approved successfully.");
+      queryClient.invalidateQueries({
+        queryKey: ["bonus-declarations"],
+      });
+      setAuthReviewing(null);
+      setAuthComment("");
+      closeModal();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // const handleAuthApprove = () => {
+  //   toast.success("Declaration approved and forwarded to ICU.");
+  // };
+
+  const handleAuthApprove = (section: "ops" | "icu") => {
+    const payload = {
+      decision: "APPROVE",
+      comment: modalComment,
+    };
+    approveDeclarationMutation.mutate({
+      declarationId: authReviewing || icuReviewing,
+      payload,
+    });
+  };
+
   const closeModal = () => {
     setApprovalModal(null);
     setModalComment("");
   };
 
   /* handlers */
+  const handleSubmitForApproval = () => {
+    toast.info("Submitting declaration for approval...");
+  };
+
   const handleCompute = () => {
-    toast.info("Computing bonus shares...");
-    setTimeout(() => {
-      setComputed(true);
-      toast.success("Computation complete.");
-    }, 800);
-  };
+    if (!selectedRegister) {
+      toast.error("Please select a register");
+      return;
+    }
+    if (!bonusName) {
+      toast.error("Please enter a bonus name");
+      return;
+    }
+    if (!ratioNumerator || !ratioDenominator) {
+      toast.error("Please enter a bonus ratio");
+      return;
+    }
+    if (!roundingRule) {
+      toast.error("Please select a rounding rule");
+      return;
+    }
+    if (!date1 || !date2 || !date3) {
+      toast.error("Please select all dates");
+      return;
+    }
+    const payload = {
+      createdBy: user?.email,
+      registerId: selectedRegister,
+      bonusName,
+      ratio: `${ratioNumerator}:${ratioDenominator}`,
+      roundingRule,
+      qualificationDate: format(date1, "yyyy-MM-dd"),
+      closureDate: format(date2, "yyyy-MM-dd"),
+      allotmentDate: format(date3, "yyyy-MM-dd"),
+      narrative,
+    };
 
-  const handleSubmit = () => {
-    toast.success("Bonus declaration submitted. Authorizer has been notified.");
-    setComputed(false);
-  };
-
-  const handleAuthApprove = () => {
-    toast.success("Declaration approved and forwarded to ICU.");
-    setAuthReviewing(null);
-    setAuthComment("");
-    closeModal();
+    createDeclarationMutation.mutate(payload);
   };
 
   const handleAuthReject = () => {
@@ -387,10 +599,10 @@ export default function BonusIssuePage() {
   };
 
   /* pagination slices */
-  const authStart = (authPage - 1) * PAGE_SIZE;
-  const authRows = shareholders.slice(authStart, authStart + PAGE_SIZE);
-  const icuStart = (icuPage - 1) * PAGE_SIZE;
-  const icuRows = shareholders.slice(icuStart, icuStart + PAGE_SIZE);
+  // const authStart = (authPage - 1) * PAGE_SIZE;
+  // const authRows = shareholders.slice(authStart, authStart + PAGE_SIZE);
+  // const icuStart = (icuPage - 1) * PAGE_SIZE;
+  // const icuRows = shareholders.slice(icuStart, icuStart + PAGE_SIZE);
   const allotStart = (allotPage - 1) * PAGE_SIZE;
   const allotRows = shareholders.slice(allotStart, allotStart + PAGE_SIZE);
   const reportStart = (reportPage - 1) * PAGE_SIZE;
@@ -483,14 +695,22 @@ export default function BonusIssuePage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="mrpsl-label">Register *</label>
-                        <Select>
+                        <Select
+                          value={selectedRegister}
+                          onValueChange={(val) =>
+                            setSelectedRegister(val ?? "")
+                          }
+                        >
                           <SelectTrigger className="mrpsl-input">
                             <SelectValue placeholder="Select Register" />
                           </SelectTrigger>
                           <SelectContent>
-                            {activeRegisters.map((r) => (
-                              <SelectItem key={r.id} value={r.id}>
-                                {r.symbol}
+                            {registerList?.map((r) => (
+                              <SelectItem
+                                key={r.registerId}
+                                value={r.registerId}
+                              >
+                                {r.registerId}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -501,6 +721,8 @@ export default function BonusIssuePage() {
                         <Input
                           placeholder="e.g. 2025 Bonus Issue 1-for-4"
                           className="mrpsl-input"
+                          value={bonusName}
+                          onChange={(e) => setBonusName(e.target.value)}
                         />
                       </div>
                     </div>
@@ -511,27 +733,38 @@ export default function BonusIssuePage() {
                         <div className="flex items-center gap-3">
                           <Input
                             type="number"
-                            defaultValue="1"
+                            value={ratioNumerator}
+                            onChange={(e) => setRatioNumerator(e.target.value)}
                             className="w-16 font-mono mrpsl-input"
                           />
                           <span className="text-sm font-medium">for</span>
                           <Input
                             type="number"
-                            defaultValue="4"
+                            value={ratioDenominator}
+                            onChange={(e) =>
+                              setRatioDenominator(e.target.value)
+                            }
                             className="w-16 font-mono mrpsl-input"
                           />
                         </div>
                       </div>
                       <div className="space-y-2">
                         <label className="mrpsl-label">Rounding Rule</label>
-                        <Select defaultValue="down">
+                        <Select
+                          value={roundingRule}
+                          onValueChange={(val) =>
+                            setRoundingRule(val ?? "down")
+                          }
+                        >
                           <SelectTrigger className="mrpsl-input">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="down">Round Down</SelectItem>
-                            <SelectItem value="up">Round Up</SelectItem>
-                            <SelectItem value="nearest">
+                            <SelectItem value="ROUND_DOWN">
+                              Round Down
+                            </SelectItem>
+                            <SelectItem value="ROUND_UP">Round Up</SelectItem>
+                            <SelectItem value="ROUND_NEAREST">
                               Round to Nearest
                             </SelectItem>
                           </SelectContent>
@@ -546,7 +779,7 @@ export default function BonusIssuePage() {
                           ["Closure Date *", date2, setDate2],
                           ["Allotment Date *", date3, setDate3],
                         ] as const
-                      ).map(([lbl, val, setter]: any) => (
+                      ).map(([lbl, val, setter]) => (
                         <div key={lbl} className="space-y-2">
                           <label className="mrpsl-label">{lbl}</label>
                           <Popover>
@@ -582,10 +815,17 @@ export default function BonusIssuePage() {
                       <Textarea
                         placeholder="Additional context..."
                         className="resize-none"
+                        value={narrative}
+                        onChange={(e) => setNarrative(e.target.value)}
                       />
                     </div>
 
-                    <Button onClick={handleCompute}>Compute Bonus</Button>
+                    <Button onClick={handleCompute}>
+                      Compute Bonus{" "}
+                      {createDeclarationMutation.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                    </Button>
                   </div>
                 </Card>
               </div>
@@ -689,8 +929,11 @@ export default function BonusIssuePage() {
                   >
                     <Download className="mr-2 h-4 w-4" /> Download Excel
                   </Button>
-                  <Button size="lg" onClick={handleSubmit}>
+                  <Button size="lg" onClick={handleSubmitForApproval}>
                     Submit for Approval
+                    {createDeclarationMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -719,57 +962,59 @@ export default function BonusIssuePage() {
                   </thead>
                   <tbody className="divide-y">
                     {!pendingBatchDismissed ? (
-                      <tr className="mrpsl-table-row">
-                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                          {MOCK_DECL.ref}
-                        </td>
-                        <td className="px-4 py-3 font-semibold">
-                          {MOCK_DECL.register}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          {MOCK_DECL.bonusName}
-                        </td>
-                        <td className="px-4 py-3 text-center font-mono">
-                          {MOCK_DECL.ratio}
-                        </td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                          {MOCK_DECL.qualDate}
-                        </td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                          {MOCK_DECL.allotDate}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-right">
-                          {shareholders.length.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
-                          4,500,000
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-[13px] font-medium">
-                            {MOCK_DECL.submittedBy}
-                          </div>
-                          <div className="text-[13px] text-muted-foreground">
-                            {MOCK_DECL.submittedAt}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-                            Pending
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setAuthPage(1);
-                              setAuthReviewing(MOCK_DECL.ref);
-                            }}
-                          >
-                            Review
-                          </Button>
-                        </td>
-                      </tr>
+                      declarationList?.map((declaration: any) => (
+                        <tr key={declaration?.id} className="mrpsl-table-row">
+                          <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                            {declaration?.ref}
+                          </td>
+                          <td className="px-4 py-3 font-semibold">
+                            {declaration?.registerName}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {declaration?.bonusName}
+                          </td>
+                          <td className="px-4 py-3 text-center font-mono">
+                            {declaration?.ratio}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                            {declaration?.qualificationDate}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                            {declaration?.allotmentDate}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-right">
+                            {declaration?.totalShareholders?.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
+                            {declaration?.totalBonusShares?.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-[13px] font-medium">
+                              {declaration?.submittedByName}
+                            </div>
+                            <div className="text-[13px] text-muted-foreground">
+                              {declaration?.submittedAt}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
+                              {declaration?.status}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAuthPage(1);
+                                setAuthReviewing(declaration?.id);
+                              }}
+                            >
+                              Review
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
                     ) : (
                       <tr>
                         <td
@@ -783,6 +1028,13 @@ export default function BonusIssuePage() {
                   </tbody>
                 </table>
               </Card>
+            ) : isActiveReviewLoading ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50 mx-auto" />
+                <p className="text-base text-muted-foreground animate-pulse">
+                  Loading declaration details...
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
                 {/* Toolbar */}
@@ -800,13 +1052,13 @@ export default function BonusIssuePage() {
                   </Button>
                   <div className="h-5 w-px bg-border mx-1" />
                   <span className="font-mono text-sm font-semibold">
-                    {authReviewing}
+                    {activeReview?.ref}
                   </span>
                   <span className="text-muted-foreground text-sm">
-                    · {MOCK_DECL.register} · {MOCK_DECL.bonusName}
+                    · {activeReview?.registerName} · {activeReview?.bonusName}
                   </span>
                   <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-                    Pending
+                    {activeReview?.status}
                   </Badge>
                   <div className="flex-1" />
                   <Button
@@ -819,19 +1071,19 @@ export default function BonusIssuePage() {
                 </div>
 
                 {/* Declaration details */}
-                <DeclDetailCard />
+                <DeclDetailCard decl={activeReview} />
 
                 {/* Stats */}
                 <div className="grid grid-cols-4 gap-3">
                   {[
                     {
                       label: "Eligible Shareholders",
-                      value: shareholders.length.toLocaleString(),
+                      value: activeReview?.totalShareholders?.toLocaleString(),
                       color: "text-foreground",
                     },
                     {
                       label: "Total New Shares",
-                      value: "4,500,000",
+                      value: activeReview?.totalBonusShares?.toLocaleString(),
                       color: "text-green-700",
                     },
                     {
@@ -865,14 +1117,28 @@ export default function BonusIssuePage() {
                     <table className="w-full text-left text-[13px]">
                       <BonusTableHead />
                       <tbody className="divide-y">
-                        <BonusTableRows rows={authRows} startIdx={authStart} />
+                        {isEntitlementLoading ? (
+                          <tr>
+                            <td colSpan={6} className="py-10 text-center">
+                              <Loader2 className="h-6 w-6 animate-spin mx-auto opacity-50" />
+                            </td>
+                          </tr>
+                        ) : (
+                          <EntitlementTableRows
+                            rows={entitlementList}
+                            startIdx={0}
+                          />
+                        )}
                       </tbody>
-                      <BonusTfoot rows={authRows} total={shareholders.length} />
+                      <EntitlementTfoot
+                        rows={entitlementList}
+                        total={entitlementTotal}
+                      />
                     </table>
                   </div>
                   <PaginationBar
                     page={authPage}
-                    total={shareholders.length}
+                    total={entitlementTotal}
                     onPageChange={setAuthPage}
                   />
                 </Card>
@@ -977,6 +1243,13 @@ export default function BonusIssuePage() {
                   </tbody>
                 </table>
               </Card>
+            ) : isActiveReviewLoading ? (
+              <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50 mx-auto" />
+                <p className="text-base text-muted-foreground animate-pulse">
+                  Loading declaration details...
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
                 {/* Toolbar */}
@@ -994,13 +1267,13 @@ export default function BonusIssuePage() {
                   </Button>
                   <div className="h-5 w-px bg-border mx-1" />
                   <span className="font-mono text-sm font-semibold">
-                    {icuReviewing}
+                    {activeReview?.ref}
                   </span>
                   <span className="text-muted-foreground text-sm">
-                    · {MOCK_DECL.register} · {MOCK_DECL.bonusName}
+                    · {activeReview?.registerName} · {activeReview?.bonusName}
                   </span>
                   <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
-                    Awaiting ICU
+                    {activeReview?.status}
                   </Badge>
                   <div className="flex-1" />
                   <Button
@@ -1045,19 +1318,19 @@ export default function BonusIssuePage() {
                 </Card>
 
                 {/* Declaration details */}
-                <DeclDetailCard />
+                <DeclDetailCard decl={activeReview} />
 
                 {/* Stats */}
                 <div className="grid grid-cols-4 gap-3">
                   {[
                     {
                       label: "Eligible Shareholders",
-                      value: shareholders.length.toLocaleString(),
+                      value: activeReview?.totalShareholders?.toLocaleString(),
                       color: "text-foreground",
                     },
                     {
                       label: "Total New Shares",
-                      value: "4,500,000",
+                      value: activeReview?.totalBonusShares?.toLocaleString(),
                       color: "text-green-700",
                     },
                     {
@@ -1091,14 +1364,28 @@ export default function BonusIssuePage() {
                     <table className="w-full text-left text-[13px]">
                       <BonusTableHead />
                       <tbody className="divide-y">
-                        <BonusTableRows rows={icuRows} startIdx={icuStart} />
+                        {isEntitlementLoading ? (
+                          <tr>
+                            <td colSpan={6} className="py-10 text-center">
+                              <Loader2 className="h-6 w-6 animate-spin mx-auto opacity-50" />
+                            </td>
+                          </tr>
+                        ) : (
+                          <EntitlementTableRows
+                            rows={entitlementList}
+                            startIdx={0}
+                          />
+                        )}
                       </tbody>
-                      <BonusTfoot rows={icuRows} total={shareholders.length} />
+                      <EntitlementTfoot
+                        rows={entitlementList}
+                        total={entitlementTotal}
+                      />
                     </table>
                   </div>
                   <PaginationBar
                     page={icuPage}
-                    total={shareholders.length}
+                    total={entitlementTotal}
                     onPageChange={setIcuPage}
                   />
                 </Card>
@@ -1176,7 +1463,7 @@ export default function BonusIssuePage() {
               </div>
             </Card>
 
-            <DeclDetailCard />
+            <DeclDetailCard decl={activeReview} />
 
             {!allotmentProcessed ? (
               <>
@@ -1783,17 +2070,20 @@ export default function BonusIssuePage() {
                 onClick={() => {
                   if (approvalModal?.section === "ops") {
                     approvalModal.action === "approve"
-                      ? handleAuthApprove()
+                      ? handleAuthApprove("ops")
                       : handleAuthReject();
                   } else {
                     approvalModal?.action === "approve"
-                      ? handleIcuApprove()
+                      ? handleAuthApprove("icu")
                       : handleIcuReturn();
                   }
                 }}
               >
                 Confirm{" "}
                 {approvalModal?.action === "approve" ? "Approval" : "Rejection"}
+                {approveDeclarationMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
               </Button>
             </div>
           </div>
