@@ -236,6 +236,12 @@ export interface AuditEntry {
   timestamp: string;
 }
 
+export interface ApprovalAttachment {
+  name: string;
+  url: string;
+  fileType: string;
+}
+
 export interface ApprovalItem {
   id: string;
   module: string;
@@ -249,6 +255,7 @@ export interface ApprovalItem {
   submittedAt: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   approvalSteps: ApprovalStep[];
+  attachments?: ApprovalAttachment[];
 }
 
 export interface ApprovalStep {

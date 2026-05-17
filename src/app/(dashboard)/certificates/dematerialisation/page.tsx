@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import {
   Check,
   FileText,
+  FileImage,
   Plus,
   UploadCloud,
   MoreHorizontal,
@@ -35,7 +36,10 @@ import {
   Eye,
   AlertCircle,
   X,
+  Download,
+  ExternalLink,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import {
@@ -56,6 +60,8 @@ type DematStatus =
   | "APPROVED"
   | "REJECTED";
 
+type DematDoc = { name: string; fileType: "PDF" | "IMAGE"; url: string };
+
 type DematRecord = {
   id: string;
   date: string;
@@ -65,6 +71,7 @@ type DematRecord = {
   broker: string;
   units: number;
   status: DematStatus;
+  documents?: DematDoc[];
 };
 
 const MOCK_RECORDS: DematRecord[] = [
@@ -87,6 +94,12 @@ const MOCK_RECORDS: DematRecord[] = [
     broker: "Zenith Securities",
     units: 12500,
     status: "CALLOVER",
+    documents: [
+      { name: "Shareholder_ID_Emeka_Nwosu.jpg", fileType: "IMAGE", url: "#" },
+      { name: "Demat_Form_D2_Signed.pdf", fileType: "PDF", url: "#" },
+      { name: "Scanned_CERT-DANGCEM-00745.pdf", fileType: "PDF", url: "#" },
+      { name: "Scanned_CERT-DANGCEM-00746.pdf", fileType: "PDF", url: "#" },
+    ],
   },
   {
     id: "D3",
@@ -97,6 +110,11 @@ const MOCK_RECORDS: DematRecord[] = [
     broker: "Meristem Stockbrokers",
     units: 8000,
     status: "AUTHORISATION",
+    documents: [
+      { name: "Shareholder_ID_Fatima_Bello.jpg", fileType: "IMAGE", url: "#" },
+      { name: "Demat_Form_D3_Signed.pdf", fileType: "PDF", url: "#" },
+      { name: "Scanned_CERT-DANGCEM-00612.pdf", fileType: "PDF", url: "#" },
+    ],
   },
   {
     id: "D4",
@@ -107,6 +125,11 @@ const MOCK_RECORDS: DematRecord[] = [
     broker: "CSCS PLC",
     units: 25000,
     status: "ICU",
+    documents: [
+      { name: "Shareholder_ID_Chukwudi_Obi.pdf", fileType: "PDF", url: "#" },
+      { name: "Demat_Form_D4_Signed.pdf", fileType: "PDF", url: "#" },
+      { name: "Scanned_CERT-DANGCEM-00503.pdf", fileType: "PDF", url: "#" },
+    ],
   },
 ];
 
@@ -151,17 +174,82 @@ const APPROVAL_STEPS: Record<
 function DematTable({
   records,
   onReview,
+  onBatchApprove,
+  onBatchReject,
 }: {
   records: DematRecord[];
   onReview: (r: DematRecord) => void;
+  onBatchApprove: (ids: string[]) => void;
+  onBatchReject: (ids: string[], comment: string) => void;
 }) {
   const pg = usePagination(records);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchRejectOpen, setBatchRejectOpen] = useState(false);
+  const [batchComment, setBatchComment] = useState("");
+
+  const visibleIds = pg.paged.map((r) => r.id);
+  const allSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+  function toggleSelectAll(ids: string[]) {
+    setSelectedIds((prev) =>
+      prev.size === ids.length ? new Set() : new Set(ids),
+    );
+  }
+  function handleBatchApprove() {
+    onBatchApprove([...selectedIds]);
+    setSelectedIds(new Set());
+  }
+  function handleBatchReject() {
+    if (!batchComment.trim()) {
+      toast.error("Comment required for rejection.");
+      return;
+    }
+    onBatchReject([...selectedIds], batchComment);
+    setSelectedIds(new Set());
+    setBatchComment("");
+    setBatchRejectOpen(false);
+  }
+
   return (
     <div className="space-y-3">
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+          <span className="text-sm font-semibold text-primary">
+            {selectedIds.size} selected
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-50"
+              onClick={() => setBatchRejectOpen(true)}
+            >
+              Reject Selected
+            </Button>
+            <Button size="sm" onClick={handleBatchApprove}>
+              Approve Selected
+            </Button>
+          </div>
+        </div>
+      )}
       <Card className="mrpsl-card overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="mrpsl-table-header">
             <tr>
+              <th className="p-3 w-10">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={() => toggleSelectAll(visibleIds)}
+                />
+              </th>
               <th className="p-3">DATE</th>
               <th className="p-3">CERT NO(S)</th>
               <th className="p-3">HOLDER</th>
@@ -174,6 +262,12 @@ function DematTable({
           <tbody className="divide-y text-[13px]">
             {pg.paged.map((row) => (
               <tr key={row.id} className="mrpsl-table-row">
+                <td className="p-3">
+                  <Checkbox
+                    checked={selectedIds.has(row.id)}
+                    onCheckedChange={() => toggleSelect(row.id)}
+                  />
+                </td>
                 <td className="p-3 text-muted-foreground">{row.date}</td>
                 <td
                   className="p-3 font-mono truncate max-w-[160px]"
@@ -199,7 +293,7 @@ function DematTable({
             {pg.total === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="p-12 text-center text-muted-foreground"
                 >
                   No records at this stage.
@@ -219,6 +313,51 @@ function DematTable({
         onPageChange={pg.setPage}
         onPageSizeChange={pg.setPageSize}
       />
+
+      <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Reject {selectedIds.size} Record
+              {selectedIds.size !== 1 ? "s" : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 px-6 pb-6">
+            <p className="text-sm text-muted-foreground">
+              This comment will be applied to all selected records and sent to
+              the initiator.
+            </p>
+            <div className="space-y-2">
+              <label className="mrpsl-label">
+                Rejection Comment <span className="text-destructive">*</span>
+              </label>
+              <Textarea
+                value={batchComment}
+                onChange={(e) => setBatchComment(e.target.value)}
+                placeholder="State reason for rejection..."
+                className="resize-none"
+                rows={4}
+              />
+            </div>
+            <div className="flex gap-3 pt-2 border-t">
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setBatchRejectOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleBatchReject}
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -236,8 +375,8 @@ export default function DematPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<DematRecord | null>(null);
-  const [rejectedId, setRejectedId] = useState<string | null>(null);
-  const [rejectedComment, setRejectedComment] = useState("");
+  const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
+  const [lastRejComment, setLastRejComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
 
   function openReview(rec: DematRecord) {
@@ -248,13 +387,13 @@ export default function DematPage() {
 
   const draftRecords = MOCK_RECORDS.filter((r) => r.status === "DRAFT");
   const calloverRecords = MOCK_RECORDS.filter(
-    (r) => r.status === "CALLOVER" && r.id !== rejectedId,
+    (r) => r.status === "CALLOVER" && !rejectedIds.has(r.id),
   );
   const authRecords = MOCK_RECORDS.filter(
-    (r) => r.status === "AUTHORISATION" && r.id !== rejectedId,
+    (r) => r.status === "AUTHORISATION" && !rejectedIds.has(r.id),
   );
   const icuRecords = MOCK_RECORDS.filter(
-    (r) => r.status === "ICU" && r.id !== rejectedId,
+    (r) => r.status === "ICU" && !rejectedIds.has(r.id),
   );
   const draftPg = usePagination(draftRecords);
   const approvalSteps = selected ? (APPROVAL_STEPS[selected.status] ?? []) : [];
@@ -313,21 +452,23 @@ export default function DematPage() {
         <div className="mt-2">
           {/* ── Capture ── */}
           <TabsContent value="capture" className="space-y-4">
-            {rejectedId && (
+            {rejectedIds.size > 0 && (
               <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1 space-y-1">
                   <div className="font-semibold text-sm text-red-800">
-                    Record Rejected — ID: {rejectedId}
+                    {rejectedIds.size === 1
+                      ? "Record Rejected"
+                      : `${rejectedIds.size} Records Rejected`}
                   </div>
                   <div className="text-[13px] text-red-700">
-                    {rejectedComment || "No comment provided."}
+                    {lastRejComment || "No comment provided."}
                   </div>
                 </div>
                 <button
                   onClick={() => {
-                    setRejectedId(null);
-                    setRejectedComment("");
+                    setRejectedIds(new Set());
+                    setLastRejComment("");
                   }}
                   className="text-red-400 hover:text-red-600 transition-colors shrink-0"
                 >
@@ -428,7 +569,22 @@ export default function DematPage() {
               Records submitted from Capture awaiting physical callover
               verification before forwarding to Authorisation.
             </p>
-            <DematTable records={calloverRecords} onReview={openReview} />
+            <DematTable
+              records={calloverRecords}
+              onReview={openReview}
+              onBatchApprove={(ids) =>
+                toast.success(
+                  `${ids.length} record${ids.length !== 1 ? "s" : ""} approved.`,
+                )
+              }
+              onBatchReject={(ids, comment) => {
+                setRejectedIds((prev) => new Set([...prev, ...ids]));
+                setLastRejComment(comment);
+                toast.error(
+                  `${ids.length} record${ids.length !== 1 ? "s" : ""} rejected.`,
+                );
+              }}
+            />
           </TabsContent>
 
           {/* ── Authorisation ── */}
@@ -437,7 +593,22 @@ export default function DematPage() {
               Callover-cleared records awaiting authoriser sign-off before ICU
               review.
             </p>
-            <DematTable records={authRecords} onReview={openReview} />
+            <DematTable
+              records={authRecords}
+              onReview={openReview}
+              onBatchApprove={(ids) =>
+                toast.success(
+                  `${ids.length} record${ids.length !== 1 ? "s" : ""} approved.`,
+                )
+              }
+              onBatchReject={(ids, comment) => {
+                setRejectedIds((prev) => new Set([...prev, ...ids]));
+                setLastRejComment(comment);
+                toast.error(
+                  `${ids.length} record${ids.length !== 1 ? "s" : ""} rejected.`,
+                );
+              }}
+            />
           </TabsContent>
 
           {/* ── ICU Approval ── */}
@@ -446,7 +617,22 @@ export default function DematPage() {
               Authorised demat batches awaiting final ICU approval before
               lodgment at CSCS.
             </p>
-            <DematTable records={icuRecords} onReview={openReview} />
+            <DematTable
+              records={icuRecords}
+              onReview={openReview}
+              onBatchApprove={(ids) =>
+                toast.success(
+                  `${ids.length} record${ids.length !== 1 ? "s" : ""} approved.`,
+                )
+              }
+              onBatchReject={(ids, comment) => {
+                setRejectedIds((prev) => new Set([...prev, ...ids]));
+                setLastRejComment(comment);
+                toast.error(
+                  `${ids.length} record${ids.length !== 1 ? "s" : ""} rejected.`,
+                );
+              }}
+            />
           </TabsContent>
 
           {/* ── Lodgment ── */}
@@ -503,8 +689,15 @@ export default function DematPage() {
 
       {/* ── Review Dialog ── */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent
+          className="max-w-lg overflow-hidden p-0 gap-0"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            maxHeight: "90vh",
+          }}
+        >
+          <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
             <DialogTitle>
               {selected?.status === "CALLOVER"
                 ? "Callover Review"
@@ -513,8 +706,10 @@ export default function DematPage() {
                   : "ICU Approval Review"}
             </DialogTitle>
           </DialogHeader>
+
           {selected && (
-            <div className="space-y-6 px-8 pb-8">
+            <div className="overflow-y-auto flex-1 px-6 py-6 space-y-5">
+              {/* Transaction details */}
               <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
@@ -553,6 +748,53 @@ export default function DematPage() {
                 </div>
               </div>
 
+              {/* Submitted documents */}
+              {selected.documents && selected.documents.length > 0 && (
+                <div className="border border-border/60 rounded-xl p-4">
+                  <h4 className="text-sm font-bold border-b border-border/60 pb-2 mb-3">
+                    Submitted Documents
+                  </h4>
+                  <div className="space-y-2">
+                    {selected.documents.map((doc, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/20 border"
+                      >
+                        {doc.fileType === "IMAGE" ? (
+                          <FileImage className="h-4 w-4 text-blue-500 shrink-0" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-red-500  shrink-0" />
+                        )}
+                        <span className="text-sm flex-1 truncate font-medium">
+                          {doc.name}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[11px] font-mono shrink-0"
+                        >
+                          {doc.fileType}
+                        </Badge>
+                        <button
+                          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          title="Open"
+                          onClick={() => toast.info(`Opening ${doc.name}…`)}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          title="Download"
+                          onClick={() => toast.info(`Downloading ${doc.name}…`)}
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Approval chain */}
               <div className="border border-border/60 rounded-xl p-4">
                 <h4 className="text-sm font-bold border-b border-border/60 pb-2 mb-4">
                   Approval Chain
@@ -561,10 +803,13 @@ export default function DematPage() {
                   {approvalSteps.map((step, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-100" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
                       >
                         {step.done && (
-                          <Check className="h-3 w-3 text-green-600" />
+                          <Check
+                            className="h-3 w-3 text-white"
+                            style={{ strokeWidth: 3 }}
+                          />
                         )}
                       </div>
                       <div className="text-sm">{step.label}</div>
@@ -573,6 +818,7 @@ export default function DematPage() {
                 </div>
               </div>
 
+              {/* Comment + actions */}
               <div className="space-y-2">
                 <label className="mrpsl-label">Comment</label>
                 <Textarea
@@ -588,8 +834,8 @@ export default function DematPage() {
                   variant="destructive"
                   className="flex-1"
                   onClick={() => {
-                    setRejectedId(selected!.id);
-                    setRejectedComment(rejectComment);
+                    setRejectedIds((prev) => new Set([...prev, selected!.id]));
+                    setLastRejComment(rejectComment);
                     toast.error("Record rejected and returned to capture.");
                     setReviewOpen(false);
                   }}

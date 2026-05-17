@@ -11,7 +11,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   XCircle,
+  Check,
+  FileText,
+  Image,
+  Download,
+  ExternalLink,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -53,12 +59,88 @@ export default function ApprovalsPage() {
   const [reviewItem, setReviewItem] = useState<ApprovalItem | null>(null);
   const [reviewComment, setReviewComment] = useState("");
 
+  // Batch selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchRejectOpen, setBatchRejectOpen] = useState(false);
+  const [batchComment, setBatchComment] = useState("");
+
   // Edit & Resubmit dialog (initiator)
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ApprovalItem | null>(null);
   const [editDescription, setEditDescription] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [resubmitNote, setResubmitNote] = useState("");
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function handleBatchApprove() {
+    if (!currentUser) return;
+    [...selectedIds].forEach((id) => {
+      const item = pendingApprovals.find((a) => a.id === id);
+      if (!item) return;
+      const updatedSteps = item.approvalSteps.map((s) =>
+        s.roles[0] === currentUser.roles?.[0] && !s.decision
+          ? {
+              ...s,
+              decision: "APPROVED" as const,
+              comment: batchComment,
+              decidedAt: new Date().toISOString(),
+              approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+              approverId: currentUser.id,
+            }
+          : s,
+      );
+      const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
+      updateApprovalItem(id, {
+        approvalSteps: updatedSteps,
+        status: allApproved ? "APPROVED" : "PENDING",
+      });
+    });
+    toast.success(
+      `${selectedIds.size} record${selectedIds.size !== 1 ? "s" : ""} approved.`,
+    );
+    setSelectedIds(new Set());
+  }
+
+  function handleBatchReject() {
+    if (!currentUser) return;
+    if (!batchComment.trim()) {
+      toast.error("Comment required for rejection.");
+      return;
+    }
+    [...selectedIds].forEach((id) => {
+      const item = pendingApprovals.find((a) => a.id === id);
+      if (!item) return;
+      const updatedSteps = item.approvalSteps.map((s) =>
+        s.roles[0] === currentUser.roles?.[0] && !s.decision
+          ? {
+              ...s,
+              decision: "REJECTED" as const,
+              comment: batchComment,
+              decidedAt: new Date().toISOString(),
+              approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+              approverId: currentUser.id,
+            }
+          : s,
+      );
+      updateApprovalItem(id, {
+        approvalSteps: updatedSteps,
+        status: "REJECTED",
+      });
+    });
+    toast.error(
+      `${selectedIds.size} record${selectedIds.size !== 1 ? "s" : ""} rejected.`,
+    );
+    setSelectedIds(new Set());
+    setBatchComment("");
+    setBatchRejectOpen(false);
+  }
 
   const filtered = pendingApprovals.filter((a) => {
     const matchesSearch =
@@ -105,7 +187,7 @@ export default function ApprovalsPage() {
   const handleApprove = () => {
     if (!reviewItem || !currentUser) return;
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
-      s.roles?.[0] === currentUser.roles?.[0] && !s.decision
+      s.roles[0] === currentUser.roles?.[0] && !s.decision
         ? {
             ...s,
             decision: "APPROVED" as const,
@@ -142,7 +224,7 @@ export default function ApprovalsPage() {
       return;
     }
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
-      s.roles?.[0] === currentUser.roles?.[0] && !s.decision
+      s.roles[0] === currentUser.roles?.[0] && !s.decision
         ? {
             ...s,
             decision: "REJECTED" as const,
@@ -359,10 +441,32 @@ export default function ApprovalsPage() {
         </Select>
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+          <span className="text-sm font-semibold text-primary">
+            {selectedIds.size} selected
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-300 text-red-700 hover:bg-red-50"
+              onClick={() => setBatchRejectOpen(true)}
+            >
+              Reject Selected
+            </Button>
+            <Button size="sm" onClick={handleBatchApprove}>
+              Approve Selected
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Card className="mrpsl-card overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="mrpsl-table-header">
             <tr>
+              <th className="p-3 w-10"></th>
               <th className="p-3">REFERENCE</th>
               <th className="p-3">MODULE</th>
               <th className="p-3">TYPE</th>
@@ -390,6 +494,16 @@ export default function ApprovalsPage() {
                   key={a.id}
                   className={`hover:bg-accent/5 ${a.status === "REJECTED" && isMine ? "bg-red-50/40" : ""}`}
                 >
+                  <td className="p-3">
+                    {canAction ? (
+                      <Checkbox
+                        checked={selectedIds.has(a.id)}
+                        onCheckedChange={() => toggleSelect(a.id)}
+                      />
+                    ) : (
+                      <span className="w-4 inline-block" />
+                    )}
+                  </td>
                   <td className="p-3 font-mono text-[13px] text-muted-foreground">
                     {a.id}
                   </td>
@@ -498,7 +612,7 @@ export default function ApprovalsPage() {
             {pg.paged.length === 0 && (
               <tr>
                 <td
-                  colSpan={10}
+                  colSpan={11}
                   className="p-12 text-center text-muted-foreground"
                 >
                   No approvals match your filters.
@@ -576,13 +690,69 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
 
+                {reviewItem?.attachments &&
+                  reviewItem?.attachments.length > 0 && (
+                    <div className="p-4 border rounded-xl">
+                      <h4 className="text-sm font-bold border-b pb-2 mb-3">
+                        Supporting Documents
+                      </h4>
+                      <div className="space-y-2">
+                        {reviewItem.attachments?.map((doc, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/20 border"
+                          >
+                            {doc.fileType === "IMAGE" ? (
+                              <Image className="h-4 w-4 text-blue-500 shrink-0" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                            )}
+                            <span className="text-sm flex-1 truncate font-medium">
+                              {doc.name}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="text-[11px] font-mono shrink-0"
+                            >
+                              {doc.fileType}
+                            </Badge>
+                            <button
+                              className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                              title="Open"
+                              onClick={() => window.open(doc.url, "_blank")}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                              title="Download"
+                              onClick={() => {
+                                const a = document.createElement("a");
+                                a.href = doc.url;
+                                a.download = doc.name;
+                                a.click();
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                 <div className="p-4 border rounded-xl">
                   <h4 className="text-sm font-bold border-b pb-2 mb-3">
                     Approval Chain
                   </h4>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
-                      <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                      <span className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                        <Check
+                          className="h-2.5 w-2.5 text-white"
+                          style={{ strokeWidth: 3 }}
+                        />
+                      </span>
                       <div className="text-sm">
                         <span className="font-semibold">
                           {reviewItem.initiatorName}
@@ -595,7 +765,12 @@ export default function ApprovalsPage() {
                     {reviewItem.approvalSteps.map((s, idx) => (
                       <div key={idx} className="flex items-start gap-3">
                         {s.decision === "APPROVED" ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                          <span className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center shrink-0 mt-0.5">
+                            <Check
+                              className="h-2.5 w-2.5 text-white"
+                              style={{ strokeWidth: 3 }}
+                            />
+                          </span>
                         ) : s.decision === "REJECTED" ? (
                           <XCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
                         ) : (
@@ -603,7 +778,7 @@ export default function ApprovalsPage() {
                         )}
                         <div className="text-sm">
                           <span className="font-semibold">
-                            {s.roles?.[0]?.replace(/_/g, " ") ?? "Unknown Role"}
+                            {s.roles[0].replace(/_/g, " ")}
                           </span>
                           {s.decision ? (
                             <span
@@ -709,6 +884,52 @@ export default function ApprovalsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Batch Reject Dialog ──────────────────────────────────────── */}
+      <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Reject {selectedIds.size} Record
+              {selectedIds.size !== 1 ? "s" : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 px-6 pb-6">
+            <p className="text-sm text-muted-foreground">
+              This comment will be applied to all selected records and sent to
+              the initiator.
+            </p>
+            <div className="space-y-2">
+              <label className="mrpsl-label">
+                Rejection Comment <span className="text-destructive">*</span>
+              </label>
+              <Textarea
+                value={batchComment}
+                onChange={(e) => setBatchComment(e.target.value)}
+                placeholder="State reason for rejection..."
+                className="resize-none"
+                rows={4}
+              />
+            </div>
+            <div className="flex gap-3 pt-2 border-t">
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setBatchRejectOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleBatchReject}
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Edit & Resubmit Dialog (Initiator) ───────────────────────── */}
       <Dialog
         open={editOpen}
@@ -743,7 +964,7 @@ export default function ApprovalsPage() {
                       <span className="text-[13px] font-semibold">
                         Rejected by{" "}
                         {rejectedStep?.approverName ??
-                          rejectedStep?.roles?.[0]?.replace(/_/g, " ") ??
+                          rejectedStep?.roles[0].replace(/_/g, " ") ??
                           "Approver"}
                         {rejectedStep?.decidedAt && (
                           <span className="font-normal text-red-600">

@@ -12,7 +12,23 @@ import {
   MoreHorizontal,
   Eye,
   MapPin,
+  CalendarIcon,
+  X,
 } from "lucide-react";
+import {
+  format,
+  parse,
+  isAfter,
+  isBefore,
+  startOfDay,
+  endOfDay,
+} from "date-fns";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import {
@@ -449,18 +465,18 @@ const PROCESSED_LOG: ProcessedLogEntry[] = [
   },
 ];
 
-
-const SortIcon = ({
-  col,
-  sortCol,
-  sortDir,
-}: {
+// ── Shared Helper Component (Declared Outside to Fix Error) ───────
+type SortIconProps = {
   col: string;
   sortCol: string;
-  sortDir: string;
-}) => (
+  sortDir: "asc" | "desc";
+};
+
+const SortIcon = ({ col, sortCol, sortDir }: SortIconProps) => (
   <ChevronDown
-    className={`inline h-3 w-3 ml-1 transition-transform ${sortCol === col && sortDir === "asc" ? "rotate-180" : ""} ${sortCol !== col ? "opacity-20" : ""}`}
+    className={`inline h-3 w-3 ml-1 transition-transform ${
+      sortCol === col && sortDir === "asc" ? "rotate-180" : ""
+    } ${sortCol !== col ? "opacity-20" : ""}`}
   />
 );
 
@@ -497,6 +513,10 @@ export default function CSCSUpdatesPage() {
   const [logSearch, setLogSearch] = useState("");
   const [logRegister, setLogRegister] = useState("All");
   const [logType, setLogType] = useState("All");
+  const [logDateFrom, setLogDateFrom] = useState<Date | undefined>(undefined);
+  const [logDateTo, setLogDateTo] = useState<Date | undefined>(undefined);
+  const [logFromOpen, setLogFromOpen] = useState(false);
+  const [logToOpen, setLogToOpen] = useState(false);
 
   // ── Derived ───────────────────────────────────────────────────
   const allRegisters = useMemo(
@@ -531,20 +551,29 @@ export default function CSCSUpdatesPage() {
   ).length;
   const allConfirmed = totalUnconfirmed === 0;
 
-  const logFiltered = useMemo(
-    () =>
-      PROCESSED_LOG.filter(
-        (r) =>
-          (logRegister === "All" || r.register === logRegister) &&
-          (logType === "All" || r.type === logType) &&
-          (logSearch === "" ||
-            r.holder.toLowerCase().includes(logSearch.toLowerCase()) ||
-            r.chn.toLowerCase().includes(logSearch.toLowerCase()) ||
-            r.transferNo.toLowerCase().includes(logSearch.toLowerCase()) ||
-            r.batchRef.toLowerCase().includes(logSearch.toLowerCase())),
-      ),
-    [logRegister, logType, logSearch],
-  );
+  const logFiltered = useMemo(() => {
+    const parseLogDate = (s: string) => parse(s, "dd MMM yyyy", new Date());
+    return PROCESSED_LOG.filter((r) => {
+      if (logRegister !== "All" && r.register !== logRegister) return false;
+      if (logType !== "All" && r.type !== logType) return false;
+      if (
+        logSearch !== "" &&
+        !(
+          r.holder.toLowerCase().includes(logSearch.toLowerCase()) ||
+          r.chn.toLowerCase().includes(logSearch.toLowerCase()) ||
+          r.transferNo.toLowerCase().includes(logSearch.toLowerCase()) ||
+          r.batchRef.toLowerCase().includes(logSearch.toLowerCase())
+        )
+      )
+        return false;
+      if (logDateFrom || logDateTo) {
+        const d = parseLogDate(r.date);
+        if (logDateFrom && isBefore(d, startOfDay(logDateFrom))) return false;
+        if (logDateTo && isAfter(d, endOfDay(logDateTo))) return false;
+      }
+      return true;
+    });
+  }, [logRegister, logType, logSearch, logDateFrom, logDateTo]);
 
   const logTotalBuys = logFiltered
     .filter((r) => r.type === "Buy")
@@ -635,8 +664,6 @@ export default function CSCSUpdatesPage() {
       setSortDir("asc");
     }
   };
-
-
 
   const tabTriggerClass =
     "rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground " +
@@ -1143,25 +1170,45 @@ export default function CSCSUpdatesPage() {
                         className="px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleSort("ref")}
                       >
-                        BATCH REF <SortIcon col="ref" sortCol={sortCol} sortDir={sortDir} />
+                        BATCH REF{" "}
+                        <SortIcon
+                          col="ref"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </th>
                       <th
                         className="px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleSort("register")}
                       >
-                        REGISTER <SortIcon col="register" sortCol={sortCol} sortDir={sortDir} />
+                        REGISTER{" "}
+                        <SortIcon
+                          col="register"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </th>
                       <th
                         className="px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleSort("date")}
                       >
-                        DATE <SortIcon col="date" sortCol={sortCol} sortDir={sortDir} />
+                        DATE{" "}
+                        <SortIcon
+                          col="date"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </th>
                       <th
                         className="px-4 py-3 text-right cursor-pointer select-none"
                         onClick={() => toggleSort("total")}
                       >
-                        TOTAL <SortIcon col="total" sortCol={sortCol} sortDir={sortDir} />
+                        TOTAL{" "}
+                        <SortIcon
+                          col="total"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </th>
                       <th className="px-4 py-3 text-right">BUYS</th>
                       <th className="px-4 py-3 text-right">SELLS</th>
@@ -1385,7 +1432,12 @@ export default function CSCSUpdatesPage() {
                         className="px-4 py-3 cursor-pointer select-none"
                         onClick={() => toggleSort("chn")}
                       >
-                        CHN <SortIcon col="chn" sortCol={sortCol} sortDir={sortDir} />
+                        CHN{" "}
+                        <SortIcon
+                          col="chn"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </th>
                       <th className="px-4 py-3">REGISTER</th>
                       <th className="px-4 py-3">HOLDER</th>
@@ -1395,14 +1447,24 @@ export default function CSCSUpdatesPage() {
                         className="px-4 py-3 text-right cursor-pointer select-none"
                         onClick={() => toggleSort("attempted")}
                       >
-                        ATTEMPTED <SortIcon col="attempted" sortCol={sortCol} sortDir={sortDir} />
+                        ATTEMPTED{" "}
+                        <SortIcon
+                          col="attempted"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </th>
                       <th className="px-4 py-3 text-right">HOLDINGS</th>
                       <th
                         className="px-4 py-3 text-right cursor-pointer select-none"
                         onClick={() => toggleSort("shortfall")}
                       >
-                        SHORTFALL <SortIcon col="shortfall" sortCol={sortCol} sortDir={sortDir} />
+                        SHORTFALL{" "}
+                        <SortIcon
+                          col="shortfall"
+                          sortCol={sortCol}
+                          sortDir={sortDir}
+                        />
                       </th>
                       <th className="px-4 py-3">STATUS</th>
                       <th className="px-4 py-3 text-right">ACTIONS</th>
@@ -1565,6 +1627,75 @@ export default function CSCSUpdatesPage() {
                   <SelectItem value="Sell">Sell</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Popover open={logFromOpen} onOpenChange={setLogFromOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="mrpsl-input w-36 justify-start gap-2 px-3 font-normal text-sm"
+                  >
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span
+                      className={logDateFrom ? "" : "text-muted-foreground"}
+                    >
+                      {logDateFrom
+                        ? format(logDateFrom, "dd MMM yyyy")
+                        : "From date"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={logDateFrom}
+                    onSelect={(d) => {
+                      setLogDateFrom(d);
+                      setLogFromOpen(false);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Popover open={logToOpen} onOpenChange={setLogToOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="mrpsl-input w-36 justify-start gap-2 px-3 font-normal text-sm"
+                  >
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className={logDateTo ? "" : "text-muted-foreground"}>
+                      {logDateTo ? format(logDateTo, "dd MMM yyyy") : "To date"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={logDateTo}
+                    onSelect={(d) => {
+                      setLogDateTo(d);
+                      setLogToOpen(false);
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {(logDateFrom || logDateTo) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-10 text-muted-foreground"
+                  onClick={() => {
+                    setLogDateFrom(undefined);
+                    setLogDateTo(undefined);
+                  }}
+                >
+                  <X className="h-3.5 w-3.5 mr-1" /> Clear dates
+                </Button>
+              )}
+
               <div className="ml-auto flex items-center gap-4 text-[13px] text-muted-foreground">
                 <span className="text-green-600 font-semibold tabular-nums">
                   Buys: +{logTotalBuys.toLocaleString()}

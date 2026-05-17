@@ -13,6 +13,16 @@ export const GET_USERS = async () => {
   }
 };
 
+export const GET_USER_BY_ID = async (id: string) => {
+  try {
+    const res = await api.get(`/users/${id}`);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const GET_USER_STATS = async () => {
   try {
     const res = await api.get(`/users/stats`);
