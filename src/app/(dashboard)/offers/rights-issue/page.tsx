@@ -126,6 +126,84 @@ const MOCK_ADDRS = [
   "33 Nnamdi Azikiwe, Onitsha",
 ];
 
+const MOCK_ALLOTMENT_QUEUE_RIGHTS = [
+  {
+    id: "sub-1",
+    ref: "RIGHTS-DECL-20260429-001",
+    register: "ZENITHBANK",
+    rightsName: "Zenith Bank 2026 Rights Issue",
+    ratio: "1 : 2",
+    issuePrice: "₦50.00",
+    approved: 174640,
+    amount: "₦8.73B",
+    icuApprover: "Ngozi Adeyemi",
+    icuDate: "01 May 2026, 10:15",
+  },
+  {
+    id: "sub-2",
+    ref: "RIGHTS-DECL-20260428-002",
+    register: "DANGCEM",
+    rightsName: "Dangote Cement 2026 Rights Issue",
+    ratio: "1 : 3",
+    issuePrice: "₦22.00",
+    approved: 89200,
+    amount: "₦4.46B",
+    icuApprover: "Ngozi Adeyemi",
+    icuDate: "29 Apr 2026, 16:45",
+  },
+  {
+    id: "sub-3",
+    ref: "RIGHTS-DECL-20260426-003",
+    register: "AIRTELAFRI",
+    rightsName: "Airtel Africa 2026 Rights Issue",
+    ratio: "1 : 4",
+    issuePrice: "₦12.50",
+    approved: 52300,
+    amount: "₦2.61B",
+    icuApprover: "Ngozi Adeyemi",
+    icuDate: "27 Apr 2026, 14:30",
+  },
+];
+
+const MOCK_ICU_SUBMISSIONS_RIGHTS = [
+  {
+    id: "sub-1",
+    ref: "RIGHTS-DECL-20260429-001",
+    register: "ZENITHBANK",
+    date: "29 Apr 2026",
+    approved: 174640,
+    disapproved: 3802,
+    invalid: 1806,
+    amount: "₦8.73B",
+    opsApprover: "Babatunde Adeleke",
+    opsDate: "29 Apr 2026, 10:45",
+  },
+  {
+    id: "sub-2",
+    ref: "RIGHTS-DECL-20260428-002",
+    register: "DANGCEM",
+    date: "28 Apr 2026",
+    approved: 89200,
+    disapproved: 1540,
+    invalid: 720,
+    amount: "₦4.46B",
+    opsApprover: "Adaeze Okafor",
+    opsDate: "28 Apr 2026, 14:20",
+  },
+  {
+    id: "sub-3",
+    ref: "RIGHTS-DECL-20260426-003",
+    register: "AIRTELAFRI",
+    date: "26 Apr 2026",
+    approved: 52300,
+    disapproved: 980,
+    invalid: 410,
+    amount: "₦2.61B",
+    opsApprover: "Babatunde Adeleke",
+    opsDate: "26 Apr 2026, 09:55",
+  },
+];
+
 const MOCK_ALLOT_APPROVED = [
   {
     name: "ADEBISI FUNMILAYO",
@@ -485,6 +563,21 @@ export default function RightsIssuePage() {
 
   // Allotment
   const [allotmentDone, setAllotmentDone] = useState(false);
+
+  // Allotment drill-down
+  const [allotReviewing, setAllotReviewing] = useState<string | null>(null);
+  const [allotmentDoneMap, setAllotmentDoneMap] = useState<
+    Record<string, boolean>
+  >({});
+  const [allotApprovedFiles, setAllotApprovedFiles] = useState<
+    Record<string, string | null>
+  >({});
+  const [allotDisapprovedFiles, setAllotDisapprovedFiles] = useState<
+    Record<string, string | null>
+  >({});
+  const [allotInvalidFiles, setAllotInvalidFiles] = useState<
+    Record<string, string | null>
+  >({});
   const [allotTab, setAllotTab] = useState<
     "approved" | "disapproved" | "invalid"
   >("approved");
@@ -520,8 +613,20 @@ export default function RightsIssuePage() {
   // Approval modal
   const [approvalModal, setApprovalModal] = useState<{
     action: "approve" | "reject";
+    section?: "ops" | "icu";
   } | null>(null);
   const [modalComment, setModalComment] = useState("");
+
+  // ICU multi-submission state
+  const [icuReviewingBatch, setIcuReviewingBatch] = useState<string | null>(
+    null,
+  );
+  const [icuSubmissionStatuses, setIcuSubmissionStatuses] = useState<
+    Record<string, "pending" | "approved" | "returned">
+  >({ "sub-1": "pending", "sub-2": "pending", "sub-3": "pending" });
+  const [icuSubTab, setIcuSubTab] = useState<
+    "approved" | "disapproved" | "invalid"
+  >("approved");
 
   // Page size (shared across all tables)
   const [pageSize, setPageSize] = useState(10);
@@ -559,7 +664,7 @@ export default function RightsIssuePage() {
   };
 
   const handleApprove = () => {
-    toast.success("Declaration approved. Allotment is now enabled.");
+    toast.success("Declaration approved. Forwarded to ICU.");
     setAuthReviewingBatch(null);
     setAuthComment("");
     closeModal();
@@ -571,6 +676,28 @@ export default function RightsIssuePage() {
     toast.error("Declaration rejected and returned to submitter.");
     setAuthReviewingBatch(null);
     setAuthComment("");
+    closeModal();
+  };
+
+  const handleIcuApprove = () => {
+    if (icuReviewingBatch)
+      setIcuSubmissionStatuses((prev) => ({
+        ...prev,
+        [icuReviewingBatch]: "approved",
+      }));
+    toast.success("ICU approved. Submission cleared for allotment.");
+    setIcuReviewingBatch(null);
+    closeModal();
+  };
+
+  const handleIcuReturn = () => {
+    if (icuReviewingBatch)
+      setIcuSubmissionStatuses((prev) => ({
+        ...prev,
+        [icuReviewingBatch]: "returned",
+      }));
+    toast.error("Submission returned to Operations.");
+    setIcuReviewingBatch(null);
     closeModal();
   };
 
@@ -638,6 +765,7 @@ export default function RightsIssuePage() {
           {[
             ["declaration", "Declaration"],
             ["auth", "Pending Approval"],
+            ["icu", "ICU Approval"],
             ["allotment", "Allotment"],
             ["lodgment", "Traded Rights Lodgment"],
             ["reports", "Reports"],
@@ -1155,516 +1283,1081 @@ export default function RightsIssuePage() {
             )}
           </TabsContent>
 
-          {/* ── Allotment ── */}
-          <TabsContent value="allotment" className="space-y-6">
-            {/* SEC approval context card — always visible */}
-            <Card className="mrpsl-card p-4 bg-muted/20 border-l-4 border-l-primary">
-              <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
-                SEC-Approved Declaration
-              </p>
-              <div className="flex items-center gap-8 text-sm flex-wrap">
-                <div>
-                  <div className="mrpsl-section-title">Declaration Ref</div>
-                  <div className="font-mono font-semibold mt-0.5">
-                    RIGHTS-20260429-001
-                  </div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">Register</div>
-                  <div className="font-semibold mt-0.5">ZENITHBANK</div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">Rights Issue</div>
-                  <div className="mt-0.5">Zenith Bank 2026 Rights Issue</div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">Rights Ratio</div>
-                  <div className="font-mono mt-0.5">1 : 2</div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">Issue Price</div>
-                  <div className="font-mono mt-0.5">₦50.00</div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">SEC Approval</div>
-                  <div className="font-mono mt-0.5">01 May 2026</div>
-                </div>
-                <Badge className="bg-emerald-100 text-emerald-800 border-0 self-end mb-0.5">
-                  SEC Approved
-                </Badge>
-              </div>
-            </Card>
-
-            {!allotmentDone ? (
-              <>
-                {/* 3-card upload grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* Approved List */}
-                  <Card className="mrpsl-card p-6 border-t-4 border-t-green-500">
-                    <div className="flex justify-center mb-3">
-                      <FileCheck2 className="h-8 w-8 text-green-600" />
-                    </div>
-                    <h3 className="font-semibold text-foreground text-center">
-                      Approved List
-                    </h3>
-                    <p className="text-[13px] text-muted-foreground mt-1 text-center">
-                      Additional certificate — shareholders who exercised their
-                      rights
-                    </p>
-                    <div className="mt-4">
-                      {allotApprovedFile ? (
-                        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
-                          <FileCheck2 className="h-4 w-4 text-green-600 shrink-0" />
-                          <span className="text-[13px] font-medium text-green-800 flex-1 truncate">
-                            {allotApprovedFile}
-                          </span>
-                          <button
-                            onClick={() => setAllotApprovedFile(null)}
-                            className="rounded-full hover:bg-green-100 p-0.5 transition-colors"
+          {/* ── ICU Approval ── */}
+          <TabsContent value="icu" className="space-y-4">
+            {icuReviewingBatch === null ? (
+              /* ── Queue view ── */
+              <Card className="mrpsl-card overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="px-4 py-3">BATCH REF</th>
+                      <th className="px-4 py-3">REGISTER</th>
+                      <th className="px-4 py-3">DATE</th>
+                      <th className="px-4 py-3 text-right">APPROVED</th>
+                      <th className="px-4 py-3 text-right">DISAPPROVED</th>
+                      <th className="px-4 py-3 text-right">INVALID</th>
+                      <th className="px-4 py-3 text-right">AMOUNT</th>
+                      <th className="px-4 py-3">OPS APPROVER</th>
+                      <th className="px-4 py-3">STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {MOCK_ICU_SUBMISSIONS_RIGHTS.map((sub) => (
+                      <tr
+                        key={sub.id}
+                        className="mrpsl-table-row cursor-pointer hover:bg-muted/40 transition-colors"
+                        onClick={() => {
+                          setIcuReviewingBatch(sub.id);
+                          setIcuSubTab("approved");
+                        }}
+                      >
+                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                          {sub.ref}
+                        </td>
+                        <td className="px-4 py-3 font-semibold">
+                          {sub.register}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-[13px]">
+                          {sub.date}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
+                          {sub.approved.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-right text-amber-600 font-semibold">
+                          {sub.disapproved.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-right text-red-600 font-semibold">
+                          {sub.invalid.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-right">
+                          {sub.amount}
+                        </td>
+                        <td className="px-4 py-3 text-[13px]">
+                          {sub.opsApprover}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={cn(
+                              "border-0 text-[13px] font-medium",
+                              icuSubmissionStatuses[sub.id] === "approved"
+                                ? "bg-green-100 text-green-800"
+                                : icuSubmissionStatuses[sub.id] === "returned"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-blue-100 text-blue-800",
+                            )}
                           >
-                            <X className="h-3.5 w-3.5 text-green-700" />
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
-                          Drop CSV here or click to browse
-                          <input
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={(e) =>
-                              setAllotApprovedFile(
-                                e.target.files?.[0]?.name ?? null,
-                              )
-                            }
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </Card>
-
-                  {/* Disapproved List */}
-                  <Card className="mrpsl-card p-6 border-t-4 border-t-amber-500">
-                    <div className="flex justify-center mb-3">
-                      <FileX2 className="h-8 w-8 text-amber-500" />
-                    </div>
-                    <h3 className="font-semibold text-foreground text-center">
-                      Disapproved List
-                    </h3>
-                    <p className="text-[13px] text-muted-foreground mt-1 text-center">
-                      Return money — rejected applications
-                    </p>
-                    <div className="mt-4 space-y-3">
-                      {allotDisapprovedFile ? (
-                        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                          <FileX2 className="h-4 w-4 text-amber-600 shrink-0" />
-                          <span className="text-[13px] font-medium text-amber-800 flex-1 truncate">
-                            {allotDisapprovedFile}
-                          </span>
-                          <button
-                            onClick={() => setAllotDisapprovedFile(null)}
-                            className="rounded-full hover:bg-amber-100 p-0.5 transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5 text-amber-700" />
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
-                          Drop CSV here or click to browse
-                          <input
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={(e) =>
-                              setAllotDisapprovedFile(
-                                e.target.files?.[0]?.name ?? null,
-                              )
-                            }
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </Card>
-
-                  {/* Invalid Subscription */}
-                  <Card className="mrpsl-card p-6 border-t-4 border-t-red-500">
-                    <div className="flex justify-center mb-3">
-                      <AlertCircle className="h-8 w-8 text-red-500" />
-                    </div>
-                    <h3 className="font-semibold text-foreground text-center">
-                      Invalid Subscription
-                    </h3>
-                    <p className="text-[13px] text-muted-foreground mt-1 text-center">
-                      Return money — failed or invalid applications
-                    </p>
-                    <div className="mt-4 space-y-3">
-                      {allotInvalidFile ? (
-                        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                          <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                          <span className="text-[13px] font-medium text-red-800 flex-1 truncate">
-                            {allotInvalidFile}
-                          </span>
-                          <button
-                            onClick={() => setAllotInvalidFile(null)}
-                            className="rounded-full hover:bg-red-100 p-0.5 transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5 text-red-700" />
-                          </button>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
-                          Drop CSV here or click to browse
-                          <input
-                            type="file"
-                            accept=".csv"
-                            className="hidden"
-                            onChange={(e) =>
-                              setAllotInvalidFile(
-                                e.target.files?.[0]?.name ?? null,
-                              )
-                            }
-                          />
-                        </label>
-                      )}
-                    </div>
-                  </Card>
-                </div>
-
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={handleRunAllotment}
-                >
-                  Process Allotment
-                </Button>
-              </>
+                            {icuSubmissionStatuses[sub.id] === "approved"
+                              ? "Approved"
+                              : icuSubmissionStatuses[sub.id] === "returned"
+                                ? "Returned"
+                                : "Pending"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
             ) : (
-              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                {/* Stats */}
-                <div className="grid grid-cols-5 gap-3">
-                  {[
-                    {
-                      label: "Total Processed",
-                      value: "180,248",
-                      color: "text-foreground",
-                    },
-                    {
-                      label: "Approved (Certificates)",
-                      value: "174,640",
-                      color: "text-green-700",
-                      tab: "approved" as const,
-                    },
-                    {
-                      label: "Disapproved (Return)",
-                      value: "3,802",
-                      color: "text-amber-600",
-                      tab: "disapproved" as const,
-                    },
-                    {
-                      label: "Invalid (Return)",
-                      value: "1,806",
-                      color: "text-red-600",
-                      tab: "invalid" as const,
-                    },
-                    {
-                      label: "Total Return Amount",
-                      value: "₦28.0M",
-                      color: "text-foreground",
-                    },
-                  ].map((s) => (
-                    <Card
-                      key={s.label}
-                      className={cn(
-                        "mrpsl-card p-3",
-                        "tab" in s &&
-                          "cursor-pointer hover:border-primary/40 transition-colors",
-                      )}
-                      onClick={() => "tab" in s && s.tab && setAllotTab(s.tab)}
+              (() => {
+                const sub = MOCK_ICU_SUBMISSIONS_RIGHTS.find(
+                  (s) => s.id === icuReviewingBatch,
+                )!;
+                return (
+                  <div className="space-y-4 animate-in fade-in">
+                    {/* Back button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIcuReviewingBatch(null)}
                     >
-                      <div className="mrpsl-section-title">{s.label}</div>
-                      <div
+                      <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to ICU Queue
+                    </Button>
+
+                    {/* Ops approval record */}
+                    <Card className="mrpsl-card p-4 bg-muted/20 border-l-4 border-l-primary">
+                      <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                        Operations Approval Record
+                      </p>
+                      <div className="flex items-center gap-8 text-sm flex-wrap">
+                        <div>
+                          <div className="mrpsl-section-title">Approved By</div>
+                          <div className="font-semibold mt-0.5">
+                            {sub.opsApprover}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">Role</div>
+                          <div className="mt-0.5">Operations Manager</div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">
+                            Approval Date &amp; Time
+                          </div>
+                          <div className="font-mono mt-0.5">{sub.opsDate}</div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">
+                            Declaration Date
+                          </div>
+                          <div className="font-mono mt-0.5">{sub.date}</div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">
+                            Total Allotment Value
+                          </div>
+                          <div className="font-mono font-semibold mt-0.5">
+                            {sub.amount}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-4 gap-3">
+                      {[
+                        {
+                          label: "Total Entitlements",
+                          value: (
+                            sub.approved +
+                            sub.disapproved +
+                            sub.invalid
+                          ).toLocaleString(),
+                          color: "text-foreground",
+                          tab: null as null,
+                        },
+                        {
+                          label: "Approved",
+                          value: sub.approved.toLocaleString(),
+                          color: "text-green-700",
+                          tab: "approved" as const,
+                        },
+                        {
+                          label: "Disapproved",
+                          value: sub.disapproved.toLocaleString(),
+                          color: "text-amber-600",
+                          tab: "disapproved" as const,
+                        },
+                        {
+                          label: "Invalid",
+                          value: sub.invalid.toLocaleString(),
+                          color: "text-red-600",
+                          tab: "invalid" as const,
+                        },
+                      ].map((s) => (
+                        <Card
+                          key={s.label}
+                          className={cn(
+                            "mrpsl-card p-3",
+                            s.tab &&
+                              "cursor-pointer hover:border-primary/40 transition-colors",
+                          )}
+                          onClick={() => s.tab && setIcuSubTab(s.tab)}
+                        >
+                          <div className="mrpsl-section-title">{s.label}</div>
+                          <div
+                            className={cn(
+                              "text-xl font-mono font-bold mt-1",
+                              s.color,
+                            )}
+                          >
+                            {s.value}
+                          </div>
+                          {s.tab && (
+                            <div className="text-[13px] text-muted-foreground mt-0.5">
+                              click to view
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+                    </div>
+
+                    {/* Data sub-tabs */}
+                    <Card className="mrpsl-card overflow-hidden">
+                      <div className="flex items-center gap-1 border-b px-4 bg-muted/10">
+                        {(["approved", "disapproved", "invalid"] as const).map(
+                          (t) => (
+                            <button
+                              key={t}
+                              onClick={() => setIcuSubTab(t)}
+                              className={cn(
+                                "px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors capitalize",
+                                icuSubTab === t
+                                  ? t === "approved"
+                                    ? "border-green-600 text-green-700"
+                                    : t === "disapproved"
+                                      ? "border-amber-500 text-amber-700"
+                                      : "border-red-500 text-red-700"
+                                  : "border-transparent text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {t === "approved"
+                                ? `Approved (${sub.approved.toLocaleString()})`
+                                : t === "disapproved"
+                                  ? `Disapproved (${sub.disapproved.toLocaleString()})`
+                                  : `Invalid (${sub.invalid.toLocaleString()})`}
+                            </button>
+                          ),
+                        )}
+                        <div className="flex-1" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="my-1.5 mr-1"
+                          onClick={() => toast.success("Exporting list...")}
+                        >
+                          <Download className="mr-1.5 h-4 w-4" /> Export
+                        </Button>
+                      </div>
+                      <div className="overflow-x-auto">
+                        {icuSubTab === "approved" && (
+                          <table className="w-full text-left text-[13px]">
+                            <thead className="mrpsl-table-header">
+                              <tr>
+                                <th className="px-4 py-2.5">#</th>
+                                <th className="px-4 py-2.5">
+                                  SHAREHOLDER NAME
+                                </th>
+                                <th className="px-4 py-2.5">CHN</th>
+                                <th className="px-4 py-2.5">
+                                  STOCKBROKER CODE
+                                </th>
+                                <th className="px-4 py-2.5 text-right">
+                                  UNITS HELD
+                                </th>
+                                <th className="px-4 py-2.5 text-right">
+                                  RIGHTS DUE
+                                </th>
+                                <th className="px-4 py-2.5 text-right">
+                                  ADDITIONAL CERTIFICATE
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {MOCK_ALLOT_APPROVED.map((r, i) => (
+                                <tr key={i} className="mrpsl-table-row">
+                                  <td className="px-4 py-2.5 text-muted-foreground">
+                                    {i + 1}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-medium">
+                                    {r.name}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-mono">
+                                    {r.chn}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-mono">
+                                    {r.broker}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right font-mono">
+                                    {r.unitsHeld.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right font-mono text-blue-600">
+                                    {r.rightsDue.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right font-mono font-semibold text-green-700">
+                                    {r.certShares.toLocaleString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
+                              <tr>
+                                <td
+                                  colSpan={5}
+                                  className="px-4 py-2.5 text-right text-muted-foreground"
+                                >
+                                  TOTALS (showing {MOCK_ALLOT_APPROVED.length}{" "}
+                                  of {sub.approved.toLocaleString()})
+                                </td>
+                                <td className="px-4 py-2.5 text-right text-blue-600">
+                                  {MOCK_ALLOT_APPROVED.reduce(
+                                    (a, r) => a + r.rightsDue,
+                                    0,
+                                  ).toLocaleString()}
+                                </td>
+                                <td className="px-4 py-2.5 text-right text-green-700">
+                                  {MOCK_ALLOT_APPROVED.reduce(
+                                    (a, r) => a + r.certShares,
+                                    0,
+                                  ).toLocaleString()}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        )}
+                        {icuSubTab === "disapproved" && (
+                          <table className="w-full text-left text-[13px]">
+                            <thead className="mrpsl-table-header">
+                              <tr>
+                                <th className="px-4 py-2.5">#</th>
+                                <th className="px-4 py-2.5">
+                                  SHAREHOLDER NAME
+                                </th>
+                                <th className="px-4 py-2.5">CHN</th>
+                                <th className="px-4 py-2.5">BANK NAME</th>
+                                <th className="px-4 py-2.5">ACCOUNT NO</th>
+                                <th className="px-4 py-2.5 text-right">
+                                  AMOUNT TO RETURN (₦)
+                                </th>
+                                <th className="px-4 py-2.5">REASON</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {MOCK_ALLOT_DISAPPROVED.map((r, i) => (
+                                <tr key={i} className="mrpsl-table-row">
+                                  <td className="px-4 py-2.5 text-muted-foreground">
+                                    {i + 1}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-medium">
+                                    {r.name}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-mono">
+                                    {r.chn}
+                                  </td>
+                                  <td className="px-4 py-2.5">{r.bank}</td>
+                                  <td className="px-4 py-2.5 font-mono">
+                                    {r.acct}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right font-mono font-semibold text-amber-700">
+                                    {r.amount.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px] font-normal">
+                                      {r.reason}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                        {icuSubTab === "invalid" && (
+                          <table className="w-full text-left text-[13px]">
+                            <thead className="mrpsl-table-header">
+                              <tr>
+                                <th className="px-4 py-2.5">#</th>
+                                <th className="px-4 py-2.5">
+                                  SHAREHOLDER NAME
+                                </th>
+                                <th className="px-4 py-2.5">CHN</th>
+                                <th className="px-4 py-2.5 text-right">
+                                  AMOUNT TO RETURN (₦)
+                                </th>
+                                <th className="px-4 py-2.5">REASON</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {MOCK_ALLOT_INVALID.map((r, i) => (
+                                <tr key={i} className="mrpsl-table-row">
+                                  <td className="px-4 py-2.5 text-muted-foreground">
+                                    {i + 1}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-medium">
+                                    {r.name}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-mono">
+                                    {r.chn}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right font-mono font-semibold text-red-700">
+                                    {r.amount.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <Badge className="bg-red-100 text-red-800 border-0 text-[13px] font-normal">
+                                      {r.reason}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </Card>
+
+                    {/* Actions */}
+                    {icuSubmissionStatuses[icuReviewingBatch] === "pending" ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          variant="destructive"
+                          size="lg"
+                          className="h-12 text-base font-semibold"
+                          onClick={() => {
+                            setApprovalModal({
+                              action: "reject",
+                              section: "icu",
+                            });
+                          }}
+                        >
+                          Return to Ops
+                        </Button>
+                        <Button
+                          size="lg"
+                          className="h-12 text-base font-semibold"
+                          onClick={() => {
+                            setApprovalModal({
+                              action: "approve",
+                              section: "icu",
+                            });
+                          }}
+                        >
+                          ICU Approve &amp; Clear for Allotment
+                        </Button>
+                      </div>
+                    ) : (
+                      <Card
                         className={cn(
-                          "text-xl font-mono font-bold mt-1",
-                          s.color,
+                          "mrpsl-card p-4 flex items-center gap-3",
+                          icuSubmissionStatuses[icuReviewingBatch] ===
+                            "approved"
+                            ? "bg-green-50 border-green-200"
+                            : "bg-red-50/60 border-red-200",
                         )}
                       >
-                        {s.value}
-                      </div>
-                      {"tab" in s && s.tab && (
-                        <div className="text-[13px] text-muted-foreground mt-0.5">
-                          click to view
-                        </div>
-                      )}
-                    </Card>
-                  ))}
-                </div>
+                        {icuSubmissionStatuses[icuReviewingBatch] ===
+                        "approved" ? (
+                          <>
+                            <FileCheck2 className="h-5 w-5 text-green-600 shrink-0" />
+                            <p className="text-sm font-semibold text-green-800">
+                              This submission has been ICU approved and cleared
+                              for allotment processing.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <FileX2 className="h-5 w-5 text-red-600 shrink-0" />
+                            <p className="text-sm font-semibold text-red-800">
+                              This submission was returned to Operations for
+                              review.
+                            </p>
+                          </>
+                        )}
+                      </Card>
+                    )}
+                  </div>
+                );
+              })()
+            )}
+          </TabsContent>
 
-                {/* Tabbed results table */}
-                <Card className="mrpsl-card overflow-hidden">
-                  {/* Tab strip */}
-                  <div className="flex items-center gap-1 border-b px-4 bg-muted/10">
-                    {(["approved", "disapproved", "invalid"] as const).map(
-                      (t) => (
-                        <button
-                          key={t}
-                          onClick={() => {
-                            setAllotTab(t);
-                            setAllotPage(1);
-                          }}
-                          className={cn(
-                            "px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors capitalize",
-                            allotTab === t
-                              ? t === "approved"
-                                ? "border-green-600 text-green-700"
-                                : t === "disapproved"
-                                  ? "border-amber-500 text-amber-700"
-                                  : "border-red-500 text-red-700"
-                              : "border-transparent text-muted-foreground hover:text-foreground",
+          {/* ── Allotment ── */}
+          <TabsContent value="allotment" className="space-y-4">
+            {allotReviewing === null ? (
+              /* Queue table */
+              <Card className="mrpsl-card overflow-hidden">
+                <div className="px-4 py-3 border-b bg-muted/20">
+                  <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
+                    ICU Approved — Ready for Allotment
+                  </p>
+                </div>
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="px-4 py-3">DECLARATION REF</th>
+                      <th className="px-4 py-3">REGISTER</th>
+                      <th className="px-4 py-3">RIGHTS ISSUE</th>
+                      <th className="px-4 py-3">RATIO</th>
+                      <th className="px-4 py-3">ISSUE PRICE</th>
+                      <th className="px-4 py-3 text-right">APPROVED</th>
+                      <th className="px-4 py-3 text-right">TOTAL AMOUNT</th>
+                      <th className="px-4 py-3">ICU APPROVER</th>
+                      <th className="px-4 py-3">ICU DATE</th>
+                      <th className="px-4 py-3">STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {MOCK_ALLOTMENT_QUEUE_RIGHTS.map((row) => (
+                      <tr
+                        key={row.id}
+                        onClick={() => setAllotReviewing(row.id)}
+                        className="mrpsl-table-row cursor-pointer hover:bg-muted/40 transition-colors"
+                      >
+                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                          {row.ref}
+                        </td>
+                        <td className="px-4 py-3 font-semibold">
+                          {row.register}
+                        </td>
+                        <td className="px-4 py-3 text-[13px]">
+                          {row.rightsName}
+                        </td>
+                        <td className="px-4 py-3 font-mono">{row.ratio}</td>
+                        <td className="px-4 py-3 font-mono">
+                          {row.issuePrice}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-semibold text-green-700">
+                          {row.approved.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-semibold">
+                          {row.amount}
+                        </td>
+                        <td className="px-4 py-3 text-[13px]">
+                          {row.icuApprover}
+                        </td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                          {row.icuDate}
+                        </td>
+                        <td className="px-4 py-3">
+                          {allotmentDoneMap[row.id] ? (
+                            <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
+                              Allotted
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                              Pending Allotment
+                            </Badge>
                           )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+            ) : (
+              (() => {
+                const row = MOCK_ALLOTMENT_QUEUE_RIGHTS.find(
+                  (r) => r.id === allotReviewing,
+                )!;
+                const approvedFile = allotApprovedFiles[row.id] ?? null;
+                const disapprovedFile = allotDisapprovedFiles[row.id] ?? null;
+                const invalidFile = allotInvalidFiles[row.id] ?? null;
+                const isDone = allotmentDoneMap[row.id] ?? false;
+                return (
+                  <div className="space-y-5">
+                    {/* Back + breadcrumb */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 -ml-2"
+                        onClick={() => setAllotReviewing(null)}
+                      >
+                        <ArrowLeft className="h-4 w-4" /> Back to Allotment
+                        Queue
+                      </Button>
+                      <div className="h-5 w-px bg-border mx-1" />
+                      <span className="font-mono text-sm font-semibold">
+                        {row.ref}
+                      </span>
+                      <span className="text-muted-foreground text-sm">
+                        · {row.register} · {row.rightsName}
+                      </span>
+                      {isDone ? (
+                        <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
+                          Allotted
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                          Pending Allotment
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* ICU approval record */}
+                    <Card className="mrpsl-card p-4 bg-muted/20 border-l-4 border-l-primary">
+                      <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                        ICU Approval Record
+                      </p>
+                      <div className="flex items-center gap-8 text-sm flex-wrap">
+                        <div>
+                          <div className="mrpsl-section-title">Register</div>
+                          <div className="font-semibold mt-0.5">
+                            {row.register}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">
+                            Rights Issue
+                          </div>
+                          <div className="mt-0.5">{row.rightsName}</div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">Ratio</div>
+                          <div className="font-mono mt-0.5">{row.ratio}</div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">Issue Price</div>
+                          <div className="font-mono mt-0.5">
+                            {row.issuePrice}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">
+                            ICU Approver
+                          </div>
+                          <div className="font-semibold mt-0.5">
+                            {row.icuApprover}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">ICU Date</div>
+                          <div className="font-mono mt-0.5">{row.icuDate}</div>
+                        </div>
+                        <div>
+                          <div className="mrpsl-section-title">
+                            Approved Allottees
+                          </div>
+                          <div className="font-mono font-semibold mt-0.5 text-green-700">
+                            {row.approved.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    {!isDone ? (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          {/* Approved */}
+                          <Card className="mrpsl-card p-6 border-t-4 border-t-green-500">
+                            <div className="flex justify-center mb-3">
+                              <FileCheck2 className="h-8 w-8 text-green-600" />
+                            </div>
+                            <h3 className="font-semibold text-foreground text-center">
+                              Approved List
+                            </h3>
+                            <p className="text-[13px] text-muted-foreground mt-1 text-center">
+                              Shareholders who exercised their rights
+                            </p>
+                            <div className="mt-4">
+                              {approvedFile ? (
+                                <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+                                  <FileCheck2 className="h-4 w-4 text-green-600 shrink-0" />
+                                  <span className="text-[13px] font-medium text-green-800 flex-1 truncate">
+                                    {approvedFile}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      setAllotApprovedFiles((p) => ({
+                                        ...p,
+                                        [row.id]: null,
+                                      }))
+                                    }
+                                    className="rounded-full hover:bg-green-100 p-0.5"
+                                  >
+                                    <X className="h-3.5 w-3.5 text-green-700" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+                                  Drop CSV here or click to browse
+                                  <input
+                                    type="file"
+                                    accept=".csv"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      setAllotApprovedFiles((p) => ({
+                                        ...p,
+                                        [row.id]:
+                                          e.target.files?.[0]?.name ?? null,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </Card>
+                          {/* Disapproved */}
+                          <Card className="mrpsl-card p-6 border-t-4 border-t-amber-500">
+                            <div className="flex justify-center mb-3">
+                              <FileX2 className="h-8 w-8 text-amber-500" />
+                            </div>
+                            <h3 className="font-semibold text-foreground text-center">
+                              Disapproved List
+                            </h3>
+                            <p className="text-[13px] text-muted-foreground mt-1 text-center">
+                              Return money — rejected applications
+                            </p>
+                            <div className="mt-4">
+                              {disapprovedFile ? (
+                                <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                                  <FileX2 className="h-4 w-4 text-amber-600 shrink-0" />
+                                  <span className="text-[13px] font-medium text-amber-800 flex-1 truncate">
+                                    {disapprovedFile}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      setAllotDisapprovedFiles((p) => ({
+                                        ...p,
+                                        [row.id]: null,
+                                      }))
+                                    }
+                                    className="rounded-full hover:bg-amber-100 p-0.5"
+                                  >
+                                    <X className="h-3.5 w-3.5 text-amber-700" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+                                  Drop CSV here or click to browse
+                                  <input
+                                    type="file"
+                                    accept=".csv"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      setAllotDisapprovedFiles((p) => ({
+                                        ...p,
+                                        [row.id]:
+                                          e.target.files?.[0]?.name ?? null,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </Card>
+                          {/* Invalid */}
+                          <Card className="mrpsl-card p-6 border-t-4 border-t-red-500">
+                            <div className="flex justify-center mb-3">
+                              <AlertCircle className="h-8 w-8 text-red-500" />
+                            </div>
+                            <h3 className="font-semibold text-foreground text-center">
+                              Invalid Subscription
+                            </h3>
+                            <p className="text-[13px] text-muted-foreground mt-1 text-center">
+                              Return money — failed or invalid applications
+                            </p>
+                            <div className="mt-4">
+                              {invalidFile ? (
+                                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                                  <span className="text-[13px] font-medium text-red-800 flex-1 truncate">
+                                    {invalidFile}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      setAllotInvalidFiles((p) => ({
+                                        ...p,
+                                        [row.id]: null,
+                                      }))
+                                    }
+                                    className="rounded-full hover:bg-red-100 p-0.5"
+                                  >
+                                    <X className="h-3.5 w-3.5 text-red-700" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+                                  Drop CSV here or click to browse
+                                  <input
+                                    type="file"
+                                    accept=".csv"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      setAllotInvalidFiles((p) => ({
+                                        ...p,
+                                        [row.id]:
+                                          e.target.files?.[0]?.name ?? null,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          </Card>
+                        </div>
+                        <Button
+                          className="w-full"
+                          size="lg"
+                          disabled={!approvedFile}
+                          onClick={() => {
+                            if (!approvedFile) {
+                              toast.error(
+                                "Please upload the Approved List before processing.",
+                              );
+                              return;
+                            }
+                            toast.info("Processing allotment...");
+                            setTimeout(() => {
+                              setAllotmentDoneMap((p) => ({
+                                ...p,
+                                [row.id]: true,
+                              }));
+                              setAllotTab("approved");
+                              setAllotPage(1);
+                              toast.success("Allotment processed.");
+                            }, 800);
+                          }}
                         >
-                          {t === "approved"
-                            ? `Approved (${MOCK_ALLOT_APPROVED.length.toLocaleString()})`
-                            : t === "disapproved"
-                              ? `Disapproved (${MOCK_ALLOT_DISAPPROVED.length})`
-                              : `Invalid (${MOCK_ALLOT_INVALID.length})`}
-                        </button>
-                      ),
+                          Process Allotment
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="grid grid-cols-5 gap-3">
+                          {[
+                            {
+                              label: "Total Processed",
+                              value: row.approved.toLocaleString(),
+                              color: "text-foreground",
+                            },
+                            {
+                              label: "Approved (Certificates)",
+                              value: row.approved.toLocaleString(),
+                              color: "text-green-700",
+                              tab: "approved" as const,
+                            },
+                            {
+                              label: "Disapproved (Return)",
+                              value: MOCK_ALLOT_DISAPPROVED.length.toString(),
+                              color: "text-amber-600",
+                              tab: "disapproved" as const,
+                            },
+                            {
+                              label: "Invalid (Return)",
+                              value: MOCK_ALLOT_INVALID.length.toString(),
+                              color: "text-red-600",
+                              tab: "invalid" as const,
+                            },
+                            {
+                              label: "Total Return Amount",
+                              value: "₦28.0M",
+                              color: "text-foreground",
+                            },
+                          ].map((s) => (
+                            <Card
+                              key={s.label}
+                              className={cn(
+                                "mrpsl-card p-3",
+                                "tab" in s &&
+                                  s.tab &&
+                                  "cursor-pointer hover:border-primary/40 transition-colors",
+                              )}
+                              onClick={() =>
+                                "tab" in s && s.tab && setAllotTab(s.tab)
+                              }
+                            >
+                              <div className="mrpsl-section-title">
+                                {s.label}
+                              </div>
+                              <div
+                                className={cn(
+                                  "text-xl font-mono font-bold mt-1",
+                                  s.color,
+                                )}
+                              >
+                                {s.value}
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                        <Card className="mrpsl-card overflow-hidden">
+                          <div className="flex items-center gap-1 border-b px-4 bg-muted/10">
+                            {(
+                              ["approved", "disapproved", "invalid"] as const
+                            ).map((t) => (
+                              <button
+                                key={t}
+                                onClick={() => {
+                                  setAllotTab(t);
+                                  setAllotPage(1);
+                                }}
+                                className={cn(
+                                  "px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors capitalize",
+                                  allotTab === t
+                                    ? t === "approved"
+                                      ? "border-green-600 text-green-700"
+                                      : t === "disapproved"
+                                        ? "border-amber-500 text-amber-700"
+                                        : "border-red-500 text-red-700"
+                                    : "border-transparent text-muted-foreground hover:text-foreground",
+                                )}
+                              >
+                                {t === "approved"
+                                  ? `Approved (${MOCK_ALLOT_APPROVED.length})`
+                                  : t === "disapproved"
+                                    ? `Disapproved (${MOCK_ALLOT_DISAPPROVED.length})`
+                                    : `Invalid (${MOCK_ALLOT_INVALID.length})`}
+                              </button>
+                            ))}
+                            <div className="flex-1" />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="my-1.5 mr-1"
+                              onClick={() =>
+                                toast.success(`Exporting ${allotTab} list...`)
+                              }
+                            >
+                              <FileSpreadsheet className="mr-1.5 h-4 w-4" />{" "}
+                              Export
+                            </Button>
+                          </div>
+                          <div className="overflow-x-auto">
+                            {allotTab === "approved" && (
+                              <table className="w-full text-left text-[13px]">
+                                <thead className="mrpsl-table-header">
+                                  <tr>
+                                    <th className="px-4 py-2.5">#</th>
+                                    <th className="px-4 py-2.5">
+                                      SHAREHOLDER NAME
+                                    </th>
+                                    <th className="px-4 py-2.5">CHN</th>
+                                    <th className="px-4 py-2.5">
+                                      STOCKBROKER CODE
+                                    </th>
+                                    <th className="px-4 py-2.5 text-right">
+                                      UNITS HELD
+                                    </th>
+                                    <th className="px-4 py-2.5 text-right">
+                                      RIGHTS DUE
+                                    </th>
+                                    <th className="px-4 py-2.5 text-right">
+                                      ADDITIONAL CERTIFICATE
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  {MOCK_ALLOT_APPROVED.map((r, i) => (
+                                    <tr key={i} className="mrpsl-table-row">
+                                      <td className="px-4 py-2.5 text-muted-foreground">
+                                        {i + 1}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-medium">
+                                        {r.name}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-mono">
+                                        {r.chn}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-mono">
+                                        {r.broker}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-mono">
+                                        {r.unitsHeld.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-mono text-blue-600">
+                                        {r.rightsDue.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-mono font-semibold text-green-700">
+                                        {r.certShares.toLocaleString()}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                            {allotTab === "disapproved" && (
+                              <table className="w-full text-left text-[13px]">
+                                <thead className="mrpsl-table-header">
+                                  <tr>
+                                    <th className="px-4 py-2.5">#</th>
+                                    <th className="px-4 py-2.5">NAME</th>
+                                    <th className="px-4 py-2.5">CHN</th>
+                                    <th className="px-4 py-2.5">BANK</th>
+                                    <th className="px-4 py-2.5">ACCOUNT NO</th>
+                                    <th className="px-4 py-2.5 text-right">
+                                      AMOUNT TO RETURN (₦)
+                                    </th>
+                                    <th className="px-4 py-2.5">REASON</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  {MOCK_ALLOT_DISAPPROVED.map((r, i) => (
+                                    <tr key={i} className="mrpsl-table-row">
+                                      <td className="px-4 py-2.5 text-muted-foreground">
+                                        {i + 1}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-medium">
+                                        {r.name}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-mono">
+                                        {r.chn}
+                                      </td>
+                                      <td className="px-4 py-2.5">{r.bank}</td>
+                                      <td className="px-4 py-2.5 font-mono">
+                                        {r.acct}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-mono font-semibold text-amber-700">
+                                        {r.amount.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5">
+                                        <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px] font-normal">
+                                          {r.reason}
+                                        </Badge>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                            {allotTab === "invalid" && (
+                              <table className="w-full text-left text-[13px]">
+                                <thead className="mrpsl-table-header">
+                                  <tr>
+                                    <th className="px-4 py-2.5">#</th>
+                                    <th className="px-4 py-2.5">NAME</th>
+                                    <th className="px-4 py-2.5">CHN</th>
+                                    <th className="px-4 py-2.5 text-right">
+                                      AMOUNT TO RETURN (₦)
+                                    </th>
+                                    <th className="px-4 py-2.5">REASON</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  {MOCK_ALLOT_INVALID.map((r, i) => (
+                                    <tr key={i} className="mrpsl-table-row">
+                                      <td className="px-4 py-2.5 text-muted-foreground">
+                                        {i + 1}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-medium">
+                                        {r.name}
+                                      </td>
+                                      <td className="px-4 py-2.5 font-mono">
+                                        {r.chn}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-mono font-semibold text-red-700">
+                                        {r.amount.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5">
+                                        <Badge className="bg-red-100 text-red-800 border-0 text-[13px] font-normal">
+                                          {r.reason}
+                                        </Badge>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        </Card>
+                        <div className="flex flex-wrap gap-3 pt-2 border-t">
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              toast.info("Downloading allotment file...")
+                            }
+                          >
+                            <Download className="mr-2 h-4 w-4" /> Download Excel
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setStickyLabelOpen(true)}
+                          >
+                            <Printer className="mr-2 h-4 w-4" /> Print Sticky
+                            Labels
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => setEmailPreviewOpen(true)}
+                          >
+                            <Mail className="mr-2 h-4 w-4" /> Email Shareholders
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              toast.success(
+                                "Allotment data pushed to CSCS API.",
+                              )
+                            }
+                          >
+                            <CloudUpload className="mr-2 h-4 w-4" /> Push via
+                            CSCS API
+                          </Button>
+                        </div>
+                      </div>
                     )}
-                    <div className="flex-1" />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="my-1.5 mr-1"
-                      onClick={() =>
-                        toast.success(`Exporting ${allotTab} list...`)
-                      }
-                    >
-                      <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Export{" "}
-                      {allotTab.charAt(0).toUpperCase() + allotTab.slice(1)}
-                    </Button>
                   </div>
-
-                  <div className="overflow-x-auto">
-                    {allotTab === "approved" && (
-                      <table className="w-full text-left text-[13px]">
-                        <thead className="mrpsl-table-header">
-                          <tr>
-                            <th className="px-4 py-2.5">#</th>
-                            <th className="px-4 py-2.5">SHAREHOLDER NAME</th>
-                            <th className="px-4 py-2.5">CHN</th>
-                            <th className="px-4 py-2.5">STOCKBROKER CODE</th>
-                            <th className="px-4 py-2.5 text-right">
-                              UNITS HELD
-                            </th>
-                            <th className="px-4 py-2.5 text-right">
-                              RIGHTS DUE
-                            </th>
-                            <th className="px-4 py-2.5 text-right">
-                              ADDITIONAL CERTIFICATE
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {MOCK_ALLOT_APPROVED.map((r, i) => (
-                            <tr key={i} className="mrpsl-table-row">
-                              <td className="px-4 py-2.5 text-muted-foreground">
-                                {i + 1}
-                              </td>
-                              <td className="px-4 py-2.5 font-medium">
-                                {r.name}
-                              </td>
-                              <td className="px-4 py-2.5 font-mono">{r.chn}</td>
-                              <td className="px-4 py-2.5 font-mono">
-                                {r.broker}
-                              </td>
-                              <td className="px-4 py-2.5 text-right font-mono">
-                                {r.unitsHeld.toLocaleString()}
-                              </td>
-                              <td className="px-4 py-2.5 text-right font-mono text-blue-600">
-                                {r.rightsDue.toLocaleString()}
-                              </td>
-                              <td className="px-4 py-2.5 text-right font-mono font-semibold text-green-700">
-                                {r.certShares.toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-2.5 text-right text-muted-foreground"
-                            >
-                              TOTALS (showing {MOCK_ALLOT_APPROVED.length} of
-                              174,640)
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-blue-600">
-                              {MOCK_ALLOT_APPROVED.reduce(
-                                (a, r) => a + r.rightsDue,
-                                0,
-                              ).toLocaleString()}
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-green-700">
-                              {MOCK_ALLOT_APPROVED.reduce(
-                                (a, r) => a + r.certShares,
-                                0,
-                              ).toLocaleString()}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    )}
-
-                    {allotTab === "disapproved" && (
-                      <table className="w-full text-left text-[13px]">
-                        <thead className="mrpsl-table-header">
-                          <tr>
-                            <th className="px-4 py-2.5">#</th>
-                            <th className="px-4 py-2.5">SHAREHOLDER NAME</th>
-                            <th className="px-4 py-2.5">CHN</th>
-                            <th className="px-4 py-2.5">BANK NAME</th>
-                            <th className="px-4 py-2.5">ACCOUNT NO</th>
-                            <th className="px-4 py-2.5 text-right">
-                              AMOUNT TO RETURN (₦)
-                            </th>
-                            <th className="px-4 py-2.5">REASON</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {MOCK_ALLOT_DISAPPROVED.map((r, i) => (
-                            <tr key={i} className="mrpsl-table-row">
-                              <td className="px-4 py-2.5 text-muted-foreground">
-                                {i + 1}
-                              </td>
-                              <td className="px-4 py-2.5 font-medium">
-                                {r.name}
-                              </td>
-                              <td className="px-4 py-2.5 font-mono">{r.chn}</td>
-                              <td className="px-4 py-2.5">{r.bank}</td>
-                              <td className="px-4 py-2.5 font-mono">
-                                {r.acct}
-                              </td>
-                              <td className="px-4 py-2.5 text-right font-mono font-semibold text-amber-700">
-                                {r.amount.toLocaleString()}
-                              </td>
-                              <td className="px-4 py-2.5">
-                                <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px] font-normal">
-                                  {r.reason}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-2.5 text-right text-muted-foreground"
-                            >
-                              TOTALS (showing {MOCK_ALLOT_DISAPPROVED.length} of
-                              3,802)
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-amber-700">
-                              ₦
-                              {MOCK_ALLOT_DISAPPROVED.reduce(
-                                (a, r) => a + r.amount,
-                                0,
-                              ).toLocaleString()}
-                            </td>
-                            <td />
-                          </tr>
-                        </tfoot>
-                      </table>
-                    )}
-
-                    {allotTab === "invalid" && (
-                      <table className="w-full text-left text-[13px]">
-                        <thead className="mrpsl-table-header">
-                          <tr>
-                            <th className="px-4 py-2.5">#</th>
-                            <th className="px-4 py-2.5">SHAREHOLDER NAME</th>
-                            <th className="px-4 py-2.5">CHN</th>
-                            <th className="px-4 py-2.5 text-right">
-                              AMOUNT TO RETURN (₦)
-                            </th>
-                            <th className="px-4 py-2.5">REASON</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {MOCK_ALLOT_INVALID.map((r, i) => (
-                            <tr key={i} className="mrpsl-table-row">
-                              <td className="px-4 py-2.5 text-muted-foreground">
-                                {i + 1}
-                              </td>
-                              <td className="px-4 py-2.5 font-medium">
-                                {r.name}
-                              </td>
-                              <td className="px-4 py-2.5 font-mono">{r.chn}</td>
-                              <td className="px-4 py-2.5 text-right font-mono font-semibold text-red-700">
-                                {r.amount.toLocaleString()}
-                              </td>
-                              <td className="px-4 py-2.5">
-                                <Badge className="bg-red-100 text-red-800 border-0 text-[13px] font-normal">
-                                  {r.reason}
-                                </Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-                          <tr>
-                            <td
-                              colSpan={3}
-                              className="px-4 py-2.5 text-right text-muted-foreground"
-                            >
-                              TOTALS (showing {MOCK_ALLOT_INVALID.length} of
-                              1,806)
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-red-700">
-                              ₦
-                              {MOCK_ALLOT_INVALID.reduce(
-                                (a, r) => a + r.amount,
-                                0,
-                              ).toLocaleString()}
-                            </td>
-                            <td />
-                          </tr>
-                        </tfoot>
-                      </table>
-                    )}
-                  </div>
-                </Card>
-
-                {/* Post-allotment actions */}
-                <div className="flex flex-wrap gap-3 pt-2 border-t">
-                  <Button
-                    variant="outline"
-                    onClick={() => toast.info("Downloading allotment file...")}
-                  >
-                    <Download className="mr-2 h-4 w-4" /> Download Excel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setStickyLabelOpen(true)}
-                  >
-                    <Printer className="mr-2 h-4 w-4" /> Print Sticky Labels
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setEmailPreviewOpen(true)}
-                  >
-                    <Mail className="mr-2 h-4 w-4" /> Email Shareholders
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      toast.success("Allotment data pushed to CSCS API.")
-                    }
-                  >
-                    <CloudUpload className="mr-2 h-4 w-4" /> Push via CSCS API
-                  </Button>
-                </div>
-              </div>
+                );
+              })()
             )}
           </TabsContent>
 
@@ -2436,9 +3129,15 @@ export default function RightsIssuePage() {
                 }
                 className="flex-1"
                 onClick={() => {
-                  approvalModal?.action === "approve"
-                    ? handleApprove()
-                    : handleReject();
+                  if (approvalModal?.section === "icu") {
+                    approvalModal.action === "approve"
+                      ? handleIcuApprove()
+                      : handleIcuReturn();
+                  } else {
+                    approvalModal?.action === "approve"
+                      ? handleApprove()
+                      : handleReject();
+                  }
                 }}
               >
                 Confirm{" "}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import {
@@ -14,6 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { useStore } from "@/lib/store";
 import {
   Dialog,
@@ -22,7 +29,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { AlertTriangle, Info, CheckCircle2, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  Info,
+  CheckCircle2,
+  XCircle,
+  CalendarIcon,
+} from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 
@@ -99,25 +112,46 @@ export default function ReconciliationPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedReg, setSelectedReg] = useState("");
   const [scopeMode, setScopeMode] = useState("all");
+  const [specificChn, setSpecificChn] = useState("");
   const [reconciled, setReconciled] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-
-  const discrepancies = POSITION_DATA.filter(
-    (r) => r.mrpslUnits !== r.cscsUnits,
+  const [reconciledData, setReconciledData] =
+    useState<PositionRow[]>(POSITION_DATA);
+  const [txDate, setTxDate] = useState<Date | undefined>(
+    new Date("2026-04-25"),
   );
-  const mrpslTotal = POSITION_DATA.reduce((s, r) => s + r.mrpslUnits, 0);
-  const cscsTotal = POSITION_DATA.reduce((s, r) => s + r.cscsUnits, 0);
-  const positionPg = usePagination(POSITION_DATA);
+  const [txDateOpen, setTxDateOpen] = useState(false);
+  const [txSymbol, setTxSymbol] = useState("DANGCEM");
+
+  const viewData = reconciled ? reconciledData : POSITION_DATA;
+  const discrepancies = viewData.filter((r) => r.mrpslUnits !== r.cscsUnits);
+  const mrpslTotal = viewData.reduce((s, r) => s + r.mrpslUnits, 0);
+  const cscsTotal = viewData.reduce((s, r) => s + r.cscsUnits, 0);
+  const positionPg = usePagination(viewData);
 
   function runReconciliation() {
     if (!selectedReg) {
       toast.error("Please select a register first.");
       return;
     }
+    if (scopeMode === "spec" && !specificChn.trim()) {
+      toast.error("Please enter a CHN to reconcile.");
+      return;
+    }
     setIsRunning(true);
     setTimeout(() => {
+      const filtered =
+        scopeMode === "spec"
+          ? POSITION_DATA.filter(
+              (r) => r.chn.toLowerCase() === specificChn.trim().toLowerCase(),
+            )
+          : POSITION_DATA;
+      setReconciledData(filtered);
       setIsRunning(false);
       setReconciled(true);
+      if (scopeMode === "spec" && filtered.length === 0) {
+        toast.warning(`No record found for CHN: ${specificChn.trim()}`);
+      }
     }, 1200);
   }
 
@@ -250,6 +284,7 @@ export default function ReconciliationPage() {
                   onValueChange={(v) => {
                     setScopeMode(v || "all");
                     setReconciled(false);
+                    setSpecificChn("");
                   }}
                   className="flex gap-5 items-center"
                 >
@@ -271,6 +306,11 @@ export default function ReconciliationPage() {
                   <Input
                     placeholder="Enter CHN…"
                     className="w-44 mrpsl-input"
+                    value={specificChn}
+                    onChange={(e) => {
+                      setSpecificChn(e.target.value);
+                      setReconciled(false);
+                    }}
                   />
                 )}
 
@@ -336,8 +376,8 @@ export default function ReconciliationPage() {
                   <table className="w-full text-left text-[13px]">
                     <thead className="mrpsl-table-header">
                       <tr>
-                        <th className="px-4 py-2.5">CHN</th>
-                        <th className="px-4 py-2.5">HOLDER</th>
+                        <th className="px-4 py-2.5">CHN / ACCOUNT</th>
+                        <th className="px-4 py-2.5">HOLDER NAME</th>
                         <th className="px-4 py-2.5 text-right">UNITS</th>
                         <th className="px-4 py-2.5 text-right">STATUS</th>
                       </tr>
@@ -350,8 +390,13 @@ export default function ReconciliationPage() {
                             key={row.chn}
                             className={`transition-colors ${hasDiscrepancy ? "bg-red-50/60" : "hover:bg-muted/30"}`}
                           >
-                            <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                              {row.chn}
+                            <td className="px-4 py-2.5">
+                              <div className="font-mono text-[12px] text-muted-foreground">
+                                {row.chn}
+                              </div>
+                              <div className="text-[12px] text-muted-foreground/70">
+                                {row.accountNo}
+                              </div>
                             </td>
                             <td className="px-4 py-2.5 font-medium">
                               {row.holder}
@@ -414,8 +459,8 @@ export default function ReconciliationPage() {
                   <table className="w-full text-left text-[13px]">
                     <thead className="mrpsl-table-header">
                       <tr>
-                        <th className="px-4 py-2.5">CHN</th>
-                        <th className="px-4 py-2.5">HOLDER</th>
+                        <th className="px-4 py-2.5">CHN / ACCOUNT</th>
+                        <th className="px-4 py-2.5">HOLDER NAME</th>
                         <th className="px-4 py-2.5 text-right">UNITS</th>
                         <th className="px-4 py-2.5 text-right">STATUS</th>
                       </tr>
@@ -428,8 +473,13 @@ export default function ReconciliationPage() {
                             key={row.chn}
                             className={`transition-colors ${hasDiscrepancy ? "bg-amber-50/60" : "hover:bg-muted/30"}`}
                           >
-                            <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                              {row.chn}
+                            <td className="px-4 py-2.5">
+                              <div className="font-mono text-[12px] text-muted-foreground">
+                                {row.chn}
+                              </div>
+                              <div className="text-[12px] text-muted-foreground/70">
+                                {row.accountNo}
+                              </div>
                             </td>
                             <td className="px-4 py-2.5 font-medium">
                               {row.holder}
@@ -550,7 +600,32 @@ export default function ReconciliationPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="mrpsl-label">Transaction Date</label>
-                  <Input defaultValue="25 Apr 2026" className="mrpsl-input" />
+                  <Popover open={txDateOpen} onOpenChange={setTxDateOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="mrpsl-input w-full justify-start gap-2 px-3 font-normal text-sm"
+                      >
+                        <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className={txDate ? "" : "text-muted-foreground"}>
+                          {txDate
+                            ? format(txDate, "dd MMM yyyy")
+                            : "Select date"}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={txDate}
+                        onSelect={(d) => {
+                          setTxDate(d);
+                          setTxDateOpen(false);
+                        }}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-2">
                   <label className="mrpsl-label">Transfer No</label>
@@ -562,7 +637,18 @@ export default function ReconciliationPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="mrpsl-label">Symbol</label>
-                  <Input defaultValue="DANGCEM" className="mrpsl-input" />
+                  <Select value={txSymbol} onValueChange={setTxSymbol}>
+                    <SelectTrigger className="mrpsl-input w-full">
+                      <SelectValue placeholder="Select register" />
+                    </SelectTrigger>
+                    <SelectContent className="w-max">
+                      {registers.map((r) => (
+                        <SelectItem key={r.id} value={r.symbol}>
+                          {r.symbol} — {r.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <Button

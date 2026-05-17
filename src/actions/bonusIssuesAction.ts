@@ -49,11 +49,31 @@ export const CREATE_BONUS_ISSUE_DECLARATION = async (bonusData: unknown) => {
   }
 };
 
+export const COMPUTE_BONUS_ISSUE_DECLARATION = async ({
+  declarationId,
+}: {
+  declarationId: string | number | null;
+}) => {
+  if (!declarationId) return;
+
+  try {
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/${declarationId}/compute`,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const SUBMIT_DECLARATION_FOR_APPROVAL = async ({
   declarationId,
 }: {
   declarationId: string | number | null;
 }) => {
+  if (!declarationId) return;
+
   try {
     const res = await api.post(
       `/offers/bonus-issue/declarations/${declarationId}/submit`,
@@ -75,6 +95,63 @@ export const APPROVE_DECLARATION = async ({
   try {
     const res = await api.post(
       `/offers/bonus-issue/declarations/${declarationId}/approve`,
+      payload,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const APPROVE_DECLARATION_BY_ICU = async ({
+  declarationId,
+  payload,
+}: {
+  declarationId: string | number | null;
+  payload: unknown;
+}) => {
+  try {
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/${declarationId}/icu-approve`,
+      payload,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const REJECT_DECLARATION = async ({
+  declarationId,
+  payload,
+}: {
+  declarationId: string | number | null;
+  payload: unknown;
+}) => {
+  try {
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/${declarationId}/reject`,
+      payload,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const RETURN_DECLARATION_TO_OPS = async ({
+  declarationId,
+  payload,
+}: {
+  declarationId: string | number | null;
+  payload: unknown;
+}) => {
+  try {
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/${declarationId}/icu-return`,
       payload,
     );
     return res.data;
