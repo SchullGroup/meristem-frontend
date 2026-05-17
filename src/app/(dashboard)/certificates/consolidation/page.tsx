@@ -26,14 +26,18 @@ import { Check, AlertCircle, X } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 
+type ConsolCert = { num: string; units: number; issueDate: string };
+
 type PendingConsol = {
   id: string;
   date: string;
   account: string;
   holder: string;
+  register: string;
   certCount: number;
   totalUnits: number;
   submittedBy: string;
+  certs: ConsolCert[];
 };
 
 const PENDING_CONSOLS: PendingConsol[] = [
@@ -42,18 +46,29 @@ const PENDING_CONSOLS: PendingConsol[] = [
     date: "28 Apr 2026",
     account: "DANGCEM-10015",
     holder: "Binta Lawal",
+    register: "Dangote Cement — DANGCEM",
     certCount: 2,
     totalUnits: 20000,
     submittedBy: "Chidi Okafor",
+    certs: [
+      { num: "CERT-DANGCEM-10015-01", units: 12000, issueDate: "01 Jan 2024" },
+      { num: "CERT-DANGCEM-10015-02", units: 8000, issueDate: "15 Mar 2025" },
+    ],
   },
   {
     id: "CO2",
     date: "27 Apr 2026",
     account: "ACCESS-00553",
     holder: "Ngozi Eze",
+    register: "Access Bank — ACCESS",
     certCount: 3,
     totalUnits: 35000,
     submittedBy: "Ngozi Eze",
+    certs: [
+      { num: "CERT-ACCESS-00553-01", units: 10000, issueDate: "12 Feb 2023" },
+      { num: "CERT-ACCESS-00553-02", units: 15000, issueDate: "01 Apr 2024" },
+      { num: "CERT-ACCESS-00553-03", units: 10000, issueDate: "20 Jan 2026" },
+    ],
   },
 ];
 
@@ -62,9 +77,12 @@ export default function ConsolidationPage() {
   const [certsLoaded, setCertsLoaded] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<PendingConsol | null>(null);
-  const [rejectedId, setRejectedId] = useState<string | null>(null);
-  const [rejectedComment, setRejectedComment] = useState("");
+  const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
+  const [lastRejComment, setLastRejComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchRejectOpen, setBatchRejectOpen] = useState(false);
+  const [batchComment, setBatchComment] = useState("");
 
   function openReview(row: PendingConsol) {
     setSelected(row);
@@ -72,8 +90,47 @@ export default function ConsolidationPage() {
     setReviewOpen(true);
   }
 
-  const pendingConsols = PENDING_CONSOLS.filter((row) => row.id !== rejectedId);
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+  function toggleSelectAll(ids: string[]) {
+    setSelectedIds((prev) =>
+      prev.size === ids.length ? new Set() : new Set(ids),
+    );
+  }
+  function handleBatchApprove() {
+    toast.success(
+      `${selectedIds.size} record${selectedIds.size !== 1 ? "s" : ""} approved.`,
+    );
+    setSelectedIds(new Set());
+  }
+  function handleBatchReject() {
+    if (!batchComment.trim()) {
+      toast.error("Comment required for rejection.");
+      return;
+    }
+    setRejectedIds((prev) => new Set([...prev, ...selectedIds]));
+    setLastRejComment(batchComment);
+    toast.error(
+      `${selectedIds.size} record${selectedIds.size !== 1 ? "s" : ""} rejected.`,
+    );
+    setSelectedIds(new Set());
+    setBatchComment("");
+    setBatchRejectOpen(false);
+  }
+
+  const pendingConsols = PENDING_CONSOLS.filter(
+    (row) => !rejectedIds.has(row.id),
+  );
   const consolPg = usePagination(pendingConsols);
+  const visibleConsolIds = consolPg.paged.map((r) => r.id);
+  const consolAllSelected =
+    visibleConsolIds.length > 0 &&
+    visibleConsolIds.every((id) => selectedIds.has(id));
 
   return (
     <div className="space-y-6">
@@ -106,21 +163,23 @@ export default function ConsolidationPage() {
 
         <div className="mt-6">
           <TabsContent value="new" className="space-y-6">
-            {rejectedId && (
+            {rejectedIds.size > 0 && (
               <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1 space-y-1">
                   <div className="font-semibold text-sm text-red-800">
-                    Request Rejected — ID: {rejectedId}
+                    {rejectedIds.size === 1
+                      ? "Request Rejected"
+                      : `${rejectedIds.size} Requests Rejected`}
                   </div>
                   <div className="text-[13px] text-red-700">
-                    {rejectedComment || "No comment provided."}
+                    {lastRejComment || "No comment provided."}
                   </div>
                 </div>
                 <button
                   onClick={() => {
-                    setRejectedId(null);
-                    setRejectedComment("");
+                    setRejectedIds(new Set());
+                    setLastRejComment("");
                   }}
                   className="text-red-400 hover:text-red-600 transition-colors shrink-0"
                 >
@@ -128,26 +187,34 @@ export default function ConsolidationPage() {
                 </button>
               </Card>
             )}
-            <Card className="mrpsl-card p-4 flex gap-4">
-              <Select>
-                <SelectTrigger className="w-64 mrpsl-input">
-                  <SelectValue placeholder="Register" />
-                </SelectTrigger>
-                <SelectContent>
-                  {registers.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                placeholder="Account No or CHN"
-                className="mrpsl-input w-64"
-              />
-              <Button onClick={() => setCertsLoaded(true)}>
-                Load Certificates
-              </Button>
+            <Card className="mrpsl-card p-4">
+              <div className="flex items-end gap-3">
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Register</label>
+                  <Select>
+                    <SelectTrigger className="w-52 mrpsl-input">
+                      <SelectValue placeholder="Select register" />
+                    </SelectTrigger>
+                    <SelectContent className="w-max">
+                      {registers.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.symbol} — {r.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Account No or CHN</label>
+                  <Input
+                    placeholder="e.g. DANGCEM-10015 or C00001EL"
+                    className="mrpsl-input w-64"
+                  />
+                </div>
+                <Button size="xl" onClick={() => setCertsLoaded(true)}>
+                  Load Certificates
+                </Button>
+              </div>
             </Card>
 
             {certsLoaded && (
@@ -214,10 +281,38 @@ export default function ConsolidationPage() {
           </TabsContent>
 
           <TabsContent value="auth" className="space-y-4">
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                <span className="text-sm font-semibold text-primary">
+                  {selectedIds.size} selected
+                </span>
+                <div className="flex gap-2 ml-auto">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-300 text-red-700 hover:bg-red-50"
+                    onClick={() => setBatchRejectOpen(true)}
+                  >
+                    Reject Selected
+                  </Button>
+                  <Button size="sm" onClick={handleBatchApprove}>
+                    Approve Selected
+                  </Button>
+                </div>
+              </div>
+            )}
             <Card className="mrpsl-card overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="mrpsl-table-header">
                   <tr>
+                    <th className="p-3 w-10">
+                      <Checkbox
+                        checked={consolAllSelected}
+                        onCheckedChange={() =>
+                          toggleSelectAll(visibleConsolIds)
+                        }
+                      />
+                    </th>
                     <th className="p-3">DATE</th>
                     <th className="p-3">ACCOUNT</th>
                     <th className="p-3">HOLDER</th>
@@ -230,6 +325,12 @@ export default function ConsolidationPage() {
                 <tbody className="divide-y text-[13px]">
                   {consolPg.paged.map((row) => (
                     <tr key={row.id} className="mrpsl-table-row">
+                      <td className="p-3">
+                        <Checkbox
+                          checked={selectedIds.has(row.id)}
+                          onCheckedChange={() => toggleSelect(row.id)}
+                        />
+                      </td>
                       <td className="p-3 text-muted-foreground">{row.date}</td>
                       <td className="p-3 font-mono">{row.account}</td>
                       <td className="p-3 font-medium">{row.holder}</td>
@@ -252,7 +353,7 @@ export default function ConsolidationPage() {
                   {consolPg.total === 0 && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="p-12 text-center text-muted-foreground"
                       >
                         No pending consolidation approvals.
@@ -282,20 +383,29 @@ export default function ConsolidationPage() {
             <DialogTitle>Review Certificate Consolidation</DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="space-y-6 px-8 pb-8">
+            <div className="space-y-5 px-6 pb-6 overflow-y-auto max-h-[75vh]">
               <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="mrpsl-section-title">Account</div>
-                    <div className="font-mono font-bold mt-0.5">
+                    <div className="mrpsl-section-title mb-0.5">Account</div>
+                    <div className="font-mono font-bold">
                       {selected.account}
                     </div>
                   </div>
+                  <span className="text-[11px] font-semibold text-primary/80 bg-primary/8 px-2 py-0.5 rounded shrink-0">
+                    {selected.register}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/40">
                   <div>
                     <div className="mrpsl-section-title">Holder</div>
                     <div className="font-semibold text-sm mt-0.5">
                       {selected.holder}
                     </div>
+                  </div>
+                  <div>
+                    <div className="mrpsl-section-title">Submitted By</div>
+                    <div className="text-sm mt-0.5">{selected.submittedBy}</div>
                   </div>
                   <div>
                     <div className="mrpsl-section-title">
@@ -312,6 +422,47 @@ export default function ConsolidationPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="border border-border/60 rounded-xl overflow-hidden">
+                <div className="px-4 py-2.5 bg-muted/30 border-b border-border/60 text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
+                  Certificates Being Merged
+                </div>
+                <table className="w-full text-[13px]">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="px-4 py-2 text-left">CERT NO</th>
+                      <th className="px-4 py-2 text-right">UNITS</th>
+                      <th className="px-4 py-2 text-right">ISSUE DATE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {selected.certs.map((c, i) => (
+                      <tr key={i} className="hover:bg-muted/20">
+                        <td className="px-4 py-2 font-mono text-[12px] text-muted-foreground">
+                          {c.num}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums font-semibold">
+                          {c.units.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2 text-right text-muted-foreground">
+                          {c.issueDate}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-border bg-muted/20">
+                      <td className="px-4 py-2 text-[13px] font-bold text-muted-foreground uppercase tracking-wide">
+                        Total
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums font-bold">
+                        {selected.totalUnits.toLocaleString()}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
 
               <div className="border border-border/60 rounded-xl p-4">
@@ -333,10 +484,13 @@ export default function ConsolidationPage() {
                   ].map((step, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-100" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
                       >
                         {step.done && (
-                          <Check className="h-3 w-3 text-green-600" />
+                          <Check
+                            className="h-3 w-3 text-white"
+                            style={{ strokeWidth: 3 }}
+                          />
                         )}
                       </div>
                       <div className="text-sm">{step.label}</div>
@@ -360,8 +514,8 @@ export default function ConsolidationPage() {
                   variant="destructive"
                   className="flex-1"
                   onClick={() => {
-                    setRejectedId(selected!.id);
-                    setRejectedComment(rejectComment);
+                    setRejectedIds((prev) => new Set([...prev, selected!.id]));
+                    setLastRejComment(rejectComment);
                     toast.error("Consolidation rejected.");
                     setReviewOpen(false);
                   }}
@@ -380,6 +534,51 @@ export default function ConsolidationPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Reject {selectedIds.size} Record
+              {selectedIds.size !== 1 ? "s" : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 px-6 pb-6">
+            <p className="text-sm text-muted-foreground">
+              This comment will be applied to all selected records and sent to
+              the initiator.
+            </p>
+            <div className="space-y-2">
+              <label className="mrpsl-label">
+                Rejection Comment <span className="text-destructive">*</span>
+              </label>
+              <Textarea
+                value={batchComment}
+                onChange={(e) => setBatchComment(e.target.value)}
+                placeholder="State reason for rejection..."
+                className="resize-none"
+                rows={4}
+              />
+            </div>
+            <div className="flex gap-3 pt-2 border-t">
+              <Button
+                variant="ghost"
+                className="flex-1"
+                onClick={() => setBatchRejectOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleBatchReject}
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

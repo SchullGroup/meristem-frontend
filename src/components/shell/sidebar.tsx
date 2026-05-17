@@ -349,13 +349,13 @@ export function Sidebar() {
             </div>
           </div>
           <div className="space-y-0.5">
-            <button
+            {/* <button
               className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition-colors font-medium"
               onClick={() => setSwitchRoleOpen(true)}
             >
               <Users className="h-3.5 w-3.5" />
               Switch Role
-            </button>
+            </button> */}
             <button
               className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg transition-colors font-medium"
               onClick={handleLogout}
@@ -368,7 +368,7 @@ export function Sidebar() {
       </div>
 
       {/* Switch Role Dialog */}
-      <Dialog open={switchRoleOpen} onOpenChange={setSwitchRoleOpen}>
+      {/* <Dialog open={switchRoleOpen} onOpenChange={setSwitchRoleOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Switch Role</DialogTitle>
@@ -411,7 +411,7 @@ export function Sidebar() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </>
   );
 }
