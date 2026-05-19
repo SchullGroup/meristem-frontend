@@ -15,13 +15,14 @@ import {
   Printer,
   Download,
   Mail,
-  Upload,
   ArrowLeft,
   ArrowRight,
   ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
+import { useReactToPrint } from "react-to-print";
+import Image from "next/image";
 
 /* ─── shared types ─────────────────────────────────────────────────────────── */
 
@@ -42,6 +43,9 @@ export interface StickyLabelModalProps {
   companyName: string;
   shareholders: OutreachShareholder[];
   totalCount: number;
+  currentPage: number;
+  onPageChange: (page: number) => void;
+  loading: boolean;
 }
 
 export interface EmailPreviewModalProps {
@@ -189,9 +193,28 @@ export function StickyLabelModal({
   companyName,
   shareholders,
   totalCount,
+  currentPage,
+  onPageChange,
+  loading,
 }: StickyLabelModalProps) {
-  const preview = shareholders.slice(0, 6);
   const sheetsTotal = Math.ceil(totalCount / 24);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef,
+    documentTitle: `${companyName} - Labels`,
+  });
+
+  const handleDownloadPDF = () => {
+    toast.info(
+      "Opening browser print dialog. To download as a PDF, please set the 'Destination' field in the printer options to 'Save as PDF'.",
+      {
+        duration: 6500,
+      },
+    );
+    handlePrint();
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -228,12 +251,40 @@ export function StickyLabelModal({
           </div>
         </DialogHeader>
 
+        {/* Pagination controls for pages/sheets of labels */}
+        <div className="bg-muted/30 px-6 py-2.5 border-b flex items-center justify-between shrink-0 text-sm">
+          <span className="text-muted-foreground">
+            Showing sheet {currentPage} of {sheetsTotal} (
+            {totalCount.toLocaleString()} total labels)
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              disabled={currentPage === 1}
+              onClick={() => onPageChange(currentPage - 1)}
+            >
+              <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Previous Sheet
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              disabled={currentPage >= sheetsTotal}
+              onClick={() => onPageChange(currentPage + 1)}
+            >
+              Next Sheet <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
         {/* ── Label sheet preview ── */}
         <div
           className="overflow-y-auto overflow-x-hidden flex-1"
           style={{ background: "#e8eaed" }}
         >
-          <div className="py-4 px-3">
+          <div className="py-4 px-3" ref={contentRef}>
             {/* Sheet page */}
             <div
               style={{
@@ -273,8 +324,7 @@ export function StickyLabelModal({
                     color: "#9ca3af",
                   }}
                 >
-                  Page 1 of {sheetsTotal} (preview — 6 of{" "}
-                  {totalCount.toLocaleString()})
+                  Sheet {currentPage} of {sheetsTotal}
                 </span>
               </div>
 
@@ -286,8 +336,15 @@ export function StickyLabelModal({
                   gap: "8px 12px",
                 }}
               >
-                {preview.map((s) => (
-                  <StickyLabel key={s.id} s={s} companyName={companyName} />
+                {loading &&
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-gray-200 animate-pulse h-20 rounded"
+                    />
+                  ))}
+                {shareholders.map((s, i) => (
+                  <StickyLabel key={i} s={s} companyName={companyName} />
                 ))}
               </div>
 
@@ -317,23 +374,10 @@ export function StickyLabelModal({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              onOpenChange(false);
-              toast.success("Downloading sticky labels as PDF…");
-            }}
-          >
+          <Button variant="outline" onClick={handleDownloadPDF}>
             <Download className="mr-2 h-4 w-4" /> Download PDF
           </Button>
-          <Button
-            onClick={() => {
-              onOpenChange(false);
-              toast.success(
-                `Print job sent — ${sheetsTotal} page${sheetsTotal !== 1 ? "s" : ""}, ${totalCount.toLocaleString()} labels.`,
-              );
-            }}
-          >
+          <Button onClick={() => handlePrint()}>
             <Printer className="mr-2 h-4 w-4" /> Print Labels
           </Button>
         </DialogFooter>
@@ -415,7 +459,7 @@ function EmailBody({
     <div style={{ background: "#f0f2f5", padding: "0" }}>
       {/* ── Header: uploaded image or fallback dark green block ── */}
       {headerImageUrl ? (
-        <img
+        <Image
           src={headerImageUrl}
           alt="Email header"
           style={{
@@ -921,7 +965,7 @@ export function EmailPreviewModal({
               >
                 {headerImageUrl ? (
                   <div className="space-y-3">
-                    <img
+                    <Image
                       src={headerImageUrl}
                       alt="Header preview"
                       className="max-h-24 mx-auto rounded object-cover"

@@ -7,7 +7,6 @@ export const LOGIN = async (data: unknown) => {
   try {
     const res = await api.post(`/auth/login`, data);
     return res.data;
-    console.log(res.data);
   } catch (error) {
     const err = error as ErrorLike;
 

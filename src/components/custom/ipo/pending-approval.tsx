@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import {
-  CalendarRange,
-  ArrowLeft,
-  Check,
-  Loader2,
-  X,
-  FileSpreadsheet,
-} from "lucide-react";
+import { ArrowLeft, Check, Loader2, FileSpreadsheet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import {
@@ -22,15 +15,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { DateRangePicker } from "@/components/custom/date-range-picker";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { DateRange } from "react-day-picker";
 import { useGetRegistersByType } from "@/hooks/useRegisters";
 import {
@@ -49,19 +44,21 @@ import { BatchDetailSkeleton, DataErrorState } from "./loaders";
 const PAGE_SIZE = 10;
 
 export default function PendingApprovalIPO({ tab }: { tab: string }) {
-  const { currentUser } = useStore();
+  const { currentUser, addRejectedBatch } = useStore();
   const [reviewingBatch, setReviewingBatch] = useState<string | null>(null);
   const [reviewTab, setReviewTab] = useState<IPOBatchType>("APPROVED");
   const [reviewComment, setReviewComment] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [subscribersPage, setSubscribersPage] = useState(0);
+  const [approvalModal, setApprovalModal] = useState<{
+    action: "approve" | "reject";
+  } | null>(null);
 
   // Pending Approval filters
   const [authRegister, setAuthRegister] = useState<string>("");
   const [authDateRange, setAuthDateRange] = useState<DateRange | undefined>(
     undefined,
   );
-  const [authCalOpen, setAuthCalOpen] = useState(false);
 
   // Queries
   const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
@@ -76,7 +73,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
     refetch: refetchPending,
   } = useGetPendingApprovals(
     {
-      register: authRegister === "all" ? "" : authRegister,
+      register: authRegister === "all" ? undefined : authRegister,
       from: authDateRange?.from
         ? format(authDateRange.from, "yyyy-MM-dd")
         : undefined,
@@ -136,6 +133,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
           toast.success("Batch approved and forwarded to ICU.");
           setReviewingBatch(null);
           setReviewComment("");
+          setApprovalModal(null);
         },
         onError: (err) => {
           const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
@@ -159,14 +157,20 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         batchRef: reviewingBatch,
         payload: {
           comment: reviewComment,
-          rejectedBy: currentUser?.id || "unknown",
+          rejectedBy: currentUser?.username || "ADMIN",
         },
       },
       {
         onSuccess: () => {
           toast.success("Batch rejected.");
+          addRejectedBatch({
+            ref: reviewingBatch,
+            comment: reviewComment,
+            type: "ipo",
+          });
           setReviewingBatch(null);
           setReviewComment("");
+          setApprovalModal(null);
         },
         onError: (err) => {
           const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
@@ -179,7 +183,8 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   const handleExport = async () => {
     if (!reviewingBatch) return;
     try {
-      const csvData = await exportIpoBatch(reviewingBatch, reviewTab);
+      const type = reviewTab.toLowerCase() as IPOBatchType;
+      const csvData = await exportIpoBatch(reviewingBatch, type);
       const blob = new Blob([csvData], { type: "text/csv" });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -252,55 +257,10 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
 
               <div className="space-y-1.5">
                 <label className="mrpsl-label">Date Range</label>
-                <Popover
-                  open={authCalOpen}
-                  onOpenChange={(v) => {
-                    if (!v && authDateRange?.from && !authDateRange?.to) return;
-                    setAuthCalOpen(v);
-                  }}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "mrpsl-input w-full justify-start gap-2 px-3 font-normal text-sm",
-                        !authDateRange && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarRange className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="flex-1 text-left truncate">
-                        {authDateRange?.from
-                          ? authDateRange.to
-                            ? `${format(authDateRange.from, "dd MMM yyyy")} – ${format(authDateRange.to, "dd MMM yyyy")}`
-                            : format(authDateRange.from, "dd MMM yyyy")
-                          : "Select date range"}
-                      </span>
-                      {authDateRange && (
-                        <span
-                          role="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setAuthDateRange(undefined);
-                          }}
-                          className="ml-auto rounded-full hover:bg-muted p-0.5 shrink-0"
-                        >
-                          <X className="h-3 w-3 text-muted-foreground" />
-                        </span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="range"
-                      selected={authDateRange}
-                      onSelect={(r) => {
-                        setAuthDateRange(r);
-                        if (r?.from && r?.to) setAuthCalOpen(false);
-                      }}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DateRangePicker
+                  date={authDateRange}
+                  setDate={setAuthDateRange}
+                />
               </div>
             </div>
             <Button variant="ghost" onClick={resetFilters} className="text-xs">
@@ -474,7 +434,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
           variant="destructive"
           size="sm"
           disabled={rejectMutation.isPending || approveMutation.isPending}
-          onClick={handleReject}
+          onClick={() => setApprovalModal({ action: "reject" })}
         >
           {rejectMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -485,7 +445,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         <Button
           size="sm"
           disabled={rejectMutation.isPending || approveMutation.isPending}
-          onClick={handleApprove}
+          onClick={() => setApprovalModal({ action: "approve" })}
         >
           {approveMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -563,18 +523,6 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         ))}
       </div>
 
-      {/* Authorizer comment */}
-      <div className="space-y-1.5">
-        <label className="mrpsl-label">Authorizer Comment</label>
-        <Textarea
-          value={reviewComment}
-          onChange={(e) => setReviewComment(e.target.value)}
-          placeholder="Add a comment (required for rejection)..."
-          rows={2}
-          className="resize-none text-sm focus-visible:ring-primary rounded-xl"
-        />
-      </div>
-
       {/* Subscriber tabs + table */}
       <Card className="mrpsl-card overflow-hidden">
         {/* Tab strip */}
@@ -615,11 +563,10 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
           <Button
             variant="outline"
             size="sm"
-            className="my-1.5 mr-1"
+            className="my-1.5 mr-1 capitalize"
             onClick={handleExport}
           >
-            <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Export{" "}
-            {reviewTab.charAt(0) + reviewTab.slice(1).toLowerCase()}
+            <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Export {reviewTab}
           </Button>
         </div>
 
@@ -726,6 +673,81 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
           />
         )}
       </Card>
+
+      {/* Approval / Rejection modal */}
+      <Dialog
+        open={approvalModal !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApprovalModal(null);
+            setReviewComment("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {approvalModal?.action === "approve"
+                ? "Approve Batch"
+                : "Reject Batch"}
+            </DialogTitle>
+            <DialogDescription>
+              {approvalModal?.action === "approve"
+                ? "Add an optional comment before forwarding."
+                : "Please provide a reason — this will be visible to the submitter."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 space-y-4">
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">
+                {approvalModal?.action === "approve"
+                  ? "Comment (optional)"
+                  : "Reason for rejection *"}
+              </label>
+              <Textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder={
+                  approvalModal?.action === "approve"
+                    ? "Add a note…"
+                    : "Explain the reason…"
+                }
+                rows={3}
+                className="resize-none text-sm focus-visible:ring-primary rounded-xl"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setApprovalModal(null);
+                  setReviewComment("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={
+                  approvalModal?.action === "reject" ? "destructive" : "default"
+                }
+                className="flex-1"
+                disabled={approveMutation.isPending || rejectMutation.isPending}
+                onClick={() => {
+                  if (approvalModal?.action === "approve") {
+                    handleApprove();
+                  } else {
+                    handleReject();
+                  }
+                }}
+              >
+                Confirm{" "}
+                {approvalModal?.action === "approve" ? "Approval" : "Rejection"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

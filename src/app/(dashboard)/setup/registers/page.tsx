@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 // import { useStore } from "@/lib/store";
 import {
@@ -30,11 +30,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RegisterForm } from "@/components/custom/register-form";
-import { toast } from "sonner";
 // import {
 //   Dialog,
 //   DialogContent,
@@ -115,6 +113,24 @@ export default function RegistersPage() {
     size: 100,
   });
 
+  const registerFStats = useMemo(() => {
+    const inactive = registers?.content?.filter(
+      (p) => p.status.toLowerCase() === "inactive",
+    );
+    const active = registers?.content?.filter(
+      (p) => p.status.toLowerCase() === "active",
+    );
+    const transactionDisabled = registers?.content?.filter(
+      (p) => p.status.toLowerCase() === "transaction_disabled",
+    );
+
+    return {
+      active: active?.length ?? 0,
+      inactive: inactive?.length ?? 0,
+      disabled: transactionDisabled?.length ?? 0,
+    };
+  }, [registers]);
+
   const handleEdit = (r: Register) => {
     setSelectedRegister(r);
     setFormMode("edit");
@@ -166,7 +182,8 @@ export default function RegistersPage() {
             <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-green-600">
-              {registerStats?.activeRegisters ?? 0}
+              {/* {registerStats?.activeRegisters ?? 0} */}
+              {registerFStats.active ?? 0}
             </div>
           )}
         </Card>
@@ -178,7 +195,8 @@ export default function RegistersPage() {
             <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-amber-600">
-              {registerStats?.transactionDisabledRegisters ?? 0}
+              {/* {registerStats?.transactionDisabledRegisters ?? 0} */}
+              {registerFStats.disabled ?? 0}
             </div>
           )}
         </Card>
@@ -188,7 +206,8 @@ export default function RegistersPage() {
             <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-muted-foreground">
-              {registerStats?.inactiveRegisters ?? 0}
+              {/* {registerStats?.inactiveRegisters ?? 0} */}
+              {registerFStats.inactive ?? 0}
             </div>
           )}
         </Card>
