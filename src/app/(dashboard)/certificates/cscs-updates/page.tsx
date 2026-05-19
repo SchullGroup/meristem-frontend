@@ -59,6 +59,8 @@ import { toast } from "sonner";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { NIGERIA_STATE_NAMES } from "@/lib/mocks/nigeria-geo";
+import { useQuery } from "@tanstack/react-query";
+import { GET_CSCS_PROCESSED_LOGS } from "@/actions/cscsActions";
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -517,6 +519,15 @@ export default function CSCSUpdatesPage() {
   const [logDateTo, setLogDateTo] = useState<Date | undefined>(undefined);
   const [logFromOpen, setLogFromOpen] = useState(false);
   const [logToOpen, setLogToOpen] = useState(false);
+
+  // ---Processed Logs Query ---
+  const { data: processedLogsData } = useQuery({
+    queryKey: ["cscs-processed-logs"],
+    queryFn: GET_CSCS_PROCESSED_LOGS,
+  });
+
+  console.log(processedLogsData);
+  // ──────────────────────────
 
   // ── Derived ───────────────────────────────────────────────────
   const allRegisters = useMemo(
