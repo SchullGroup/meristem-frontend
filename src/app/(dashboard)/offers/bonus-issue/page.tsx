@@ -1118,7 +1118,7 @@ export default function BonusIssuePage() {
           {/* ── Declaration ── */}
           <TabsContent value="declaration" className="space-y-6">
             {rejectedList?.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-stretch gap-2 flex-wrap">
                 {rejectedList?.map((declaration: BonusDeclaration) => (
                   <Card
                     onClick={() => handleEditDeclaration(declaration)}
@@ -1127,7 +1127,7 @@ export default function BonusIssuePage() {
                   >
                     <div className="flex items-start gap-3">
                       <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0 max-w-[400px]">
                         <p className="text-sm font-semibold text-red-800">
                           Declaration Rejected — Ref: {declaration?.ref}
                         </p>
