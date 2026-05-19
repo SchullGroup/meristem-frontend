@@ -27,6 +27,24 @@ export const CREATE_ROLE = async (data: {
   }
 };
 
+export const EDIT_ROLE = async ({
+  roleId,
+  name,
+  description,
+}: {
+  roleId: string;
+  name: string;
+  description: string;
+}) => {
+  try {
+    const res = await api.patch(`/roles/edit/${roleId}`, { name, description });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const UPDATE_PERMISSIONS = async (
   payload: { permissionNames: string[] },
   roleId: string,

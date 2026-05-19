@@ -26,7 +26,7 @@ type Step = "credentials" | "2fa" | "forgot" | "forgot-sent";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { currentUser, setCurrentUser, seedStore } = useStore();
+  const { currentUser, setCurrentUser } = useStore();
 
   // ── Flow state ────────────────────────────────────────────────
   const [step, setStep] = useState<Step>("credentials");
@@ -63,7 +63,6 @@ export default function LoginPage() {
   const loginMutation = useMutation({
     mutationFn: LOGIN,
     onSuccess: (data) => {
-      console.log("login success", data);
       if (data?.isSuccessful && data?.data) {
         // If the message contains "Otp Sent", switch to the 2FA step
         if (data.data.message?.toLowerCase().includes("otp sent")) {

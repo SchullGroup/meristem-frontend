@@ -20,6 +20,10 @@ export type ErrorLike = {
     status?: number;
     data?: unknown;
   };
+  isSuccessful?: false;
+  responseMessage?: string;
+  responseCode?: number | null;
+  time?: string;
 };
 
 /**
@@ -38,6 +42,7 @@ export const returnErrorMessage = (error: ErrorLike): string => {
       return (
         (data as { message?: string }).message ??
         (data as { error?: string }).error ??
+        (data as { responseMessage?: string }).responseMessage ??
         "An error occurred"
       );
     }

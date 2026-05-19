@@ -16,14 +16,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, HardDrive, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import {
-  FILE_TYPE_OPTIONS,
-  FILE_TYPE_COLORS,
-  MAX_SIZE_OPTIONS,
-} from "@/lib/mocks/doc-types";
+// import { cn } from "@/lib/utils";
+// import {
+//   FILE_TYPE_OPTIONS,
+//   FILE_TYPE_COLORS,
+//   MAX_SIZE_OPTIONS,
+// } from "@/lib/mocks/doc-types";
 import {
   useGetDocumentTypes,
   useCreateDocumentType,
@@ -70,24 +70,24 @@ export default function DocumentTypeParameters({
   const [editDoc, setEditDoc] = useState<DocumentType | null>(null);
   const [docName, setDocName] = useState("");
   const [docReqFor, setDocReqFor] = useState<string[]>([]);
-  const [docFileTypes, setDocFileTypes] = useState<string[]>(["PDF"]);
-  const [docMaxSize, setDocMaxSize] = useState<number>(5);
+  // const [docFileTypes, setDocFileTypes] = useState<string[]>(["PDF"]);
+  // const [docMaxSize, setDocMaxSize] = useState<number>(5);
   const [docNote, setDocNote] = useState("");
 
   const toggleReqFor = (v: string) =>
     setDocReqFor((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
-  const toggleFileType = (v: string) =>
-    setDocFileTypes((p) =>
-      p.includes(v) ? p.filter((x) => x !== v) : [...p, v],
-    );
+  // const toggleFileType = (v: string) =>
+  //   setDocFileTypes((p) =>
+  //     p.includes(v) ? p.filter((x) => x !== v) : [...p, v],
+  //   );
 
   const openAddDoc = () => {
     setDocMode("add");
     setEditDoc(null);
     setDocName("");
     setDocReqFor([]);
-    setDocFileTypes(["PDF"]);
-    setDocMaxSize(5);
+    // setDocFileTypes(["PDF"]);
+    // setDocMaxSize(5);
     setDocNote("");
     setDocOpen(true);
   };
@@ -97,9 +97,9 @@ export default function DocumentTypeParameters({
     setEditDoc(x);
     setDocName(x.name);
     setDocReqFor([...x.requiredFor]);
-    setDocFileTypes(["PDF"]);
-    setDocMaxSize(5);
-    setDocNote("");
+    // setDocFileTypes(["PDF"]);
+    // setDocMaxSize(5);
+    setDocNote(x.reasonForChange);
     setDocOpen(true);
   };
 
@@ -168,8 +168,8 @@ export default function DocumentTypeParameters({
               <th className="px-5 py-3">Code</th>
               <th className="px-5 py-3">Document Name</th>
               <th className="px-5 py-3">Required For</th>
-              <th className="px-5 py-3">Accepted File Types</th>
-              <th className="px-5 py-3 text-right">Max Size</th>
+              {/* <th className="px-5 py-3">Accepted File Types</th> */}
+              {/* <th className="px-5 py-3 text-right">Max Size</th> */}
               <th className="px-5 py-3 text-center">Active</th>
               <th className="px-5 py-3 text-right">Actions</th>
             </tr>
@@ -190,12 +190,12 @@ export default function DocumentTypeParameters({
                   <td className="px-5 py-3">
                     <Skeleton className="h-4 w-20" />
                   </td>
-                  <td className="px-5 py-3 text-right">
+                  {/* <td className="px-5 py-3 text-right">
                     <Skeleton className="h-4 w-16 ml-auto" />
-                  </td>
-                  <td className="px-5 py-3 text-center">
+                  </td> */}
+                  {/* <td className="px-5 py-3 text-center">
                     <Skeleton className="h-5 w-8 mx-auto" />
-                  </td>
+                  </td> */}
                   <td className="px-5 py-3 text-right">
                     <Skeleton className="h-8 w-16 ml-auto" />
                   </td>
@@ -229,9 +229,9 @@ export default function DocumentTypeParameters({
                       ))}
                     </div>
                   </td>
-                  <td className="px-5 py-3">
+                  {/* <td className="px-5 py-3">
                     <div className="flex gap-1 flex-wrap">
-                      {["PDF"].map((t) => (
+                      {x.map((t) => (
                         <span
                           key={t}
                           className={cn(
@@ -244,12 +244,12 @@ export default function DocumentTypeParameters({
                         </span>
                       ))}
                     </div>
-                  </td>
-                  <td className="px-5 py-3 text-right">
+                  </td> */}
+                  {/* <td className="px-5 py-3 text-right">
                     <div className="flex items-center gap-1 justify-end text-xs text-muted-foreground">
                       <HardDrive className="h-3 w-3" />5 MB
                     </div>
-                  </td>
+                  </td> */}
                   <td className="px-5 py-3 text-center">
                     <Switch
                       checked={x.status === "Active"}
@@ -351,7 +351,7 @@ export default function DocumentTypeParameters({
                 ))}
               </div>
             </div>
-
+            {/* 
             <div className="space-y-2">
               <label className={labelClass}>
                 Accepted File Types *{" "}
@@ -406,7 +406,7 @@ export default function DocumentTypeParameters({
                   </button>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             <div className="space-y-1.5">
               <label className={labelClass}>Notes</label>

@@ -42,6 +42,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
 import { useCreatePrincipal, useUpdatePrincipal } from "@/hooks/usePrincipal";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 interface PrincipalFormProps {
   open: boolean;
@@ -80,6 +81,7 @@ export function PrincipalForm({
           rcNumber: initialData.rcNumber || "",
           shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
           sector: initialData.sector || "",
+          status: initialData.status || "ACTIVE",
         }
       : {
           principalName: "",
@@ -95,6 +97,7 @@ export function PrincipalForm({
           companySecretaryPhone: "",
           shareHoldersAtSetUp: 0,
           sector: "",
+          status: "ACTIVE",
         },
   });
 
@@ -250,7 +253,7 @@ export function PrincipalForm({
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -283,7 +286,7 @@ export function PrincipalForm({
                               });
                               field.onChange(value);
                             }}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -537,6 +540,54 @@ export function PrincipalForm({
                       )}
                     />
                   </div>
+                </div>
+
+                <Separator className="bg-border" />
+
+                {/* SECTION 3: Status */}
+                <div>
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-4">
+                    Operating Status
+                  </h3>
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            className="flex flex-row gap-8"
+                          >
+                            <FormItem className="flex items-center space-x-2.5 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem
+                                  value="ACTIVE"
+                                  className="h-5 w-5"
+                                />
+                              </FormControl>
+                              <FormLabel className="font-medium text-sm text-green-700">
+                                Active
+                              </FormLabel>
+                            </FormItem>
+                            <FormItem className="flex items-center space-x-2.5 space-y-0">
+                              <FormControl>
+                                <RadioGroupItem
+                                  value="INACTIVE"
+                                  className="h-5 w-5"
+                                />
+                              </FormControl>
+                              <FormLabel className="font-medium text-sm text-muted-foreground">
+                                Inactive
+                              </FormLabel>
+                            </FormItem>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
 

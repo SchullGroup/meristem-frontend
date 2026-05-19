@@ -18,6 +18,9 @@ export const principalSchema = z.object({
   shareHoldersAtSetUp: z.coerce
     .number<number>()
     .min(1, "Shareholders at set up is required"),
+    status: z.enum(["ACTIVE", "INACTIVE"], {
+      error: "Please select a status"
+    })
 });
 
 export type PrincipalFormValues = z.infer<typeof principalSchema>;

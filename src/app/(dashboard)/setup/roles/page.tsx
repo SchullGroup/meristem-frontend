@@ -21,6 +21,7 @@ import {
   CREATE_ROLE,
   UPDATE_PERMISSIONS,
   DELETE_ROLE,
+  EDIT_ROLE,
 } from "@/actions/rolesAction";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -113,6 +114,20 @@ export default function RolesPage() {
     },
   });
 
+  const editRoleMutation = useMutation({
+    mutationFn: EDIT_ROLE,
+    onSuccess: () => {
+      toast.success(`Role updated successfully.`);
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      setEditOpen(false);
+      setEditName("");
+      setEditDesc("");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to update role.");
+    },
+  });
+
   const deleteRoleMutation = useMutation({
     mutationFn: () => DELETE_ROLE(activeRole?.id),
     onSuccess: () => {
@@ -160,9 +175,12 @@ export default function RolesPage() {
   };
 
   const handleEditRole = () => {
-    if (!editName.trim()) return;
-    toast.success(`Role "${editName}" updated successfully.`);
-    setEditOpen(false);
+    if (!editName.trim() || !activeRole?.id) return;
+    editRoleMutation.mutate({
+      roleId: activeRole.id,
+      name: editName,
+      description: editDesc,
+    });
   };
 
   const handleCreateRole = () => {
@@ -396,8 +414,14 @@ export default function RolesPage() {
             <Button variant="ghost" onClick={() => setEditOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleEditRole} disabled={!editName?.trim()}>
+            <Button
+              onClick={handleEditRole}
+              disabled={!editName?.trim() || editRoleMutation.isPending}
+            >
               Save Changes
+              {editRoleMutation.isPending && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

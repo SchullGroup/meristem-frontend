@@ -30,9 +30,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-// import { useState } from "react";
-// import { InfoIcon } from "lucide-react";
-// import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { useCreateRegister, useUpdateRegister } from "@/hooks/useRegisters";
@@ -52,12 +49,7 @@ export function RegisterForm({
   mode,
   initialData,
 }: RegisterFormProps) {
-  // const [confirmOpen, setConfirmOpen] = useState(false);
-  // const [pendingValues, setPendingValues] = useState<RegisterFormValues | null>(null);
-
-  const { data } = useGetPrincipals({
-    size: 100,
-  });
+  const { data } = useGetPrincipals({ size: 100 });
 
   const createRegister = useCreateRegister();
   const updateRegister = useUpdateRegister();
@@ -75,7 +67,7 @@ export function RegisterForm({
           shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
           currentStockInIssue: initialData.currentStockInIssue,
           currentShareholdersSize: initialData.currentShareholdersSize,
-          status: initialData.status,
+          status: initialData.status ?? "ACTIVE",
         }
       : {
           registerName: "",
@@ -92,9 +84,6 @@ export function RegisterForm({
   });
 
   const onSubmit = (values: RegisterFormValues) => {
-    // setPendingValues(values);
-    // setConfirmOpen(true);
-
     if (!values) return;
 
     const payload = {
@@ -135,52 +124,6 @@ export function RegisterForm({
       );
     }
   };
-
-  // const handleConfirm = () => {
-  //   if (!pendingValues) return;
-
-  //   if (mode === "create") {
-  //     const newId = `REG-${String(registers.length + 1).padStart(4, '0')}`;
-  //     const newRegister: Register = {
-  //       ...pendingValues,
-  //       id: newId,
-  //       decimalPlaces: pendingValues.decimalPlaces as 0 | 2 | 4,
-  //       stockToday: pendingValues.stockAtSetup,
-  //       shareholdersToday: pendingValues.shareholdersAtSetup,
-  //       createdAt: new Date().toISOString()
-  //     };
-  //     addRegister(newRegister);
-  //     logAudit({
-  //       action: "REGISTER_CREATED",
-  //       entityType: "Register",
-  //       entityId: newId,
-  //       before: null,
-  //       after: newRegister,
-  //       actor: "Current User",
-  //       actorId: "usr",
-  //       role: "ADMIN"
-  //     });
-  //     toast.success(`Register ${pendingValues.name} has been created successfully.`);
-  //   } else if (mode === "edit" && initialData) {
-  //     const updates = { ...pendingValues, decimalPlaces: pendingValues.decimalPlaces as 0 | 2 | 4 };
-  //     updateRegister(initialData.id, updates);
-  //     logAudit({
-  //       action: "REGISTER_UPDATED",
-  //       entityType: "Register",
-  //       entityId: initialData.id,
-  //       before: initialData,
-  //       after: { ...initialData, ...updates },
-  //       actor: "Current User",
-  //       actorId: "usr",
-  //       role: "ADMIN"
-  //     });
-  //     toast.success(`Register ${pendingValues.name} has been updated successfully.`);
-  //   }
-
-  //   setConfirmOpen(false);
-  //   onOpenChange(false);
-  //   form.reset();
-  // };
 
   return (
     <>
@@ -239,7 +182,7 @@ export function RegisterForm({
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -323,7 +266,7 @@ export function RegisterForm({
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -497,7 +440,10 @@ export function RegisterForm({
                   type="button"
                   variant="ghost"
                   className="text-sm font-bold px-8 h-12"
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => {
+                    onOpenChange(false);
+                    form.reset();
+                  }}
                 >
                   Cancel
                 </Button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 // import { useStore } from "@/lib/store";
 import {
@@ -9,10 +9,10 @@ import {
   // AlertTriangle,
   MoreHorizontal,
   Pencil,
-  // Lock,
-  // Unlock,
-  History,
-  Users,
+  Lock,
+  Unlock,
+  // History,
+  // Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,11 +30,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RegisterForm } from "@/components/custom/register-form";
-import { toast } from "sonner";
 // import {
 //   Dialog,
 //   DialogContent,
@@ -49,6 +47,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { formatLargeNumber } from "@/lib/utils";
 import { useGetPrincipals } from "@/hooks/usePrincipal";
 import { Pagination } from "@/components/custom/pagination";
+import ToggleTransactionDialog from "@/components/custom/registers/toggle-transactions";
 
 const PAGE_SIZE = 10;
 
@@ -93,7 +92,7 @@ export default function RegistersPage() {
     null,
   );
 
-  // const [confirmLockOpen, setConfirmLockOpen] = useState(false);
+  const [confirmLockOpen, setConfirmLockOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
 
   const debouncedSearch = useDebounce(search, 500);
@@ -114,6 +113,24 @@ export default function RegistersPage() {
     size: 100,
   });
 
+  const registerFStats = useMemo(() => {
+    const inactive = registers?.content?.filter(
+      (p) => p.status.toLowerCase() === "inactive",
+    );
+    const active = registers?.content?.filter(
+      (p) => p.status.toLowerCase() === "active",
+    );
+    const transactionDisabled = registers?.content?.filter(
+      (p) => p.status.toLowerCase() === "transaction_disabled",
+    );
+
+    return {
+      active: active?.length ?? 0,
+      inactive: inactive?.length ?? 0,
+      disabled: transactionDisabled?.length ?? 0,
+    };
+  }, [registers]);
+
   const handleEdit = (r: Register) => {
     setSelectedRegister(r);
     setFormMode("edit");
@@ -126,29 +143,10 @@ export default function RegistersPage() {
     setFormOpen(true);
   };
 
-  // const toggleLock = () => {
-  //   if (!selectedRegister) return;
-  //   const newStatus = selectedRegister.status === "TRANSACTION_DISABLED" ? "ACTIVE" : "TRANSACTION_DISABLED";
-
-  //   updateRegister(selectedRegister.id, { status: newStatus });
-  //   logAudit({
-  //     action: "REGISTER_LOCK_CHANGED",
-  //     entityType: "Register",
-  //     entityId: selectedRegister.id,
-  //     before: selectedRegister,
-  //     after: { ...selectedRegister, status: newStatus },
-  //     actor: "Current User",
-  //     actorId: "usr",
-  //     role: "ADMIN"
-  //   });
-  //   toast.success(`Register ${selectedRegister.symbol} has been ${newStatus === 'ACTIVE' ? 'unlocked' : 'locked'}.`);
-  //   setConfirmLockOpen(false);
-  // };
-
-  // const openLockConfirm = (r: Register) => {
-  //   setSelectedRegister(r);
-  //   setConfirmLockOpen(true);
-  // };
+  const openLockConfirm = (r: Register) => {
+    setSelectedRegister(r);
+    setConfirmLockOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -184,7 +182,8 @@ export default function RegistersPage() {
             <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-green-600">
-              {registerStats?.activeRegisters ?? 0}
+              {/* {registerStats?.activeRegisters ?? 0} */}
+              {registerFStats.active ?? 0}
             </div>
           )}
         </Card>
@@ -196,7 +195,8 @@ export default function RegistersPage() {
             <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-amber-600">
-              {registerStats?.transactionDisabledRegisters ?? 0}
+              {/* {registerStats?.transactionDisabledRegisters ?? 0} */}
+              {registerFStats.disabled ?? 0}
             </div>
           )}
         </Card>
@@ -206,7 +206,8 @@ export default function RegistersPage() {
             <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-muted-foreground">
-              {registerStats?.inactiveRegisters ?? 0}
+              {/* {registerStats?.inactiveRegisters ?? 0} */}
+              {registerFStats.inactive ?? 0}
             </div>
           )}
         </Card>
@@ -414,7 +415,7 @@ export default function RegistersPage() {
                           <DropdownMenuItem onClick={() => handleEdit(r)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Register
                           </DropdownMenuItem>
-                          {/* <DropdownMenuItem
+                          <DropdownMenuItem
                             onClick={() => openLockConfirm(r)}
                             className="text-amber-600"
                           >
@@ -429,7 +430,7 @@ export default function RegistersPage() {
                                 Transactions
                               </>
                             )}
-                          </DropdownMenuItem> */}
+                          </DropdownMenuItem>
                           {/* <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() =>
@@ -472,27 +473,14 @@ export default function RegistersPage() {
           initialData={selectedRegister}
         />
       )}
-      {/* 
-      <Dialog open={confirmLockOpen} onOpenChange={setConfirmLockOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Action</DialogTitle>
-            <DialogDescription>
-              {selectedRegister?.status === "TRANSACTION_DISABLED"
-                ? `Are you sure you want to unlock transactions for ${selectedRegister.symbol}?`
-                : `Are you sure you want to lock transactions for ${selectedRegister?.symbol}? This will block all dividend declarations, certificate operations, and KYC updates.`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmLockOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={toggleLock}>
-              Confirm
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog> */}
+
+      {confirmLockOpen && (
+        <ToggleTransactionDialog
+          open={confirmLockOpen}
+          setOpen={setConfirmLockOpen}
+          selectedRegister={selectedRegister}
+        />
+      )}
     </div>
   );
 }
