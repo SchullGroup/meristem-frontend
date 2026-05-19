@@ -3,11 +3,9 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import {
-  CalendarRange,
   ArrowLeft,
   Check,
   Loader2,
-  X,
   FileSpreadsheet,
   History,
 } from "lucide-react";
@@ -22,15 +20,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { DateRangePicker } from "@/components/custom/date-range-picker";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { DateRange } from "react-day-picker";
 import { useGetRegistersByType } from "@/hooks/useRegisters";
 import {
@@ -58,13 +58,15 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
   const [reviewComment, setReviewComment] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [subscribersPage, setSubscribersPage] = useState(0);
+  const [approvalModal, setApprovalModal] = useState<{
+    action: "approve" | "return";
+  } | null>(null);
 
   // Filters
   const [icuRegister, setIcuRegister] = useState<string>("");
   const [icuDateRange, setIcuDateRange] = useState<DateRange | undefined>(
     undefined,
   );
-  const [icuCalOpen, setIcuCalOpen] = useState(false);
 
   // Queries
   const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
@@ -148,6 +150,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           );
           setReviewingBatch(null);
           setReviewComment("");
+          setApprovalModal(null);
         },
         onError: (err) => {
           toast.error(returnErrorMessage(err as ErrorLike));
@@ -235,55 +238,10 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
 
               <div className="space-y-1.5">
                 <label className="mrpsl-label">Date Range</label>
-                <Popover
-                  open={icuCalOpen}
-                  onOpenChange={(v) => {
-                    if (!v && icuDateRange?.from && !icuDateRange?.to) return;
-                    setIcuCalOpen(v);
-                  }}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "mrpsl-input w-full justify-start gap-2 px-3 font-normal text-sm",
-                        !icuDateRange && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarRange className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="flex-1 text-left truncate">
-                        {icuDateRange?.from
-                          ? icuDateRange.to
-                            ? `${format(icuDateRange.from, "dd MMM yyyy")} – ${format(icuDateRange.to, "dd MMM yyyy")}`
-                            : format(icuDateRange.from, "dd MMM yyyy")
-                          : "Select date range"}
-                      </span>
-                      {icuDateRange && (
-                        <span
-                          role="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIcuDateRange(undefined);
-                          }}
-                          className="ml-auto rounded-full hover:bg-muted p-0.5 shrink-0"
-                        >
-                          <X className="h-3 w-3 text-muted-foreground" />
-                        </span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="range"
-                      selected={icuDateRange}
-                      onSelect={(r) => {
-                        setIcuDateRange(r);
-                        if (r?.from && r?.to) setIcuCalOpen(false);
-                      }}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DateRangePicker
+                  date={icuDateRange}
+                  setDate={setIcuDateRange}
+                />
               </div>
             </div>
             <Button variant="ghost" onClick={resetFilters} className="text-xs">
@@ -455,7 +413,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           variant="destructive"
           size="sm"
           disabled={icuReviewMutation.isPending}
-          onClick={() => handleFinalReview(false)}
+          onClick={() => setApprovalModal({ action: "return" })}
         >
           {icuReviewMutation.isPending &&
           !icuReviewMutation.variables?.payload.approved ? (
@@ -467,7 +425,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         <Button
           size="sm"
           disabled={icuReviewMutation.isPending}
-          onClick={() => handleFinalReview(true)}
+          onClick={() => setApprovalModal({ action: "approve" })}
         >
           {icuReviewMutation.isPending &&
           icuReviewMutation.variables?.payload.approved ? (
@@ -583,18 +541,6 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
             )}
           </Card>
         ))}
-      </div>
-
-      {/* ICU comment */}
-      <div className="space-y-1.5">
-        <label className="mrpsl-label">ICU Review Comment</label>
-        <Textarea
-          value={reviewComment}
-          onChange={(e) => setReviewComment(e.target.value)}
-          placeholder="Add ICU review comment (required for return to Ops)..."
-          rows={2}
-          className="resize-none text-sm focus-visible:ring-primary rounded-xl"
-        />
       </div>
 
       {/* Subscriber tabs + table */}
@@ -748,6 +694,73 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           />
         )}
       </Card>
+
+      {/* ICU Approval / Return Dialog */}
+      <Dialog
+        open={approvalModal !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApprovalModal(null);
+            setReviewComment("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {approvalModal?.action === "approve"
+                ? "ICU Approve Batch"
+                : "Return Batch to Operations"}
+            </DialogTitle>
+            <DialogDescription>
+              {approvalModal?.action === "approve"
+                ? "Add an optional comment before forwarding."
+                : "Please provide a reason — this will be visible to the submitter."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 space-y-4">
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">
+                {approvalModal?.action === "approve"
+                  ? "Comment (optional)"
+                  : "Reason for return *"}
+              </label>
+              <Textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder={
+                  approvalModal?.action === "approve"
+                    ? "Add a note…"
+                    : "Explain the reason…"
+                }
+                rows={3}
+                className="resize-none text-sm focus-visible:ring-primary rounded-xl"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => {
+                setApprovalModal(null);
+                setReviewComment("");
+              }}>
+                Cancel
+              </Button>
+              <Button
+                variant={
+                  approvalModal?.action === "return" ? "destructive" : "default"
+                }
+                className="flex-1"
+                disabled={icuReviewMutation.isPending}
+                onClick={() => {
+                  handleFinalReview(approvalModal?.action === "approve");
+                }}
+              >
+                Confirm{" "}
+                {approvalModal?.action === "approve" ? "Approval" : "Return"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

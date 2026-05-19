@@ -22,24 +22,20 @@ import { useUploadBatchIpo } from "@/hooks/useIPO";
 import { downloadCsvTemplate } from "@/lib/utils/csv-template";
 import { ipoTemplateFields } from "@/lib/utils/constants";
 import { IPO } from "@/types/ipo";
+import { useStore } from "@/lib/store";
 
 export default function UploadIPOData({ tab }: { tab: string }) {
+  const { rejectedBatches, removeRejectedBatch, clearRejectedBatches } =
+    useStore();
   const [selectedRegister, setSelectedRegister] = useState("");
   const [batchDate, setBatchDate] = useState<Date>(new Date());
 
   const batchRef = `BATCH-IPO-${format(batchDate, "yyyyMMdd")}-001`;
 
-  // const [uploadStatus, setUploadStatus] = useState<
-  //   "idle" | "processing" | "complete"
-  // >("idle");
-  // const [progress, setProgress] = useState(0);
-
   const [approvedFile, setApprovedFile] = useState<File | null>(null);
   const [disapprovedFile, setDisapprovedFile] = useState<File | null>(null);
   const [invalidFile, setInvalidFile] = useState<File | null>(null);
   const [processedBatch, setProcessedBatch] = useState<IPO | null>(null);
-  // const [disapprovedComment, setDisapprovedComment] = useState("");
-  // const [invalidComment, setInvalidComment] = useState("");
 
   const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
     enabled: tab === "upload",
@@ -60,8 +56,6 @@ export default function UploadIPOData({ tab }: { tab: string }) {
     const form = new FormData();
 
     form.append("data", new Blob([metadata], { type: "application/json" }));
-    // form.append("registerId", selectedRegister);
-    // form.append("batchDate", batchDate.toISOString());
     if (approvedFile) form.append("approved", approvedFile);
     if (disapprovedFile) form.append("disapproved", disapprovedFile);
     if (invalidFile) form.append("invalid", invalidFile);
@@ -71,7 +65,6 @@ export default function UploadIPOData({ tab }: { tab: string }) {
         toast.success(
           `Batch ${data.batchReference ?? ""} processs with status ${data.status.toLowerCase() ?? "Pending"} `,
         );
-        // setUploadStatus("complete");
         setProcessedBatch(data);
       },
       onError: (error) => {
@@ -86,10 +79,44 @@ export default function UploadIPOData({ tab }: { tab: string }) {
     setInvalidFile(null);
     setProcessedBatch(null);
     setSelectedRegister("");
+    clearRejectedBatches();
   };
 
   return (
     <div className="space-y-6">
+      {/* Rejected IPO Batches */}
+      {rejectedBatches &&
+        rejectedBatches
+          .filter((b) => b.type === "ipo")
+          .map((batch) => (
+            <Card
+              key={batch.ref}
+              className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 mb-4 animate-in fade-in"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-800">
+                    Declaration Rejected — Ref: {batch.ref}
+                  </p>
+                  <p className="text-[13px] text-red-700 mt-0.5">
+                    Authorizer comment:{" "}
+                    {batch.comment || "No comment provided."}
+                  </p>
+                  <p className="text-[13px] text-muted-foreground mt-1">
+                    Please review the data and resubmit for approval.
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeRejectedBatch(batch.ref)}
+                  className="rounded-full hover:bg-red-100 p-0.5"
+                >
+                  <X className="h-3.5 w-3.5 text-red-600" />
+                </button>
+              </div>
+            </Card>
+          ))}
+
       {/* Batch controls */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-2">
