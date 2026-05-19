@@ -28,14 +28,12 @@ import { RightsIssue } from "@/types/rights";
 import { getRightsIssueShareholders } from "@/actions/rightsActions";
 import { toast } from "sonner";
 import { cn, exportToCSV } from "@/lib/utils";
-import type { DateRange } from "react-day-picker";
 import {
   ShholderRows,
   ShholderTableHead,
   ShholderTfoot,
 } from "./entitlement-table";
 import { PaginationBar } from "../pagination-bar";
-import { DateRangePicker } from "../date-range-picker";
 import { EntitlementStatsSkeleton, EntitlementTableSkeleton } from "./loaders";
 import { DataErrorState } from "../ipo/loaders";
 import { ApproveRightsDialog, RejectRightsDialog } from "./approval-dialogs";
