@@ -25,6 +25,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const { currentUser, isSessionExpired, setIsSessionExpired } = useStore();
   const [mounted, setMounted] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [showSessionDialog, setShowSessionDialog] = useState(false);
 
   const handleRedirect = () => {
@@ -34,32 +35,32 @@ export default function DashboardLayout({
   };
 
   useEffect(() => {
+    //eslint-disable-next-line
     setMounted(true);
 
-    // Only proceed if mounted and hydration is complete
-    if (typeof window !== "undefined") {
-      const isHydrated = useStore.persist.hasHydrated();
-
-      if (isHydrated && !currentUser) {
-        if (isSessionExpired) {
-          setShowSessionDialog(true);
-        } else {
-          // Default behavior for unauthenticated access: silent redirect
-          router.replace("/login");
-        }
-      }
+    if (useStore.persist.hasHydrated()) {
+      setHydrated(true);
+    } else {
+      const unsub = useStore.persist.onFinishHydration(() => {
+        setHydrated(true);
+      });
+      return () => unsub();
     }
-  }, [currentUser, isSessionExpired, router]);
+  }, []);
 
-  if (!mounted) return null;
+  useEffect(() => {
+    if (hydrated && !currentUser && isSessionExpired) {
+      //eslint-disable-next-line
+      setShowSessionDialog(true);
+    }
+  }, [hydrated, currentUser, isSessionExpired]);
+
+  if (!mounted || !hydrated) return null;
 
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Dialog
-          open={showSessionDialog}
-          onOpenChange={handleRedirect}
-        >
+        <Dialog open={showSessionDialog} onOpenChange={handleRedirect}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <div className="flex items-center gap-3 text-destructive mb-2">

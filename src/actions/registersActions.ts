@@ -58,7 +58,7 @@ export const getRegisterById = async (registerId: string) => {
 };
 
 export const getRegistersByStatus = async (status: string) => {
-  const response = await api.get<ApiResponse<Register>>(
+  const response = await api.get<ApiResponse<Register[]>>(
     `/registers/status/${status}`,
   );
 
@@ -66,7 +66,7 @@ export const getRegistersByStatus = async (status: string) => {
 };
 
 export const getRegistersByType = async (registerType: string) => {
-  const response = await api.get<ApiResponse<Register>>(
+  const response = await api.get<ApiResponse<Register[]>>(
     `/registers/type/${registerType}`,
   );
 
@@ -74,7 +74,7 @@ export const getRegistersByType = async (registerType: string) => {
 };
 
 export const getRegistersByPrincipal = async (principalId: string) => {
-  const response = await api.get<ApiResponse<Register>>(
+  const response = await api.get<ApiResponse<Register[]>>(
     `/registers/principal/${principalId}`,
   );
 

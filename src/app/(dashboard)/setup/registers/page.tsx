@@ -9,10 +9,10 @@ import {
   // AlertTriangle,
   MoreHorizontal,
   Pencil,
-  // Lock,
-  // Unlock,
-  History,
-  Users,
+  Lock,
+  Unlock,
+  // History,
+  // Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { formatLargeNumber } from "@/lib/utils";
 import { useGetPrincipals } from "@/hooks/usePrincipal";
 import { Pagination } from "@/components/custom/pagination";
+import ToggleTransactionDialog from "@/components/custom/registers/toggle-transactions";
 
 const PAGE_SIZE = 10;
 
@@ -93,7 +94,7 @@ export default function RegistersPage() {
     null,
   );
 
-  // const [confirmLockOpen, setConfirmLockOpen] = useState(false);
+  const [confirmLockOpen, setConfirmLockOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
 
   const debouncedSearch = useDebounce(search, 500);
@@ -126,29 +127,10 @@ export default function RegistersPage() {
     setFormOpen(true);
   };
 
-  // const toggleLock = () => {
-  //   if (!selectedRegister) return;
-  //   const newStatus = selectedRegister.status === "TRANSACTION_DISABLED" ? "ACTIVE" : "TRANSACTION_DISABLED";
-
-  //   updateRegister(selectedRegister.id, { status: newStatus });
-  //   logAudit({
-  //     action: "REGISTER_LOCK_CHANGED",
-  //     entityType: "Register",
-  //     entityId: selectedRegister.id,
-  //     before: selectedRegister,
-  //     after: { ...selectedRegister, status: newStatus },
-  //     actor: "Current User",
-  //     actorId: "usr",
-  //     role: "ADMIN"
-  //   });
-  //   toast.success(`Register ${selectedRegister.symbol} has been ${newStatus === 'ACTIVE' ? 'unlocked' : 'locked'}.`);
-  //   setConfirmLockOpen(false);
-  // };
-
-  // const openLockConfirm = (r: Register) => {
-  //   setSelectedRegister(r);
-  //   setConfirmLockOpen(true);
-  // };
+  const openLockConfirm = (r: Register) => {
+    setSelectedRegister(r);
+    setConfirmLockOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -414,7 +396,7 @@ export default function RegistersPage() {
                           <DropdownMenuItem onClick={() => handleEdit(r)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Register
                           </DropdownMenuItem>
-                          {/* <DropdownMenuItem
+                          <DropdownMenuItem
                             onClick={() => openLockConfirm(r)}
                             className="text-amber-600"
                           >
@@ -429,7 +411,7 @@ export default function RegistersPage() {
                                 Transactions
                               </>
                             )}
-                          </DropdownMenuItem> */}
+                          </DropdownMenuItem>
                           {/* <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() =>
@@ -472,27 +454,14 @@ export default function RegistersPage() {
           initialData={selectedRegister}
         />
       )}
-      {/* 
-      <Dialog open={confirmLockOpen} onOpenChange={setConfirmLockOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Action</DialogTitle>
-            <DialogDescription>
-              {selectedRegister?.status === "TRANSACTION_DISABLED"
-                ? `Are you sure you want to unlock transactions for ${selectedRegister.symbol}?`
-                : `Are you sure you want to lock transactions for ${selectedRegister?.symbol}? This will block all dividend declarations, certificate operations, and KYC updates.`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmLockOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={toggleLock}>
-              Confirm
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog> */}
+
+      {confirmLockOpen && (
+        <ToggleTransactionDialog
+          open={confirmLockOpen}
+          setOpen={setConfirmLockOpen}
+          selectedRegister={selectedRegister}
+        />
+      )}
     </div>
   );
 }

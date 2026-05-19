@@ -96,7 +96,7 @@ export interface GetStatesParams {
 // types/caution-reason.ts
 // ========================================
 
-export type CautionReasonSeverity = "High" | "Medium" | "Low";
+export type CautionReasonSeverity = "HIGH" | "MEDIUM" | "LOW";
 
 export type CautionReasonStatus = "Active" | "Inactive";
 

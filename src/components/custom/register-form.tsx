@@ -52,12 +52,7 @@ export function RegisterForm({
   mode,
   initialData,
 }: RegisterFormProps) {
-  // const [confirmOpen, setConfirmOpen] = useState(false);
-  // const [pendingValues, setPendingValues] = useState<RegisterFormValues | null>(null);
-
-  const { data } = useGetPrincipals({
-    size: 100,
-  });
+  const { data } = useGetPrincipals({ size: 100 });
 
   const createRegister = useCreateRegister();
   const updateRegister = useUpdateRegister();
@@ -75,7 +70,7 @@ export function RegisterForm({
           shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
           currentStockInIssue: initialData.currentStockInIssue,
           currentShareholdersSize: initialData.currentShareholdersSize,
-          status: initialData.status,
+          status: initialData.status ?? "ACTIVE",
         }
       : {
           registerName: "",
@@ -239,7 +234,7 @@ export function RegisterForm({
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -323,7 +318,7 @@ export function RegisterForm({
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -497,7 +492,10 @@ export function RegisterForm({
                   type="button"
                   variant="ghost"
                   className="text-sm font-bold px-8 h-12"
-                  onClick={() => onOpenChange(false)}
+                  onClick={() => {
+                    onOpenChange(false);
+                    form.reset();
+                  }}
                 >
                   Cancel
                 </Button>

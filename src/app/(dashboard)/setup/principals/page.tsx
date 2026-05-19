@@ -10,7 +10,6 @@ import {
   MoreHorizontal,
   BookOpen,
   Pencil,
-  // History,
   Power,
   FileSearch,
 } from "lucide-react";
@@ -166,6 +165,20 @@ export default function PrincipalsPage() {
     setConfirmStatusOpen(true);
   };
 
+  // const principalFStats = useMemo(() => {
+  //   const inactive = principals?.content?.filter(
+  //     (p) => p.status.toLowerCase() === "inactive",
+  //   );
+  //   const active = principals?.content?.filter(
+  //     (p) => p.status.toLowerCase() === "active",
+  //   );
+
+  //   return {
+  //     active: active?.length ?? 0,
+  //     inactive: inactive?.length ?? 0,
+  //   };
+  // }, [principals]);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -210,6 +223,7 @@ export default function PrincipalsPage() {
               <div className="w-14 h-6 bg-gray-300 animate-pulse rounded-md" />
             ) : (
               <div className="text-2xl font-bold font-mono text-green-600">
+                {/* {principalStats?.activePrincipals ?? 0} */}
                 {principalStats?.activePrincipals ?? 0}
               </div>
             )}
@@ -225,6 +239,7 @@ export default function PrincipalsPage() {
               <div className="w-14 h-6 bg-gray-300 animate-pulse rounded-md" />
             ) : (
               <div className="text-2xl font-bold font-mono text-muted-foreground">
+                {/* {principalStats?.inactivePrincipals ?? 0} */}
                 {principalStats?.inactivePrincipals ?? 0}
               </div>
             )}
@@ -275,6 +290,7 @@ export default function PrincipalsPage() {
       {/* Filter Bar */}
       <div className="flex gap-2 items-center">
         <Input
+          type="search"
           placeholder="Search principals..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -376,9 +392,8 @@ export default function PrincipalsPage() {
                         Category {p.billingCategory}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {/* {registers.filter((r) => r.principalId === p.id).length} */}{" "}
-                      -----
+                    <td className="px-4 py-3 tabular-nums text-sm text-center">
+                      {p?.numberOfRegisters || 0}
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">{p.officialEmail}</div>
