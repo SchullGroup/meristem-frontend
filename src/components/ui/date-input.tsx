@@ -23,6 +23,7 @@ export default function DateInput({
       <Popover>
         <PopoverTrigger asChild>
           <Button
+            type="button"
             variant="outline"
             className="w-full mrpsl-input justify-start text-left font-normal"
           >
