@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { format } from "date-fns";
 import {
   Info,
@@ -59,10 +59,40 @@ import {
   REJECT_DECLARATION,
   APPROVE_DECLARATION_BY_ICU,
   RETURN_DECLARATION_TO_OPS,
+  GET_DELCARED_BONUS_ALLOTMENTS,
+  PROCESS_BONUS_ISSUE_ALLOTMENT,
+  EXPORT_DELCARED_BONUS_ALLOTMENTS,
+  GENERATE_BONUS_REPORT,
 } from "@/actions/bonusIssuesAction";
+import { GET_USERS } from "@/actions/userAction";
 import { getUser } from "@/services/AuthServices";
 import { useUserDetails } from "@/hooks/useUserDetails";
 import { formatCustomDate, formatDateOnly } from "@/utils/helperFunctions";
+
+export interface BonusDeclaration {
+  id: string;
+  ref: string;
+  registerId: string;
+  registerName: string;
+  bonusName: string;
+  ratio: string;
+  roundingRule: string;
+  qualificationDate: string;
+  closureDate: string;
+  allotmentDate: string;
+  narrative: string;
+  status: string;
+  totalShareholders: number;
+  totalBonusShares: number;
+  totalFractionalRemainder: number;
+  icuApprovedBy: string;
+  icuApprovedAt: string;
+  authorizedBy?: string;
+  authorizedAt?: string;
+  authorizedReason?: string;
+  submittedByName?: string;
+  submittedAt?: string;
+}
 
 /* ─── constants & helpers ─── */
 
@@ -73,57 +103,6 @@ const BONUS_REPORT_TYPES = [
   "Shareholder Bonus Allotment List",
   "Summary of Bonus Shares Issued",
   "Exception and Rounding Report",
-];
-
-const MOCK_DECL = {
-  ref: "BONUS-20260429-001",
-  register: "ZENITHBANK",
-  bonusName: "2025 Bonus Issue 1-for-4",
-  ratio: "1 : 4",
-  qualDate: "22 Apr 2026",
-  closureDate: "25 Apr 2026",
-  allotDate: "30 Apr 2026",
-  rounding: "Round Down",
-  narrative:
-    "Annual bonus issue as approved by the board at the AGM held 15 March 2026.",
-  submittedBy: "Chukwuemeka Obi",
-  submittedAt: "29 Apr 2026, 09:14",
-};
-
-const MOCK_ALLOTMENT_QUEUE_BONUS = [
-  {
-    id: "sub-1",
-    ref: "BONUS-20260429-001",
-    register: "ZENITHBANK",
-    bonusName: "2025 Bonus Issue 1-for-4",
-    ratio: "1 : 4",
-    newShares: "4,500,000",
-    shareholders: 18240,
-    icuApprover: "Ngozi Adeyemi",
-    icuDate: "30 Apr 2026, 14:45",
-  },
-  {
-    id: "sub-2",
-    ref: "BONUS-20260427-002",
-    register: "DANGCEM",
-    bonusName: "2025 Bonus Issue 1-for-5",
-    ratio: "1 : 5",
-    newShares: "6,200,000",
-    shareholders: 24100,
-    icuApprover: "Ngozi Adeyemi",
-    icuDate: "28 Apr 2026, 11:20",
-  },
-  {
-    id: "sub-3",
-    ref: "BONUS-20260424-003",
-    register: "GTCOHOLD",
-    bonusName: "2025 Bonus Issue 1-for-3",
-    ratio: "1 : 3",
-    newShares: "8,100,000",
-    shareholders: 31500,
-    icuApprover: "Ngozi Adeyemi",
-    icuDate: "25 Apr 2026, 09:55",
-  },
 ];
 
 function getVisiblePages(current: number, total: number): (number | "…")[] {
@@ -212,48 +191,48 @@ function BonusTableHead() {
   );
 }
 
-function BonusTableRows({
-  rows,
-  startIdx,
-}: {
-  rows: {
-    holdings: number;
-    accountNumber: string;
-    firstName: string;
-    lastName: string;
-    id: string;
-  }[];
-  startIdx: number;
-}) {
-  return (
-    <>
-      {rows.map((s, i) => {
-        const bonus = Math.floor(s.holdings / 4);
-        const frac = s.holdings / 4 - bonus;
-        return (
-          <tr key={s.id} className="mrpsl-table-row font-mono text-[13px]">
-            <td className="px-4 py-2.5 text-muted-foreground">
-              {startIdx + i + 1}
-            </td>
-            <td className="px-4 py-2.5">{s.accountNumber}</td>
-            <td className="px-4 py-2.5 font-sans font-medium">
-              {s.firstName} {s.lastName}
-            </td>
-            <td className="px-4 py-2.5 text-right">
-              {s.holdings.toLocaleString()}
-            </td>
-            <td className="px-4 py-2.5 text-right text-green-600 font-bold">
-              {bonus.toLocaleString()}
-            </td>
-            <td className="px-4 py-2.5 text-right text-amber-600">
-              {frac.toFixed(4)}
-            </td>
-          </tr>
-        );
-      })}
-    </>
-  );
-}
+// function BonusTableRows({
+//   rows,
+//   startIdx,
+// }: {
+//   rows: {
+//     holdings: number;
+//     accountNumber: string;
+//     firstName: string;
+//     lastName: string;
+//     id: string;
+//   }[];
+//   startIdx: number;
+// }) {
+//   return (
+//     <>
+//       {rows.map((s, i) => {
+//         const bonus = Math.floor(s.holdings / 4);
+//         const frac = s.holdings / 4 - bonus;
+//         return (
+//           <tr key={s.id} className="mrpsl-table-row font-mono text-[13px]">
+//             <td className="px-4 py-2.5 text-muted-foreground">
+//               {startIdx + i + 1}
+//             </td>
+//             <td className="px-4 py-2.5">{s.accountNumber}</td>
+//             <td className="px-4 py-2.5 font-sans font-medium">
+//               {s.firstName} {s.lastName}
+//             </td>
+//             <td className="px-4 py-2.5 text-right">
+//               {s.holdings.toLocaleString()}
+//             </td>
+//             <td className="px-4 py-2.5 text-right text-green-600 font-bold">
+//               {bonus.toLocaleString()}
+//             </td>
+//             <td className="px-4 py-2.5 text-right text-amber-600">
+//               {frac.toFixed(4)}
+//             </td>
+//           </tr>
+//         );
+//       })}
+//     </>
+//   );
+// }
 
 function EntitlementTableRows({
   rows,
@@ -265,10 +244,23 @@ function EntitlementTableRows({
     unitsAtQualDate: number;
     bonusDue: number;
     fractionalRemainder: number;
+    shareholderName: string;
   }[];
   startIdx: number;
 }) {
   if (!rows) return null;
+  if (rows.length === 0) {
+    return (
+      <tr>
+        <td
+          colSpan={6}
+          className="px-4 py-10 text-center text-muted-foreground font-sans text-sm"
+        >
+          No records found
+        </td>
+      </tr>
+    );
+  }
   return (
     <>
       {rows.map((s, i) => (
@@ -276,16 +268,18 @@ function EntitlementTableRows({
           <td className="px-4 py-2.5 text-muted-foreground">
             {startIdx + i + 1}
           </td>
-          <td className="px-4 py-2.5">{s.accountNumber}</td>
-          <td className="px-4 py-2.5 font-sans font-medium">{s.name}</td>
+          <td className="px-4 py-2.5">{s?.accountNumber}</td>
+          <td className="px-4 py-2.5 font-sans font-medium">
+            {s?.name || s?.shareholderName}
+          </td>
           <td className="px-4 py-2.5 text-right">
-            {s.unitsAtQualDate?.toLocaleString()}
+            {s?.unitsAtQualDate?.toLocaleString()}
           </td>
           <td className="px-4 py-2.5 text-right text-green-600 font-bold">
-            {s.bonusDue?.toLocaleString()}
+            {s?.bonusDue?.toLocaleString()}
           </td>
           <td className="px-4 py-2.5 text-right text-amber-600">
-            {s.fractionalRemainder?.toFixed(4)}
+            {s?.fractionalRemainder?.toFixed(4)}
           </td>
         </tr>
       ))}
@@ -293,44 +287,44 @@ function EntitlementTableRows({
   );
 }
 
-function BonusTfoot({
-  rows,
-  total,
-}: {
-  rows: { holdings: number }[];
-  total: number;
-}) {
-  return (
-    <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-      <tr>
-        <td
-          colSpan={4}
-          className="px-4 py-2.5 text-right text-muted-foreground"
-        >
-          PAGE TOTALS ({total.toLocaleString()} total shareholders)
-        </td>
-        <td className="px-4 py-2.5 text-right text-green-600">
-          {rows
-            .reduce(
-              (a: number, s: { holdings: number }) =>
-                a + Math.floor(s.holdings / 4),
-              0,
-            )
-            .toLocaleString()}
-        </td>
-        <td className="px-4 py-2.5 text-right text-amber-600">
-          {rows
-            .reduce(
-              (a: number, s: { holdings: number }) =>
-                a + (s.holdings / 4 - Math.floor(s.holdings / 4)),
-              0,
-            )
-            .toFixed(4)}
-        </td>
-      </tr>
-    </tfoot>
-  );
-}
+// function BonusTfoot({
+//   rows,
+//   total,
+// }: {
+//   rows: { holdings: number }[];
+//   total: number;
+// }) {
+//   return (
+//     <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
+//       <tr>
+//         <td
+//           colSpan={4}
+//           className="px-4 py-2.5 text-right text-muted-foreground"
+//         >
+//           PAGE TOTALS ({total.toLocaleString()} total shareholders)
+//         </td>
+//         <td className="px-4 py-2.5 text-right text-green-600">
+//           {rows
+//             .reduce(
+//               (a: number, s: { holdings: number }) =>
+//                 a + Math.floor(s.holdings / 4),
+//               0,
+//             )
+//             .toLocaleString()}
+//         </td>
+//         <td className="px-4 py-2.5 text-right text-amber-600">
+//           {rows
+//             .reduce(
+//               (a: number, s: { holdings: number }) =>
+//                 a + (s.holdings / 4 - Math.floor(s.holdings / 4)),
+//               0,
+//             )
+//             .toFixed(4)}
+//         </td>
+//       </tr>
+//     </tfoot>
+//   );
+// }
 
 function EntitlementTfoot({
   rows,
@@ -499,6 +493,7 @@ export default function BonusIssuePage() {
   const [reportDateRange, setReportDateRange] = useState<DateRange | undefined>(
     undefined,
   );
+  const reportDateRangeRef = useRef<DateRange | undefined>(undefined);
   const [reportCalOpen, setReportCalOpen] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
   const [reportPage, setReportPage] = useState(1);
@@ -523,6 +518,12 @@ export default function BonusIssuePage() {
       declaration.status === "ICU_REJECTED",
   );
 
+  const icuApprovedList = declarationList?.filter(
+    (declaration: { status: string }) =>
+      declaration.status === "ICU_APPROVED" ||
+      declaration.status === "ALLOTTED",
+  );
+
   const currentReviewingId =
     activeTab === "auth" ? authReviewing : icuReviewing;
 
@@ -535,6 +536,10 @@ export default function BonusIssuePage() {
   );
 
   const activeReview = activeReviewData?.data;
+
+  const activeAllotment = allotReviewing
+    ? icuApprovedList?.find((r: { id: string }) => r.id === allotReviewing)
+    : activeReview;
 
   const {
     userName,
@@ -550,7 +555,8 @@ export default function BonusIssuePage() {
   });
 
   const entitlementList = entitlementData?.data?.entitlements?.content;
-  const entitlementTotal = entitlementData?.data?.entitlements?.totalElements || 0;
+  const entitlementTotal =
+    entitlementData?.data?.entitlements?.totalElements || 0;
 
   const { data: computeEntitlementData, isLoading: isComputeLoading } =
     useQuery({
@@ -562,6 +568,40 @@ export default function BonusIssuePage() {
 
   const computeEntitlementList =
     computeEntitlementData?.data?.entitlements?.content;
+
+  const { data: allotmentsData, isLoading: isAllotmentsLoading } = useQuery({
+    queryKey: ["bonus-allotments", allotReviewing],
+    queryFn: () => GET_DELCARED_BONUS_ALLOTMENTS(allotReviewing as string),
+    enabled: !!allotReviewing,
+  });
+
+  const allotmentsList = allotmentsData?.data?.entitlements?.content;
+  const allotmentsTotal =
+    allotmentsData?.data?.entitlements?.totalElements || 0;
+
+  const { data: allUsersData } = useQuery({
+    queryKey: ["users"],
+    queryFn: GET_USERS,
+  });
+
+  const getUserByIdFn = (userId?: string) => {
+    if (!userId) return { name: "-", role: "-" };
+    const user = allUsersData?.data?.find(
+      (u: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        roles: string[];
+      }) => u.id === userId,
+    );
+    if (!user) {
+      return { name: userId, role: "-" };
+    }
+    return {
+      name: `${user.firstName} ${user.lastName}`.trim(),
+      role: user.roles?.join(", ") || "-",
+    };
+  };
 
   const createDeclarationMutation = useMutation({
     mutationFn: CREATE_BONUS_ISSUE_DECLARATION,
@@ -811,6 +851,7 @@ export default function BonusIssuePage() {
       return;
     }
     const payload = {
+      declarationId: createdDeclarationId,
       createdBy: user?.email,
       registerId: selectedRegister,
       bonusName,
@@ -825,24 +866,167 @@ export default function BonusIssuePage() {
     createDeclarationMutation.mutate(payload);
   };
 
-  const handleProcessAllotment = () => {
-    toast.info("Processing allotment…");
-    setTimeout(() => {
+  const processAllotmentMutation = useMutation({
+    mutationFn: PROCESS_BONUS_ISSUE_ALLOTMENT,
+    onSuccess: () => {
+      toast.success("Allotment processed successfully.");
+      queryClient.invalidateQueries({
+        queryKey: ["bonus-declarations"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["bonus-allotments", allotReviewing],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["bonus-declaration", activeReview?.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["bonus-entitlements", activeReview?.id],
+      });
       setAllotmentProcessed(true);
       setAllotPage(1);
       toast.success(
         "Allotment processed. Certificates and CSCS entries created.",
       );
-    }, 1000);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const exportAllotmentsMutation = useMutation({
+    mutationFn: EXPORT_DELCARED_BONUS_ALLOTMENTS,
+    onSuccess: (data) => {
+      const fileData = data?.data || data;
+      if (typeof fileData === "string") {
+        const linkSource = fileData.startsWith("data:")
+          ? fileData
+          : `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${fileData}`;
+        const downloadLink = document.createElement("a");
+        downloadLink.href = linkSource;
+        downloadLink.download = `allotment-report-${allotReviewing || "export"}.xlsx`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        toast.success("Excel report exported successfully.");
+      } else {
+        toast.error("Export returned invalid data format.");
+      }
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to export Excel report.");
+    },
+  });
+
+  const reportPath =
+    selectedReport === "Shareholder Bonus Allotment List"
+      ? "shareholder-bonus-allotment-list"
+      : selectedReport === "Summary of Bonus Shares Issued"
+        ? "summary-of-bonus-shares-issued"
+        : selectedReport === "Exception and Rounding Report"
+          ? "exception-and-rounding-report"
+          : "bonus-entitlement-register";
+
+  const reportDateFrom = reportDateRange?.from
+    ? reportDateRange.from.toISOString().split("T")[0]
+    : undefined;
+  const reportDateTo = reportDateRange?.to
+    ? reportDateRange.to.toISOString().split("T")[0]
+    : undefined;
+
+  const {
+    data: fetchedReportResponse,
+    isLoading: isReportLoading,
+    refetch: refetchReport,
+  } = useQuery({
+    queryKey: [
+      "bonusReport",
+      reportPath,
+      reportRegister,
+      reportDateFrom,
+      reportDateTo,
+    ],
+    queryFn: () =>
+      GENERATE_BONUS_REPORT(reportPath, {
+        registerId: reportRegister === "all" ? undefined : reportRegister,
+        dateFrom: reportDateFrom,
+        dateTo: reportDateTo,
+      }),
+    enabled: false,
+  });
+
+  const fetchedReportData = fetchedReportResponse?.data;
+
+  const fetchedReportList = (() => {
+    if (!fetchedReportData) return [];
+    if (reportPath === "summary-of-bonus-shares-issued") {
+      return fetchedReportData.brokerSummary || [];
+    }
+    if (reportPath === "bonus-entitlement-register") {
+      return (
+        fetchedReportData.entitlements?.content ||
+        fetchedReportData.entitlements ||
+        []
+      );
+    }
+    if (reportPath === "exception-and-rounding-report") {
+      return fetchedReportData.exceptions || [];
+    }
+    if (reportPath === "shareholder-bonus-allotment-list") {
+      return (
+        fetchedReportData.allotments?.content ||
+        fetchedReportData.allotments ||
+        []
+      );
+    }
+    return [];
+  })();
+
+  const fetchedReportTotal = (() => {
+    if (!fetchedReportData) return 0;
+    if (reportPath === "summary-of-bonus-shares-issued") {
+      return fetchedReportData.total || fetchedReportList.length;
+    }
+    if (reportPath === "bonus-entitlement-register") {
+      return (
+        fetchedReportData.entitlements?.totalElements ||
+        fetchedReportData.total ||
+        fetchedReportList.length
+      );
+    }
+    if (reportPath === "exception-and-rounding-report") {
+      return fetchedReportData.total || fetchedReportList.length;
+    }
+    if (reportPath === "shareholder-bonus-allotment-list") {
+      return (
+        fetchedReportData.allotments?.totalElements ||
+        fetchedReportData.total ||
+        fetchedReportList.length
+      );
+    }
+    return 0;
+  })();
+
+  const handleRunReport = async () => {
+    const loadingToast = toast.loading("Generating report...");
+    try {
+      const result = await refetchReport();
+      toast.dismiss(loadingToast);
+      if (result.error) {
+        toast.error(result.error?.message || "Failed to generate report");
+        return;
+      }
+      setReportGenerated(true);
+      setReportPage(1);
+      toast.success(`${selectedReport} generated.`);
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      toast.error(
+        (err as { message: string })?.message || "Failed to generate report",
+      );
+    }
   };
 
-  const handleRunReport = () => {
-    setReportGenerated(true);
-    setReportPage(1);
-    toast.success(`${selectedReport} generated.`);
-  };
-
-  const handleEditDeclaration = (decl: any) => {
+  const handleEditDeclaration = (decl: BonusDeclaration) => {
     const matchingRegister = registerList?.find(
       (r: { registerName: string; registerId: string }) =>
         r.registerName === decl.registerName,
@@ -881,26 +1065,13 @@ export default function BonusIssuePage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /* pagination slices */
-  // const authStart = (authPage - 1) * PAGE_SIZE;
-  // const authRows = shareholders.slice(authStart, authStart + PAGE_SIZE);
-  // const icuStart = (icuPage - 1) * PAGE_SIZE;
-  // const icuRows = shareholders.slice(icuStart, icuStart + PAGE_SIZE);
-  const allotStart = (allotPage - 1) * PAGE_SIZE;
-  const allotRows = shareholders.slice(allotStart, allotStart + PAGE_SIZE);
   const reportStart = (reportPage - 1) * PAGE_SIZE;
 
-  const exceptionShareholders = shareholders.filter(
-    (s) => s.holdings / 4 !== Math.floor(s.holdings / 4),
+  const reportRows = fetchedReportList.slice(
+    reportStart,
+    reportStart + PAGE_SIZE,
   );
-  const reportRows =
-    selectedReport === "Exception and Rounding Report"
-      ? exceptionShareholders.slice(reportStart, reportStart + PAGE_SIZE)
-      : shareholders.slice(reportStart, reportStart + PAGE_SIZE);
-  const reportTotal =
-    selectedReport === "Exception and Rounding Report"
-      ? exceptionShareholders.length
-      : shareholders.length;
+  const reportTotal = fetchedReportTotal;
 
   /* date range label helper */
   const reportDateLabel = reportDateRange?.from
@@ -936,7 +1107,7 @@ export default function BonusIssuePage() {
             <TabsTrigger
               key={v}
               value={v}
-              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              className="rounded-lg cursor-pointer px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
             >
               {label}
             </TabsTrigger>
@@ -948,40 +1119,34 @@ export default function BonusIssuePage() {
           <TabsContent value="declaration" className="space-y-6">
             {rejectedList?.length > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
-                {rejectedList?.map(
-                  (declaration: {
-                    id: string;
-                    ref: string;
-                    rejectionReason: string;
-                  }) => (
-                    <Card
-                      onClick={() => handleEditDeclaration(declaration)}
-                      key={declaration.id}
-                      className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer"
-                    >
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-red-800">
-                            Declaration Rejected — Ref: {declaration.ref}
-                          </p>
-                          <p className="text-[13px] text-red-700 mt-0.5">
-                            Authorizer comment:{" "}
-                            {declaration.rejectionReason ||
-                              "No comment provided."}
-                          </p>
-                          <p className="text-[13px] text-muted-foreground mt-1">
-                            Please review the declaration and resubmit for
-                            approval.
-                          </p>
-                        </div>
-                        <button className="rounded-full hover:bg-red-100 p-0.5">
-                          <X className="h-3.5 w-3.5 text-red-600" />
-                        </button>
+                {rejectedList?.map((declaration: BonusDeclaration) => (
+                  <Card
+                    onClick={() => handleEditDeclaration(declaration)}
+                    key={declaration.id}
+                    className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-red-800">
+                          Declaration Rejected — Ref: {declaration?.ref}
+                        </p>
+                        <p className="text-[13px] text-red-700 mt-0.5">
+                          Authorizer comment:{" "}
+                          {declaration?.authorizedReason ||
+                            "No comment provided."}
+                        </p>
+                        <p className="text-[13px] text-muted-foreground mt-1">
+                          Please review the declaration and resubmit for
+                          approval.
+                        </p>
                       </div>
-                    </Card>
-                  ),
-                )}
+                      <button className="rounded-full hover:bg-red-100 p-0.5">
+                        <X className="h-3.5 w-3.5 text-red-600" />
+                      </button>
+                    </div>
+                  </Card>
+                ))}
               </div>
             )}
             <div className="grid grid-cols-3 gap-6">
@@ -1256,7 +1421,7 @@ export default function BonusIssuePage() {
                           (d: { status: string }) =>
                             d.status === "DRAFT" || d.status === "PENDING_AUTH",
                         )
-                        .map((declaration: any) => (
+                        .map((declaration: BonusDeclaration) => (
                           <tr key={declaration?.id} className="mrpsl-table-row">
                             <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                               {declaration?.ref}
@@ -1287,7 +1452,7 @@ export default function BonusIssuePage() {
                                 {declaration?.submittedByName}
                               </div>
                               <div className="text-[13px] text-muted-foreground">
-                                {declaration?.submittedAt}
+                                {formatCustomDate(declaration?.submittedAt)}
                               </div>
                             </td>
                             <td className="px-4 py-3">
@@ -1505,8 +1670,10 @@ export default function BonusIssuePage() {
                   </thead>
                   <tbody className="divide-y">
                     {declarationList
-                      ?.filter((d: any) => d.status === "PENDING_ICU")
-                      .map((declaration: any, i: number) => (
+                      ?.filter(
+                        (d: { status: string }) => d.status === "PENDING_ICU",
+                      )
+                      .map((declaration: BonusDeclaration, i: number) => (
                         <tr key={i} className="mrpsl-table-row">
                           <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                             {declaration?.ref}
@@ -1537,7 +1704,7 @@ export default function BonusIssuePage() {
                               {declaration?.submittedByName}
                             </div>
                             <div className="text-[13px] text-muted-foreground">
-                              {declaration?.submittedAt}
+                              {formatCustomDate(declaration?.submittedAt)}
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -1633,8 +1800,7 @@ export default function BonusIssuePage() {
                     <div>
                       <div className="mrpsl-section-title">Comment</div>
                       <div className="text-muted-foreground mt-0.5 italic">
-                        &quot;Computation verified against register snapshot.
-                        Approved for ICU.&quot;
+                        {activeReview?.authorizedReason || "_"}
                       </div>
                     </div>
                   </div>
@@ -1740,216 +1906,6 @@ export default function BonusIssuePage() {
             )}
           </TabsContent>
 
-          {/* ── Allotment ── */}
-          {/* <TabsContent value="allotment" className="space-y-6">
-            <Card className="mrpsl-card p-4 bg-muted/20 border-l-4 border-l-primary">
-              <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
-                ICU Approval Record
-              </p>
-              <div className="grid grid-cols-4 gap-x-8 gap-y-2 text-sm">
-                <div>
-                  <div className="mrpsl-section-title">Declaration Ref</div>
-                  <div className="font-mono text-[13px] mt-0.5">
-                    {MOCK_DECL.ref}
-                  </div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">Register</div>
-                  <div className="font-semibold mt-0.5">
-                    {MOCK_DECL.register}
-                  </div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">Bonus Ratio</div>
-                  <div className="font-mono mt-0.5">{MOCK_DECL.ratio}</div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">Allotment Date</div>
-                  <div className="font-mono mt-0.5">{MOCK_DECL.allotDate}</div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">ICU Approved By</div>
-                  <div className="font-medium mt-0.5">Ngozi Adeyemi</div>
-                </div>
-                <div>
-                  <div className="mrpsl-section-title">ICU Approval Date</div>
-                  <div className="font-mono mt-0.5">01 May 2026, 14:45</div>
-                </div>
-                <div className="col-span-2">
-                  <div className="mrpsl-section-title">Status</div>
-                  <div className="mt-0.5">
-                    <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
-                      Cleared for Allotment
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <DeclDetailCard decl={activeReview} />
-
-            {!allotmentProcessed ? (
-              <>
-                <div className="grid grid-cols-4 gap-4">
-                  <Card className="mrpsl-card p-4">
-                    <div className="mrpsl-section-title">
-                      Eligible Shareholders
-                    </div>
-                    <div className="text-2xl font-bold font-mono mt-1">
-                      {shareholders.length.toLocaleString()}
-                    </div>
-                  </Card>
-                  <Card className="mrpsl-card p-4">
-                    <div className="mrpsl-section-title">Total New Shares</div>
-                    <div className="text-2xl font-bold font-mono mt-1 text-green-600">
-                      4,500,000
-                    </div>
-                  </Card>
-                  <Card className="mrpsl-card p-4">
-                    <div className="mrpsl-section-title">
-                      Certificated Holders
-                    </div>
-                    <div className="text-2xl font-bold font-mono mt-1 text-blue-600">
-                      {Math.ceil(shareholders.length * 0.35).toLocaleString()}
-                    </div>
-                  </Card>
-                  <Card className="mrpsl-card p-4">
-                    <div className="mrpsl-section-title">Electronic (CSCS)</div>
-                    <div className="text-2xl font-bold font-mono mt-1 text-purple-600">
-                      {Math.floor(shareholders.length * 0.65).toLocaleString()}
-                    </div>
-                  </Card>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      toast.info("Downloading pre-allotment report…")
-                    }
-                  >
-                    <Download className="mr-2 h-4 w-4" /> Preview Report
-                  </Button>
-                  <Button size="lg" onClick={handleProcessAllotment}>
-                    Process Allotment
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-4 gap-4">
-                  <Card className="mrpsl-card p-4 border-t-4 border-t-green-500">
-                    <div className="mrpsl-section-title">
-                      Shareholders Allotted
-                    </div>
-                    <div className="text-2xl font-bold font-mono mt-1 text-green-600">
-                      {shareholders.length.toLocaleString()}
-                    </div>
-                  </Card>
-                  <Card className="mrpsl-card p-4 border-t-4 border-t-blue-500">
-                    <div className="mrpsl-section-title">New Shares Issued</div>
-                    <div className="text-2xl font-bold font-mono mt-1 text-blue-600">
-                      4,500,000
-                    </div>
-                  </Card>
-                  <Card className="mrpsl-card p-4 border-t-4 border-t-purple-500">
-                    <div className="mrpsl-section-title">
-                      Previous Stock in Issue
-                    </div>
-                    <div className="text-2xl font-bold font-mono mt-1 text-purple-600">
-                      18,000,000
-                    </div>
-                  </Card>
-                  <Card className="mrpsl-card p-4 border-t-4 border-t-amber-500">
-                    <div className="mrpsl-section-title">
-                      New Stock in Issue
-                    </div>
-                    <div className="text-2xl font-bold font-mono mt-1 text-amber-600">
-                      22,500,000
-                    </div>
-                  </Card>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <Card className="mrpsl-card p-4">
-                    <div className="mrpsl-section-title">
-                      Paper Certificates Created
-                    </div>
-                    <div className="text-2xl font-bold font-mono mt-1">
-                      {Math.ceil(shareholders.length * 0.35).toLocaleString()}
-                    </div>
-                  </Card>
-                  <Card className="mrpsl-card p-4">
-                    <div className="mrpsl-section-title">
-                      CSCS Entries Updated
-                    </div>
-                    <div className="text-2xl font-bold font-mono mt-1">
-                      {Math.floor(shareholders.length * 0.65).toLocaleString()}
-                    </div>
-                  </Card>
-                  <Card className="mrpsl-card p-4">
-                    <div className="mrpsl-section-title">
-                      Fractional Shares Rounded
-                    </div>
-                    <div className="text-2xl font-bold font-mono mt-1 text-amber-600">
-                      {exceptionShareholders.length.toLocaleString()}
-                    </div>
-                  </Card>
-                </div>
-
-                <Card className="mrpsl-card overflow-hidden">
-                  <div className="px-4 py-3 border-b bg-muted/10 flex items-center gap-3">
-                    <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground flex-1">
-                      Allotment List
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toast.info("Downloading allotment list…")}
-                    >
-                      <Download className="mr-1.5 h-3.5 w-3.5" /> Excel
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toast.info("Printing…")}
-                    >
-                      <Printer className="mr-1.5 h-3.5 w-3.5" /> Print
-                    </Button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-[13px]">
-                      <BonusTableHead />
-                      <tbody className="divide-y">
-                        <BonusTableRows
-                          rows={allotRows}
-                          startIdx={allotStart}
-                        />
-                      </tbody>
-                      <BonusTfoot
-                        rows={allotRows}
-                        total={shareholders.length}
-                      />
-                    </table>
-                  </div>
-                  <PaginationBar
-                    page={allotPage}
-                    total={shareholders.length}
-                    onPageChange={setAllotPage}
-                  />
-                </Card>
-
-                <div className="flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => setEmailPreviewOpen(true)}
-                  >
-                    <Mail className="mr-2 h-4 w-4" /> Email Shareholders
-                  </Button>
-                </div>
-              </>
-            )}
-          </TabsContent> */}
           <TabsContent value="allotment" className="space-y-4">
             {allotReviewing === null ? (
               /* Queue table */
@@ -1971,49 +1927,61 @@ export default function BonusIssuePage() {
                       <th className="px-4 py-3">ICU APPROVER</th>
                       <th className="px-4 py-3">ICU DATE</th>
                       <th className="px-4 py-3">STATUS</th>
+                      <th className="px-4 py-3 text-center">ACTION</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {MOCK_ALLOTMENT_QUEUE_BONUS.map((row) => (
+                    {icuApprovedList?.map((declaration: BonusDeclaration) => (
                       <tr
-                        key={row.id}
-                        onClick={() => setAllotReviewing(row.id)}
-                        className="mrpsl-table-row cursor-pointer hover:bg-muted/40 transition-colors"
+                        key={declaration?.id}
+                        className="mrpsl-table-row hover:bg-muted/40 transition-colors"
                       >
                         <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                          {row.ref}
+                          {declaration?.ref}
                         </td>
                         <td className="px-4 py-3 font-semibold">
-                          {row.register}
+                          {declaration?.registerName}
                         </td>
                         <td className="px-4 py-3 text-[13px]">
-                          {row.bonusName}
+                          {declaration?.bonusName}
                         </td>
                         <td className="px-4 py-3 font-mono text-center">
-                          {row.ratio}
+                          {declaration?.ratio}
                         </td>
                         <td className="px-4 py-3 text-right font-mono">
-                          {row.shareholders.toLocaleString()}
+                          {declaration?.totalShareholders}
                         </td>
                         <td className="px-4 py-3 text-right font-mono font-semibold text-green-700">
-                          {row.newShares}
+                          {declaration?.totalBonusShares}
                         </td>
                         <td className="px-4 py-3 text-[13px]">
-                          {row.icuApprover}
+                          {getUserByIdFn(declaration?.icuApprovedBy)?.name}
                         </td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                          {row.icuDate}
+                          {formatDateOnly(
+                            declaration?.icuApprovedAt?.split("T")[0],
+                          )}
                         </td>
                         <td className="px-4 py-3">
-                          {allotmentProcessedMap[row.id] ? (
-                            <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
-                              Allotted
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                          {declaration?.status === "ICU_APPROVED" ? (
+                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px] uppercase">
                               Pending Allotment
                             </Badge>
+                          ) : (
+                            <Badge className="bg-green-100 text-green-800 border-0 text-[13px] uppercase">
+                              Allotted
+                            </Badge>
                           )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs font-semibold cursor-pointer"
+                            onClick={() => setAllotReviewing(declaration?.id)}
+                          >
+                            View Allotment
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -2022,10 +1990,14 @@ export default function BonusIssuePage() {
               </Card>
             ) : (
               (() => {
-                const row = MOCK_ALLOTMENT_QUEUE_BONUS.find(
-                  (r) => r.id === allotReviewing,
-                )!;
-                const isDone = allotmentProcessedMap[row.id] ?? false;
+                const row = icuApprovedList?.find(
+                  (r: { id: string; status: string }) =>
+                    r.id === allotReviewing,
+                );
+                const isDone = row
+                  ? row.status !== "ICU_APPROVED" ||
+                    (allotmentProcessedMap[row.id] ?? false)
+                  : false;
                 return (
                   <div className="space-y-4">
                     {/* Back + breadcrumb */}
@@ -2041,18 +2013,18 @@ export default function BonusIssuePage() {
                       </Button>
                       <div className="h-5 w-px bg-border mx-1" />
                       <span className="font-mono text-sm font-semibold">
-                        {row.ref}
+                        {row?.ref}
                       </span>
                       <span className="text-muted-foreground text-sm">
-                        · {row.register} · {row.bonusName}
+                        · {row?.registerName} · {row?.bonusName}
                       </span>
-                      {isDone ? (
-                        <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
-                          Allotted
-                        </Badge>
-                      ) : (
+                      {row?.status === "ICU_APPROVED" ? (
                         <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
                           Pending Allotment
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
+                          Allotted
                         </Badge>
                       )}
                     </div>
@@ -2066,41 +2038,43 @@ export default function BonusIssuePage() {
                         <div>
                           <div className="mrpsl-section-title">Register</div>
                           <div className="font-semibold mt-0.5">
-                            {row.register}
+                            {row?.registerName}
                           </div>
                         </div>
                         <div>
                           <div className="mrpsl-section-title">Bonus Name</div>
-                          <div className="mt-0.5">{row.bonusName}</div>
+                          <div className="mt-0.5">{row?.bonusName}</div>
                         </div>
                         <div>
                           <div className="mrpsl-section-title">Ratio</div>
-                          <div className="font-mono mt-0.5">{row.ratio}</div>
+                          <div className="font-mono mt-0.5">{row?.ratio}</div>
                         </div>
                         <div>
                           <div className="mrpsl-section-title">
                             ICU Approver
                           </div>
                           <div className="font-semibold mt-0.5">
-                            {row.icuApprover}
+                            {getUserByIdFn(row?.icuApprovedBy)?.name}
                           </div>
                         </div>
                         <div>
                           <div className="mrpsl-section-title">ICU Date</div>
-                          <div className="font-mono mt-0.5">{row.icuDate}</div>
+                          <div className="font-mono mt-0.5">
+                            {formatDateOnly(row?.icuApprovedAt?.split("T")[0])}
+                          </div>
                         </div>
                         <div>
                           <div className="mrpsl-section-title">
                             Eligible SHs
                           </div>
                           <div className="font-mono font-semibold mt-0.5">
-                            {row.shareholders.toLocaleString()}
+                            {row?.totalShareholders?.toLocaleString() || "0"}
                           </div>
                         </div>
                         <div>
                           <div className="mrpsl-section-title">New Shares</div>
                           <div className="font-mono font-semibold mt-0.5 text-green-700">
-                            {row.newShares}
+                            {row?.totalBonusShares?.toLocaleString() || "0"}
                           </div>
                         </div>
                       </div>
@@ -2114,7 +2088,7 @@ export default function BonusIssuePage() {
                               Eligible Shareholders
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1">
-                              {row.shareholders.toLocaleString()}
+                              {row?.totalShareholders?.toLocaleString() || "0"}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4">
@@ -2122,7 +2096,7 @@ export default function BonusIssuePage() {
                               Total New Shares
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-green-600">
-                              {row.newShares}
+                              {row?.totalBonusShares?.toLocaleString() || "0"}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4">
@@ -2131,7 +2105,7 @@ export default function BonusIssuePage() {
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-blue-600">
                               {Math.ceil(
-                                shareholders.length * 0.35,
+                                (row?.totalShareholders || 0) * 0.35,
                               ).toLocaleString()}
                             </div>
                           </Card>
@@ -2141,7 +2115,7 @@ export default function BonusIssuePage() {
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-purple-600">
                               {Math.floor(
-                                shareholders.length * 0.65,
+                                (row?.totalShareholders || 0) * 0.65,
                               ).toLocaleString()}
                             </div>
                           </Card>
@@ -2157,21 +2131,31 @@ export default function BonusIssuePage() {
                           </Button>
                           <Button
                             size="lg"
+                            disabled={processAllotmentMutation.isPending}
                             onClick={() => {
+                              if (!row?.id) return;
                               toast.info("Processing allotment…");
-                              setTimeout(() => {
-                                setAllotmentProcessedMap((p) => ({
-                                  ...p,
-                                  [row.id]: true,
-                                }));
-                                setAllotPage(1);
-                                toast.success(
-                                  "Allotment processed. Certificates and CSCS entries created.",
-                                );
-                              }, 1000);
+                              processAllotmentMutation.mutate(
+                                { declarationId: row.id },
+                                {
+                                  onSuccess: () => {
+                                    setAllotmentProcessedMap((p) => ({
+                                      ...p,
+                                      [row.id]: true,
+                                    }));
+                                  },
+                                },
+                              );
                             }}
                           >
-                            Process Allotment
+                            {processAllotmentMutation.isPending ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              "Process Allotment"
+                            )}
                           </Button>
                         </div>
                       </>
@@ -2183,7 +2167,9 @@ export default function BonusIssuePage() {
                               Shareholders Allotted
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-green-600">
-                              {row.shareholders.toLocaleString()}
+                              {allotmentsData?.data?.totalShareholders?.toLocaleString() ??
+                                row?.totalShareholders?.toLocaleString() ??
+                                "0"}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4 border-t-4 border-t-blue-500">
@@ -2191,7 +2177,9 @@ export default function BonusIssuePage() {
                               New Shares Issued
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-blue-600">
-                              {row.newShares}
+                              {allotmentsData?.data?.totalBonusShares?.toLocaleString() ??
+                                row?.totalBonusShares?.toLocaleString() ??
+                                "0"}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4 border-t-4 border-t-purple-500">
@@ -2217,9 +2205,10 @@ export default function BonusIssuePage() {
                               Paper Certificates Created
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1">
-                              {Math.ceil(
-                                shareholders.length * 0.35,
-                              ).toLocaleString()}
+                              {allotmentsData?.data?.totalPaperSharesCreated?.toLocaleString() ??
+                                Math.ceil(
+                                  (row?.totalShareholders || 0) * 0.35,
+                                ).toLocaleString()}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4">
@@ -2227,9 +2216,10 @@ export default function BonusIssuePage() {
                               CSCS Entries Updated
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1">
-                              {Math.floor(
-                                shareholders.length * 0.65,
-                              ).toLocaleString()}
+                              {allotmentsData?.data?.totalCscShares?.toLocaleString() ??
+                                Math.floor(
+                                  (row?.totalShareholders || 0) * 0.65,
+                                ).toLocaleString()}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4">
@@ -2237,7 +2227,8 @@ export default function BonusIssuePage() {
                               Fractional Shares Rounded
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-amber-600">
-                              {exceptionShareholders.length.toLocaleString()}
+                              {allotmentsData?.data?.totalFractionalSharesRounded?.toLocaleString() ??
+                                "0"}
                             </div>
                           </Card>
                         </div>
@@ -2249,9 +2240,29 @@ export default function BonusIssuePage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => toast.info("Downloading…")}
+                              disabled={exportAllotmentsMutation.isPending}
+                              onClick={() => {
+                                if (!row?.id) {
+                                  toast.error(
+                                    "No active allotment declaration selected.",
+                                  );
+                                  return;
+                                }
+                                toast.info("Exporting Excel report…");
+                                exportAllotmentsMutation.mutate(row.id);
+                              }}
                             >
-                              <Download className="mr-1.5 h-3.5 w-3.5" /> Excel
+                              {exportAllotmentsMutation.isPending ? (
+                                <>
+                                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                  Exporting...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="mr-1.5 h-3.5 w-3.5" />{" "}
+                                  Excel
+                                </>
+                              )}
                             </Button>
                             <Button
                               variant="outline"
@@ -2265,20 +2276,31 @@ export default function BonusIssuePage() {
                             <table className="w-full text-left text-[13px]">
                               <BonusTableHead />
                               <tbody className="divide-y">
-                                <BonusTableRows
-                                  rows={allotRows}
-                                  startIdx={allotStart}
-                                />
+                                {isAllotmentsLoading ? (
+                                  <tr>
+                                    <td
+                                      colSpan={6}
+                                      className="py-10 text-center"
+                                    >
+                                      <Loader2 className="h-6 w-6 animate-spin mx-auto opacity-50" />
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  <EntitlementTableRows
+                                    rows={allotmentsList}
+                                    startIdx={0}
+                                  />
+                                )}
                               </tbody>
-                              <BonusTfoot
-                                rows={allotRows}
-                                total={shareholders.length}
+                              <EntitlementTfoot
+                                rows={allotmentsList}
+                                total={allotmentsTotal}
                               />
                             </table>
                           </div>
                           <PaginationBar
                             page={allotPage}
-                            total={shareholders.length}
+                            total={allotmentsTotal}
                             onPageChange={setAllotPage}
                           />
                         </Card>
@@ -2316,7 +2338,7 @@ export default function BonusIssuePage() {
                       setReportGenerated(false);
                     }}
                     className={cn(
-                      "px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                      "px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors",
                       selectedReport === r
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -2356,9 +2378,17 @@ export default function BonusIssuePage() {
                 </Select>
                 <Popover
                   open={reportCalOpen}
-                  onOpenChange={(v) => {
-                    if (!v && reportDateRange?.from && !reportDateRange?.to)
+                  onOpenChange={(v, eventDetails) => {
+                    if (!v) {
+                      if (
+                        eventDetails.reason === "outside-press" ||
+                        eventDetails.reason === "escape-key" ||
+                        eventDetails.reason === "trigger-press"
+                      ) {
+                        setReportCalOpen(false);
+                      }
                       return;
+                    }
                     setReportCalOpen(v);
                   }}
                 >
@@ -2379,6 +2409,7 @@ export default function BonusIssuePage() {
                           role="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            reportDateRangeRef.current = undefined;
                             setReportDateRange(undefined);
                           }}
                           className="ml-auto rounded-full hover:bg-muted p-0.5"
@@ -2393,6 +2424,7 @@ export default function BonusIssuePage() {
                       mode="range"
                       selected={reportDateRange}
                       onSelect={(r) => {
+                        reportDateRangeRef.current = r;
                         setReportDateRange(r);
                         if (r?.from && r?.to) setReportCalOpen(false);
                       }}
@@ -2410,265 +2442,323 @@ export default function BonusIssuePage() {
               </div>
             </Card>
 
-            {reportGenerated && (
-              <div className="space-y-4 animate-in fade-in">
-                {/* Export bar */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground font-medium">
-                    {selectedReport} — {reportTotal.toLocaleString()} records
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toast.info("Downloading Excel...")}
-                    >
-                      <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toast.info("Generating PDF...")}
-                    >
-                      <Download className="mr-1.5 h-4 w-4" /> PDF
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toast.info("Sending to printer...")}
-                    >
-                      <Printer className="mr-1.5 h-4 w-4" /> Print
-                    </Button>
+            {isReportLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-background border rounded-2xl border-dashed">
+                <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                <span className="text-sm font-semibold text-muted-foreground mt-3">
+                  Retrieving {selectedReport} data...
+                </span>
+              </div>
+            ) : (
+              <>
+                {!reportGenerated && (
+                  <div className="flex flex-col items-center justify-center py-20 bg-background border rounded-2xl border-dashed text-muted-foreground text-center animate-in fade-in">
+                    <CalendarRange className="h-10 w-10 text-muted-foreground/35 mb-3" />
+                    <h3 className="font-semibold text-sm text-foreground">
+                      Ready to generate
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
+                      Configure your parameters above and click &quot;Generate
+                      Report&quot; to view results.
+                    </p>
                   </div>
-                </div>
+                )}
+                {reportGenerated && (
+                  <div className="space-y-4 animate-in fade-in">
+                    {/* Export bar */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground font-medium">
+                        {selectedReport} — {fetchedReportList?.length} records
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toast.info("Downloading Excel...")}
+                        >
+                          <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toast.info("Generating PDF...")}
+                        >
+                          <Download className="mr-1.5 h-4 w-4" /> PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toast.info("Sending to printer...")}
+                        >
+                          <Printer className="mr-1.5 h-4 w-4" /> Print
+                        </Button>
+                      </div>
+                    </div>
 
-                {selectedReport === "Summary of Bonus Shares Issued" ? (
-                  /* Summary table — grouped by broker/category */
-                  <Card className="mrpsl-card overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
-                        <thead className="mrpsl-table-header">
-                          <tr>
-                            <th className="px-4 py-3">STOCKBROKER</th>
-                            <th className="px-4 py-3 text-right">
-                              ELIGIBLE SHs
-                            </th>
-                            <th className="px-4 py-3 text-right">
-                              UNITS AT QUAL DATE
-                            </th>
-                            <th className="px-4 py-3 text-right">
-                              BONUS SHARES ISSUED
-                            </th>
-                            <th className="px-4 py-3 text-right">
-                              FRACTIONAL UNITS
-                            </th>
-                            <th className="px-4 py-3 text-right">
-                              % OF TOTAL NEW SHARES
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y text-[13px] font-mono">
-                          {[
-                            "Meristem Securities",
-                            "Zenith Securities",
-                            "ARM Securities",
-                            "CardinalStone",
-                            "Stanbic IBTC",
-                            "Afrinvest",
-                            "Vetiva Capital",
-                          ].map((name, i) => {
-                            const shs =
-                              Math.floor(shareholders.length / 7) +
-                              (i % 3) * 12;
-                            const units = shs * 4000;
-                            const bonus = Math.floor(units / 4);
-                            const frac = (units / 4 - bonus).toFixed(4);
-                            const pct = ((bonus / 4500000) * 100).toFixed(2);
-                            return (
-                              <tr key={name} className="mrpsl-table-row">
-                                <td className="px-4 py-2.5 font-sans font-medium">
-                                  {name}
+                    {selectedReport === "Summary of Bonus Shares Issued" ? (
+                      /* Summary table — grouped by broker/category */
+                      <Card className="mrpsl-card overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-sm">
+                            <thead className="mrpsl-table-header">
+                              <tr>
+                                <th className="px-4 py-3">STOCKBROKER</th>
+                                <th className="px-4 py-3 text-right">
+                                  ELIGIBLE SHs
+                                </th>
+                                <th className="px-4 py-3 text-right">
+                                  UNITS AT QUAL DATE
+                                </th>
+                                <th className="px-4 py-3 text-right">
+                                  BONUS SHARES ISSUED
+                                </th>
+                                <th className="px-4 py-3 text-right">
+                                  FRACTIONAL UNITS
+                                </th>
+                                <th className="px-4 py-3 text-right">
+                                  % OF TOTAL NEW SHARES
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y text-[13px] font-mono">
+                              {fetchedReportList?.map(
+                                (
+                                  list: {
+                                    stockbroker: string;
+                                    eligibleShareholders: number;
+                                    unitsAtQualDate: number;
+                                    bonusSharesIssued: number;
+                                    fractionalUnits: number;
+                                    percentageOfTotalNewShares: number;
+                                  },
+                                  i: number,
+                                ) => (
+                                  <tr key={i} className="mrpsl-table-row">
+                                    <td className="px-4 py-2.5 font-sans font-medium">
+                                      {list.stockbroker}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right">
+                                      {list.eligibleShareholders.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right">
+                                      {list.unitsAtQualDate.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-green-700 font-bold">
+                                      {list.bonusSharesIssued.toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-amber-600">
+                                      {list.fractionalUnits}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right">
+                                      {list.percentageOfTotalNewShares}%
+                                    </td>
+                                  </tr>
+                                ),
+                              )}
+                            </tbody>
+                            <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
+                              <tr>
+                                <td className="px-4 py-2.5 text-muted-foreground">
+                                  TOTALS
                                 </td>
                                 <td className="px-4 py-2.5 text-right">
-                                  {shs.toLocaleString()}
+                                  {fetchedReportData?.totalShareholders?.toLocaleString()}
                                 </td>
                                 <td className="px-4 py-2.5 text-right">
-                                  {units.toLocaleString()}
+                                  {fetchedReportData?.totalUnitsAtQualDate?.toLocaleString()}
                                 </td>
-                                <td className="px-4 py-2.5 text-right text-green-700 font-bold">
-                                  {bonus.toLocaleString()}
+                                <td className="px-4 py-2.5 text-right text-green-700">
+                                  {fetchedReportData?.totalBonusSharesIssued?.toLocaleString()}
                                 </td>
                                 <td className="px-4 py-2.5 text-right text-amber-600">
-                                  {frac}
+                                  {fetchedReportData?.totalFractionalUnits}
                                 </td>
                                 <td className="px-4 py-2.5 text-right">
-                                  {pct}%
+                                  {fetchedReportData?.percentageOfTotalNewShares ||
+                                    100.0}{" "}
+                                  %
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                        <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-                          <tr>
-                            <td className="px-4 py-2.5 text-muted-foreground">
-                              TOTALS
-                            </td>
-                            <td className="px-4 py-2.5 text-right">
-                              {shareholders.length.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-2.5 text-right">
-                              {(shareholders.length * 4000).toLocaleString()}
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-green-700">
-                              4,500,000
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-amber-600">
-                              301.2500
-                            </td>
-                            <td className="px-4 py-2.5 text-right">100.00%</td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  </Card>
-                ) : selectedReport === "Exception and Rounding Report" ? (
-                  /* Exception report — only shareholders with fractions */
-                  <Card className="mrpsl-card overflow-hidden">
-                    <div className="p-3 border-b bg-amber-50 text-[13px] font-semibold text-amber-800">
-                      Showing {exceptionShareholders.length.toLocaleString()}{" "}
-                      shareholders with fractional entitlements — fractions
-                      pooled to fractional account.
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-[13px]">
-                        <thead className="mrpsl-table-header">
-                          <tr>
-                            <th className="px-4 py-2.5">#</th>
-                            <th className="px-4 py-2.5">ACCOUNT NO</th>
-                            <th className="px-4 py-2.5">HOLDER NAME</th>
-                            <th className="px-4 py-2.5 text-right">
-                              UNITS AT QUAL DATE
-                            </th>
-                            <th className="px-4 py-2.5 text-right">
-                              EXACT ENTITLEMENT
-                            </th>
-                            <th className="px-4 py-2.5 text-right">
-                              BONUS ISSUED (ROUNDED)
-                            </th>
-                            <th className="px-4 py-2.5 text-right">
-                              FRACTION POOLED
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y font-mono">
-                          {reportRows.map(
-                            (
-                              s: {
-                                holdings: number;
-                                accountNumber: string;
-                                firstName: string;
-                                lastName: string;
-                                id: string;
-                              },
-                              i: number,
-                            ) => {
-                              const exact = s.holdings / 4;
-                              const rounded = Math.floor(exact);
-                              const frac = exact - rounded;
-                              return (
-                                <tr key={s.id} className="mrpsl-table-row">
-                                  <td className="px-4 py-2.5 text-muted-foreground">
-                                    {reportStart + i + 1}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    {s.accountNumber}
-                                  </td>
-                                  <td className="px-4 py-2.5 font-sans font-medium">
-                                    {s.firstName} {s.lastName}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-right">
-                                    {s.holdings.toLocaleString()}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-right">
-                                    {exact.toFixed(4)}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-right text-green-600 font-bold">
-                                    {rounded.toLocaleString()}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-right text-amber-600">
-                                    {frac.toFixed(4)}
+                            </tfoot>
+                          </table>
+                        </div>
+                      </Card>
+                    ) : selectedReport === "Exception and Rounding Report" ? (
+                      /* Exception report — only shareholders with fractions */
+                      <Card className="mrpsl-card overflow-hidden">
+                        <div className="p-3 border-b bg-amber-50 text-[13px] font-semibold text-amber-800">
+                          Showing {fetchedReportList?.length} shareholders with
+                          fractional entitlements — fractions pooled to
+                          fractional account.
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-[13px]">
+                            <thead className="mrpsl-table-header">
+                              <tr>
+                                <th className="px-4 py-2.5">#</th>
+                                <th className="px-4 py-2.5">ACCOUNT NO</th>
+                                <th className="px-4 py-2.5">HOLDER NAME</th>
+                                <th className="px-4 py-2.5 text-right">
+                                  UNITS AT QUAL DATE
+                                </th>
+                                <th className="px-4 py-2.5 text-right">
+                                  EXACT ENTITLEMENT
+                                </th>
+                                <th className="px-4 py-2.5 text-right">
+                                  BONUS ISSUED (ROUNDED)
+                                </th>
+                                <th className="px-4 py-2.5 text-right">
+                                  FRACTION POOLED
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y font-mono">
+                              {fetchedReportList?.length > 0 ? (
+                                reportRows.map(
+                                  (
+                                    s: {
+                                      unitsAtQualDate: number;
+                                      accountNumber: string;
+                                      accountHolderName: string;
+                                      bonusDue: number;
+                                      fractionalRemainder: number;
+                                      name: string;
+                                    },
+                                    i: number,
+                                  ) => {
+                                    const exact = s.unitsAtQualDate / 4;
+                                    return (
+                                      <tr key={i} className="mrpsl-table-row">
+                                        <td className="px-4 py-2.5 text-muted-foreground">
+                                          {reportStart + i + 1}
+                                        </td>
+                                        <td className="px-4 py-2.5">
+                                          {s.accountNumber}
+                                        </td>
+                                        <td className="px-4 py-2.5 font-sans font-medium">
+                                          {s.name}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right">
+                                          {s.unitsAtQualDate?.toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right">
+                                          {exact.toFixed(4)}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right text-green-600 font-bold">
+                                          {s.bonusDue?.toLocaleString()}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-right text-amber-600">
+                                          {s.fractionalRemainder?.toFixed(4)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  },
+                                )
+                              ) : (
+                                <tr>
+                                  <td
+                                    colSpan={7}
+                                    className="px-4 py-10 text-center text-muted-foreground"
+                                  >
+                                    No exception shareholders found
                                   </td>
                                 </tr>
-                              );
-                            },
-                          )}
-                        </tbody>
-                        <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="px-4 py-2.5 text-right text-muted-foreground"
-                            >
-                              TOTALS ({reportTotal.toLocaleString()} exception
-                              shareholders)
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-green-600">
-                              {reportRows
-                                .reduce(
-                                  (
-                                    a: number,
-                                    s: {
-                                      holdings: number;
-                                    },
-                                  ) => a + Math.floor(s.holdings / 4),
-                                  0,
-                                )
-                                .toLocaleString()}
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-amber-600">
-                              {reportRows
-                                .reduce(
-                                  (a: number, s: { holdings: number }) =>
-                                    a +
-                                    (s.holdings / 4 -
-                                      Math.floor(s.holdings / 4)),
-                                  0,
-                                )
-                                .toFixed(4)}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                    <PaginationBar
-                      page={reportPage}
-                      total={reportTotal}
-                      onPageChange={setReportPage}
-                    />
-                  </Card>
-                ) : (
-                  /* Bonus Entitlement Register & Shareholder Bonus Allotment List */
-                  <Card className="mrpsl-card overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-[13px]">
-                        <BonusTableHead />
-                        <tbody className="divide-y">
-                          <BonusTableRows
-                            rows={reportRows}
-                            startIdx={reportStart}
-                          />
-                        </tbody>
-                        <BonusTfoot rows={reportRows} total={reportTotal} />
-                      </table>
-                    </div>
-                    <PaginationBar
-                      page={reportPage}
-                      total={reportTotal}
-                      onPageChange={setReportPage}
-                    />
-                  </Card>
+                              )}
+                            </tbody>
+                            <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
+                              <tr>
+                                <td
+                                  colSpan={5}
+                                  className="px-4 py-2.5 text-right text-muted-foreground"
+                                >
+                                  TOTALS ({fetchedReportList?.length} exception
+                                  shareholders)
+                                </td>
+                                {/* <td className="px-4 py-2.5 text-right text-green-600">
+                                {fetchedReportList.length > 0
+                                  ? reportRows
+                                      .reduce(
+                                        (a: number, s: any) =>
+                                          a + (s.bonusDue || 0),
+                                        0,
+                                      )
+                                      .toLocaleString()
+                                  : reportRows
+                                      .reduce(
+                                        (
+                                          a: number,
+                                          s: {
+                                            holdings: number;
+                                          },
+                                        ) => a + Math.floor(s.holdings / 4),
+                                        0,
+                                      )
+                                      .toLocaleString()}
+                              </td> */}
+                                {/* <td className="px-4 py-2.5 text-right text-amber-600">
+                                {fetchedReportList.length > 0
+                                  ? reportRows
+                                      .reduce(
+                                        (a: number, s: any) =>
+                                          a + (s.fractionalRemainder || 0),
+                                        0,
+                                      )
+                                      .toFixed(4)
+                                  : reportRows
+                                      .reduce(
+                                        (
+                                          a: number,
+                                          s: {
+                                            holdings: number;
+                                          },
+                                        ) =>
+                                          a +
+                                          (s.holdings / 4 -
+                                            Math.floor(s.holdings / 4)),
+                                        0,
+                                      )
+                                      .toFixed(4)}
+                              </td> */}
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                        <PaginationBar
+                          page={reportPage}
+                          total={fetchedReportList.length}
+                          onPageChange={setReportPage}
+                        />
+                      </Card>
+                    ) : (
+                      /* Bonus Entitlement Register & Shareholder Bonus Allotment List */
+                      <Card className="mrpsl-card overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-[13px]">
+                            <BonusTableHead />
+                            <tbody className="divide-y">
+                              <EntitlementTableRows
+                                rows={reportRows}
+                                startIdx={reportStart}
+                              />
+                            </tbody>
+                            {reportRows.length > 0 && (
+                              <EntitlementTfoot
+                                rows={reportRows}
+                                total={reportTotal}
+                              />
+                            )}
+                          </table>
+                        </div>
+                        <PaginationBar
+                          page={reportPage}
+                          total={reportTotal}
+                          onPageChange={setReportPage}
+                        />
+                      </Card>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </TabsContent>
         </div>
@@ -2679,21 +2769,57 @@ export default function BonusIssuePage() {
         open={emailPreviewOpen}
         onOpenChange={setEmailPreviewOpen}
         offerType="bonus"
-        companyName={MOCK_DECL.register}
-        offerName={MOCK_DECL.bonusName}
-        ratio={MOCK_DECL.ratio}
-        allotDate={MOCK_DECL.allotDate}
+        companyName={
+          activeAllotment?.registerName || activeAllotment?.register || ""
+        }
+        offerName={activeAllotment?.bonusName || ""}
+        ratio={activeAllotment?.ratio || ""}
+        allotDate={
+          activeAllotment?.allotmentDate || activeAllotment?.allotDate || ""
+        }
         contactEmail="BonusIssue@meristemregistrars.com"
-        shareholders={shareholders.slice(0, 5).map((s) => ({
-          id: s.id,
-          accountNumber: s.accountNumber,
-          firstName: s.firstName,
-          lastName: s.lastName,
-          address: s.address,
-          state: s.state,
-          holdings: s.holdings,
-        }))}
-        totalCount={shareholders.length}
+        shareholders={
+          allotReviewing && allotmentsList?.length
+            ? allotmentsList
+                .slice(0, 5)
+                .map(
+                  (s: {
+                    name: string;
+                    shareholderId: string;
+                    id: string;
+                    accountNumber: string;
+                    address: string;
+                    state: string;
+                    unitsAtQualDate: number;
+                    holdings: number;
+                  }) => {
+                    const nameParts = (s.name || "").trim().split(/\s+/);
+                    return {
+                      id: s.shareholderId || s.id || "",
+                      accountNumber: s.accountNumber || "",
+                      firstName: nameParts[0] || "",
+                      lastName: nameParts.slice(1).join(" ") || "",
+                      address: s.address || "No Address Provided",
+                      state: s.state || "",
+                      holdings: s.unitsAtQualDate || s.holdings || 0,
+                    };
+                  },
+                )
+            : shareholders.slice(0, 5).map((s) => ({
+                id: s.id,
+                accountNumber: s.accountNumber,
+                firstName: s.firstName,
+                lastName: s.lastName,
+                address: s.address,
+                state: s.state,
+                holdings: s.holdings,
+              }))
+        }
+        totalCount={
+          allotReviewing
+            ? allotmentsTotal
+            : activeReview?.totalShareholders || shareholders.length
+        }
       />
 
       {/* Approval / Rejection modal */}
