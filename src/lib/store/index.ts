@@ -37,7 +37,17 @@ const SEED_AGENT_TYPES: AgentType[] = [
     active: true,
   },
 ];
+import { RightsIssue } from "@/types/rights";
 import { seedStore as seedStoreData } from "../mocks/seed";
+
+export interface RejectedBatch {
+  id?: string;
+  ref: string;
+  comment: string;
+  type: "ipo" | "rights";
+  timestamp?: string;
+  rightsIssueDetails?: RightsIssue;
+}
 
 export interface AppState {
   // Auth
@@ -64,6 +74,8 @@ export interface AppState {
   auditLog: AuditEntry[];
   pendingApprovals: ApprovalItem[];
   emailJobs: EmailJob[];
+  rejectedRightsIssue: { ref: string; comment: string } | null;
+  rejectedBatches: RejectedBatch[];
 
   // CRUD actions
   addPrincipal: (p: Principal) => void;
@@ -91,6 +103,12 @@ export interface AppState {
   addEmailJob: (job: EmailJob) => void;
   updateEmailJob: (id: string, updates: Partial<EmailJob>) => void;
   logAudit: (entry: Omit<AuditEntry, "id" | "timestamp">) => void;
+  setRejectedRightsIssue: (
+    data: { ref: string; comment: string } | null,
+  ) => void;
+  addRejectedBatch: (batch: RejectedBatch) => void;
+  removeRejectedBatch: (id: string) => void;
+  clearRejectedBatches: () => void;
 
   // Utilities
   seedStore: () => void;
@@ -119,6 +137,8 @@ export const useStore = create<AppState>()(
       auditLog: [],
       pendingApprovals: [],
       emailJobs: [],
+      rejectedRightsIssue: null,
+      rejectedBatches: [],
 
       addPrincipal: (p) =>
         set((state) => ({ principals: [...state.principals, p] })),
@@ -219,6 +239,21 @@ export const useStore = create<AppState>()(
           const data = seedStoreData();
           return { ...data };
         }),
+      setRejectedRightsIssue: (data) => set({ rejectedRightsIssue: data }),
+      addRejectedBatch: (batch) =>
+        set((state) => ({
+          rejectedBatches: [
+            ...state.rejectedBatches,
+            {
+              ...batch,
+            },
+          ],
+        })),
+      removeRejectedBatch: (ref) =>
+        set((state) => ({
+          rejectedBatches: state.rejectedBatches.filter((b) => b.ref !== ref),
+        })),
+      clearRejectedBatches: () => set({ rejectedBatches: [] }),
     }),
     {
       name: "mrpsl-cpa-store",

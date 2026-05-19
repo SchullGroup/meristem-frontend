@@ -1,4 +1,4 @@
-export type PrincipalStatus = "Active" | "Inactive";
+export type PrincipalStatus = "ACTIVE" | "INACTIVE";
 
 export interface Principal {
   principalId: string;
@@ -16,7 +16,7 @@ export interface Principal {
   companySecretaryPhone: string;
   shareHoldersAtSetUp: number;
   numberOfRegisters?: number;
-  status: PrincipalStatus | string;
+  status: PrincipalStatus;
   createdAt: string;
   updatedAt: string;
 }

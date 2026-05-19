@@ -49,7 +49,6 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const store = useStore.getState();
       store.setCurrentUser(null);
-      store.setIsSessionExpired(true);
       Cookies.remove("token");
     }
     return Promise.reject(error);
