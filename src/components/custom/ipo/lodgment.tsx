@@ -30,11 +30,21 @@ import {
   useGetIpoBatchesLodgment,
   useGetIpoBatchLodgment,
   useDownloadIpoBatchLodgment,
+  useApproveBatchLodgment,
 } from "@/hooks/useIPO";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { DataErrorState, BatchDetailSkeleton } from "./loaders";
 import { Pagination } from "@/components/custom/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useStore } from "@/lib/store";
 
 export default function ICULodgment({ tab }: { tab: string }) {
   const { data: activeRegisters } = useGetRegisters({
@@ -48,6 +58,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
     Record<string, boolean>
   >({});
   const [currentPage, setCurrentPage] = useState(0);
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
 
   // Pending Approval filters
   const [authRegister, setAuthRegister] = useState<string>("");
@@ -277,9 +288,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
                       <td className="px-4 py-3 text-[13px] text-muted-foreground">
                         {row.icuApprovedAt
                           ? format(
-                              new Date(row.icuApprovedAt),
-                              "dd MMM yyyy, HH:mm",
-                            )
+                            new Date(row.icuApprovedAt),
+                            "dd MMM yyyy, HH:mm",
+                          )
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -387,6 +398,16 @@ export default function ICULodgment({ tab }: { tab: string }) {
             Pending Lodgment
           </Badge>
         )}
+        <div className="flex-1" />
+        {lodgmentReviewing?.status === "ICU_APPROVED" && (
+          <Button
+            size="sm"
+            onClick={() => setIsApproveDialogOpen(true)}
+            className="gap-1.5"
+          >
+            <CheckCircle className="h-4 w-4" /> Approve Lodgment
+          </Button>
+        )}
       </div>
 
       {/* ICU approval record */}
@@ -398,17 +419,17 @@ export default function ICULodgment({ tab }: { tab: string }) {
           <div>
             <div className="mrpsl-section-title">ICU Approver</div>
             <div className="font-semibold mt-0.5">
-              {lodgmentReviewing?.opsApprovedBy || "—"}
+              {lodgmentReviewing?.icuApprovedBy || "—"}
             </div>
           </div>
           <div>
             <div className="mrpsl-section-title">Approval Date &amp; Time</div>
             <div className="font-mono mt-0.5">
-              {lodgmentReviewing?.opsApprovedAt
+              {lodgmentReviewing?.icuApprovedAt
                 ? format(
-                    new Date(lodgmentReviewing.opsApprovedAt),
-                    "dd MMM yyyy, HH:mm",
-                  )
+                  new Date(lodgmentReviewing.icuApprovedAt),
+                  "dd MMM yyyy, HH:mm",
+                )
                 : "—"}
             </div>
           </div>
@@ -472,7 +493,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y">
                   {lodgmentDetail?.previewRows &&
-                  lodgmentDetail.previewRows.length > 0 ? (
+                    lodgmentDetail.previewRows.length > 0 ? (
                     lodgmentDetail.previewRows.map((row, i) => (
                       <tr key={i} className="hover:bg-muted/20">
                         <td className="p-2 font-mono">
@@ -507,49 +528,153 @@ export default function ICULodgment({ tab }: { tab: string }) {
             </div>
           </div>
 
-          {lodgmentProcessed[lodgmentReviewing?.batchReference] ? (
-            <Card className="p-4 bg-green-50 border-green-200 flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
-              <p className="text-sm font-semibold text-green-800">
-                Batch lodged successfully via CSCS API.
-              </p>
-            </Card>
-          ) : (
-            <div className="flex flex-wrap gap-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                disabled={downloadMutation.isPending}
-                onClick={handleDownload}
-              >
-                {downloadMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" /> Download Lodgment File
-                    (.txt)
-                  </>
-                )}
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  setLodgmentProcessed((prev) => ({
-                    ...prev,
-                    [lodgmentReviewing.batchReference]: true,
-                  }));
-                  toast.success("Pushed to CSCS API successfully.");
-                }}
-              >
-                <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
-              </Button>
-            </div>
-          )}
+
+          <div className="flex flex-wrap gap-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              disabled={downloadMutation.isPending}
+              onClick={handleDownload}
+            >
+              {downloadMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" /> Download Lodgment File
+                  (.txt)
+                </>
+              )}
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                setLodgmentProcessed((prev) => ({
+                  ...prev,
+                  [lodgmentReviewing.batchReference]: true,
+                }));
+                toast.success("Pushed to CSCS API successfully.");
+              }}
+            >
+              <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
+            </Button>
+
+          </div>
         </div>
       </Card>
+
+      <ApproveLodgmentDialog
+        open={isApproveDialogOpen}
+        onOpenChange={setIsApproveDialogOpen}
+        batchReference={lodgmentReviewing?.batchReference || ""}
+        onSuccess={() => setLodgmentReviewing(null)}
+      />
     </div>
+  );
+}
+
+interface ApproveLodgmentDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  batchReference: string;
+  onSuccess?: () => void;
+}
+
+export function ApproveLodgmentDialog({
+  open,
+  onOpenChange,
+  batchReference,
+  onSuccess,
+}: ApproveLodgmentDialogProps) {
+  const { currentUser } = useStore();
+  const [comment, setComment] = useState("");
+  const approveMutation = useApproveBatchLodgment();
+
+  const handleApprove = () => {
+    approveMutation.mutate(
+      {
+        batchRef: batchReference,
+        payload: {
+          comment: comment,
+          lodgdedBy: currentUser?.username || currentUser?.id || "ADMIN",
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Lodgment batch approved successfully.");
+          setComment("");
+          onOpenChange(false);
+          if (onSuccess) onSuccess();
+        },
+        onError: (err) => {
+          const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
+          toast.error(errorMessage?.message || "Failed to approve lodgment.");
+        },
+      }
+    );
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!val) setComment("");
+        onOpenChange(val);
+      }}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Approve Lodgment Batch</DialogTitle>
+          <DialogDescription>
+            Confirm the lodgment of batch{" "}
+            <span className="font-mono font-bold text-foreground">
+              {batchReference}
+            </span>
+            . Add an optional comment below.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="px-6 pb-6 space-y-4">
+          <div className="space-y-1.5">
+            <label className="mrpsl-label">Comment (optional)</label>
+            <Textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Add a comment or note about the lodgment…"
+              rows={3}
+              className="resize-none text-sm focus-visible:ring-primary rounded-xl"
+            />
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              disabled={approveMutation.isPending}
+              onClick={() => {
+                setComment("");
+                onOpenChange(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 gap-1.5"
+              disabled={approveMutation.isPending}
+              onClick={handleApprove}
+            >
+              {approveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                "Confirm Approval"
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

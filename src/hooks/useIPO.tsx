@@ -29,6 +29,7 @@ import {
   exportApplicationOfferReport,
   getApplicationOfferSummaryReport,
   exportApplicationOfferSummaryReport,
+  approveLodgment,
 } from "@/actions/ipoActions";
 
 import { ContentPaginatedResponse } from "@/types";
@@ -461,5 +462,29 @@ export const useGetApplicationOfferSummaryReport = (
 export const useExportApplicationOfferSummaryReport = () => {
   return useMutation({
     mutationFn: (register?: string) => exportApplicationOfferSummaryReport(register),
+  });
+};
+
+export const useApproveBatchLodgment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      batchRef,
+      payload,
+    }: {
+      batchRef: string;
+      payload: { comment: string; lodgdedBy: string };
+    }) => approveLodgment(batchRef, payload),
+
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ipoKeys.all,
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ipoKeys.detail(variables.batchRef),
+      });
+    },
   });
 };
