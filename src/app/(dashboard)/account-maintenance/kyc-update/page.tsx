@@ -17,7 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { CheckCircle2, AlertTriangle, FileText, Info } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  Info,
+  AlertCircle,
+  Pencil,
+} from "lucide-react";
 import { DocUploadZone } from "@/components/custom/doc-upload-zone";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
@@ -106,10 +113,20 @@ const KYC_HISTORY: KYCHistory[] = [
   },
 ];
 
+function fieldToTab(field: string): string {
+  if (["Bank Account Number", "Bank Name"].some((f) => field.includes(f)))
+    return "bank";
+  if (["Email", "Phone", "Address"].some((f) => field.includes(f)))
+    return "contact";
+  return "personal";
+}
+
 export default function KYCUpdatePage() {
   const { registers, shareholders } = useStore();
   const [mode, setMode] = useState("single");
   const [accountLoaded, setAccountLoaded] = useState(false);
+  const [innerTab, setInnerTab] = useState("personal");
+  const [rejectedChangeIds, setRejectedChangeIds] = useState<string[]>([]);
 
   const kycPg = usePagination(PENDING_KYC);
   const kycHistoryPg = usePagination(KYC_HISTORY);
@@ -200,7 +217,11 @@ export default function KYCUpdatePage() {
             </div>
           </Card>
 
-          <Tabs defaultValue="personal" className="w-full">
+          <Tabs
+            value={innerTab}
+            onValueChange={(v) => setInnerTab(v || "personal")}
+            className="w-full"
+          >
             <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
               <TabsTrigger
                 value="personal"
@@ -418,7 +439,56 @@ export default function KYCUpdatePage() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="pending">
+              <TabsContent value="pending" className="space-y-4">
+                {rejectedChangeIds.length > 0 && (
+                  <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="flex-1 space-y-2">
+                        <p className="text-sm font-semibold text-red-800">
+                          {rejectedChangeIds.length === 1
+                            ? "Change Rejected"
+                            : `${rejectedChangeIds.length} Changes Rejected`}
+                        </p>
+                        <p className="text-[13px] text-red-700">
+                          The following changes have been rejected. Edit and
+                          resubmit each one.
+                        </p>
+                        <div className="space-y-1.5">
+                          {PENDING_KYC.filter((r) =>
+                            rejectedChangeIds.includes(r.id),
+                          ).map((rec) => (
+                            <div
+                              key={rec.id}
+                              className="flex items-center gap-3 text-[13px]"
+                            >
+                              <span className="font-medium text-red-800">
+                                {rec.field}
+                              </span>
+                              <span className="text-red-600 font-mono">
+                                {rec.oldValue} → {rec.newValue}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="ml-auto border-red-300 text-red-700 hover:bg-red-100 gap-1.5 h-7 text-[12px]"
+                                onClick={() => {
+                                  setInnerTab(fieldToTab(rec.field));
+                                  setRejectedChangeIds((ids) =>
+                                    ids.filter((id) => id !== rec.id),
+                                  );
+                                }}
+                              >
+                                <Pencil className="h-3 w-3" /> Edit &amp;
+                                Resubmit
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                )}
                 <Card className="mrpsl-card overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead className="mrpsl-table-header">
@@ -428,43 +498,85 @@ export default function KYCUpdatePage() {
                         <th className="p-3">CURRENT VALUE</th>
                         <th className="p-3">PROPOSED VALUE</th>
                         <th className="p-3">SUBMITTED BY</th>
-                        <th className="p-3 text-right">ACTIONS</th>
+                        <th className="p-3">STATUS</th>
+                        <th className="p-3">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-[13px]">
-                      {kycPg.paged.map((row) => (
-                        <tr key={row.id} className="mrpsl-table-row">
-                          <td className="p-3 text-muted-foreground">
-                            {row.date}
-                          </td>
-                          <td className="p-3 font-medium">{row.field}</td>
-                          <td className="p-3 text-muted-foreground font-mono">
-                            {row.oldValue}
-                          </td>
-                          <td className="p-3 font-mono text-primary font-semibold">
-                            {row.newValue}
-                          </td>
-                          <td className="p-3 text-muted-foreground">
-                            {row.submittedBy}
-                          </td>
-                          <td className="p-3 text-right space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-red-600"
-                              onClick={() => toast.error("Change rejected.")}
-                            >
-                              Reject
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => toast.success("Change approved.")}
-                            >
-                              Approve
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {kycPg.paged.map((row) => {
+                        const isRejected = rejectedChangeIds.includes(row.id);
+                        return (
+                          <tr key={row.id} className="mrpsl-table-row">
+                            <td className="p-3 text-muted-foreground">
+                              {row.date}
+                            </td>
+                            <td className="p-3 font-medium">{row.field}</td>
+                            <td className="p-3 text-muted-foreground font-mono">
+                              {row.oldValue}
+                            </td>
+                            <td className="p-3 font-mono text-primary font-semibold">
+                              {row.newValue}
+                            </td>
+                            <td className="p-3 text-muted-foreground">
+                              {row.submittedBy}
+                            </td>
+                            <td className="p-3">
+                              {isRejected ? (
+                                <Badge className="bg-red-100 text-red-700 border-0 text-[12px]">
+                                  Rejected
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-amber-100 text-amber-800 border-0 text-[12px]">
+                                  Pending
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="p-3 text-right space-x-2">
+                              {!isRejected && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-red-600"
+                                    onClick={() => {
+                                      setRejectedChangeIds((ids) => [
+                                        ...ids,
+                                        row.id,
+                                      ]);
+                                      toast.error("Change rejected.");
+                                    }}
+                                  >
+                                    Reject
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() =>
+                                      toast.success("Change approved.")
+                                    }
+                                  >
+                                    Approve
+                                  </Button>
+                                </>
+                              )}
+                              {isRejected && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 text-red-700 border-red-300"
+                                  onClick={() => {
+                                    setInnerTab(fieldToTab(row.field));
+                                    setRejectedChangeIds((ids) =>
+                                      ids.filter((id) => id !== row.id),
+                                    );
+                                  }}
+                                >
+                                  <Pencil className="h-3 w-3" /> Edit
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </Card>

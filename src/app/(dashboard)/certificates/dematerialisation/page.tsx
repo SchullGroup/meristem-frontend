@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import {
@@ -51,6 +51,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DocUploadZone } from "@/components/custom/doc-upload-zone";
 import { getDocType } from "@/lib/mocks/doc-types";
+import { useStore } from "@/lib/store";
+import type { Shareholder } from "@/lib/types";
 
 type DematStatus =
   | "DRAFT"
@@ -149,25 +151,85 @@ function StatusBadge({ status }: { status: DematStatus }) {
 
 const APPROVAL_STEPS: Record<
   string,
-  Array<{ label: string; done: boolean; pending: boolean }>
+  Array<{
+    label: string;
+    done: boolean;
+    pending: boolean;
+    time?: string | null;
+  }>
 > = {
   CALLOVER: [
-    { label: "Captured by Initiator", done: true, pending: false },
-    { label: "Callover Officer ⏳", done: false, pending: true },
-    { label: "Authoriser — Awaiting", done: false, pending: false },
-    { label: "ICU Officer — Awaiting", done: false, pending: false },
+    {
+      label: "Captured by Initiator — Chidi Okafor",
+      done: true,
+      pending: false,
+      time: "28 Apr 2026, 08:45",
+    },
+    {
+      label: "Callover Officer — Pending your action",
+      done: false,
+      pending: true,
+      time: null,
+    },
+    { label: "Authoriser — Awaiting", done: false, pending: false, time: null },
+    {
+      label: "ICU Officer — Awaiting",
+      done: false,
+      pending: false,
+      time: null,
+    },
   ],
   AUTHORISATION: [
-    { label: "Captured by Initiator", done: true, pending: false },
-    { label: "Callover Officer ✓", done: true, pending: false },
-    { label: "Authoriser ⏳", done: false, pending: true },
-    { label: "ICU Officer — Awaiting", done: false, pending: false },
+    {
+      label: "Captured by Initiator — Chidi Okafor",
+      done: true,
+      pending: false,
+      time: "27 Apr 2026, 08:45",
+    },
+    {
+      label: "Callover by Ngozi Adeyemi (Callover Officer)",
+      done: true,
+      pending: false,
+      time: "27 Apr 2026, 10:20",
+    },
+    {
+      label: "Authoriser — Pending your action",
+      done: false,
+      pending: true,
+      time: null,
+    },
+    {
+      label: "ICU Officer — Awaiting",
+      done: false,
+      pending: false,
+      time: null,
+    },
   ],
   ICU: [
-    { label: "Captured by Initiator", done: true, pending: false },
-    { label: "Callover Officer ✓", done: true, pending: false },
-    { label: "Authoriser ✓", done: true, pending: false },
-    { label: "ICU Officer ⏳", done: false, pending: true },
+    {
+      label: "Captured by Initiator — Chidi Okafor",
+      done: true,
+      pending: false,
+      time: "26 Apr 2026, 08:45",
+    },
+    {
+      label: "Callover by Ngozi Adeyemi (Callover Officer)",
+      done: true,
+      pending: false,
+      time: "26 Apr 2026, 10:20",
+    },
+    {
+      label: "Authorised by Emeka Eze (Operations Manager)",
+      done: true,
+      pending: false,
+      time: "26 Apr 2026, 12:05",
+    },
+    {
+      label: "ICU Officer — Pending your action",
+      done: false,
+      pending: true,
+      time: null,
+    },
   ],
 };
 
@@ -186,10 +248,18 @@ function DematTable({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchComment, setBatchComment] = useState("");
+  const [rejectingUnchecked, setRejectingUnchecked] = useState(false);
+
+  useEffect(() => {
+    setSelectedIds(new Set(pg.paged.map((r) => r.id)));
+  }, [pg.paged]);
 
   const visibleIds = pg.paged.map((r) => r.id);
   const allSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const uncheckedIds = records
+    .filter((r) => !selectedIds.has(r.id))
+    .map((r) => r.id);
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -212,10 +282,16 @@ function DematTable({
       toast.error("Comment required for rejection.");
       return;
     }
-    onBatchReject([...selectedIds], batchComment);
+    if (rejectingUnchecked) {
+      onBatchApprove([...selectedIds]);
+      onBatchReject(uncheckedIds, batchComment);
+    } else {
+      onBatchReject([...selectedIds], batchComment);
+    }
     setSelectedIds(new Set());
     setBatchComment("");
     setBatchRejectOpen(false);
+    setRejectingUnchecked(false);
   }
 
   return (
@@ -230,10 +306,26 @@ function DematTable({
               size="sm"
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
-              onClick={() => setBatchRejectOpen(true)}
+              onClick={() => {
+                setRejectingUnchecked(false);
+                setBatchRejectOpen(true);
+              }}
             >
               Reject Selected
             </Button>
+            {uncheckedIds.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-amber-400 text-amber-700 hover:bg-amber-50"
+                onClick={() => {
+                  setRejectingUnchecked(true);
+                  setBatchRejectOpen(true);
+                }}
+              >
+                Approve ✓ / Reject ✗ Unchecked
+              </Button>
+            )}
             <Button size="sm" onClick={handleBatchApprove}>
               Approve Selected
             </Button>
@@ -255,8 +347,8 @@ function DematTable({
               <th className="p-3">HOLDER</th>
               <th className="p-3">CHN</th>
               <th className="p-3">BROKER</th>
-              <th className="p-3 text-right">UNITS</th>
-              <th className="p-3 text-right">ACTIONS</th>
+              <th className="p-3">UNITS</th>
+              <th className="p-3">ACTIONS</th>
             </tr>
           </thead>
           <tbody className="divide-y text-[13px]">
@@ -314,18 +406,26 @@ function DematTable({
         onPageSizeChange={pg.setPageSize}
       />
 
-      <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
+      <Dialog
+        open={batchRejectOpen}
+        onOpenChange={(open) => {
+          setBatchRejectOpen(open);
+          if (!open) setRejectingUnchecked(false);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Reject {selectedIds.size} Record
-              {selectedIds.size !== 1 ? "s" : ""}
+              {rejectingUnchecked
+                ? `Approve ${selectedIds.size} & Reject ${uncheckedIds.length} Unchecked`
+                : `Reject ${selectedIds.size} Record${selectedIds.size !== 1 ? "s" : ""}`}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 px-6 pb-6">
             <p className="text-sm text-muted-foreground">
-              This comment will be applied to all selected records and sent to
-              the initiator.
+              {rejectingUnchecked
+                ? "Checked records will be approved. This comment will be applied to all unchecked (rejected) records."
+                : "This comment will be applied to all selected records and sent to the initiator."}
             </p>
             <div className="space-y-2">
               <label className="mrpsl-label">
@@ -371,13 +471,42 @@ const STEPS = [
 ];
 
 export default function DematPage() {
+  const { shareholders } = useStore();
   const [activeTab, setActiveTab] = useState("capture");
   const [formOpen, setFormOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<DematRecord | null>(null);
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
   const [lastRejComment, setLastRejComment] = useState("");
+  const [editingRejectedId, setEditingRejectedId] = useState<string | null>(
+    null,
+  );
   const [rejectComment, setRejectComment] = useState("");
+  const [holderQuery, setHolderQuery] = useState("");
+  const [foundHolder, setFoundHolder] = useState<Shareholder | null>(null);
+  const [holderNotFound, setHolderNotFound] = useState(false);
+
+  function handleHolderLookup() {
+    const q = holderQuery.trim().toUpperCase();
+    if (!q) return;
+    const match = shareholders.find(
+      (s) => s.accountNumber.toUpperCase() === q || s.chn.toUpperCase() === q,
+    );
+    if (match) {
+      setFoundHolder(match);
+      setHolderNotFound(false);
+    } else {
+      setFoundHolder(null);
+      setHolderNotFound(true);
+    }
+  }
+
+  function resetForm() {
+    setHolderQuery("");
+    setFoundHolder(null);
+    setHolderNotFound(false);
+    setEditingRejectedId(null);
+  }
 
   function openReview(rec: DematRecord) {
     setSelected(rec);
@@ -453,27 +582,55 @@ export default function DematPage() {
           {/* ── Capture ── */}
           <TabsContent value="capture" className="space-y-4">
             {rejectedIds.size > 0 && (
-              <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1 space-y-1">
-                  <div className="font-semibold text-sm text-red-800">
-                    {rejectedIds.size === 1
-                      ? "Record Rejected"
-                      : `${rejectedIds.size} Records Rejected`}
+              <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-2">
+                    <div className="font-semibold text-sm text-red-800">
+                      {rejectedIds.size === 1
+                        ? "Record Rejected"
+                        : `${rejectedIds.size} Records Rejected`}
+                    </div>
+                    <div className="text-[13px] text-red-700">
+                      {lastRejComment || "No comment provided."}
+                    </div>
+                    <div className="space-y-1.5 mt-1">
+                      {MOCK_RECORDS.filter((r) => rejectedIds.has(r.id)).map(
+                        (rec) => (
+                          <div
+                            key={rec.id}
+                            className="flex items-center gap-3 text-[13px]"
+                          >
+                            <span className="font-mono text-red-800 truncate max-w-[200px]">
+                              {rec.cert}
+                            </span>
+                            <span className="text-red-700">— {rec.holder}</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="ml-auto border-red-300 text-red-700 hover:bg-red-100 gap-1.5 h-7 text-[12px]"
+                              onClick={() => {
+                                setEditingRejectedId(rec.id);
+                                setFormOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-3 w-3" /> Edit &amp; Resubmit
+                            </Button>
+                          </div>
+                        ),
+                      )}
+                    </div>
                   </div>
-                  <div className="text-[13px] text-red-700">
-                    {lastRejComment || "No comment provided."}
-                  </div>
+                  <button
+                    onClick={() => {
+                      setRejectedIds(new Set());
+                      setLastRejComment("");
+                    }}
+                    className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => {
-                    setRejectedIds(new Set());
-                    setLastRejComment("");
-                  }}
-                  className="text-red-400 hover:text-red-600 transition-colors shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </Card>
             )}
             <Card className="mrpsl-card overflow-hidden">
@@ -485,9 +642,9 @@ export default function DematPage() {
                     <th className="p-3">HOLDER</th>
                     <th className="p-3">CHN</th>
                     <th className="p-3">BROKER</th>
-                    <th className="p-3 text-right">UNITS</th>
+                    <th className="p-3">UNITS</th>
                     <th className="p-3">STATUS</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -689,14 +846,7 @@ export default function DematPage() {
 
       {/* ── Review Dialog ── */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent
-          className="max-w-lg overflow-hidden p-0 gap-0"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            maxHeight: "90vh",
-          }}
-        >
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0">
           <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
             <DialogTitle>
               {selected?.status === "CALLOVER"
@@ -708,7 +858,7 @@ export default function DematPage() {
           </DialogHeader>
 
           {selected && (
-            <div className="overflow-y-auto flex-1 px-6 py-6 space-y-5">
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-6 space-y-5">
               {/* Transaction details */}
               <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
                 <div className="flex justify-between items-start">
@@ -801,9 +951,9 @@ export default function DematPage() {
                 </h4>
                 <div className="space-y-4">
                   {approvalSteps.map((step, i) => (
-                    <div key={i} className="flex items-center gap-3">
+                    <div key={i} className="flex items-start gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
                       >
                         {step.done && (
                           <Check
@@ -812,7 +962,14 @@ export default function DematPage() {
                           />
                         )}
                       </div>
-                      <div className="text-sm">{step.label}</div>
+                      <div>
+                        <div className="text-sm">{step.label}</div>
+                        {step.time && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {step.time}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -858,13 +1015,43 @@ export default function DematPage() {
       </Dialog>
 
       {/* ── New Demat Form ── */}
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>New Demat Capture</DialogTitle>
+            <DialogTitle>
+              {editingRejectedId
+                ? "Edit &amp; Resubmit Demat Record"
+                : "New Demat Capture"}
+            </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col h-full">
             <div className="px-8 pb-8 space-y-8 overflow-y-auto max-h-[70vh]">
+              {editingRejectedId &&
+                (() => {
+                  const rec = MOCK_RECORDS.find(
+                    (r) => r.id === editingRejectedId,
+                  );
+                  return rec ? (
+                    <div className="flex items-start gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50/60">
+                      <Pencil className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[13px] font-semibold text-amber-800">
+                          Editing rejected record — {rec.cert}
+                        </p>
+                        <p className="text-[13px] text-amber-700 mt-0.5">
+                          Holder: {rec.holder} · {rec.units.toLocaleString()}{" "}
+                          units. Correct the information below and resubmit.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               <div>
                 <h3 className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground mb-4">
                   Registration &amp; Identity
@@ -898,11 +1085,57 @@ export default function DematPage() {
                       <Input
                         placeholder="CHN or Account No"
                         className="mrpsl-input h-11 flex-1"
+                        value={holderQuery}
+                        onChange={(e) => {
+                          setHolderQuery(e.target.value);
+                          setFoundHolder(null);
+                          setHolderNotFound(false);
+                        }}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleHolderLookup()
+                        }
                       />
-                      <Button variant="outline" className="h-11 px-6 font-bold">
+                      <Button
+                        variant="outline"
+                        className="h-11 px-6 font-bold"
+                        onClick={handleHolderLookup}
+                      >
                         Lookup
                       </Button>
                     </div>
+                    {foundHolder && (
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-green-200 bg-green-50/60 mt-2">
+                        <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-primary font-bold text-sm font-mono">
+                            {foundHolder.firstName[0]}
+                            {foundHolder.lastName[0]}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-green-800">
+                            {foundHolder.firstName} {foundHolder.lastName}
+                          </p>
+                          <p className="text-[13px] text-green-700 font-mono">
+                            {foundHolder.accountNumber} · {foundHolder.chn}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[13px] text-muted-foreground">
+                            {foundHolder.holderType}
+                          </p>
+                          <p className="text-[13px] font-mono font-semibold">
+                            {foundHolder.holdings.toLocaleString()} units
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {holderNotFound && (
+                      <p className="text-[13px] text-red-600 mt-1.5 flex items-center gap-1.5">
+                        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                        No shareholder found for &quot;{holderQuery}&quot;.
+                        Check the CHN or account number.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -991,7 +1224,10 @@ export default function DematPage() {
             <Button
               variant="ghost"
               className="text-sm font-bold px-6 h-12"
-              onClick={() => setFormOpen(false)}
+              onClick={() => {
+                setFormOpen(false);
+                resetForm();
+              }}
             >
               Cancel
             </Button>
@@ -1001,6 +1237,7 @@ export default function DematPage() {
               onClick={() => {
                 toast.success("Saved as draft.");
                 setFormOpen(false);
+                resetForm();
               }}
             >
               Save Draft
@@ -1008,11 +1245,23 @@ export default function DematPage() {
             <Button
               className="text-sm font-bold px-10 h-12 rounded-xl"
               onClick={() => {
-                toast.success("Submitted for callover.");
+                if (editingRejectedId) {
+                  setRejectedIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(editingRejectedId);
+                    return next;
+                  });
+                  toast.success(
+                    "Record corrected and resubmitted for callover.",
+                  );
+                } else {
+                  toast.success("Submitted for callover.");
+                }
                 setFormOpen(false);
+                resetForm();
               }}
             >
-              Submit Record
+              {editingRejectedId ? "Resubmit Record" : "Submit Record"}
             </Button>
           </DialogFooter>
         </DialogContent>

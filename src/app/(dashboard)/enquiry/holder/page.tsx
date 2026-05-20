@@ -333,7 +333,7 @@ export default function HolderEnquiryPage() {
                     <tr>
                       <th className="p-3">CERT NO</th>
                       <th className="p-3">DATE ISSUED</th>
-                      <th className="p-3 text-right">UNITS</th>
+                      <th className="p-3">UNITS</th>
                       <th className="p-3">STATUS</th>
                     </tr>
                   </thead>
@@ -363,9 +363,9 @@ export default function HolderEnquiryPage() {
                       <th className="p-3">DIVIDEND NO</th>
                       <th className="p-3">DECLARATION DATE</th>
                       <th className="p-3">PAYMENT DATE</th>
-                      <th className="p-3 text-right">RATE (₦/UNIT)</th>
-                      <th className="p-3 text-right">GROSS (₦)</th>
-                      <th className="p-3 text-right">NET (₦)</th>
+                      <th className="p-3">RATE (₦/UNIT)</th>
+                      <th className="p-3">GROSS (₦)</th>
+                      <th className="p-3">NET (₦)</th>
                       <th className="p-3">STATUS</th>
                       <th className="p-3">METHOD</th>
                     </tr>
@@ -471,7 +471,7 @@ export default function HolderEnquiryPage() {
                       <th className="p-3">TYPE</th>
                       <th className="p-3">SOURCE ACCOUNTS</th>
                       <th className="p-3">DESTINATION</th>
-                      <th className="p-3 text-right">HOLDINGS MERGED</th>
+                      <th className="p-3">HOLDINGS MERGED</th>
                       <th className="p-3">INITIATED BY</th>
                     </tr>
                   </thead>
@@ -519,7 +519,7 @@ export default function HolderEnquiryPage() {
                       <th className="p-3">TRANSFER NO</th>
                       <th className="p-3">FROM ACCOUNT</th>
                       <th className="p-3">TO ACCOUNT</th>
-                      <th className="p-3 text-right">UNITS</th>
+                      <th className="p-3">UNITS</th>
                       <th className="p-3">TYPE</th>
                       <th className="p-3">STATUS</th>
                     </tr>
