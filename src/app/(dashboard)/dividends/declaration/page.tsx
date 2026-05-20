@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Check, Eye, Printer, RotateCcw } from "lucide-react";
+import {
+  CalendarIcon,
+  Check,
+  Eye,
+  Printer,
+  RotateCcw,
+  AlertCircle,
+  X,
+  Pencil,
+  Download,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,11 +46,14 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
+import type { DividendDeclaration } from "@/lib/types";
 
 export default function DeclarationPage() {
   const { currentUser, registers, shareholders, dividendDeclarations } =
@@ -53,17 +66,42 @@ export default function DeclarationPage() {
   const [date1, setDate1] = useState<Date>();
   const [date2, setDate2] = useState<Date>();
   const [date3, setDate3] = useState<Date>();
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [fractional, setFractional] = useState(false);
+
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [successVersion, setSuccessVersion] = useState<number | null>(null);
+  const [versionCounter, setVersionCounter] = useState(1);
+
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedDecl, setSelectedDecl] = useState<
-    (typeof dividendDeclarations)[0] | null
-  >(null);
+  const [selectedDecl, setSelectedDecl] = useState<DividendDeclaration | null>(
+    null,
+  );
+  const [sheetComment, setSheetComment] = useState("");
+  const [rejectedDecl, setRejectedDecl] = useState<{
+    ref: string;
+    comment: string;
+  } | null>(null);
+  const [editingRejected, setEditingRejected] = useState<{
+    ref: string;
+    comment: string;
+  } | null>(null);
+
+  const [icuApprovalOpen, setIcuApprovalOpen] = useState(false);
+  const [selectedIcuDecl, setSelectedIcuDecl] =
+    useState<DividendDeclaration | null>(null);
+  const [icuComment, setIcuComment] = useState("");
+  const [icuApprovedIds, setIcuApprovedIds] = useState<Set<string>>(new Set());
 
   const register = registers.find((r) => r.id === selectedRegister);
   const stockToday = register?.stockToday || 0;
-  const grossLiability = (typeof rate === "number" ? rate : 0) * stockToday;
+  const rateNum = typeof rate === "number" ? rate : 0;
+  const grossLiability = rateNum * stockToday;
   const wht = grossLiability * 0.1;
   const netLiability = grossLiability - wht;
+
+  const registerBlocked =
+    register?.status === "INACTIVE" ||
+    register?.status === "TRANSACTION_DISABLED";
 
   const computeTier = (amount: number) => {
     if (amount <= 500000) return 1;
@@ -105,15 +143,28 @@ export default function DeclarationPage() {
 
   const tierInfo = getTierInfo(tier);
 
+  const getTierBadge = (t: number) => {
+    switch (t) {
+      case 1:
+        return "bg-green-100 text-green-800 border-0";
+      case 2:
+        return "bg-blue-100 text-blue-800 border-0";
+      case 3:
+        return "bg-amber-100 text-amber-800 border-0";
+      default:
+        return "bg-red-100 text-red-800 border-0";
+    }
+  };
+
   const formatNaira = (num: number) => {
     if (num >= 1_000_000_000) return `₦${(num / 1_000_000_000).toFixed(2)}B`;
     return `₦${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const handleSubmit = () => {
-    if (register?.status === "TRANSACTION_DISABLED") {
+    if (registerBlocked) {
       toast.error(
-        "Cannot declare dividend on a Transaction Disabled register.",
+        "Cannot declare dividend — register is Inactive or Transaction Disabled.",
       );
       return;
     }
@@ -121,17 +172,61 @@ export default function DeclarationPage() {
       toast.error("Transaction value exceeds your authorised limit.");
       return;
     }
-    toast.success("Declaration submitted. Next approver has been notified.");
+    const v = versionCounter;
+    setVersionCounter(v + 1);
+    setSuccessVersion(v);
+    setEditingRejected(null);
     setActiveTab("auth");
   };
+
+  const previewShareholders = shareholders.slice(0, 5);
+  const previewTotals = previewShareholders.reduce(
+    (acc, s) => {
+      const g = s.holdings * rateNum;
+      const w = g * 0.1;
+      return {
+        units: acc.units + s.holdings,
+        gross: acc.gross + g,
+        wht: acc.wht + w,
+        net: acc.net + (g - w),
+      };
+    },
+    { units: 0, gross: 0, wht: 0, net: 0 },
+  );
 
   const pendingDecs = dividendDeclarations.filter((d) =>
     d.status.startsWith("PENDING"),
   );
-  const icuDecs = pendingDecs.filter((d) => d.tier >= 3);
+  const icuDecsBase = dividendDeclarations.filter(
+    (d) =>
+      d.tier >= 3 &&
+      d.status.startsWith("PENDING") &&
+      !icuApprovedIds.has(d.id),
+  );
   const pendingDecsPg = usePagination(pendingDecs);
-  const icuDecsPg = usePagination(icuDecs);
+  const icuDecsPg = usePagination(icuDecsBase);
   const historyDecsPg = usePagination(dividendDeclarations);
+
+  const statusBadgeClass = (status: string) => {
+    switch (status) {
+      case "DRAFT":
+        return "bg-gray-100 text-gray-600";
+      case "AUTHORIZED":
+        return "bg-blue-100 text-blue-800";
+      case "PAID":
+        return "bg-green-100 text-green-800";
+      case "REJECTED":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-amber-100 text-amber-800";
+    }
+  };
+
+  const formatStatus = (s: string) =>
+    s
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
     <div className="space-y-6">
@@ -188,6 +283,103 @@ export default function DeclarationPage() {
               </Card>
             ) : (
               <div className="space-y-6">
+                {rejectedDecl && (
+                  <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-red-800">
+                          Declaration Rejected — Ref: {rejectedDecl.ref}
+                        </p>
+                        <p className="text-[13px] text-red-700 mt-0.5">
+                          Approver comment:{" "}
+                          {rejectedDecl.comment || "No comment provided."}
+                        </p>
+                        <p className="text-[13px] text-muted-foreground mt-1">
+                          Please review and resubmit the declaration.
+                        </p>
+                        <div className="mt-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-red-300 text-red-700 hover:bg-red-100 gap-1.5"
+                            onClick={() => {
+                              setEditingRejected(rejectedDecl);
+                              setRejectedDecl(null);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Edit &amp;
+                            Resubmit
+                          </Button>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setRejectedDecl(null)}
+                        className="rounded-full hover:bg-red-100 p-0.5"
+                      >
+                        <X className="h-3.5 w-3.5 text-red-600" />
+                      </button>
+                    </div>
+                  </Card>
+                )}
+
+                {editingRejected && (
+                  <Card className="mrpsl-card p-4 border-l-4 border-l-amber-500 bg-amber-50/40 border-amber-200">
+                    <div className="flex items-start gap-3">
+                      <Pencil className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-amber-800">
+                          Editing Rejected Declaration — Ref:{" "}
+                          {editingRejected.ref}
+                        </p>
+                        <p className="text-[13px] text-amber-700 mt-0.5">
+                          Modify the values below and click{" "}
+                          <strong>Submit Declaration</strong> to resubmit for
+                          approval.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setEditingRejected(null)}
+                        className="rounded-full hover:bg-amber-100 p-0.5"
+                      >
+                        <X className="h-3.5 w-3.5 text-amber-600" />
+                      </button>
+                    </div>
+                  </Card>
+                )}
+
+                {successVersion !== null && (
+                  <Card className="mrpsl-card p-4 border-l-4 border-l-green-500 bg-green-50/40 border-green-200">
+                    <div className="flex items-start gap-3">
+                      <Check className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-green-800">
+                          Declaration submitted. Version {successVersion}{" "}
+                          created. Awaiting authoriser sign-off.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setSuccessVersion(null)}
+                        className="rounded-full hover:bg-green-100 p-0.5"
+                      >
+                        <X className="h-3.5 w-3.5 text-green-600" />
+                      </button>
+                    </div>
+                  </Card>
+                )}
+
+                {registerBlocked && selectedRegister && (
+                  <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+                      <p className="text-sm font-semibold text-red-800">
+                        Declaration blocked — register is Inactive or
+                        Transaction Disabled
+                      </p>
+                    </div>
+                  </Card>
+                )}
+
                 <Card className="mrpsl-card p-6 space-y-6">
                   {/* Row 1: Register / Type / Currency */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -270,9 +462,12 @@ export default function DeclarationPage() {
                         />
                       </div>
                       <div className="flex items-center gap-2.5">
-                        <Switch />
+                        <Switch
+                          checked={fractional}
+                          onCheckedChange={setFractional}
+                        />
                         <label className="text-sm font-medium text-muted-foreground">
-                          Fractional Register
+                          Fractional Register (Yes/No)
                         </label>
                       </div>
                     </div>
@@ -404,94 +599,44 @@ export default function DeclarationPage() {
                   <div className="flex flex-wrap justify-between items-center gap-3 pt-2 border-t border-border/60">
                     <Button
                       variant="outline"
-                      onClick={() => setPreviewOpen(true)}
+                      onClick={() => setPreviewModalOpen(true)}
                       disabled={!rate || !selectedRegister}
                     >
-                      Compute &amp; Preview Liability Table
+                      Preview Liability Table
                     </Button>
                     <Button
                       size="lg"
-                      onClick={handleSubmit}
-                      disabled={!rate || !selectedRegister}
+                      onClick={() => {
+                        handleSubmit();
+                      }}
+                      disabled={!rate || !selectedRegister || registerBlocked}
                     >
-                      Submit Declaration
+                      {editingRejected
+                        ? "Resubmit Declaration"
+                        : "Submit Declaration"}
                     </Button>
                   </div>
                 </Card>
-
-                {/* Liability Preview Table */}
-                {previewOpen && (
-                  <Card className="mrpsl-card overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="p-4 border-b bg-muted/20 flex items-center justify-between">
-                      <span className="font-semibold text-sm">
-                        Preview Liability Table (Sample)
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setPreviewOpen(false)}
-                      >
-                        Close
-                      </Button>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm">
-                        <thead className="mrpsl-table-header">
-                          <tr>
-                            <th className="px-4 py-3">ACCOUNT NO</th>
-                            <th className="px-4 py-3">HOLDER NAME</th>
-                            <th className="px-4 py-3 text-right">UNITS</th>
-                            <th className="px-4 py-3 text-right">
-                              GROSS AMOUNT
-                            </th>
-                            <th className="px-4 py-3 text-right">WHT</th>
-                            <th className="px-4 py-3 text-right">NET AMOUNT</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y text-[13px]">
-                          {shareholders.slice(0, 10).map((s) => {
-                            const g =
-                              s.holdings *
-                              (typeof rate === "number" ? rate : 0);
-                            const w = g * 0.1;
-                            const n = g - w;
-                            return (
-                              <tr
-                                key={s.id}
-                                className="hover:bg-muted/30 transition-colors"
-                              >
-                                <td className="px-4 py-3 tabular text-muted-foreground">
-                                  {s.accountNumber}
-                                </td>
-                                <td className="px-4 py-3 font-medium">
-                                  {s.firstName} {s.lastName}
-                                </td>
-                                <td className="px-4 py-3 text-right tabular">
-                                  {s.holdings.toLocaleString()}
-                                </td>
-                                <td className="px-4 py-3 text-right tabular">
-                                  ₦{g.toLocaleString()}
-                                </td>
-                                <td className="px-4 py-3 text-right tabular text-amber-600">
-                                  ₦{w.toLocaleString()}
-                                </td>
-                                <td className="px-4 py-3 text-right tabular text-green-700 font-semibold">
-                                  ₦{n.toLocaleString()}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Card>
-                )}
               </div>
             )}
           </TabsContent>
 
           {/* ── Pending Approval ── */}
           <TabsContent value="auth">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                {pendingDecsPg.total} pending declaration
+                {pendingDecsPg.total !== 1 ? "s" : ""}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => toast.info("Downloading...")}
+              >
+                <Download className="h-4 w-4" /> Download Records
+              </Button>
+            </div>
             <Card className="mrpsl-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
@@ -500,11 +645,11 @@ export default function DeclarationPage() {
                       <th className="px-4 py-3">PAYMENT NO</th>
                       <th className="px-4 py-3">REGISTER</th>
                       <th className="px-4 py-3">TYPE</th>
-                      <th className="px-4 py-3 text-right">RATE</th>
-                      <th className="px-4 py-3 text-right">GROSS LIABILITY</th>
+                      <th className="px-4 py-3">RATE</th>
+                      <th className="px-4 py-3">GROSS LIABILITY</th>
                       <th className="px-4 py-3">TIER</th>
                       <th className="px-4 py-3">STATUS</th>
-                      <th className="px-4 py-3 text-right">ACTIONS</th>
+                      <th className="px-4 py-3">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -526,28 +671,17 @@ export default function DeclarationPage() {
                             {formatNaira(d.grossLiability)}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge className="bg-gray-100 text-gray-700 border-0 text-[13px]">
+                            <Badge
+                              className={`${getTierBadge(d.tier)} text-[13px]`}
+                            >
                               Tier {d.tier}
                             </Badge>
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-[13px] ${
-                                d.status === "DRAFT"
-                                  ? "bg-gray-100 text-gray-600"
-                                  : d.status === "AUTHORIZED"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : d.status === "PAID"
-                                      ? "bg-green-100 text-green-800"
-                                      : d.status === "REJECTED"
-                                        ? "bg-red-100 text-red-700"
-                                        : "bg-amber-100 text-amber-800"
-                              }`}
+                              className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
                             >
-                              {d.status
-                                .replace(/_/g, " ")
-                                .toLowerCase()
-                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                              {formatStatus(d.status)}
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -590,7 +724,22 @@ export default function DeclarationPage() {
             />
           </TabsContent>
 
+          {/* ── ICU Approval ── */}
           <TabsContent value="icu">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                {icuDecsPg.total} declaration{icuDecsPg.total !== 1 ? "s" : ""}{" "}
+                pending ICU review
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => toast.info("Downloading...")}
+              >
+                <Download className="h-4 w-4" /> Download Records
+              </Button>
+            </div>
             <Card className="mrpsl-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
@@ -599,11 +748,11 @@ export default function DeclarationPage() {
                       <th className="px-4 py-3">PAYMENT NO</th>
                       <th className="px-4 py-3">REGISTER</th>
                       <th className="px-4 py-3">TYPE</th>
-                      <th className="px-4 py-3 text-right">RATE</th>
-                      <th className="px-4 py-3 text-right">GROSS LIABILITY</th>
+                      <th className="px-4 py-3">RATE</th>
+                      <th className="px-4 py-3">GROSS LIABILITY</th>
                       <th className="px-4 py-3">TIER</th>
                       <th className="px-4 py-3">STATUS</th>
-                      <th className="px-4 py-3 text-right">ACTIONS</th>
+                      <th className="px-4 py-3">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -625,32 +774,25 @@ export default function DeclarationPage() {
                             {formatNaira(d.grossLiability)}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge className="bg-purple-100 text-purple-800 border-0 text-[13px]">
+                            <Badge
+                              className={`${getTierBadge(d.tier)} text-[13px]`}
+                            >
                               Tier {d.tier}
                             </Badge>
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-[13px] ${
-                                d.status === "AUTHORIZED"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : d.status === "REJECTED"
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-amber-100 text-amber-800"
-                              }`}
+                              className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
                             >
-                              {d.status
-                                .replace(/_/g, " ")
-                                .toLowerCase()
-                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                              {formatStatus(d.status)}
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-right">
                             <Button
                               size="sm"
                               onClick={() => {
-                                setSelectedDecl(d);
-                                setSheetOpen(true);
+                                setSelectedIcuDecl(d);
+                                setIcuApprovalOpen(true);
                               }}
                             >
                               Review &amp; Decide
@@ -685,6 +827,7 @@ export default function DeclarationPage() {
             />
           </TabsContent>
 
+          {/* ── Declaration History ── */}
           <TabsContent value="history">
             <Card className="mrpsl-card overflow-hidden">
               <div className="overflow-x-auto">
@@ -695,10 +838,11 @@ export default function DeclarationPage() {
                       <th className="px-4 py-3">REGISTER</th>
                       <th className="px-4 py-3">TYPE</th>
                       <th className="px-4 py-3">QUAL DATE</th>
-                      <th className="px-4 py-3 text-right">RATE (₦)</th>
-                      <th className="px-4 py-3 text-right">GROSS LIABILITY</th>
+                      <th className="px-4 py-3">RATE (₦)</th>
+                      <th className="px-4 py-3">GROSS LIABILITY</th>
+                      <th className="px-4 py-3">TIER</th>
                       <th className="px-4 py-3">STATUS</th>
-                      <th className="px-4 py-3 text-right">ACTIONS</th>
+                      <th className="px-4 py-3">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -713,7 +857,11 @@ export default function DeclarationPage() {
                             {reg?.symbol}
                           </td>
                           <td className="px-4 py-3">
-                            {d.dividendType === "FINAL" ? "Final" : "Interim"}
+                            {d.dividendType === "FINAL"
+                              ? "Final"
+                              : d.dividendType === "INTERIM"
+                                ? "Interim"
+                                : "Special"}
                           </td>
                           <td className="px-4 py-3 text-muted-foreground text-[13px]">
                             {d.qualificationDate
@@ -731,22 +879,16 @@ export default function DeclarationPage() {
                           </td>
                           <td className="px-4 py-3">
                             <Badge
-                              className={`border-0 text-[13px] ${
-                                d.status === "DRAFT"
-                                  ? "bg-gray-100 text-gray-600"
-                                  : d.status === "AUTHORIZED"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : d.status === "PAID"
-                                      ? "bg-green-100 text-green-800"
-                                      : d.status === "REJECTED"
-                                        ? "bg-red-100 text-red-700"
-                                        : "bg-amber-100 text-amber-800"
-                              }`}
+                              className={`${getTierBadge(d.tier)} text-[13px]`}
                             >
-                              {d.status
-                                .replace(/_/g, " ")
-                                .toLowerCase()
-                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                              Tier {d.tier}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
+                            >
+                              {formatStatus(d.status)}
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -759,6 +901,7 @@ export default function DeclarationPage() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
                                   onClick={() => {
+                                    setSelectedDecl(d);
                                     setSheetOpen(true);
                                   }}
                                 >
@@ -810,7 +953,7 @@ export default function DeclarationPage() {
                     {historyDecsPg.total === 0 && (
                       <tr>
                         <td
-                          colSpan={8}
+                          colSpan={9}
                           className="px-4 py-12 text-center text-muted-foreground"
                         >
                           No declaration history found.
@@ -835,11 +978,111 @@ export default function DeclarationPage() {
         </div>
       </Tabs>
 
-      {/* Review Dialog */}
+      {/* ── Preview Liability Modal ── */}
+      <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Preview Liability Table</DialogTitle>
+            <DialogDescription>
+              Showing first 5 shareholders with computed dividend amounts at
+              rate ₦{rateNum.toFixed(4)}/share.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-x-auto px-8">
+            <table className="w-full text-left text-sm">
+              <thead className="mrpsl-table-header">
+                <tr>
+                  <th className="px-3 py-2.5">ACCOUNT NO</th>
+                  <th className="px-3 py-2.5">HOLDER NAME</th>
+                  <th className="px-3 py-2.5 text-right">UNITS AT QUAL DATE</th>
+                  <th className="px-3 py-2.5 text-right">GROSS DIV (₦)</th>
+                  <th className="px-3 py-2.5 text-right">WHT (₦)</th>
+                  <th className="px-3 py-2.5 text-right">NET DIV (₦)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-[13px]">
+                {previewShareholders.map((s) => {
+                  const g = s.holdings * rateNum;
+                  const w = g * 0.1;
+                  const n = g - w;
+                  return (
+                    <tr
+                      key={s.id}
+                      className="hover:bg-muted/30 transition-colors"
+                    >
+                      <td className="px-3 py-2.5 tabular text-muted-foreground">
+                        {s.accountNumber}
+                      </td>
+                      <td className="px-3 py-2.5 font-medium">
+                        {s.firstName} {s.lastName}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular">
+                        {s.holdings.toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular">
+                        {formatNaira(g)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular text-amber-600">
+                        {formatNaira(w)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right tabular text-green-700 font-semibold">
+                        {formatNaira(n)}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-muted/40 font-bold text-[13px]">
+                  <td className="px-3 py-2.5" colSpan={2}>
+                    TOTALS
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular">
+                    {previewTotals.units.toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular">
+                    {formatNaira(previewTotals.gross)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular text-amber-600">
+                    {formatNaira(previewTotals.wht)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular text-green-700">
+                    {formatNaira(previewTotals.net)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => toast.info("Downloading full list...")}
+            >
+              <Download className="h-4 w-4" /> Download Full List (Excel)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Pending Approval Review Dialog ── */}
       <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Review Dividend Declaration</DialogTitle>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <DialogTitle>Review Dividend Declaration</DialogTitle>
+                <DialogDescription>
+                  {selectedDecl?.paymentNumber ?? ""}
+                </DialogDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 shrink-0"
+                onClick={() => toast.info("Downloading declaration...")}
+              >
+                <Download className="h-4 w-4" /> Download Declaration
+              </Button>
+            </div>
           </DialogHeader>
           <div className="space-y-6 px-8 pb-8">
             <div className="flex flex-wrap gap-2">
@@ -850,7 +1093,7 @@ export default function DeclarationPage() {
                 Rate: ₦{selectedDecl?.rate.toFixed(4) ?? "0.0000"}
               </Badge>
               <Badge
-                className={`border-0 text-[13px] ${selectedDecl && selectedDecl.tier >= 3 ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}
+                className={`border-0 text-[13px] ${selectedDecl ? getTierBadge(selectedDecl.tier) : ""}`}
               >
                 Tier {selectedDecl?.tier ?? "—"}
               </Badge>
@@ -922,6 +1165,8 @@ export default function DeclarationPage() {
             <div className="space-y-2">
               <label className="mrpsl-label">Comment</label>
               <Textarea
+                value={sheetComment}
+                onChange={(e) => setSheetComment(e.target.value)}
                 placeholder="Required for rejection..."
                 className="resize-none"
               />
@@ -932,8 +1177,16 @@ export default function DeclarationPage() {
                 variant="destructive"
                 className="flex-1"
                 onClick={() => {
-                  toast.error("Declaration rejected.");
+                  const ref = selectedDecl
+                    ? `${selectedDecl.registerId}-${selectedDecl.dividendType}-${selectedDecl.paymentNumber}`
+                    : "Declaration";
+                  setRejectedDecl({ ref, comment: sheetComment });
+                  setActiveTab("new");
+                  toast.error(
+                    "Declaration rejected and returned to submitter.",
+                  );
                   setSheetOpen(false);
+                  setSheetComment("");
                 }}
               >
                 Reject
@@ -941,11 +1194,157 @@ export default function DeclarationPage() {
               <Button
                 className="flex-1"
                 onClick={() => {
-                  toast.success("Approved and routed.");
+                  toast.success(
+                    "Approved. Forwarded to ICU for final sign-off.",
+                  );
                   setSheetOpen(false);
+                  setSheetComment("");
                 }}
               >
                 Approve
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── ICU Approval Dialog ── */}
+      <Dialog open={icuApprovalOpen} onOpenChange={setIcuApprovalOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>ICU Approval — Dividend Declaration</DialogTitle>
+            <DialogDescription>
+              {selectedIcuDecl?.paymentNumber ?? ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 px-8 pb-8">
+            <div className="flex flex-wrap gap-2">
+              <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                {selectedIcuDecl?.dividendType ?? "—"}
+              </Badge>
+              <Badge className="bg-gray-100 text-gray-700 border-0 text-[13px] tabular-nums">
+                Rate: ₦{selectedIcuDecl?.rate.toFixed(4) ?? "0.0000"}
+              </Badge>
+              <Badge
+                className={`border-0 text-[13px] ${selectedIcuDecl ? getTierBadge(selectedIcuDecl.tier) : ""}`}
+              >
+                Tier {selectedIcuDecl?.tier ?? "—"}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <Card className="mrpsl-card p-4">
+                <div className="mrpsl-section-title">Gross Liability</div>
+                <div className="text-xl tabular mt-1 font-bold">
+                  {selectedIcuDecl
+                    ? formatNaira(selectedIcuDecl.grossLiability)
+                    : "—"}
+                </div>
+              </Card>
+              <Card className="mrpsl-card p-4 bg-amber-50 border-amber-200">
+                <div className="text-[13px] font-bold uppercase tracking-widest text-amber-700/80">
+                  WHT Amount
+                </div>
+                <div className="text-xl tabular mt-1 font-bold text-amber-600">
+                  {selectedIcuDecl
+                    ? formatNaira(selectedIcuDecl.whtAmount)
+                    : "—"}
+                </div>
+              </Card>
+              <Card className="mrpsl-card p-4 bg-green-50 border-green-200">
+                <div className="text-[13px] font-bold uppercase tracking-widest text-green-700/80">
+                  Net Liability
+                </div>
+                <div className="text-xl tabular mt-1 font-bold text-green-700">
+                  {selectedIcuDecl
+                    ? formatNaira(selectedIcuDecl.netLiability)
+                    : "—"}
+                </div>
+              </Card>
+            </div>
+
+            <div className="border border-border/60 rounded-xl p-4">
+              <h4 className="text-sm font-bold border-b border-border/60 pb-2 mb-4">
+                Approval Chain
+              </h4>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-green-600" />
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold">Chidinma Nwosu</span>
+                    <span className="text-muted-foreground ml-2">
+                      ✓ Submitted
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
+                    <Check className="h-3 w-3 text-green-600" />
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold">Ops Manager</span>
+                    <span className="text-muted-foreground ml-2">
+                      ✓ Ops Authorised
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="h-5 w-5 rounded-full bg-amber-200 flex items-center justify-center animate-pulse" />
+                  <div className="text-sm">
+                    <span className="font-semibold">ICU</span>
+                    <span className="text-amber-600 ml-2">
+                      ⏳ ICU Pending — your action required
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="mrpsl-label">ICU Comment</label>
+              <Textarea
+                value={icuComment}
+                onChange={(e) => setIcuComment(e.target.value)}
+                placeholder="Optional comment..."
+                className="resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-border/60">
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => {
+                  toast.error(
+                    "ICU rejected the declaration. Returned to submitter.",
+                  );
+                  setIcuApprovalOpen(false);
+                  setIcuComment("");
+                }}
+              >
+                Reject
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  if (selectedIcuDecl) {
+                    const reg = registers.find(
+                      (r) => r.id === selectedIcuDecl.registerId,
+                    );
+                    toast.success(
+                      `ICU approved. Payment number generated: PAY-${reg?.id ?? selectedIcuDecl.registerId}-${selectedIcuDecl.paymentNumber}. Shareholders queued for payment.`,
+                    );
+                    setIcuApprovedIds((prev) =>
+                      new Set(prev).add(selectedIcuDecl.id),
+                    );
+                  }
+                  setIcuApprovalOpen(false);
+                  setIcuComment("");
+                }}
+              >
+                ICU Approve
               </Button>
             </div>
           </div>

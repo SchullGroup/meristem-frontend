@@ -59,49 +59,49 @@ export default function DashboardHome() {
     switch (status) {
       case "DRAFT":
         return (
-          <Badge className="bg-gray-100      text-gray-600   border-0 text-xs">
+          <Badge className="bg-gray-100      text-gray-600   border-0 text-[13px]">
             Draft
           </Badge>
         );
       case "PENDING_TIER2":
         return (
-          <Badge className="bg-amber-100     text-amber-800  border-0 text-xs">
+          <Badge className="bg-amber-100     text-amber-800  border-0 text-[13px]">
             Pending Tier 2
           </Badge>
         );
       case "PENDING_TIER3":
         return (
-          <Badge className="bg-orange-100    text-orange-800 border-0 text-xs">
+          <Badge className="bg-orange-100    text-orange-800 border-0 text-[13px]">
             Pending Tier 3
           </Badge>
         );
       case "PENDING_TIER4":
         return (
-          <Badge className="bg-yellow-100    text-yellow-800 border-0 text-xs">
+          <Badge className="bg-yellow-100    text-yellow-800 border-0 text-[13px]">
             Pending Tier 4
           </Badge>
         );
       case "AUTHORIZED":
         return (
-          <Badge className="bg-blue-100      text-blue-800   border-0 text-xs">
+          <Badge className="bg-blue-100      text-blue-800   border-0 text-[13px]">
             Authorized
           </Badge>
         );
       case "PAID":
         return (
-          <Badge className="bg-green-100     text-green-800  border-0 text-xs">
+          <Badge className="bg-green-100     text-green-800  border-0 text-[13px]">
             Paid
           </Badge>
         );
       case "REJECTED":
         return (
-          <Badge className="bg-red-100       text-red-700    border-0 text-xs">
+          <Badge className="bg-red-100       text-red-700    border-0 text-[13px]">
             Rejected
           </Badge>
         );
       default:
         return (
-          <Badge className="bg-gray-100      text-gray-700   border-0 text-xs">
+          <Badge className="bg-gray-100      text-gray-700   border-0 text-[13px]">
             {status}
           </Badge>
         );
@@ -112,24 +112,24 @@ export default function DashboardHome() {
     switch (status) {
       case "ACTIVE":
         return (
-          <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+          <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
             Active
           </Badge>
         );
       case "TRANSACTION_DISABLED":
         return (
-          <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
+          <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
             Disabled
           </Badge>
         );
       case "INACTIVE":
         return (
-          <Badge className="bg-gray-100 text-gray-600 border-0 text-xs">
+          <Badge className="bg-gray-100 text-gray-600 border-0 text-[13px]">
             Inactive
           </Badge>
         );
       default:
-        return <Badge className="text-xs">{status}</Badge>;
+        return <Badge className="text-[13px]">{status}</Badge>;
     }
   };
 
@@ -140,7 +140,7 @@ export default function DashboardHome() {
           Good morning, {currentUser?.firstName ?? currentUser?.username}.
         </h1>
         <p className="text-sm text-muted-foreground">
-          {currentUser.roles?.[0]?.replace(/_/g, " ") ??
+          {currentUser?.roles?.[0]?.replace(/_/g, " ") ??
             (currentUser?.roles && currentUser?.roles[0]?.replace(/_/g, " ")) ??
             "User"}{" "}
           Dashboard
@@ -158,7 +158,7 @@ export default function DashboardHome() {
             <span className="text-3xl font-bold tabular-nums">
               {totalPrincipals}
             </span>
-            <div className="text-xs text-green-600 mt-1 font-medium">
+            <div className="text-[13px] text-green-600 mt-1 font-medium">
               +1 this month
             </div>
           </div>
@@ -173,7 +173,7 @@ export default function DashboardHome() {
             <span className="text-3xl font-bold tabular-nums">
               {activeRegisters}
             </span>
-            <div className="text-xs text-muted-foreground mt-1">
+            <div className="text-[13px] text-muted-foreground mt-1">
               Across all principals
             </div>
           </div>
@@ -192,7 +192,7 @@ export default function DashboardHome() {
             >
               {pendingCount}
             </span>
-            <div className="text-xs text-muted-foreground mt-1">
+            <div className="text-[13px] text-muted-foreground mt-1">
               Items awaiting action
             </div>
           </div>
@@ -207,7 +207,7 @@ export default function DashboardHome() {
             <span className="text-3xl font-bold tabular-nums">
               {declaredYTD}
             </span>
-            <div className="text-xs text-muted-foreground mt-1">
+            <div className="text-[13px] text-muted-foreground mt-1">
               Authorized payouts
             </div>
           </div>
@@ -227,11 +227,11 @@ export default function DashboardHome() {
                   <tr>
                     <th className="px-4 py-3">Register</th>
                     <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3 text-right">Rate</th>
-                    <th className="px-4 py-3 text-right">Gross Liability</th>
+                    <th className="px-4 py-3">Rate</th>
+                    <th className="px-4 py-3">Gross Liability</th>
                     <th className="px-4 py-3">Tier</th>
                     <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    <th className="px-4 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,7 +253,7 @@ export default function DashboardHome() {
                             {formatNaira(div.grossLiability)}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-[13px]">
                               Tier {div.tier}
                             </Badge>
                           </td>
@@ -264,7 +264,7 @@ export default function DashboardHome() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 text-xs"
+                              className="h-7 text-[13px]"
                               onClick={() =>
                                 router.push("/dividends/declaration")
                               }
@@ -308,19 +308,22 @@ export default function DashboardHome() {
                         {item.description}
                       </span>
                       {item.tier && (
-                        <Badge variant="outline" className="text-xs shrink-0">
+                        <Badge
+                          variant="outline"
+                          className="text-[13px] shrink-0"
+                        >
                           T{item.tier}
                         </Badge>
                       )}
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[13px] text-muted-foreground">
                         3h ago
                       </span>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-7 text-xs"
+                        className="h-7 text-[13px]"
                         onClick={() => router.push("/approvals")}
                       >
                         Review
@@ -342,7 +345,7 @@ export default function DashboardHome() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="w-full text-xs text-muted-foreground"
+                  className="w-full text-[13px] text-muted-foreground"
                   onClick={() => router.push("/approvals")}
                 >
                   View all {pendingCount} pending items
@@ -356,7 +359,7 @@ export default function DashboardHome() {
       {/* Row 3: Register Overview */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold tracking-tight">
-          Register Status Overview
+          Active Register Overview
         </h2>
         <Card className="mrpsl-card overflow-hidden">
           <div className="overflow-x-auto">
@@ -366,59 +369,63 @@ export default function DashboardHome() {
                   <th className="px-4 py-3">Register</th>
                   <th className="px-4 py-3">Principal</th>
                   <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3 text-right">Shareholders</th>
-                  <th className="px-4 py-3 text-right">Stock in Issue</th>
+                  <th className="px-4 py-3">Shareholders</th>
+                  <th className="px-4 py-3">Stock in Issue</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {registers.map((reg) => {
-                  const principal = principals.find(
-                    (p) => p.id === reg.principalId,
-                  );
-                  return (
-                    <tr key={reg.id} className="mrpsl-table-row">
-                      <td className="px-4 py-3">
-                        <div className="font-semibold">{reg.symbol}</div>
-                        <div className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {reg.name}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        {principal?.name || "Unknown"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant="outline" className="text-xs">
-                          {reg.registerType.replace(/\b\w/g, (c) =>
-                            c.toUpperCase(),
-                          )}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        {reg.shareholdersToday.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        {reg.stockToday.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        {getStatusBadge(reg.status)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={() =>
-                            router.push(`/setup/registers?search=${reg.symbol}`)
-                          }
-                        >
-                          View
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {registers
+                  .filter((r) => r.status === "ACTIVE")
+                  .map((reg) => {
+                    const principal = principals.find(
+                      (p) => p.id === reg.principalId,
+                    );
+                    return (
+                      <tr key={reg.id} className="mrpsl-table-row">
+                        <td className="px-4 py-3">
+                          <div className="font-semibold">{reg.symbol}</div>
+                          <div className="text-[13px] text-muted-foreground truncate max-w-[200px]">
+                            {reg.name}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-[13px]">
+                          {principal?.name || "Unknown"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className="text-[13px]">
+                            {reg.registerType.replace(/\b\w/g, (c) =>
+                              c.toUpperCase(),
+                            )}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {reg.shareholdersToday.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {reg.stockToday.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          {getStatusBadge(reg.status)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-[13px]"
+                            onClick={() =>
+                              router.push(
+                                `/setup/registers?search=${reg.symbol}`,
+                              )
+                            }
+                          >
+                            View
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>

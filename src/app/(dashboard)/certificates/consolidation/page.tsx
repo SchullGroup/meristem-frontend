@@ -22,7 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
-import { Check, AlertCircle, X } from "lucide-react";
+import { Check, AlertCircle, X, Pencil } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 
@@ -77,12 +77,19 @@ export default function ConsolidationPage() {
   const [certsLoaded, setCertsLoaded] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<PendingConsol | null>(null);
+  const [activeTab, setActiveTab] = useState("new");
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
   const [lastRejComment, setLastRejComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchComment, setBatchComment] = useState("");
+  const [editingRejected, setEditingRejected] = useState<PendingConsol | null>(
+    null,
+  );
+  const [approvedConsolAccounts, setApprovedConsolAccounts] = useState<
+    string[]
+  >([]);
 
   function openReview(row: PendingConsol) {
     setSelected(row);
@@ -145,7 +152,11 @@ export default function ConsolidationPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="new" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v || "new")}
+        className="w-full"
+      >
         <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
           <TabsTrigger
             value="new"
@@ -164,24 +175,69 @@ export default function ConsolidationPage() {
         <div className="mt-6">
           <TabsContent value="new" className="space-y-6">
             {rejectedIds.size > 0 && (
-              <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1 space-y-1">
-                  <div className="font-semibold text-sm text-red-800">
-                    {rejectedIds.size === 1
-                      ? "Request Rejected"
-                      : `${rejectedIds.size} Requests Rejected`}
+              <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-semibold text-sm text-red-800">
+                      {rejectedIds.size === 1
+                        ? "Request Rejected"
+                        : `${rejectedIds.size} Requests Rejected`}
+                    </div>
+                    <div className="text-[13px] text-red-700">
+                      {lastRejComment || "No comment provided."}
+                    </div>
                   </div>
-                  <div className="text-[13px] text-red-700">
-                    {lastRejComment || "No comment provided."}
-                  </div>
+                  <button
+                    onClick={() => {
+                      setRejectedIds(new Set());
+                      setLastRejComment("");
+                      setEditingRejected(null);
+                    }}
+                    className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
+                <div className="mt-3 pl-8">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-300 text-red-700 hover:bg-red-100 gap-1.5"
+                    onClick={() => {
+                      const item = PENDING_CONSOLS.find((c) =>
+                        rejectedIds.has(c.id),
+                      );
+                      if (item) {
+                        setEditingRejected(item);
+                        setCertsLoaded(true);
+                      }
+                      setRejectedIds(new Set());
+                      setLastRejComment("");
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit &amp; Resubmit
+                  </Button>
+                </div>
+              </Card>
+            )}
+            {editingRejected && (
+              <Card className="mrpsl-card p-3 border-l-4 border-l-amber-400 bg-amber-50/60 border-amber-200 flex items-center gap-3">
+                <Pencil className="h-4 w-4 text-amber-600 shrink-0" />
+                <p className="text-[13px] text-amber-800 font-medium flex-1">
+                  Editing rejected consolidation for account{" "}
+                  <span className="font-semibold">
+                    {editingRejected.account}
+                  </span>{" "}
+                  — {editingRejected.certCount} certificates,{" "}
+                  {editingRejected.totalUnits.toLocaleString()} units.
+                </p>
                 <button
                   onClick={() => {
-                    setRejectedIds(new Set());
-                    setLastRejComment("");
+                    setEditingRejected(null);
+                    setCertsLoaded(false);
                   }}
-                  className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+                  className="text-amber-500 hover:text-amber-700"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -219,63 +275,144 @@ export default function ConsolidationPage() {
 
             {certsLoaded && (
               <div className="space-y-4 animate-in fade-in">
-                <Card className="mrpsl-card">
-                  <table className="w-full text-left text-sm">
-                    <thead className="mrpsl-table-header">
-                      <tr>
-                        <th className="p-3 w-10"></th>
-                        <th className="p-3">CERT NO</th>
-                        <th className="p-3 text-right">UNITS</th>
-                        <th className="p-3">ISSUE DATE</th>
-                        <th className="p-3">STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {["CERT-001", "CERT-002", "CERT-003"].map((c) => (
-                        <tr key={c} className="hover:bg-accent/5">
-                          <td className="p-3">
-                            <Checkbox defaultChecked={c !== "CERT-003"} />
-                          </td>
-                          <td className="p-3 font-mono text-[13px]">{c}</td>
-                          <td className="p-3 font-mono text-right">10,000</td>
-                          <td className="p-3 text-muted-foreground text-[13px]">
-                            01 Jan 2026
-                          </td>
-                          <td className="p-3">ACTIVE</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Card>
-
-                <div className="sticky bottom-4 z-10">
-                  <Card className="mrpsl-card bg-card shadow-lg border-primary/25 p-4 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                        <span className="text-primary font-bold text-sm">
-                          2
-                        </span>
+                <Card className="mrpsl-card p-4 bg-green-50/60 border-green-200">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center shrink-0">
+                      <span className="text-white font-bold text-sm">BL</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm text-green-900">
+                        Binta Lawal
                       </div>
-                      <div>
-                        <div className="font-semibold text-foreground text-sm">
-                          2 certificates selected
-                        </div>
-                        <div className="text-[13px] text-muted-foreground tabular-nums mt-0.5">
-                          20,000 total units
-                        </div>
+                      <div className="font-mono text-[13px] text-green-700">
+                        DANGCEM-10015
                       </div>
                     </div>
-                    <Button
-                      onClick={() =>
-                        toast.success(
-                          "Consolidation submitted for authorizer review.",
-                        )
-                      }
-                    >
-                      Consolidate Selected
-                    </Button>
+                    <div className="text-right shrink-0">
+                      <div className="text-[12px] font-semibold text-green-700 bg-green-100 border border-green-200 px-2 py-0.5 rounded mb-1">
+                        Dangote Cement — DANGCEM
+                      </div>
+                      <div className="font-mono text-sm font-bold text-green-900">
+                        20,000 units
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {approvedConsolAccounts.includes("DANGCEM-10015") ? (
+                  <div className="space-y-3">
+                    <Card className="mrpsl-card overflow-hidden">
+                      <table className="w-full text-left text-sm">
+                        <thead className="mrpsl-table-header">
+                          <tr>
+                            <th className="p-3 w-10"></th>
+                            <th className="p-3">CERT NO</th>
+                            <th className="p-3">UNITS</th>
+                            <th className="p-3">ISSUE DATE</th>
+                            <th className="p-3">STATUS</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {["CERT-001", "CERT-002", "CERT-003"].map((c) => (
+                            <tr
+                              key={c}
+                              className="hover:bg-accent/5 opacity-50"
+                            >
+                              <td className="p-3">
+                                <Checkbox disabled />
+                              </td>
+                              <td className="p-3 font-mono text-[13px] line-through text-muted-foreground">
+                                {c}
+                              </td>
+                              <td className="p-3 font-mono text-right text-muted-foreground">
+                                10,000
+                              </td>
+                              <td className="p-3 text-muted-foreground text-[13px]">
+                                01 Jan 2026
+                              </td>
+                              <td className="p-3">
+                                <span className="text-[11px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                                  INACTIVE
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Card>
+                    <Card className="mrpsl-card p-4 bg-green-50/60 border-green-200">
+                      <div className="text-[13px] font-semibold text-green-700 mb-2">
+                        Consolidated Certificate Issued:
+                      </div>
+                      <div className="font-mono text-[13px] bg-green-100 border border-green-200 rounded px-3 py-2 flex items-center justify-between">
+                        <span>CERT-DANGCEM-CONSOL-001 · 20,000 units</span>
+                        <span className="text-[11px] font-semibold bg-green-600 text-white px-2 py-0.5 rounded">
+                          ACTIVE
+                        </span>
+                      </div>
+                    </Card>
+                  </div>
+                ) : (
+                  <Card className="mrpsl-card">
+                    <table className="w-full text-left text-sm">
+                      <thead className="mrpsl-table-header">
+                        <tr>
+                          <th className="p-3 w-10"></th>
+                          <th className="p-3">CERT NO</th>
+                          <th className="p-3">UNITS</th>
+                          <th className="p-3">ISSUE DATE</th>
+                          <th className="p-3">STATUS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {["CERT-001", "CERT-002", "CERT-003"].map((c) => (
+                          <tr key={c} className="hover:bg-accent/5">
+                            <td className="p-3">
+                              <Checkbox defaultChecked={c !== "CERT-003"} />
+                            </td>
+                            <td className="p-3 font-mono text-[13px]">{c}</td>
+                            <td className="p-3 font-mono text-right">10,000</td>
+                            <td className="p-3 text-muted-foreground text-[13px]">
+                              01 Jan 2026
+                            </td>
+                            <td className="p-3">ACTIVE</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </Card>
-                </div>
+                )}
+
+                {!approvedConsolAccounts.includes("DANGCEM-10015") && (
+                  <div className="sticky bottom-4 z-10">
+                    <Card className="mrpsl-card bg-card shadow-lg border-primary/25 p-4 flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <span className="text-primary font-bold text-sm">
+                            2
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-foreground text-sm">
+                            2 certificates selected
+                          </div>
+                          <div className="text-[13px] text-muted-foreground tabular-nums mt-0.5">
+                            20,000 total units
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() =>
+                          toast.success(
+                            "Consolidation submitted for authorizer review.",
+                          )
+                        }
+                      >
+                        Consolidate Selected
+                      </Button>
+                    </Card>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>
@@ -316,10 +453,10 @@ export default function ConsolidationPage() {
                     <th className="p-3">DATE</th>
                     <th className="p-3">ACCOUNT</th>
                     <th className="p-3">HOLDER</th>
-                    <th className="p-3 text-right">CERTIFICATES</th>
-                    <th className="p-3 text-right">TOTAL UNITS</th>
+                    <th className="p-3">CERTIFICATES</th>
+                    <th className="p-3">TOTAL UNITS</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -432,8 +569,8 @@ export default function ConsolidationPage() {
                   <thead className="mrpsl-table-header">
                     <tr>
                       <th className="px-4 py-2 text-left">CERT NO</th>
-                      <th className="px-4 py-2 text-right">UNITS</th>
-                      <th className="px-4 py-2 text-right">ISSUE DATE</th>
+                      <th className="px-4 py-2">UNITS</th>
+                      <th className="px-4 py-2">ISSUE DATE</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
@@ -470,21 +607,31 @@ export default function ConsolidationPage() {
                   Approval Chain
                 </h4>
                 <div className="space-y-4">
-                  {[
+                  {((): Array<{
+                    label: string;
+                    done: boolean;
+                    pending?: boolean;
+                    time?: string | null;
+                  }> => [
                     {
                       label: `Submitted by ${selected.submittedBy}`,
                       done: true,
-                      pending: false,
+                      time: selected.date + ", 09:14",
                     },
                     {
-                      label: "Authoriser — Pending your action",
-                      done: false,
-                      pending: true,
+                      label: "Authorised by Ngozi Adeyemi (Operations Manager)",
+                      done: true,
+                      time: selected.date + ", 11:30",
                     },
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-3">
+                    {
+                      label: "ICU Final Review — Approved",
+                      done: true,
+                      time: selected.date + ", 14:00",
+                    },
+                  ])().map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
                       >
                         {step.done && (
                           <Check
@@ -493,7 +640,14 @@ export default function ConsolidationPage() {
                           />
                         )}
                       </div>
-                      <div className="text-sm">{step.label}</div>
+                      <div>
+                        <div className="text-sm">{step.label}</div>
+                        {step.time && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {step.time}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -525,6 +679,10 @@ export default function ConsolidationPage() {
                 <Button
                   className="flex-1"
                   onClick={() => {
+                    setApprovedConsolAccounts((prev) => [
+                      ...prev,
+                      selected!.account,
+                    ]);
                     toast.success("Consolidation approved and processed.");
                     setReviewOpen(false);
                   }}

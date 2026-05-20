@@ -42,7 +42,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
-import { ApprovalItem } from "@/lib/types";
+import { ApprovalItem, ApprovalStep } from "@/lib/types";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 
@@ -85,7 +85,7 @@ export default function ApprovalsPage() {
       const item = pendingApprovals.find((a) => a.id === id);
       if (!item) return;
       const updatedSteps = item.approvalSteps.map((s) =>
-        s.roles[0] === currentUser.roles?.[0] && !s.decision
+        s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
           ? {
               ...s,
               decision: "APPROVED" as const,
@@ -118,7 +118,7 @@ export default function ApprovalsPage() {
       const item = pendingApprovals.find((a) => a.id === id);
       if (!item) return;
       const updatedSteps = item.approvalSteps.map((s) =>
-        s.roles[0] === currentUser.roles?.[0] && !s.decision
+        s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
           ? {
               ...s,
               decision: "REJECTED" as const,
@@ -158,7 +158,7 @@ export default function ApprovalsPage() {
     (a) =>
       a.status === "PENDING" &&
       a.approvalSteps.some(
-        (s) => s.roles?.[0] === currentUser?.roles?.[0] && !s.decision,
+        (s) => s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision,
       ),
   ).length;
   const overdueCount = pendingApprovals.filter(
@@ -187,7 +187,7 @@ export default function ApprovalsPage() {
   const handleApprove = () => {
     if (!reviewItem || !currentUser) return;
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
-      s.roles[0] === currentUser.roles?.[0] && !s.decision
+      s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
         ? {
             ...s,
             decision: "APPROVED" as const,
@@ -206,7 +206,7 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser.roles?.[0],
+      role: currentUser.roles?.[0] || "",
       action: "APPROVE",
       entityType: "APPROVAL",
       entityId: reviewItem.id,
@@ -224,7 +224,7 @@ export default function ApprovalsPage() {
       return;
     }
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
-      s.roles[0] === currentUser.roles?.[0] && !s.decision
+      s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
         ? {
             ...s,
             decision: "REJECTED" as const,
@@ -242,7 +242,7 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser.roles?.[0],
+      role: currentUser.roles?.[0] || "",
       action: "REJECT",
       entityType: "APPROVAL",
       entityId: reviewItem.id,
@@ -267,7 +267,9 @@ export default function ApprovalsPage() {
       toast.error("Please describe the changes you made before resubmitting.");
       return;
     }
-    const resetSteps = editItem.approvalSteps.map((s) => ({ roles: s.roles }));
+    const resetSteps: ApprovalStep[] = editItem.approvalSteps.map((s) => ({
+      roles: s?.roles || [],
+    }));
     const parsedAmount = editAmount.replace(/,/g, "").trim();
     updateApprovalItem(editItem.id, {
       status: "PENDING",
@@ -279,7 +281,7 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser.roles?.[0],
+      role: currentUser.roles?.[0] || "",
       action: "RESUBMIT",
       entityType: "APPROVAL",
       entityId: editItem.id,
@@ -471,12 +473,12 @@ export default function ApprovalsPage() {
               <th className="p-3">MODULE</th>
               <th className="p-3">TYPE</th>
               <th className="p-3">DESCRIPTION</th>
-              <th className="p-3 text-right">AMOUNT</th>
+              <th className="p-3">AMOUNT</th>
               <th className="p-3">TIER</th>
               <th className="p-3">SUBMITTED BY</th>
               <th className="p-3">AGING</th>
               <th className="p-3">STATUS</th>
-              <th className="p-3 text-right">ACTIONS</th>
+              <th className="p-3">ACTIONS</th>
             </tr>
           </thead>
           <tbody className="divide-y text-[13px]">
@@ -486,7 +488,7 @@ export default function ApprovalsPage() {
               const canAction =
                 a.status === "PENDING" &&
                 a.approvalSteps.some(
-                  (s) => s.roles?.[0] === currentUser.roles?.[0] && !s.decision,
+                  (s) => s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision,
                 );
 
               return (
@@ -690,14 +692,14 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
 
-                {reviewItem?.attachments &&
-                  reviewItem?.attachments.length > 0 && (
+                {reviewItem.attachments &&
+                  reviewItem.attachments.length > 0 && (
                     <div className="p-4 border rounded-xl">
                       <h4 className="text-sm font-bold border-b pb-2 mb-3">
                         Supporting Documents
                       </h4>
                       <div className="space-y-2">
-                        {reviewItem.attachments?.map((doc, i) => (
+                        {reviewItem.attachments.map((doc, i) => (
                           <div
                             key={i}
                             className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/20 border"
@@ -778,7 +780,7 @@ export default function ApprovalsPage() {
                         )}
                         <div className="text-sm">
                           <span className="font-semibold">
-                            {s.roles[0].replace(/_/g, " ")}
+                            {s?.roles?.[0]?.replace(/_/g, " ") ?? "Unknown"}
                           </span>
                           {s.decision ? (
                             <span
@@ -964,7 +966,7 @@ export default function ApprovalsPage() {
                       <span className="text-[13px] font-semibold">
                         Rejected by{" "}
                         {rejectedStep?.approverName ??
-                          rejectedStep?.roles[0].replace(/_/g, " ") ??
+                          rejectedStep?.roles?.[0]?.replace(/_/g, " ") ??
                           "Approver"}
                         {rejectedStep?.decidedAt && (
                           <span className="font-normal text-red-600">

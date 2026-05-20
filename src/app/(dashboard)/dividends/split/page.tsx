@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Check, AlertCircle, X } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
+import { useStore } from "@/lib/store";
 
 type SplitApproval = {
   id: string;
@@ -35,6 +36,7 @@ type SplitApproval = {
   parts: number;
   submittedBy: string;
 };
+type PartRow = { account: string; amount: string };
 
 const PENDING_SPLITS: SplitApproval[] = [
   {
@@ -71,12 +73,90 @@ const SPLIT_PARTS: Record<string, { account: string; amount: number }[]> = {
   ],
 };
 
+const WARRANT_AMOUNT = 45000;
+
+const DIVIDEND_OPTIONS = [
+  {
+    value: "DIV-2025-001",
+    label: "DIV-2025-001 (Unpaid ✓ — eligible)",
+    eligible: true,
+  },
+  {
+    value: "DIV-2025-002",
+    label: "DIV-2025-002 (Paid ✗ — ineligible)",
+    eligible: false,
+  },
+];
+
+function makeRows(n: number): PartRow[] {
+  return Array.from({ length: n }, () => ({ account: "", amount: "" }));
+}
+
 export default function DivSplitPage() {
+  const { registers } = useStore();
+
+  const [activeTab, setActiveTab] = useState("split");
+
+  const [splitRegister, setSplitRegister] = useState("");
+  const [splitAccount, setSplitAccount] = useState("");
+  const [splitAccountLoaded, setSplitAccountLoaded] = useState(false);
+  const [splitDividend, setSplitDividend] = useState("");
+  const [splitParts, setSplitParts] = useState(2);
+  const [partRows, setPartRows] = useState<PartRow[]>(makeRows(2));
+  const [splitReason, setSplitReason] = useState("");
+  const [reasonError, setReasonError] = useState(false);
+
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<SplitApproval | null>(null);
   const [rejectedId, setRejectedId] = useState<string | null>(null);
   const [rejectedComment, setRejectedComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
+
+  const selectedDividendMeta = DIVIDEND_OPTIONS.find(
+    (d) => d.value === splitDividend,
+  );
+  const isDividendEligible = selectedDividendMeta?.eligible ?? true;
+
+  const allocatedTotal = partRows.reduce(
+    (sum, r) => sum + (parseFloat(r.amount) || 0),
+    0,
+  );
+  const remaining = WARRANT_AMOUNT - allocatedTotal;
+  const isBalanced = remaining === 0;
+
+  function handlePartsChange(n: number) {
+    setSplitParts(n);
+    setPartRows((prev) => {
+      if (n > prev.length) return [...prev, ...makeRows(n - prev.length)];
+      return prev.slice(0, n);
+    });
+  }
+
+  function updateRow(i: number, field: keyof PartRow, value: string) {
+    setPartRows((prev) =>
+      prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)),
+    );
+  }
+
+  function handleSubmit() {
+    if (!splitReason.trim()) {
+      setReasonError(true);
+      return;
+    }
+    if (!isBalanced) {
+      toast.error("Allocated amounts do not match the warrant total.");
+      return;
+    }
+    toast.success("Dividend split submitted for approval.");
+    setSplitReason("");
+    setSplitDividend("");
+    setSplitAccount("");
+    setSplitAccountLoaded(false);
+    setSplitRegister("");
+    setSplitParts(2);
+    setPartRows(makeRows(2));
+    setReasonError(false);
+  }
 
   function openReview(row: SplitApproval) {
     setSelected(row);
@@ -98,7 +178,7 @@ export default function DivSplitPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="split" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
           <TabsTrigger
             value="split"
@@ -144,30 +224,82 @@ export default function DivSplitPage() {
                   Step 1: Locate Eligible Dividend
                 </h3>
                 <div className="space-y-4">
-                  <Select>
+                  <Select
+                    value={splitRegister}
+                    onValueChange={(v) => setSplitRegister(v || "")}
+                  >
                     <SelectTrigger className="mrpsl-input">
                       <SelectValue placeholder="Register" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="x">DANGCEM</SelectItem>
+                      {registers
+                        .filter((r) => r.status === "ACTIVE")
+                        .map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.symbol}
+                          </SelectItem>
+                        ))}
+                      {registers.filter((r) => r.status === "ACTIVE").length ===
+                        0 && <SelectItem value="DANGCEM">DANGCEM</SelectItem>}
                     </SelectContent>
                   </Select>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Account Search"
-                      className="mrpsl-input"
-                    />
-                    <Button variant="outline">Lookup</Button>
+
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Account No / CHN"
+                        className="mrpsl-input"
+                        value={splitAccount}
+                        onChange={(e) => {
+                          setSplitAccount(e.target.value);
+                          setSplitAccountLoaded(false);
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (splitAccount.trim()) setSplitAccountLoaded(true);
+                        }}
+                      >
+                        Lookup
+                      </Button>
+                    </div>
+                    {splitAccountLoaded && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-[13px] text-blue-800 font-mono">
+                        DANGCEM-10029 — Adaeze Okonkwo — DANGCEM register
+                      </div>
+                    )}
                   </div>
-                  <Select>
-                    <SelectTrigger className="mrpsl-input">
-                      <SelectValue placeholder="Select Dividend" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="x">DIV-2025-001</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                  <div className="space-y-1.5">
+                    <Select
+                      value={splitDividend}
+                      onValueChange={(v) => setSplitDividend(v || "")}
+                    >
+                      <SelectTrigger className="mrpsl-input">
+                        <SelectValue placeholder="Select Dividend" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DIVIDEND_OPTIONS.map((d) => (
+                          <SelectItem key={d.value} value={d.value}>
+                            {d.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {splitDividend &&
+                      (selectedDividendMeta?.eligible ? (
+                        <Badge className="bg-green-100 text-green-800 border-0 text-[12px]">
+                          ELIGIBLE — Unpaid
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-red-100 text-red-700 border-0 text-[12px]">
+                          INELIGIBLE — Already Paid
+                        </Badge>
+                      ))}
+                  </div>
                 </div>
+
                 <div className="bg-muted/20 p-4 rounded-md space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">
@@ -180,7 +312,7 @@ export default function DivSplitPage() {
                       Net Amount
                     </span>
                     <span className="font-mono font-bold text-green-600">
-                      ₦45,000.00
+                      ₦{WARRANT_AMOUNT.toLocaleString()}.00
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -198,57 +330,90 @@ export default function DivSplitPage() {
                 <h3 className="font-semibold text-sm border-b pb-2">
                   Step 2: Configure Split
                 </h3>
-                <div className="space-y-4">
+                <fieldset
+                  disabled={!isDividendEligible}
+                  className="space-y-4 disabled:opacity-50 disabled:pointer-events-none"
+                >
                   <div className="space-y-2">
                     <label className="mrpsl-label">Number of Parts</label>
-                    <Select defaultValue="2">
+                    <Select
+                      value={String(splitParts)}
+                      onValueChange={(v) => handlePartsChange(Number(v))}
+                    >
                       <SelectTrigger className="mrpsl-input w-32">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="2">2</SelectItem>
                         <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="4">4</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Destination Account"
-                        className="mrpsl-input flex-1"
-                      />
-                      <Input
-                        type="number"
-                        defaultValue="25000"
-                        className="mrpsl-input w-32 font-mono"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Destination Account"
-                        className="mrpsl-input flex-1"
-                      />
-                      <Input
-                        type="number"
-                        defaultValue="20000"
-                        className="mrpsl-input w-32 font-mono"
-                      />
-                    </div>
+                    {partRows.map((row, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          placeholder={`Destination Account ${i + 1}`}
+                          className="mrpsl-input flex-1"
+                          value={row.account}
+                          onChange={(e) =>
+                            updateRow(i, "account", e.target.value)
+                          }
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Amount"
+                          className="mrpsl-input w-32 font-mono"
+                          value={row.amount}
+                          onChange={(e) =>
+                            updateRow(i, "amount", e.target.value)
+                          }
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <div className="bg-green-50 border border-green-200 text-green-800 p-2 rounded text-sm font-mono text-center">
-                    Total: ₦45,000.00 / ₦45,000.00 ✓
+
+                  {isBalanced ? (
+                    <div className="bg-green-50 border border-green-200 text-green-800 p-2 rounded text-sm font-mono text-center">
+                      Total: ₦{WARRANT_AMOUNT.toLocaleString()}.00 / ₦
+                      {WARRANT_AMOUNT.toLocaleString()}.00 ✓ Balanced
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2 rounded text-sm font-mono text-center">
+                      {remaining > 0
+                        ? `₦${remaining.toLocaleString()}.00 remaining`
+                        : `₦${Math.abs(remaining).toLocaleString()}.00 over-allocated`}
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <Textarea
+                      placeholder="Reason (required)..."
+                      className={`focus-visible:ring-primary resize-none ${reasonError ? "border-red-500" : ""}`}
+                      value={splitReason}
+                      onChange={(e) => {
+                        setSplitReason(e.target.value);
+                        if (e.target.value.trim()) setReasonError(false);
+                      }}
+                    />
+                    {reasonError && (
+                      <p className="text-[12px] text-red-600">
+                        Reason is required.
+                      </p>
+                    )}
                   </div>
-                  <Textarea
-                    placeholder="Reason..."
-                    className="focus-visible:ring-primary"
-                  />
-                  <Button
-                    className="w-full"
-                    onClick={() => toast.success("Split submitted")}
-                  >
+
+                  <Button className="w-full" onClick={handleSubmit}>
                     Submit for Approval
                   </Button>
-                </div>
+                </fieldset>
+                {!isDividendEligible && splitDividend && (
+                  <p className="text-[13px] text-red-600 text-center">
+                    Select an eligible dividend to configure the split.
+                  </p>
+                )}
               </Card>
             </div>
           </TabsContent>
@@ -262,10 +427,10 @@ export default function DivSplitPage() {
                     <th className="p-3">WARRANT NO</th>
                     <th className="p-3">ACCOUNT</th>
                     <th className="p-3">HOLDER</th>
-                    <th className="p-3 text-right">TOTAL AMOUNT (₦)</th>
-                    <th className="p-3 text-right">PARTS</th>
+                    <th className="p-3">TOTAL AMOUNT (₦)</th>
+                    <th className="p-3">PARTS</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -314,7 +479,7 @@ export default function DivSplitPage() {
             <DialogTitle>Review Dividend Split</DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="space-y-6 px-8 pb-8">
+            <div className="max-h-[80vh] overflow-y-auto space-y-6 px-8 pb-8">
               <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -342,6 +507,14 @@ export default function DivSplitPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+                <Check className="h-4 w-4 shrink-0 mt-0.5 text-green-600" />
+                <span>
+                  Dividend {selected.warrantNo} is <strong>UNPAID</strong> and
+                  eligible for split.
+                </span>
               </div>
 
               <div className="border border-border/60 rounded-xl p-4">
@@ -421,6 +594,7 @@ export default function DivSplitPage() {
                     setRejectedComment(rejectComment);
                     toast.error("Split rejected.");
                     setReviewOpen(false);
+                    setActiveTab("split");
                   }}
                 >
                   Reject
