@@ -223,6 +223,26 @@ export const getIpoBatchesLodgment = async (params?: PendingApprovalParams) => {
   }
 };
 
+// APPROVE LODGEMENT
+export const approveLodgment = async (
+  batchRef: string,
+  payload: {
+    comment: string;
+    lodgdedBy: string;
+  },
+) => {
+  try {
+    const response = await api.patch<ApiResponse<IPO>>(
+      `/ipo/batches/${batchRef}/icu-lodged`,
+      payload,
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 // reports endpoints
 
 export const getBatchSummaryReport = async (register?: string) => {

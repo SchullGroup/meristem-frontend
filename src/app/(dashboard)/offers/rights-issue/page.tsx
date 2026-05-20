@@ -7,7 +7,7 @@ import RightsIssuePendingApproval from "@/components/custom/rights-issue/pending
 import RightsIssueICUApproval from "@/components/custom/rights-issue/icu-approval";
 import RightsIssueAllottment from "@/components/custom/rights-issue/allotment";
 import RightsIssueTradedLodgment from "@/components/custom/rights-issue/trade-lodgment";
-import RightsIssueReports from "@/components/custom/rights-issue/reports";
+import RightsIssueReports from "@/components/custom/rights-issue/rights-reports";
 
 /* ─── main component ─── */
 

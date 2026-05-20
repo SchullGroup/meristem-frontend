@@ -10,8 +10,9 @@ export function formatNaira(amount: number): string {
   return `₦${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function formatNumber(n: number): string {
-  return n.toLocaleString();
+export function formatNumber(num: number): string {
+  if (num === null || num === undefined) return "—";
+  return num.toLocaleString();
 }
 
 export function formatDate(dateString: string): string {
@@ -52,3 +53,9 @@ export function formatFileSize(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
+
+export const formatCurrency = (num?: number | null) => {
+  if (num === null || num === undefined) return "—";
+  return `₦${num.toLocaleString()}`;
+};
+
