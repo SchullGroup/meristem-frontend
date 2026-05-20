@@ -231,7 +231,7 @@ export default function ConsolidationPage() {
                             </th>
                             <th className="p-2">ACCT NO</th>
                             <th className="p-2">NAME</th>
-                            <th className="p-2 text-right">HOLDINGS</th>
+                            <th className="p-2">HOLDINGS</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y font-mono text-[13px]">
@@ -331,9 +331,9 @@ export default function ConsolidationPage() {
                     <th className="p-3">DATE</th>
                     <th className="p-3">SOURCE ACCOUNTS</th>
                     <th className="p-3">DESTINATION</th>
-                    <th className="p-3 text-right">TOTAL HOLDINGS</th>
+                    <th className="p-3">TOTAL HOLDINGS</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -380,7 +380,7 @@ export default function ConsolidationPage() {
                     <th className="p-3">DATE</th>
                     <th className="p-3">SOURCE ACCOUNTS</th>
                     <th className="p-3">DESTINATION</th>
-                    <th className="p-3 text-right">TOTAL HOLDINGS</th>
+                    <th className="p-3">TOTAL HOLDINGS</th>
                     <th className="p-3">STATUS</th>
                     <th className="p-3">AUTHORISED BY</th>
                   </tr>

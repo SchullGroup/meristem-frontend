@@ -1415,7 +1415,20 @@ export default function BonusIssuePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {!pendingBatchDismissed ? (
+                    {!declarationList ||
+                    declarationList.filter(
+                      (d: { status: string }) =>
+                        d.status === "DRAFT" || d.status === "PENDING_AUTH",
+                    ).length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={11}
+                          className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
+                        >
+                          No declarations awaiting approval
+                        </td>
+                      </tr>
+                    ) : !pendingBatchDismissed ? (
                       declarationList
                         ?.filter(
                           (d: { status: string }) =>
@@ -1669,63 +1682,77 @@ export default function BonusIssuePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {declarationList
-                      ?.filter(
-                        (d: { status: string }) => d.status === "PENDING_ICU",
-                      )
-                      .map((declaration: BonusDeclaration, i: number) => (
-                        <tr key={i} className="mrpsl-table-row">
-                          <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                            {declaration?.ref}
-                          </td>
-                          <td className="px-4 py-3 font-semibold">
-                            {declaration?.registerName}
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {declaration?.bonusName}
-                          </td>
-                          <td className="px-4 py-3 text-center font-mono">
-                            {declaration?.ratio}
-                          </td>
-                          <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                            {declaration?.qualificationDate}
-                          </td>
-                          <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                            {declaration?.allotmentDate}
-                          </td>
-                          <td className="px-4 py-3 font-mono text-right">
-                            {declaration?.totalShareholders?.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
-                            {declaration?.totalBonusShares?.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="text-[13px] font-medium">
-                              {declaration?.submittedByName}
-                            </div>
-                            <div className="text-[13px] text-muted-foreground">
-                              {formatCustomDate(declaration?.submittedAt)}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
-                              {declaration?.status}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setIcuPage(1);
-                                setIcuReviewing(declaration?.id);
-                                setAuthReviewing(null);
-                              }}
-                            >
-                              ICU Review
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                    {!declarationList ||
+                    declarationList.filter(
+                      (d: { status: string }) => d.status === "PENDING_ICU",
+                    ).length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={11}
+                          className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
+                        >
+                          No declarations awaiting ICU approval
+                        </td>
+                      </tr>
+                    ) : (
+                      declarationList
+                        ?.filter(
+                          (d: { status: string }) => d.status === "PENDING_ICU",
+                        )
+                        .map((declaration: BonusDeclaration, i: number) => (
+                          <tr key={i} className="mrpsl-table-row">
+                            <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                              {declaration?.ref}
+                            </td>
+                            <td className="px-4 py-3 font-semibold">
+                              {declaration?.registerName}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {declaration?.bonusName}
+                            </td>
+                            <td className="px-4 py-3 text-center font-mono">
+                              {declaration?.ratio}
+                            </td>
+                            <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                              {declaration?.qualificationDate}
+                            </td>
+                            <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                              {declaration?.allotmentDate}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-right">
+                              {declaration?.totalShareholders?.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
+                              {declaration?.totalBonusShares?.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="text-[13px] font-medium">
+                                {declaration?.submittedByName}
+                              </div>
+                              <div className="text-[13px] text-muted-foreground">
+                                {formatCustomDate(declaration?.submittedAt)}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                                {declaration?.status}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setIcuPage(1);
+                                  setIcuReviewing(declaration?.id);
+                                  setAuthReviewing(null);
+                                }}
+                              >
+                                ICU Review
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                    )}
                   </tbody>
                 </table>
               </Card>
@@ -1931,60 +1958,71 @@ export default function BonusIssuePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {icuApprovedList?.map((declaration: BonusDeclaration) => (
-                      <tr
-                        key={declaration?.id}
-                        className="mrpsl-table-row hover:bg-muted/40 transition-colors"
-                      >
-                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                          {declaration?.ref}
-                        </td>
-                        <td className="px-4 py-3 font-semibold">
-                          {declaration?.registerName}
-                        </td>
-                        <td className="px-4 py-3 text-[13px]">
-                          {declaration?.bonusName}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-center">
-                          {declaration?.ratio}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          {declaration?.totalShareholders}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono font-semibold text-green-700">
-                          {declaration?.totalBonusShares}
-                        </td>
-                        <td className="px-4 py-3 text-[13px]">
-                          {getUserByIdFn(declaration?.icuApprovedBy)?.name}
-                        </td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                          {formatDateOnly(
-                            declaration?.icuApprovedAt?.split("T")[0],
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {declaration?.status === "ICU_APPROVED" ? (
-                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px] uppercase">
-                              Pending Allotment
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-green-100 text-green-800 border-0 text-[13px] uppercase">
-                              Allotted
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs font-semibold cursor-pointer"
-                            onClick={() => setAllotReviewing(declaration?.id)}
-                          >
-                            View Allotment
-                          </Button>
+                    {!icuApprovedList || icuApprovedList.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
+                        >
+                          No declarations awaiting allotment
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      icuApprovedList.map((declaration: BonusDeclaration) => (
+                        <tr
+                          key={declaration?.id}
+                          className="mrpsl-table-row hover:bg-muted/40 transition-colors"
+                        >
+                          <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                            {declaration?.ref}
+                          </td>
+                          <td className="px-4 py-3 font-semibold">
+                            {declaration?.registerName}
+                          </td>
+                          <td className="px-4 py-3 text-[13px]">
+                            {declaration?.bonusName}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-center">
+                            {declaration?.ratio}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono">
+                            {declaration?.totalShareholders}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-semibold text-green-700">
+                            {declaration?.totalBonusShares}
+                          </td>
+                          <td className="px-4 py-3 text-[13px]">
+                            {getUserByIdFn(declaration?.icuApprovedBy)?.name}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                            {formatDateOnly(
+                              declaration?.icuApprovedAt?.split("T")[0],
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {declaration?.status === "ICU_APPROVED" ? (
+                              <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px] uppercase">
+                                Pending Allotment
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-green-100 text-green-800 border-0 text-[13px] uppercase">
+                                Allotted
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs font-semibold cursor-pointer"
+                              onClick={() => setAllotReviewing(declaration?.id)}
+                            >
+                              View Allotment
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </Card>

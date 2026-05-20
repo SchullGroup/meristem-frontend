@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Check, AlertTriangle, AlertCircle, X } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
+import { useStore } from "@/lib/store";
 
 type MarkOffApproval = {
   id: string;
@@ -34,6 +35,7 @@ type MarkOffApproval = {
   dividend: string;
   amount: number;
   submittedBy: string;
+  tier: 1 | 2 | 3;
 };
 type MarkOffHistory = {
   id: string;
@@ -44,9 +46,45 @@ type MarkOffHistory = {
   amount: number;
   markedBy: string;
   status: string;
+  tier: 1 | 2 | 3;
 };
 
-const PENDING_MARKOFF: MarkOffApproval[] = [
+const UNPAID_WARRANTS = [
+  {
+    id: "W1",
+    warrantNo: "WRT-10291",
+    account: "DANGCEM-10045",
+    holder: "Lukman Bello",
+    dividend: "DIV-2025-001",
+    amount: 45000,
+  },
+  {
+    id: "W2",
+    warrantNo: "WRT-10345",
+    account: "ZENITH-9921",
+    holder: "Fatima Abdullahi",
+    dividend: "DIV-2025-001",
+    amount: 128500,
+  },
+  {
+    id: "W3",
+    warrantNo: "WRT-10412",
+    account: "DANGCEM-10102",
+    holder: "Emeka Eze",
+    dividend: "DIV-2025-002",
+    amount: 62000,
+  },
+  {
+    id: "W4",
+    warrantNo: "WRT-10500",
+    account: "ACCESS-00220",
+    holder: "Ifeoma Okafor",
+    dividend: "DIV-2025-001",
+    amount: 98000,
+  },
+];
+
+const INITIAL_PENDING: MarkOffApproval[] = [
   {
     id: "MO1",
     date: "05 May 2026",
@@ -56,6 +94,7 @@ const PENDING_MARKOFF: MarkOffApproval[] = [
     dividend: "DIV-2025-001",
     amount: 45000,
     submittedBy: "Chidi Okafor",
+    tier: 1,
   },
   {
     id: "MO2",
@@ -66,6 +105,7 @@ const PENDING_MARKOFF: MarkOffApproval[] = [
     dividend: "DIV-2025-001",
     amount: 128500,
     submittedBy: "Ngozi Eze",
+    tier: 2,
   },
   {
     id: "MO3",
@@ -76,6 +116,7 @@ const PENDING_MARKOFF: MarkOffApproval[] = [
     dividend: "DIV-2025-002",
     amount: 62000,
     submittedBy: "Aisha Musa",
+    tier: 3,
   },
 ];
 
@@ -89,6 +130,7 @@ const MARKOFF_HISTORY: MarkOffHistory[] = [
     amount: 37500,
     markedBy: "Chidi Okafor",
     status: "APPROVED",
+    tier: 3,
   },
   {
     id: "H2",
@@ -99,6 +141,7 @@ const MARKOFF_HISTORY: MarkOffHistory[] = [
     amount: 210000,
     markedBy: "Ngozi Eze",
     status: "APPROVED",
+    tier: 3,
   },
   {
     id: "H3",
@@ -109,6 +152,7 @@ const MARKOFF_HISTORY: MarkOffHistory[] = [
     amount: 55000,
     markedBy: "Aisha Musa",
     status: "REJECTED",
+    tier: 1,
   },
   {
     id: "H4",
@@ -119,6 +163,7 @@ const MARKOFF_HISTORY: MarkOffHistory[] = [
     amount: 98000,
     markedBy: "Chidi Okafor",
     status: "APPROVED",
+    tier: 3,
   },
   {
     id: "H5",
@@ -129,10 +174,67 @@ const MARKOFF_HISTORY: MarkOffHistory[] = [
     amount: 19500,
     markedBy: "Ngozi Eze",
     status: "APPROVED",
+    tier: 3,
   },
 ];
 
+function tierLabel(tier: 1 | 2 | 3) {
+  return tier === 1 ? "1st Approval" : tier === 2 ? "ICU" : "Management";
+}
+function tierBadgeClass(tier: 1 | 2 | 3) {
+  return tier === 1
+    ? "bg-blue-100 text-blue-800"
+    : tier === 2
+      ? "bg-purple-100 text-purple-800"
+      : "bg-orange-100 text-orange-800";
+}
+function approveButtonText(tier: 1 | 2 | 3) {
+  return tier === 1
+    ? "Approve & Forward to ICU"
+    : tier === 2
+      ? "ICU Approve & Forward to Management"
+      : "Final Management Approval";
+}
+function modalTitle(tier: 1 | 2 | 3) {
+  return tier === 1
+    ? "1st Approval Review"
+    : tier === 2
+      ? "ICU Review"
+      : "Management Sign-Off";
+}
+
+type ApprovalChainStep = { label: string; done: boolean; pending: boolean };
+
+function buildApprovalChain(
+  submittedBy: string,
+  tier: 1 | 2 | 3,
+): ApprovalChainStep[] {
+  return [
+    { label: `Submitted by ${submittedBy}`, done: true, pending: false },
+    { label: "1st Approval", done: tier > 1, pending: tier === 1 },
+    { label: "ICU Approval", done: tier > 2, pending: tier === 2 },
+    { label: "Management Approval", done: false, pending: tier === 3 },
+  ];
+}
+
 export default function MarkOffPage() {
+  const { registers } = useStore();
+
+  const [activeTab, setActiveTab] = useState("manual");
+
+  const [manualSearch, setManualSearch] = useState("");
+  const [markoffFound, setMarkoffFound] = useState(false);
+  const [markoffReason, setMarkoffReason] = useState("");
+  const [reasonError, setReasonError] = useState(false);
+
+  const [enBlocRegister, setEnBlocRegister] = useState("");
+  const [enBlocFrom, setEnBlocFrom] = useState("");
+  const [enBlocTo, setEnBlocTo] = useState("");
+  const [enBlocLoaded, setEnBlocLoaded] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const [pendingMarkoff, setPendingMarkoff] =
+    useState<MarkOffApproval[]>(INITIAL_PENDING);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<MarkOffApproval | null>(null);
   const [rejectedId, setRejectedId] = useState<string | null>(null);
@@ -145,9 +247,67 @@ export default function MarkOffPage() {
     setReviewOpen(true);
   }
 
-  const pendingMarkoff = PENDING_MARKOFF.filter((row) => row.id !== rejectedId);
-  const markoffPg = usePagination(pendingMarkoff);
+  const visiblePending = pendingMarkoff.filter((row) => row.id !== rejectedId);
+  const markoffPg = usePagination(visiblePending);
   const historyPg = usePagination(MARKOFF_HISTORY);
+
+  const allChecked = UNPAID_WARRANTS.every((w) => selectedIds.has(w.id));
+  const selectedWarrants = UNPAID_WARRANTS.filter((w) => selectedIds.has(w.id));
+  const selectionTotal = selectedWarrants.reduce((s, w) => s + w.amount, 0);
+
+  function toggleAll() {
+    if (allChecked) setSelectedIds(new Set());
+    else setSelectedIds(new Set(UNPAID_WARRANTS.map((w) => w.id)));
+  }
+  function toggleRow(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function handleManualSubmit() {
+    if (!markoffReason.trim()) {
+      setReasonError(true);
+      return;
+    }
+    toast.success("Mark-off submitted for 1st approval.");
+    setMarkoffFound(false);
+    setManualSearch("");
+    setMarkoffReason("");
+    setReasonError(false);
+  }
+
+  function handleEnBlocSubmit() {
+    const n = selectedIds.size;
+    toast.success(
+      `${n} warrant${n !== 1 ? "s" : ""} submitted for 1st level approval.`,
+    );
+    setSelectedIds(new Set());
+    setEnBlocLoaded(false);
+  }
+
+  function handleApprove() {
+    if (!selected) return;
+    if (selected.tier === 3) {
+      setPendingMarkoff((prev) => prev.filter((r) => r.id !== selected.id));
+      toast.success(
+        "Final management approval granted. Warrant marked as PAID.",
+      );
+    } else {
+      const nextTier = (selected.tier + 1) as 2 | 3;
+      setPendingMarkoff((prev) =>
+        prev.map((r) => (r.id === selected.id ? { ...r, tier: nextTier } : r)),
+      );
+      toast.success(
+        selected.tier === 1
+          ? "Approved and forwarded to ICU."
+          : "ICU approved and forwarded to Management.",
+      );
+    }
+    setReviewOpen(false);
+  }
 
   return (
     <div className="space-y-6">
@@ -162,7 +322,7 @@ export default function MarkOffPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="manual" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
           <TabsTrigger
             value="manual"
@@ -214,6 +374,7 @@ export default function MarkOffPage() {
                 </button>
               </Card>
             )}
+
             <Card className="mrpsl-card p-6 max-w-xl mx-auto space-y-4 mt-12">
               <h3 className="font-semibold text-lg text-center mb-2">
                 Find Warrant
@@ -222,25 +383,213 @@ export default function MarkOffPage() {
                 <Input
                   placeholder="Warrant No / Account No / CHN"
                   className="mrpsl-input"
+                  value={manualSearch}
+                  onChange={(e) => {
+                    setManualSearch(e.target.value);
+                    setMarkoffFound(false);
+                  }}
                 />
-                <Button>Search</Button>
+                <Button
+                  onClick={() => {
+                    if (manualSearch.trim()) setMarkoffFound(true);
+                  }}
+                >
+                  Search
+                </Button>
               </div>
             </Card>
+
+            {markoffFound && (
+              <div className="max-w-xl mx-auto space-y-4">
+                <Card className="mrpsl-card p-5 space-y-3">
+                  <h4 className="font-semibold text-sm border-b pb-2">
+                    Warrant Details
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3 text-[13px]">
+                    <div>
+                      <span className="text-muted-foreground">Warrant No</span>
+                      <div className="font-mono font-bold mt-0.5">
+                        WRT-10291
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Account</span>
+                      <div className="font-mono mt-0.5">DANGCEM-10045</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Holder</span>
+                      <div className="font-semibold mt-0.5">Lukman Bello</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Dividend</span>
+                      <div className="font-mono mt-0.5">DIV-2025-001</div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Net Amount</span>
+                      <div className="font-mono font-bold text-green-600 mt-0.5">
+                        ₦45,000.00
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Status</span>
+                      <div className="mt-0.5">
+                        <span className="bg-amber-100 text-amber-800 text-[12px] px-2 py-0.5 rounded">
+                          UNPAID
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="mrpsl-card p-5 space-y-4 border-red-200">
+                  <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-[13px] text-amber-800">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>
+                      This action permanently marks the warrant as{" "}
+                      <strong>PAID</strong>. Three-tier approval required.
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="mrpsl-label">Reason / Comment</label>
+                    <Textarea
+                      placeholder="Reason is required..."
+                      className={`resize-none focus-visible:ring-primary ${reasonError ? "border-red-500" : ""}`}
+                      value={markoffReason}
+                      onChange={(e) => {
+                        setMarkoffReason(e.target.value);
+                        if (e.target.value.trim()) setReasonError(false);
+                      }}
+                    />
+                    {reasonError && (
+                      <p className="text-[12px] text-red-600">
+                        Reason is required.
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    className="w-full border-2 border-red-500 bg-red-500 hover:bg-red-600 text-white font-semibold"
+                    onClick={handleManualSubmit}
+                  >
+                    Submit Mark-Off for Approval
+                  </Button>
+                </Card>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="bulk" className="space-y-4">
-            <Card className="mrpsl-card p-4 flex gap-4">
-              <Select>
-                <SelectTrigger className="w-64 mrpsl-input">
-                  <SelectValue placeholder="Register" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="x">DANGCEM</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline">Date Range</Button>
-              <Button>Load Unpaid Warrants</Button>
+            <Card className="mrpsl-card p-4 flex flex-wrap gap-4 items-end">
+              <div className="space-y-1">
+                <label className="mrpsl-label">Register</label>
+                <Select
+                  value={enBlocRegister}
+                  onValueChange={(v) => setEnBlocRegister(v || "")}
+                >
+                  <SelectTrigger className="w-52 mrpsl-input">
+                    <SelectValue placeholder="Select register" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {registers
+                      .filter((r) => r.status === "ACTIVE")
+                      .map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.symbol}
+                        </SelectItem>
+                      ))}
+                    {registers.filter((r) => r.status === "ACTIVE").length ===
+                      0 && <SelectItem value="DANGCEM">DANGCEM</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="mrpsl-label">From</label>
+                <Input
+                  type="date"
+                  className="mrpsl-input w-44"
+                  value={enBlocFrom}
+                  onChange={(e) => setEnBlocFrom(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="mrpsl-label">To</label>
+                <Input
+                  type="date"
+                  className="mrpsl-input w-44"
+                  value={enBlocTo}
+                  onChange={(e) => setEnBlocTo(e.target.value)}
+                />
+              </div>
+              <Button onClick={() => setEnBlocLoaded(true)}>
+                Load Unpaid Warrants
+              </Button>
             </Card>
+
+            {enBlocLoaded && (
+              <div className="space-y-0">
+                <Card className="mrpsl-card overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="mrpsl-table-header">
+                      <tr>
+                        <th className="p-3 w-10">
+                          <input
+                            type="checkbox"
+                            checked={allChecked}
+                            onChange={toggleAll}
+                            className="cursor-pointer"
+                          />
+                        </th>
+                        <th className="p-3">WARRANT NO</th>
+                        <th className="p-3">ACCOUNT</th>
+                        <th className="p-3">HOLDER</th>
+                        <th className="p-3">DIVIDEND</th>
+                        <th className="p-3 text-right">AMOUNT (₦)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-[13px]">
+                      {UNPAID_WARRANTS.map((w) => (
+                        <tr
+                          key={w.id}
+                          className={`mrpsl-table-row ${selectedIds.has(w.id) ? "bg-primary/5" : ""}`}
+                        >
+                          <td className="p-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(w.id)}
+                              onChange={() => toggleRow(w.id)}
+                              className="cursor-pointer"
+                            />
+                          </td>
+                          <td className="p-3 font-mono">{w.warrantNo}</td>
+                          <td className="p-3 font-mono">{w.account}</td>
+                          <td className="p-3 font-medium">{w.holder}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {w.dividend}
+                          </td>
+                          <td className="p-3 text-right font-mono font-semibold">
+                            {w.amount.toLocaleString()}.00
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+
+                {selectedIds.size > 0 && (
+                  <div className="sticky bottom-0 bg-background border border-border/60 rounded-b-xl px-4 py-3 flex items-center justify-between shadow-md">
+                    <span className="text-sm font-medium">
+                      {selectedIds.size} warrant
+                      {selectedIds.size !== 1 ? "s" : ""} selected — Total:{" "}
+                      <span className="font-mono font-bold text-primary">
+                        ₦{selectionTotal.toLocaleString()}.00
+                      </span>
+                    </span>
+                    <Button onClick={handleEnBlocSubmit}>
+                      Submit Selected for Mark-Off
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="auth">
@@ -253,9 +602,10 @@ export default function MarkOffPage() {
                     <th className="p-3">ACCOUNT</th>
                     <th className="p-3">HOLDER</th>
                     <th className="p-3">DIVIDEND</th>
-                    <th className="p-3 text-right">AMOUNT (₦)</th>
+                    <th className="p-3">AMOUNT (₦)</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">TIER</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -273,6 +623,13 @@ export default function MarkOffPage() {
                       </td>
                       <td className="p-3 text-muted-foreground">
                         {row.submittedBy}
+                      </td>
+                      <td className="p-3">
+                        <Badge
+                          className={`border-0 text-[12px] ${tierBadgeClass(row.tier)}`}
+                        >
+                          {tierLabel(row.tier)}
+                        </Badge>
                       </td>
                       <td className="p-3 text-right">
                         <Button size="sm" onClick={() => openReview(row)}>
@@ -305,8 +662,9 @@ export default function MarkOffPage() {
                     <th className="p-3">WARRANT NO</th>
                     <th className="p-3">ACCOUNT</th>
                     <th className="p-3">HOLDER</th>
-                    <th className="p-3 text-right">AMOUNT (₦)</th>
+                    <th className="p-3">AMOUNT (₦)</th>
                     <th className="p-3">MARKED OFF BY</th>
+                    <th className="p-3">TIER</th>
                     <th className="p-3">STATUS</th>
                   </tr>
                 </thead>
@@ -322,6 +680,13 @@ export default function MarkOffPage() {
                       </td>
                       <td className="p-3 text-muted-foreground">
                         {row.markedBy}
+                      </td>
+                      <td className="p-3">
+                        <Badge
+                          className={`border-0 text-[12px] ${tierBadgeClass(row.tier)}`}
+                        >
+                          {tierLabel(row.tier)}
+                        </Badge>
                       </td>
                       <td className="p-3">
                         <Badge
@@ -353,10 +718,12 @@ export default function MarkOffPage() {
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Review Warrant Mark-Off</DialogTitle>
+            <DialogTitle>
+              {selected ? modalTitle(selected.tier) : "Review"}
+            </DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="space-y-6 px-8 pb-8">
+            <div className="max-h-[80vh] overflow-y-auto space-y-6 px-8 pb-8">
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>
@@ -405,29 +772,26 @@ export default function MarkOffPage() {
                   Approval Chain
                 </h4>
                 <div className="space-y-4">
-                  {[
-                    {
-                      label: `Submitted by ${selected.submittedBy}`,
-                      done: true,
-                      pending: false,
-                    },
-                    {
-                      label: "Authoriser — Pending your action",
-                      done: false,
-                      pending: true,
-                    },
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-100" : "bg-amber-200 animate-pulse"}`}
-                      >
-                        {step.done && (
-                          <Check className="h-3 w-3 text-green-600" />
-                        )}
+                  {buildApprovalChain(selected.submittedBy, selected.tier).map(
+                    (step, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div
+                          className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${
+                            step.done
+                              ? "bg-green-100"
+                              : step.pending
+                                ? "bg-amber-200 animate-pulse"
+                                : "bg-muted"
+                          }`}
+                        >
+                          {step.done && (
+                            <Check className="h-3 w-3 text-green-600" />
+                          )}
+                        </div>
+                        <div className="text-sm">{step.label}</div>
                       </div>
-                      <div className="text-sm">{step.label}</div>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </div>
 
@@ -450,18 +814,13 @@ export default function MarkOffPage() {
                     setRejectedComment(rejectComment);
                     toast.error("Mark-off rejected.");
                     setReviewOpen(false);
+                    setActiveTab("manual");
                   }}
                 >
                   Reject
                 </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    toast.success("Warrant marked as paid.");
-                    setReviewOpen(false);
-                  }}
-                >
-                  Approve Mark-Off
+                <Button className="flex-1" onClick={handleApprove}>
+                  {approveButtonText(selected.tier)}
                 </Button>
               </div>
             </div>

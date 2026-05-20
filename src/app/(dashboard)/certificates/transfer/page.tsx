@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, AlertCircle, X } from "lucide-react";
+import { Check, AlertCircle, X, Pencil } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 
@@ -63,12 +63,17 @@ export default function TransferPage() {
   const [destLoaded, setDestLoaded] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<PendingTransfer | null>(null);
+  const [activeTab, setActiveTab] = useState("transfer");
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
   const [lastRejComment, setLastRejComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchComment, setBatchComment] = useState("");
+  const [editingRejected, setEditingRejected] =
+    useState<PendingTransfer | null>(null);
+  const [units, setUnits] = useState("");
+  const [stampDuty, setStampDuty] = useState("");
 
   function openReview(row: PendingTransfer) {
     setSelected(row);
@@ -131,7 +136,11 @@ export default function TransferPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="transfer" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v || "transfer")}
+        className="w-full"
+      >
         <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
           <TabsTrigger
             value="transfer"
@@ -150,24 +159,77 @@ export default function TransferPage() {
         <div className="mt-6">
           <TabsContent value="transfer" className="space-y-6">
             {rejectedIds.size > 0 && (
-              <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1 space-y-1">
-                  <div className="font-semibold text-sm text-red-800">
-                    {rejectedIds.size === 1
-                      ? "Request Rejected"
-                      : `${rejectedIds.size} Requests Rejected`}
+              <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-semibold text-sm text-red-800">
+                      {rejectedIds.size === 1
+                        ? "Request Rejected"
+                        : `${rejectedIds.size} Requests Rejected`}
+                    </div>
+                    <div className="text-[13px] text-red-700">
+                      {lastRejComment || "No comment provided."}
+                    </div>
                   </div>
-                  <div className="text-[13px] text-red-700">
-                    {lastRejComment || "No comment provided."}
-                  </div>
+                  <button
+                    onClick={() => {
+                      setRejectedIds(new Set());
+                      setLastRejComment("");
+                      setEditingRejected(null);
+                    }}
+                    className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
+                <div className="mt-3 pl-8">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-300 text-red-700 hover:bg-red-100 gap-1.5"
+                    onClick={() => {
+                      const item = PENDING_TRANSFERS.find((t) =>
+                        rejectedIds.has(t.id),
+                      );
+                      if (item) {
+                        setEditingRejected(item);
+                        setSrcLoaded(true);
+                        setDestLoaded(true);
+                        setUnits(String(item.units));
+                        setStampDuty(String(item.stampDuty));
+                      }
+                      setRejectedIds(new Set());
+                      setLastRejComment("");
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit &amp; Resubmit
+                  </Button>
+                </div>
+              </Card>
+            )}
+            {editingRejected && (
+              <Card className="mrpsl-card p-3 border-l-4 border-l-amber-400 bg-amber-50/60 border-amber-200 flex items-center gap-3">
+                <Pencil className="h-4 w-4 text-amber-600 shrink-0" />
+                <p className="text-[13px] text-amber-800 font-medium flex-1">
+                  Editing rejected transfer of{" "}
+                  <span className="font-semibold">
+                    {editingRejected.units.toLocaleString()} units
+                  </span>{" "}
+                  from{" "}
+                  <span className="font-semibold">{editingRejected.from}</span>{" "}
+                  to <span className="font-semibold">{editingRejected.to}</span>
+                  .
+                </p>
                 <button
                   onClick={() => {
-                    setRejectedIds(new Set());
-                    setLastRejComment("");
+                    setEditingRejected(null);
+                    setSrcLoaded(false);
+                    setDestLoaded(false);
+                    setUnits("");
+                    setStampDuty("");
                   }}
-                  className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+                  className="text-amber-500 hover:text-amber-700"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -187,6 +249,9 @@ export default function TransferPage() {
                     <div className="font-bold">Binta Lawal</div>
                     <div className="text-muted-foreground font-mono">
                       DANGCEM-10015
+                    </div>
+                    <div className="text-[11px] font-semibold text-primary/80 bg-primary/8 px-2 py-0.5 rounded inline-block mt-0.5">
+                      Dangote Cement — DANGCEM
                     </div>
                     <div className="font-mono text-lg font-bold mt-2">
                       15,000 units
@@ -209,6 +274,9 @@ export default function TransferPage() {
                     <div className="text-muted-foreground font-mono">
                       DANGCEM-10088
                     </div>
+                    <div className="text-[11px] font-semibold text-primary/80 bg-primary/8 px-2 py-0.5 rounded inline-block mt-0.5">
+                      Dangote Cement — DANGCEM
+                    </div>
                     <div className="font-mono text-lg font-bold mt-2">
                       2,500 units
                     </div>
@@ -225,7 +293,15 @@ export default function TransferPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="mrpsl-label">Units to Transfer *</label>
-                    <Input type="number" className="mrpsl-input font-mono" />
+                    <Input
+                      type="number"
+                      value={units}
+                      onChange={(e) => setUnits(e.target.value)}
+                      placeholder={
+                        editingRejected ? String(editingRejected.units) : ""
+                      }
+                      className="mrpsl-input font-mono"
+                    />
                   </div>
                   <div className="space-y-2">
                     <label className="mrpsl-label">
@@ -236,7 +312,8 @@ export default function TransferPage() {
                   <div className="space-y-2">
                     <label className="mrpsl-label">Stamp Duty (₦)</label>
                     <Input
-                      defaultValue="0.00"
+                      value={stampDuty}
+                      onChange={(e) => setStampDuty(e.target.value)}
                       className="mrpsl-input font-mono"
                     />
                   </div>
@@ -252,11 +329,16 @@ export default function TransferPage() {
                 <div className="flex justify-end pt-4">
                   <Button
                     size="lg"
-                    onClick={() =>
-                      toast.success("Transfer submitted for approval")
-                    }
+                    onClick={() => {
+                      toast.success("Transfer submitted for approval");
+                      setEditingRejected(null);
+                      setSrcLoaded(false);
+                      setDestLoaded(false);
+                      setUnits("");
+                      setStampDuty("");
+                    }}
                   >
-                    Submit Transfer
+                    {editingRejected ? "Resubmit Transfer" : "Submit Transfer"}
                   </Button>
                 </div>
               </Card>
@@ -300,10 +382,10 @@ export default function TransferPage() {
                     <th className="p-3">CERTIFICATE</th>
                     <th className="p-3">FROM</th>
                     <th className="p-3">TO</th>
-                    <th className="p-3 text-right">UNITS</th>
-                    <th className="p-3 text-right">STAMP DUTY</th>
+                    <th className="p-3">UNITS</th>
+                    <th className="p-3">STAMP DUTY</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -421,21 +503,31 @@ export default function TransferPage() {
                   Approval Chain
                 </h4>
                 <div className="space-y-4">
-                  {[
+                  {((): Array<{
+                    label: string;
+                    done: boolean;
+                    pending?: boolean;
+                    time?: string | null;
+                  }> => [
                     {
                       label: `Submitted by ${selected.submittedBy}`,
                       done: true,
-                      pending: false,
+                      time: selected.date + ", 09:14",
                     },
                     {
-                      label: "Authoriser — Pending your action",
-                      done: false,
-                      pending: true,
+                      label: "Authorised by Ngozi Adeyemi (Operations Manager)",
+                      done: true,
+                      time: selected.date + ", 11:30",
                     },
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-3">
+                    {
+                      label: "ICU Final Review — Approved",
+                      done: true,
+                      time: selected.date + ", 14:00",
+                    },
+                  ])().map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
                       >
                         {step.done && (
                           <Check
@@ -444,7 +536,14 @@ export default function TransferPage() {
                           />
                         )}
                       </div>
-                      <div className="text-sm">{step.label}</div>
+                      <div>
+                        <div className="text-sm">{step.label}</div>
+                        {step.time && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {step.time}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

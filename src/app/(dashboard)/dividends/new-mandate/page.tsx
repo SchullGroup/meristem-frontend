@@ -22,7 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
-import { Check, AlertCircle, X } from "lucide-react";
+import { Check, AlertCircle, X, Download } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 
@@ -39,7 +39,47 @@ type MandateApproval = {
   tier: number;
 };
 
-const PENDING_MANDATE: MandateApproval[] = [
+type QueueRow = {
+  id: string;
+  account: string;
+  holder: string;
+  bank: string;
+  accountNo: string;
+  dividendNo: string;
+  amount: number;
+};
+
+const QUEUE_DATA: QueueRow[] = [
+  {
+    id: "Q1",
+    account: "DANGCEM-10045",
+    holder: "Lukman Bello",
+    bank: "UBA",
+    accountNo: "0029384812",
+    dividendNo: "DIV-2025-001",
+    amount: 45000,
+  },
+  {
+    id: "Q2",
+    account: "ZENITHBANK-9921",
+    holder: "Fatima Abdullahi",
+    bank: "First Bank",
+    accountNo: "3012849001",
+    dividendNo: "DIV-2025-001",
+    amount: 128500,
+  },
+  {
+    id: "Q3",
+    account: "DANGCEM-10102",
+    holder: "Emeka Eze",
+    bank: "GTBank",
+    accountNo: "0045612378",
+    dividendNo: "DIV-2025-002",
+    amount: 62000,
+  },
+];
+
+const INITIAL_PENDING: MandateApproval[] = [
   {
     id: "MA1",
     date: "05 May 2026",
@@ -49,7 +89,7 @@ const PENDING_MANDATE: MandateApproval[] = [
     accountNo: "0029384812",
     dividendNo: "DIV-2025-001",
     amount: 45000,
-    submittedBy: "Chidi Okafor",
+    submittedBy: "Chidinma Nwosu",
     tier: 2,
   },
   {
@@ -61,7 +101,7 @@ const PENDING_MANDATE: MandateApproval[] = [
     accountNo: "3012849001",
     dividendNo: "DIV-2025-001",
     amount: 128500,
-    submittedBy: "Ngozi Eze",
+    submittedBy: "Garba Musa",
     tier: 3,
   },
   {
@@ -73,12 +113,12 @@ const PENDING_MANDATE: MandateApproval[] = [
     accountNo: "0045612378",
     dividendNo: "DIV-2025-002",
     amount: 62000,
-    submittedBy: "Aisha Musa",
+    submittedBy: "Chidinma Nwosu",
     tier: 2,
   },
 ];
 
-const ICU_MANDATE: MandateApproval[] = [
+const INITIAL_ICU: MandateApproval[] = [
   {
     id: "IM1",
     date: "03 May 2026",
@@ -88,7 +128,7 @@ const ICU_MANDATE: MandateApproval[] = [
     accountNo: "0076123490",
     dividendNo: "DIV-2025-001",
     amount: 950000,
-    submittedBy: "Chidi Okafor",
+    submittedBy: "Emeka Obiora",
     tier: 4,
   },
   {
@@ -100,20 +140,65 @@ const ICU_MANDATE: MandateApproval[] = [
     accountNo: "2012341290",
     dividendNo: "DIV-2025-003",
     amount: 1200000,
-    submittedBy: "Ngozi Eze",
+    submittedBy: "Emeka Obiora",
     tier: 4,
   },
 ];
 
 export default function NewMandatePage() {
   const { registers } = useStore();
+
+  const [queueRegister, setQueueRegister] = useState("all");
+  const [queueDividend, setQueueDividend] = useState("all");
+  const [queueLoaded, setQueueLoaded] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const [pendingMandate, setPendingMandate] =
+    useState<MandateApproval[]>(INITIAL_PENDING);
+  const [icuMandate, setIcuMandate] = useState<MandateApproval[]>(INITIAL_ICU);
+
+  const [rejectedId, setRejectedId] = useState<string | null>(null);
+  const [rejectedComment, setRejectedComment] = useState("");
+  const [rejectedIsIcu, setRejectedIsIcu] = useState(false);
+
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<MandateApproval | null>(null);
   const [isIcu, setIsIcu] = useState(false);
-  const [rejectedId, setRejectedId] = useState<string | null>(null);
-  const [rejectedComment, setRejectedComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
-  const [rejectedIsIcu, setRejectedIsIcu] = useState(false);
+
+  const mandatePg = usePagination(pendingMandate);
+  const icuPg = usePagination(icuMandate);
+
+  const allSelected =
+    queueLoaded &&
+    QUEUE_DATA.length > 0 &&
+    QUEUE_DATA.every((r) => selectedIds.has(r.id));
+  const selectedTotal = QUEUE_DATA.filter((r) => selectedIds.has(r.id)).reduce(
+    (s, r) => s + r.amount,
+    0,
+  );
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(QUEUE_DATA.map((r) => r.id)));
+    }
+  }
+
+  function toggleRow(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function submitSelected() {
+    toast.success("Submitted for approval. Authoriser notified.");
+    setQueueLoaded(false);
+    setSelectedIds(new Set());
+  }
 
   function openReview(row: MandateApproval, icu: boolean) {
     setSelected(row);
@@ -122,23 +207,75 @@ export default function NewMandatePage() {
     setReviewOpen(true);
   }
 
-  const pendingMandate = PENDING_MANDATE.filter((row) => row.id !== rejectedId);
-  const mandatePg = usePagination(pendingMandate);
-  const icuMandate = ICU_MANDATE.filter((row) => row.id !== rejectedId);
-  const icuPg = usePagination(icuMandate);
+  function handleApprove() {
+    if (!selected) return;
+    if (isIcu) {
+      toast.success("ICU approved. Queued for payment processing.");
+      setIcuMandate((prev) => prev.filter((r) => r.id !== selected.id));
+    } else {
+      toast.success("Approved. Forwarded to ICU for sign-off.");
+      setPendingMandate((prev) => prev.filter((r) => r.id !== selected.id));
+    }
+    setReviewOpen(false);
+  }
+
+  function handleReject() {
+    if (!selected) return;
+    setRejectedId(selected.id);
+    setRejectedComment(rejectComment);
+    setRejectedIsIcu(isIcu);
+    if (isIcu) {
+      setIcuMandate((prev) => prev.filter((r) => r.id !== selected.id));
+    } else {
+      setPendingMandate((prev) => prev.filter((r) => r.id !== selected.id));
+    }
+    toast.error("Payment rejected.");
+    setReviewOpen(false);
+  }
+
+  const approvalChainSteps = (row: MandateApproval, icu: boolean) => {
+    const base = [
+      {
+        label: `Submitted by ${row.submittedBy} · 06 May 2026, 09:14`,
+        done: true,
+        pending: false,
+      },
+    ];
+    if (icu) {
+      return [
+        ...base,
+        {
+          label: "Emeka Obiora (Authoriser) · Approved · 07 May 2026, 11:02",
+          done: true,
+          pending: false,
+        },
+        {
+          label: "Fatimah Lawal (ICU Officer) · Pending your sign-off",
+          done: false,
+          pending: true,
+        },
+      ];
+    }
+    return [
+      ...base,
+      {
+        label: "Emeka Obiora (Authoriser) · Pending your action",
+        done: false,
+        pending: true,
+      },
+    ];
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            New Mandate Payment Processing
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Process dividend payments for accounts with recently updated bank
-            details
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">
+          New Mandate Payment Processing
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Process dividend payments for accounts with recently updated bank
+          details
+        </p>
       </div>
 
       <Tabs defaultValue="queue" className="w-full">
@@ -190,82 +327,147 @@ export default function NewMandatePage() {
                 </button>
               </Card>
             )}
-            <div className="flex gap-4">
-              <Select>
+
+            <div className="flex items-center gap-3">
+              <Select
+                value={queueRegister}
+                onValueChange={(v) => setQueueRegister(v ?? "all")}
+              >
                 <SelectTrigger className="w-48 mrpsl-input">
-                  <SelectValue placeholder="Register" />
+                  <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  {registers.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">All Registers</SelectItem>
+                  {registers
+                    .filter((r) => r.status === "ACTIVE")
+                    .map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.symbol}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
-              <Select>
-                <SelectTrigger className="w-48 mrpsl-input">
-                  <SelectValue placeholder="Dividend No" />
+
+              <Select
+                value={queueDividend}
+                onValueChange={(v) => setQueueDividend(v ?? "all")}
+              >
+                <SelectTrigger className="w-52 mrpsl-input">
+                  <SelectValue placeholder="All Dividends" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All Dividend Numbers</SelectItem>
+                  <SelectItem value="DIV-2025-001">DIV-2025-001</SelectItem>
+                  <SelectItem value="DIV-2025-002">DIV-2025-002</SelectItem>
+                  <SelectItem value="DIV-2025-003">DIV-2025-003</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Button
+                onClick={() => {
+                  setQueueLoaded(true);
+                  setSelectedIds(new Set());
+                }}
+              >
+                Load Accounts
+              </Button>
             </div>
 
-            <Card className="mrpsl-card">
-              <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="p-3 w-10">
-                      <Checkbox />
-                    </th>
-                    <th className="p-3">ACCOUNT NO</th>
-                    <th className="p-3">HOLDER NAME</th>
-                    <th className="p-3">NEW BANK</th>
-                    <th className="p-3">NEW ACCOUNT NO</th>
-                    <th className="p-3">DIVIDEND NO</th>
-                    <th className="p-3 text-right">AMOUNT (₦)</th>
-                    <th className="p-3">SOURCE</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {["DANGCEM-10045", "ZENITHBANK-9921"].map((a) => (
-                    <tr key={a} className="hover:bg-accent/5">
-                      <td className="p-3">
-                        <Checkbox />
-                      </td>
-                      <td className="p-3 font-mono text-[13px]">{a}</td>
-                      <td className="p-3 font-medium">LUKMAN BELLO</td>
-                      <td className="p-3 text-[13px]">UBA</td>
-                      <td className="p-3 font-mono text-[13px]">0029384812</td>
-                      <td className="p-3 font-mono text-[13px] text-muted-foreground">
-                        DIV-2025-001
-                      </td>
-                      <td className="p-3 font-mono text-right">45,000.00</td>
-                      <td className="p-3">
-                        <Badge className="bg-blue-100 text-blue-800 text-[13px]">
-                          KYC Update
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="p-4 border-t bg-muted/10 flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">
-                  2 records selected
-                </span>
-                <Button
-                  onClick={() => toast.success("Submitted for approval.")}
-                >
-                  Submit Selected for Approval
-                </Button>
+            {!queueLoaded ? (
+              <Card className="mrpsl-card p-12 text-center text-muted-foreground text-sm">
+                Select filters and click{" "}
+                <span className="font-semibold">Load Accounts</span> to populate
+                outstanding dividends for newly mandated accounts.
+              </Card>
+            ) : (
+              <div className="relative pb-20">
+                <Card className="mrpsl-card overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="mrpsl-table-header">
+                      <tr>
+                        <th className="p-3 w-10">
+                          <Checkbox
+                            checked={allSelected}
+                            onCheckedChange={toggleAll}
+                          />
+                        </th>
+                        <th className="p-3">ACCOUNT NO</th>
+                        <th className="p-3">HOLDER NAME</th>
+                        <th className="p-3">NEW BANK</th>
+                        <th className="p-3">NEW ACCOUNT NO</th>
+                        <th className="p-3">DIVIDEND NO</th>
+                        <th className="p-3 text-right">AMOUNT (₦)</th>
+                        <th className="p-3">SOURCE</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {QUEUE_DATA.map((row) => (
+                        <tr key={row.id} className="hover:bg-accent/5">
+                          <td className="p-3">
+                            <Checkbox
+                              checked={selectedIds.has(row.id)}
+                              onCheckedChange={() => toggleRow(row.id)}
+                            />
+                          </td>
+                          <td className="p-3 font-mono text-[13px]">
+                            {row.account}
+                          </td>
+                          <td className="p-3 font-medium text-[13px]">
+                            {row.holder}
+                          </td>
+                          <td className="p-3 text-[13px]">{row.bank}</td>
+                          <td className="p-3 font-mono text-[13px]">
+                            {row.accountNo}
+                          </td>
+                          <td className="p-3 font-mono text-[13px] text-muted-foreground">
+                            {row.dividendNo}
+                          </td>
+                          <td className="p-3 font-mono text-right text-[13px]">
+                            {row.amount.toLocaleString()}.00
+                          </td>
+                          <td className="p-3">
+                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                              KYC Update
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Card>
+
+                {selectedIds.size > 0 && (
+                  <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 py-4 flex items-center justify-between shadow-lg">
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-semibold text-foreground">
+                        {selectedIds.size}
+                      </span>{" "}
+                      item{selectedIds.size !== 1 ? "s" : ""} selected
+                      <span className="mx-2 text-border">·</span>
+                      Total:{" "}
+                      <span className="font-semibold text-foreground tabular-nums">
+                        ₦{selectedTotal.toLocaleString()}.00
+                      </span>
+                    </div>
+                    <Button onClick={submitSelected}>
+                      Submit Selected for Approval
+                    </Button>
+                  </div>
+                )}
               </div>
-            </Card>
+            )}
           </TabsContent>
 
-          <TabsContent value="auth">
+          <TabsContent value="auth" className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toast.success("Records downloaded.")}
+              >
+                <Download className="mr-2 h-4 w-4" /> Download Records
+              </Button>
+            </div>
             <Card className="mrpsl-card overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="mrpsl-table-header">
@@ -278,7 +480,7 @@ export default function NewMandatePage() {
                     <th className="p-3">DIVIDEND NO</th>
                     <th className="p-3 text-right">AMOUNT (₦)</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -308,6 +510,16 @@ export default function NewMandatePage() {
                       </td>
                     </tr>
                   ))}
+                  {mandatePg.paged.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="p-8 text-center text-muted-foreground"
+                      >
+                        No records pending approval.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </Card>
@@ -324,9 +536,31 @@ export default function NewMandatePage() {
           </TabsContent>
 
           <TabsContent value="icu" className="space-y-4">
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
-              Items below exceed Tier 3 threshold and require ICU sign-off.
+            <div className="flex items-center justify-between gap-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                  <Check className="h-4 w-4 text-blue-700" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-blue-900">
+                    ICU Sign-Off Required
+                  </div>
+                  <div className="text-[13px] text-blue-700">
+                    Items below exceed Tier 3 threshold and require ICU officer
+                    sign-off before payment release.
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => toast.success("Records downloaded.")}
+              >
+                <Download className="mr-2 h-4 w-4" /> Download Records
+              </Button>
             </div>
+
             <Card className="mrpsl-card overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="mrpsl-table-header">
@@ -339,7 +573,7 @@ export default function NewMandatePage() {
                     <th className="p-3">DIVIDEND NO</th>
                     <th className="p-3 text-right">AMOUNT (₦)</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -366,6 +600,16 @@ export default function NewMandatePage() {
                       </td>
                     </tr>
                   ))}
+                  {icuPg.paged.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="p-8 text-center text-muted-foreground"
+                      >
+                        No items awaiting ICU sign-off.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </Card>
@@ -386,12 +630,23 @@ export default function NewMandatePage() {
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {isIcu
-                ? "ICU Review — New Mandate Payment"
-                : "Review New Mandate Payment"}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>
+                {isIcu
+                  ? "ICU Review — New Mandate"
+                  : "Review New Mandate Payment"}
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-[13px] text-muted-foreground"
+                onClick={() => toast.info("Downloading...")}
+              >
+                <Download className="mr-1 h-3.5 w-3.5" /> Download
+              </Button>
+            </div>
           </DialogHeader>
+
           {selected && (
             <div className="space-y-6 px-8 pb-8">
               {isIcu && (
@@ -448,36 +703,16 @@ export default function NewMandatePage() {
                   Approval Chain
                 </h4>
                 <div className="space-y-4">
-                  {[
-                    {
-                      label: `Submitted by ${selected.submittedBy}`,
-                      done: true,
-                      pending: false,
-                    },
-                    ...(isIcu
-                      ? [
-                          {
-                            label: "Authoriser — Approved",
-                            done: true,
-                            pending: false,
-                          },
-                          {
-                            label: "ICU Officer — Pending your sign-off",
-                            done: false,
-                            pending: true,
-                          },
-                        ]
-                      : [
-                          {
-                            label: "Authoriser — Pending your action",
-                            done: false,
-                            pending: true,
-                          },
-                        ]),
-                  ].map((step, i) => (
+                  {approvalChainSteps(selected, isIcu).map((step, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done ? "bg-green-100" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${
+                          step.done
+                            ? "bg-green-100"
+                            : step.pending
+                              ? "bg-amber-200 animate-pulse"
+                              : "border-2 border-muted bg-background"
+                        }`}
                       >
                         {step.done && (
                           <Check className="h-3 w-3 text-green-600" />
@@ -503,27 +738,11 @@ export default function NewMandatePage() {
                 <Button
                   variant="destructive"
                   className="flex-1"
-                  onClick={() => {
-                    setRejectedId(selected!.id);
-                    setRejectedComment(rejectComment);
-                    setRejectedIsIcu(isIcu);
-                    toast.error("Payment rejected.");
-                    setReviewOpen(false);
-                  }}
+                  onClick={handleReject}
                 >
                   Reject
                 </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    toast.success(
-                      isIcu
-                        ? "ICU sign-off complete. Payment released."
-                        : "Payment approved.",
-                    );
-                    setReviewOpen(false);
-                  }}
-                >
+                <Button className="flex-1" onClick={handleApprove}>
                   {isIcu ? "ICU Sign-Off & Approve" : "Approve Payment"}
                 </Button>
               </div>
