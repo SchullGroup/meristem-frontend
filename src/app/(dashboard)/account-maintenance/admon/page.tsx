@@ -21,7 +21,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Upload, Check, AlertCircle, X } from "lucide-react";
+import {
+  CalendarIcon,
+  Upload,
+  Check,
+  AlertCircle,
+  X,
+  Pencil,
+} from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { NIGERIA_STATE_NAMES } from "@/lib/mocks/nigeria-geo";
 import { TablePagination } from "@/components/custom/table-pagination";
@@ -130,10 +137,14 @@ export default function AdmonPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<AdmonApproval | null>(null);
   const [reviewMode, setReviewMode] = useState<ReviewMode>("auth");
+  const [activeTab, setActiveTab] = useState("new");
   const [rejectedId, setRejectedId] = useState<string | null>(null);
   const [rejectedComment, setRejectedComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
   const [rejectedMode, setRejectedMode] = useState<ReviewMode>("auth");
+  const [editingRejected, setEditingRejected] = useState<AdmonApproval | null>(
+    null,
+  );
 
   function openReview(row: AdmonApproval, mode: ReviewMode) {
     setSelected(row);
@@ -166,7 +177,11 @@ export default function AdmonPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="new" className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v || "new")}
+        className="w-full"
+      >
         <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
           <TabsTrigger
             value="new"
@@ -197,25 +212,72 @@ export default function AdmonPage() {
         <div className="mt-6">
           <TabsContent value="new" className="space-y-6">
             {rejectedId && (
-              <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1 space-y-1">
-                  <div className="font-semibold text-sm text-red-800">
-                    {rejectedMode === "reversal"
-                      ? "Reversal"
-                      : "Administration"}{" "}
-                    Rejected — ID: {rejectedId}
+              <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-semibold text-sm text-red-800">
+                      {rejectedMode === "reversal"
+                        ? "Reversal"
+                        : "Administration"}{" "}
+                      Rejected — ID: {rejectedId}
+                    </div>
+                    <div className="text-[13px] text-red-700">
+                      {rejectedComment || "No comment provided."}
+                    </div>
                   </div>
-                  <div className="text-[13px] text-red-700">
-                    {rejectedComment || "No comment provided."}
-                  </div>
+                  <button
+                    onClick={() => {
+                      setRejectedId(null);
+                      setRejectedComment("");
+                      setEditingRejected(null);
+                    }}
+                    className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
+                <div className="mt-3 pl-8">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-300 text-red-700 hover:bg-red-100 gap-1.5"
+                    onClick={() => {
+                      const all = [...PENDING_ADMON, ...PENDING_REVERSALS];
+                      const item = all.find((r) => r.id === rejectedId);
+                      if (item) {
+                        setEditingRejected(item);
+                        setAccountLoaded(true);
+                      }
+                      setRejectedId(null);
+                      setRejectedComment("");
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit &amp; Resubmit
+                  </Button>
+                </div>
+              </Card>
+            )}
+            {editingRejected && (
+              <Card className="mrpsl-card p-3 border-l-4 border-l-amber-400 bg-amber-50/60 border-amber-200 flex items-center gap-3">
+                <Pencil className="h-4 w-4 text-amber-600 shrink-0" />
+                <p className="text-[13px] text-amber-800 font-medium flex-1">
+                  Editing rejected administration for account{" "}
+                  <span className="font-semibold">
+                    {editingRejected.account}
+                  </span>{" "}
+                  — deceased{" "}
+                  <span className="font-semibold">
+                    {editingRejected.deceased}
+                  </span>
+                  . Update the details below and resubmit.
+                </p>
                 <button
                   onClick={() => {
-                    setRejectedId(null);
-                    setRejectedComment("");
+                    setEditingRejected(null);
+                    setAccountLoaded(false);
                   }}
-                  className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+                  className="text-amber-500 hover:text-amber-700"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -256,7 +318,7 @@ export default function AdmonPage() {
                       <th className="p-2">ACCT NO</th>
                       <th className="p-2">HOLDER NAME</th>
                       <th className="p-2">CHN</th>
-                      <th className="p-2 text-right">HOLDINGS</th>
+                      <th className="p-2">HOLDINGS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y font-mono text-[13px] border-b">
@@ -454,7 +516,7 @@ export default function AdmonPage() {
                     <th className="p-3">ADMINISTRATOR / EXECUTOR</th>
                     <th className="p-3">PROBATE NO</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
@@ -512,7 +574,7 @@ export default function AdmonPage() {
                     <th className="p-3">CURRENT ADMINISTRATOR</th>
                     <th className="p-3">PROBATE NO</th>
                     <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3 text-right">ACTIONS</th>
+                    <th className="p-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">

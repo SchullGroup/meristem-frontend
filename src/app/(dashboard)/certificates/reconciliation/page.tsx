@@ -214,11 +214,11 @@ export default function ReconciliationPage() {
                       <th className="px-4 py-3">Holder Name</th>
                       <th className="px-4 py-3">Register</th>
                       <th className="px-4 py-3">Flagged Date</th>
-                      <th className="px-4 py-3 text-right">Attempted Sell</th>
-                      <th className="px-4 py-3 text-right">Holdings At Flag</th>
-                      <th className="px-4 py-3 text-right">Shortfall</th>
+                      <th className="px-4 py-3">Attempted Sell</th>
+                      <th className="px-4 py-3">Holdings At Flag</th>
+                      <th className="px-4 py-3">Shortfall</th>
                       <th className="px-4 py-3">Resolution Status</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                      <th className="px-4 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
@@ -378,8 +378,8 @@ export default function ReconciliationPage() {
                       <tr>
                         <th className="px-4 py-2.5">CHN / ACCOUNT</th>
                         <th className="px-4 py-2.5">HOLDER NAME</th>
-                        <th className="px-4 py-2.5 text-right">UNITS</th>
-                        <th className="px-4 py-2.5 text-right">STATUS</th>
+                        <th className="px-4 py-2.5">UNITS</th>
+                        <th className="px-4 py-2.5">STATUS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
@@ -461,8 +461,8 @@ export default function ReconciliationPage() {
                       <tr>
                         <th className="px-4 py-2.5">CHN / ACCOUNT</th>
                         <th className="px-4 py-2.5">HOLDER NAME</th>
-                        <th className="px-4 py-2.5 text-right">UNITS</th>
-                        <th className="px-4 py-2.5 text-right">STATUS</th>
+                        <th className="px-4 py-2.5">UNITS</th>
+                        <th className="px-4 py-2.5">STATUS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
@@ -637,7 +637,10 @@ export default function ReconciliationPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="mrpsl-label">Symbol</label>
-                  <Select value={txSymbol} onValueChange={setTxSymbol}>
+                  <Select
+                    value={txSymbol}
+                    onValueChange={(v) => setTxSymbol(v ?? "")}
+                  >
                     <SelectTrigger className="mrpsl-input w-full">
                       <SelectValue placeholder="Select register" />
                     </SelectTrigger>
