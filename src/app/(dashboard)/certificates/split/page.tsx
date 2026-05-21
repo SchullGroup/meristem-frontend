@@ -22,9 +22,15 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, Scissors, AlertCircle, X, Pencil } from "lucide-react";
+import { Check, Scissors, AlertCircle, X, Pencil, Loader2 } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  GET_PENDING_SPLIT_REQUESTS,
+  SUBMIT_CERTIFICATE_SPLIT_FOR_APPROVAL,
+} from "@/actions/certSplitAction";
+import { getUser } from "@/services/AuthServices";
 
 type PendingSplit = {
   id: string;
@@ -67,7 +73,10 @@ const PENDING_SPLITS: PendingSplit[] = [
 ];
 
 export default function SplitPage() {
+  const user = getUser();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("split");
+  const [activeCert, setActiveCert] = useState("");
   const [certFound, setCertFound] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<PendingSplit | null>(null);
@@ -84,6 +93,55 @@ export default function SplitPage() {
   const [partUnits, setPartUnits] = useState(["", ""]);
   const [splitReason, setSplitReason] = useState("");
   const [approvedSplitCerts, setApprovedSplitCerts] = useState<string[]>([]);
+
+  const { data: splitsData } = useQuery({
+    queryKey: ["pending-splits"],
+    queryFn: GET_PENDING_SPLIT_REQUESTS,
+  });
+
+  console.log(splitsData);
+
+  const sumbitForApprovalMutation = useMutation({
+    mutationFn: SUBMIT_CERTIFICATE_SPLIT_FOR_APPROVAL,
+    onSuccess: () => {
+      toast.success("Split request submitted successfully!");
+      queryClient.invalidateQueries({ queryKey: ["pending-splits-splits"] });
+      setEditingRejected(null);
+      setCertFound(false);
+      setPartUnits([""]);
+      setNumParts("1");
+      setSplitReason("");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Failed to submit split request");
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!activeCert) {
+      toast.error("Please select a certificate");
+      return;
+    }
+    if (partUnits.some((u) => !u || Number(u) <= 0 || isNaN(Number(u)))) {
+      toast.error("Please enter valid units for all parts");
+      return;
+    }
+    if (!splitReason) {
+      toast.error("Please enter a reason");
+      return;
+    }
+    const payload = {
+      sourceCertId: activeCert,
+      splits: partUnits.map((unit) => ({
+        certNumber: "CERT-DANGCEM-20015",
+        units: Number(unit),
+      })),
+      reason: splitReason,
+      submittedBy: user?.email,
+    };
+
+    sumbitForApprovalMutation.mutate({ payload });
+  };
 
   function openReview(row: PendingSplit) {
     setSelected(row);
@@ -283,14 +341,19 @@ export default function SplitPage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div
+                          onClick={() => setActiveCert("CERT-DANGCEM-20015")}
+                          className="space-y-2 cursor-pointer"
+                        >
                           <div className="flex items-center justify-between">
                             <div className="font-mono text-lg font-bold">
                               CERT-DANGCEM-20015
                             </div>
-                            <Badge className="bg-green-100 text-green-700 border-0 text-[12px]">
-                              ACTIVE
-                            </Badge>
+                            {activeCert === "CERT-DANGCEM-20015" && (
+                              <Badge className="bg-green-100 text-green-700 border-0 text-[12px]">
+                                ACTIVE
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-[12px] font-semibold text-primary/80 bg-primary/8 px-2 py-0.5 rounded inline-block">
                             Dangote Cement — DANGCEM
@@ -391,18 +454,15 @@ export default function SplitPage() {
                     <Button
                       className="w-full"
                       size="lg"
-                      onClick={() => {
-                        toast.success("Split request submitted for approval.");
-                        setEditingRejected(null);
-                        setCertFound(false);
-                        setPartUnits(["", ""]);
-                        setNumParts("2");
-                        setSplitReason("");
-                      }}
+                      onClick={handleSubmit}
+                      disabled={sumbitForApprovalMutation.isPending}
                     >
                       {editingRejected
                         ? "Resubmit for Approval"
                         : "Submit for Approval"}
+                      {sumbitForApprovalMutation.isPending && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
                     </Button>
                   </Card>
                 ) : (
