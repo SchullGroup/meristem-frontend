@@ -109,6 +109,7 @@ const OPERATIONS_GROUPS = [
     title: "Enquiry",
     icon: Search,
     items: [
+      { label: "Shareholders", href: "/enquiry/shareholders" },
       { label: "Holder", href: "/enquiry/holder" },
       { label: "Certificate", href: "/enquiry/certificate" },
       { label: "Warrant", href: "/enquiry/warrant" },

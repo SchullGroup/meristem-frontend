@@ -133,6 +133,56 @@ const MOCK_RECORDS: DematRecord[] = [
       { name: "Scanned_CERT-DANGCEM-00503.pdf", fileType: "PDF", url: "#" },
     ],
   },
+  {
+    id: "D5",
+    date: "24 Apr 2026",
+    cert: "CERT-DANGCEM-00411",
+    holder: "Blessing Okonkwo",
+    chn: "CHN-00554321",
+    broker: "Meristem Stockbrokers",
+    units: 18000,
+    status: "APPROVED",
+    documents: [
+      {
+        name: "Shareholder_ID_Blessing_Okonkwo.pdf",
+        fileType: "PDF",
+        url: "#",
+      },
+      { name: "Demat_Form_D5_Signed.pdf", fileType: "PDF", url: "#" },
+      { name: "Scanned_CERT-DANGCEM-00411.pdf", fileType: "PDF", url: "#" },
+    ],
+  },
+  {
+    id: "D6",
+    date: "23 Apr 2026",
+    cert: "CERT-DANGCEM-00388",
+    holder: "Tunde Adegoke",
+    chn: "CHN-00112988",
+    broker: "Zenith Securities",
+    units: 9500,
+    status: "APPROVED",
+    documents: [
+      { name: "Shareholder_ID_Tunde_Adegoke.jpg", fileType: "IMAGE", url: "#" },
+      { name: "Demat_Form_D6_Signed.pdf", fileType: "PDF", url: "#" },
+      { name: "Scanned_CERT-DANGCEM-00388.pdf", fileType: "PDF", url: "#" },
+    ],
+  },
+  {
+    id: "D7",
+    date: "22 Apr 2026",
+    cert: "CERT-DANGCEM-00321, CERT-DANGCEM-00322",
+    holder: "Ngozi Eze",
+    chn: "CHN-00876543",
+    broker: "CSCS PLC",
+    units: 32000,
+    status: "APPROVED",
+    documents: [
+      { name: "Shareholder_ID_Ngozi_Eze.pdf", fileType: "PDF", url: "#" },
+      { name: "Demat_Form_D7_Signed.pdf", fileType: "PDF", url: "#" },
+      { name: "Scanned_CERT-DANGCEM-00321.pdf", fileType: "PDF", url: "#" },
+      { name: "Scanned_CERT-DANGCEM-00322.pdf", fileType: "PDF", url: "#" },
+    ],
+  },
 ];
 
 const STATUS_MAP: Record<DematStatus, { cls: string; label: string }> = {
@@ -482,6 +532,11 @@ export default function DematPage() {
     null,
   );
   const [rejectComment, setRejectComment] = useState("");
+  const [lodgedIds, setLodgedIds] = useState<Set<string>>(new Set());
+  const [rinType, setRinType] = useState<"with_rin" | "no_rin">("with_rin");
+  const [lodgmentSelectedIds, setLodgmentSelectedIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [holderQuery, setHolderQuery] = useState("");
   const [foundHolder, setFoundHolder] = useState<Shareholder | null>(null);
   const [holderNotFound, setHolderNotFound] = useState(false);
@@ -523,6 +578,9 @@ export default function DematPage() {
   );
   const icuRecords = MOCK_RECORDS.filter(
     (r) => r.status === "ICU" && !rejectedIds.has(r.id),
+  );
+  const lodgmentRecords = MOCK_RECORDS.filter(
+    (r) => r.status === "APPROVED" && !lodgedIds.has(r.id),
   );
   const draftPg = usePagination(draftRecords);
   const approvalSteps = selected ? (APPROVAL_STEPS[selected.status] ?? []) : [];
@@ -794,52 +852,203 @@ export default function DematPage() {
 
           {/* ── Lodgment ── */}
           <TabsContent value="lodgment" className="space-y-4">
-            <Card className="mrpsl-card">
-              <div className="p-4 border-b bg-muted/20">
-                <Badge className="bg-emerald-100 text-emerald-800 mb-2">
-                  ICU Approved Demat Batch
-                </Badge>
-                <h3 className="font-semibold text-lg">
-                  BATCH-DEMAT-20260429-01
-                </h3>
-              </div>
-              <div className="p-6 space-y-6">
-                <RadioGroup defaultValue="with_rin" className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="with_rin" id="r1" />
-                    <label htmlFor="r1">RIN at CSCS</label>
+            <p className="text-sm text-muted-foreground">
+              ICU-approved records ready to be lodged at CSCS via text file
+              download or direct API push.
+            </p>
+
+            {/* RIN type selector + batch actions toolbar */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground mr-1">
+                  Lodgment Format:
+                </span>
+                <RadioGroup
+                  value={rinType}
+                  onValueChange={(v) => setRinType(v as "with_rin" | "no_rin")}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="with_rin" id="rin-yes" />
+                    <label htmlFor="rin-yes" className="text-sm cursor-pointer">
+                      RIN at CSCS
+                    </label>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="no_rin" id="r2" />
-                    <label htmlFor="r2">RIN NOT at CSCS</label>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="no_rin" id="rin-no" />
+                    <label htmlFor="rin-no" className="text-sm cursor-pointer">
+                      RIN NOT at CSCS
+                    </label>
                   </div>
                 </RadioGroup>
-                <div className="flex gap-4">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() =>
-                      toast.success(
-                        "BATCH-DEMAT-20260429-01.txt downloaded successfully.",
-                      )
-                    }
-                  >
-                    <FileText className="mr-2 h-4 w-4" /> Download Lodgment File
-                    (.txt)
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    onClick={() =>
-                      toast.success(
-                        "Batch pushed to CSCS API. Awaiting confirmation response.",
-                      )
-                    }
-                  >
-                    <UploadCloud className="mr-2 h-4 w-4" /> Push to CSCS API
-                  </Button>
-                </div>
               </div>
+              {lodgmentSelectedIds.size > 0 && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-primary/5 border border-primary/20 rounded-xl">
+                  <span className="text-sm font-semibold text-primary">
+                    {lodgmentSelectedIds.size} selected
+                  </span>
+                  <div className="flex gap-2 ml-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => {
+                        toast.success(
+                          `${lodgmentSelectedIds.size} record(s) downloaded as lodgment file (${rinType === "with_rin" ? "RIN format" : "Non-RIN format"}).`,
+                        );
+                      }}
+                    >
+                      <FileText className="h-3.5 w-3.5" /> Download (.txt)
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => {
+                        setLodgedIds(
+                          (prev) => new Set([...prev, ...lodgmentSelectedIds]),
+                        );
+                        setLodgmentSelectedIds(new Set());
+                        toast.success(
+                          `${lodgmentSelectedIds.size} record(s) pushed to CSCS API. Awaiting confirmation.`,
+                        );
+                      }}
+                    >
+                      <UploadCloud className="h-3.5 w-3.5" /> Push to CSCS
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <Card className="mrpsl-card overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="mrpsl-table-header">
+                  <tr>
+                    <th className="p-3 w-10">
+                      <Checkbox
+                        checked={
+                          lodgmentRecords.length > 0 &&
+                          lodgmentRecords.every((r) =>
+                            lodgmentSelectedIds.has(r.id),
+                          )
+                        }
+                        onCheckedChange={() => {
+                          const allSel = lodgmentRecords.every((r) =>
+                            lodgmentSelectedIds.has(r.id),
+                          );
+                          setLodgmentSelectedIds(
+                            allSel
+                              ? new Set()
+                              : new Set(lodgmentRecords.map((r) => r.id)),
+                          );
+                        }}
+                      />
+                    </th>
+                    <th className="p-3">DATE</th>
+                    <th className="p-3">CERT NO(S)</th>
+                    <th className="p-3">HOLDER</th>
+                    <th className="p-3">CHN</th>
+                    <th className="p-3">BROKER</th>
+                    <th className="p-3">UNITS</th>
+                    <th className="p-3">STATUS</th>
+                    <th className="p-3">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-[13px]">
+                  {lodgmentRecords.map((row) => (
+                    <tr
+                      key={row.id}
+                      className={`mrpsl-table-row ${lodgmentSelectedIds.has(row.id) ? "bg-primary/5" : ""}`}
+                    >
+                      <td className="p-3">
+                        <Checkbox
+                          checked={lodgmentSelectedIds.has(row.id)}
+                          onCheckedChange={() =>
+                            setLodgmentSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              next.has(row.id)
+                                ? next.delete(row.id)
+                                : next.add(row.id);
+                              return next;
+                            })
+                          }
+                        />
+                      </td>
+                      <td className="p-3 text-muted-foreground">{row.date}</td>
+                      <td
+                        className="p-3 font-mono truncate max-w-[160px]"
+                        title={row.cert}
+                      >
+                        {row.cert}
+                      </td>
+                      <td className="p-3 font-medium">{row.holder}</td>
+                      <td className="p-3 font-mono text-muted-foreground">
+                        {row.chn}
+                      </td>
+                      <td className="p-3">{row.broker}</td>
+                      <td className="p-3 tabular-nums font-semibold text-right">
+                        {row.units.toLocaleString()}
+                      </td>
+                      <td className="p-3">
+                        <StatusBadge status={row.status} />
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1.5 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[12px] gap-1"
+                            onClick={() =>
+                              toast.success(
+                                `${row.cert} lodgment file downloaded.`,
+                              )
+                            }
+                          >
+                            <FileText className="h-3 w-3" /> Download
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7 text-[12px] gap-1"
+                            onClick={() => {
+                              setLodgedIds(
+                                (prev) => new Set([...prev, row.id]),
+                              );
+                              setLodgmentSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                next.delete(row.id);
+                                return next;
+                              });
+                              toast.success(`${row.cert} pushed to CSCS API.`);
+                            }}
+                          >
+                            <UploadCloud className="h-3 w-3" /> Push
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {lodgmentRecords.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="p-12 text-center text-muted-foreground"
+                      >
+                        No records pending lodgment. ICU-approved records will
+                        appear here.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </Card>
+
+            {lodgedIds.size > 0 && (
+              <div className="flex items-center gap-2 text-[13px] text-muted-foreground px-1">
+                <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                {lodgedIds.size} record{lodgedIds.size !== 1 ? "s" : ""}{" "}
+                successfully lodged with CSCS this session.
+              </div>
+            )}
           </TabsContent>
         </div>
       </Tabs>
