@@ -47,6 +47,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 import { useGetRegisters } from "@/hooks/useRegisters";
+import { useReactToPrint } from "react-to-print";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CREATE_BONUS_ISSUE_DECLARATION,
@@ -462,6 +463,18 @@ export default function BonusIssuePage() {
   const [reportCalOpen, setReportCalOpen] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
   const [reportPage, setReportPage] = useState(1);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const printAreaRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: printAreaRef,
+    documentTitle: `${selectedReport} - Report`,
+  });
+
+  const handlePrintTrigger = () => {
+    toast.info("Opening print dialog...");
+    handlePrint();
+  };
 
   const [createdDeclarationId, setCreatedDeclarationId] = useState<
     string | null
@@ -878,21 +891,18 @@ export default function BonusIssuePage() {
   const exportAllotmentsMutation = useMutation({
     mutationFn: EXPORT_DELCARED_BONUS_ALLOTMENTS,
     onSuccess: (data) => {
-      const fileData = data?.data || data;
-      if (typeof fileData === "string") {
-        const linkSource = fileData.startsWith("data:")
-          ? fileData
-          : `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${fileData}`;
-        const downloadLink = document.createElement("a");
-        downloadLink.href = linkSource;
-        downloadLink.download = `allotment-report-${allotReviewing || "export"}.xlsx`;
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        toast.success("Excel report exported successfully.");
-      } else {
-        toast.error("Export returned invalid data format.");
-      }
+      const blob = new Blob([data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `allotment-report-${allotReviewing || "export"}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Excel report exported successfully.");
     },
     onError: (error) => {
       toast.error(error.message || "Failed to export Excel report.");
@@ -1005,6 +1015,38 @@ export default function BonusIssuePage() {
       toast.error(
         (err as { message: string })?.message || "Failed to generate report",
       );
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setIsExportingExcel(true);
+    const filename = `${selectedReport.toLowerCase().replace(/\s+/g, "-")}-report.xlsx`;
+    toast.info("Preparing Excel download...");
+    try {
+      const data = await GENERATE_BONUS_REPORT(reportPath, {
+        registerId: reportRegister === "all" ? undefined : reportRegister,
+        dateFrom: reportDateFrom,
+        dateTo: reportDateTo,
+        format: "excel",
+      });
+
+      const blob = new Blob([data], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Excel downloaded successfully.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to download Excel report.");
+    } finally {
+      setIsExportingExcel(false);
     }
   };
 
@@ -2494,28 +2536,44 @@ export default function BonusIssuePage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => toast.info("Downloading Excel...")}
+                          onClick={handleExportExcel}
+                          disabled={isExportingExcel}
                         >
-                          <FileSpreadsheet className="mr-1.5 h-4 w-4" /> Excel
+                          {isExportingExcel ? (
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileSpreadsheet className="mr-1.5 h-4 w-4" />
+                          )}
+                          Excel
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => toast.info("Generating PDF...")}
+                          onClick={handlePrintTrigger}
                         >
                           <Download className="mr-1.5 h-4 w-4" /> PDF
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => toast.info("Sending to printer...")}
+                          onClick={handlePrintTrigger}
                         >
                           <Printer className="mr-1.5 h-4 w-4" /> Print
                         </Button>
                       </div>
                     </div>
 
-                    {selectedReport === "Summary of Bonus Shares Issued" ? (
+                    <div ref={printAreaRef} className="space-y-4">
+                      {/* Print header (visible only in print preview / save as PDF) */}
+                      <div className="hidden print:block mb-6 border-b pb-4">
+                        <h2 className="text-xl font-bold uppercase">{selectedReport}</h2>
+                        <div className="text-sm text-muted-foreground mt-1 flex justify-between">
+                          <span>Register: {registerList?.find((r) => r.registerId === reportRegister)?.registerName || "All Registers"}</span>
+                          <span>Generated: {format(new Date(), "dd MMM yyyy, HH:mm")}</span>
+                        </div>
+                      </div>
+
+                      {selectedReport === "Summary of Bonus Shares Issued" ? (
                       /* Summary table — grouped by broker/category */
                       <Card className="mrpsl-card overflow-hidden">
                         <div className="overflow-x-auto">
@@ -2776,6 +2834,7 @@ export default function BonusIssuePage() {
                         />
                       </Card>
                     )}
+                    </div>
                   </div>
                 )}
               </>
