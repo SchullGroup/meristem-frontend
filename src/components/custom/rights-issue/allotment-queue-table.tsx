@@ -79,7 +79,7 @@ export function AllotmentQueueTable({
               className="pl-9 mrpsl-input"
             />
           </div>
-          <div className="flex-1 max-w-xs">
+          <div className="max-w-xs">
             <Select
               value={selectedRegister}
               onValueChange={(v) => {
@@ -99,21 +99,21 @@ export function AllotmentQueueTable({
                 ))}
               </SelectContent>
             </Select>
-            <div className="space-y-1.5">
-              <Select
-                value={selectedStatus}
-                onValueChange={(v) => setSelectedStatus(v ?? "all")}
-              >
-                <SelectTrigger className="mrpsl-input w-40">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
-                  <SelectItem value="ICU_APPROVED">ICU_APPROVED</SelectItem>
-                  <SelectItem value="ALLOTTED">ALLOTTED</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Select
+              value={selectedStatus}
+              onValueChange={(v) => setSelectedStatus(v ?? "all")}
+            >
+              <SelectTrigger className="mrpsl-input w-40">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="ICU_APPROVED">ICU Approved</SelectItem>
+                <SelectItem value="ALLOTTED">Allotted</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </Card>
