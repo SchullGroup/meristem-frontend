@@ -96,7 +96,7 @@ export interface GetStatesParams {
 // types/caution-reason.ts
 // ========================================
 
-export type CautionReasonSeverity = "HIGH" | "MEDIUM" | "LOW";
+export type CautionReasonSeverity = "High" | "Medium" | "Low";
 
 export type CautionReasonStatus = "Active" | "Inactive";
 
@@ -105,7 +105,7 @@ export interface CautionReason {
   reason: string;
   category: string;
   status: string;
-  severity?: CautionReasonSeverity;
+  severity?: CautionReasonSeverity | undefined;
   description: string;
   createdAt: string;
   updatedAt: string;
@@ -113,7 +113,7 @@ export interface CautionReason {
 
 export interface CreateCautionReasonPayload {
   reason: string;
-  severity: CautionReasonSeverity;
+  severity: CautionReasonSeverity | undefined;
   status: CautionReasonStatus;
   reasonForChange: string;
 }

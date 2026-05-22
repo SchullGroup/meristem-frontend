@@ -64,3 +64,13 @@ export const formatDateOnly = (dateString: string | undefined): string => {
 
   return `${day} ${month} ${year}`;
 };
+
+export function generateCertString(identifier: string) {
+  const cleanIdentifier = String(identifier).trim().toUpperCase();
+  const randomNumber = Math.floor(10000 + Math.random() * 90000);
+  return `CERT-${cleanIdentifier}-${randomNumber}`;
+}
+
+export function capitalizeFirstLetter(str: string) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}

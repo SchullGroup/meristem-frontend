@@ -30,12 +30,13 @@ import {
 } from "@/types/parameters";
 import { SearchableSelect } from "@/components/custom/searchable-select";
 import { Pagination } from "../pagination";
+import { capitalizeFirstLetter } from "@/utils/helperFunctions";
 
-const SEVERITY_OPTIONS = ["HIGH", "MEDIUM", "LOW"];
+const SEVERITY_OPTIONS = ["High", "Medium", "Low"];
 const severityColor: Record<string, string> = {
-  HIGH: "border-red-200   bg-red-50   text-red-700",
-  MEDIUM: "border-amber-200 bg-amber-50 text-amber-700",
-  LOW: "border-blue-200  bg-blue-50  text-blue-700",
+  High: "border-red-200   bg-red-50   text-red-700",
+  Medium: "border-amber-200 bg-amber-50 text-amber-700",
+  Low: "border-blue-200  bg-blue-50  text-blue-700",
 };
 
 const labelClass =
@@ -59,7 +60,7 @@ export default function CautionParameters({
   const [cautR, setCautR] = useState("");
   const [cautS, setCautS] = useState("Medium");
   const [cautNote, setCautNote] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(0);
   // const [sortBy, setSortBy] = useState("createdAt");
   // const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -121,7 +122,9 @@ export default function CautionParameters({
           code: editCaut.code,
           payload: {
             reason: cautR.trim(),
-            severity: cautS as CautionReasonSeverity,
+            severity: capitalizeFirstLetter(
+              cautS?.toLocaleLowerCase(),
+            ) as CautionReasonSeverity,
             status: editCaut.status as CautionReasonStatus,
             reasonForChange: cautNote || "Updated caution reason",
           },
@@ -222,7 +225,9 @@ export default function CautionParameters({
                             code: x.code,
                             payload: {
                               reason: x.reason,
-                              severity: x.severity,
+                              severity: capitalizeFirstLetter(
+                                x?.severity?.toLowerCase() ?? "",
+                              ) as CautionReasonSeverity,
                               status: (v
                                 ? "Active"
                                 : "Inactive") as CautionReasonStatus,

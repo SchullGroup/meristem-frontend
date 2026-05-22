@@ -228,7 +228,7 @@ export const approveLodgment = async (
   batchRef: string,
   payload: {
     comment: string;
-    lodgdedBy: string;
+    lodgedBy: string;
   },
 ) => {
   try {
