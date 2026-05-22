@@ -24,6 +24,7 @@ interface PaginationBarProps {
   pageSize: number;
   onPageSizeChange?: (s: number) => void;
   pageBase?: 0 | 1;
+  totalPages?: number
 }
 
 export function PaginationBar({
@@ -33,10 +34,12 @@ export function PaginationBar({
   pageSize,
   onPageSizeChange,
   pageBase = 0,
+  totalPages: propTotalPages
 }: PaginationBarProps) {
   const uiPage = pageBase === 0 ? page + 1 : page;
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const totalPages = propTotalPages ? propTotalPages : Math.max(1, Math.ceil(total / pageSize));
+
   const visible = getVisiblePages(uiPage, totalPages); // Adjustment for 0-based index if needed, but the logic here assumes 1-based current page
 
   const start = total === 0 ? 0 : (uiPage - 1) * pageSize + 1;
@@ -79,7 +82,7 @@ export function PaginationBar({
           variant="outline"
           size="sm"
           className="h-7 px-2.5 text-[13px]"
-          disabled={page === 0}
+          disabled={page === totalPages}
           onClick={() => onPageChange(page - 1)}
         >
           Previous
@@ -95,7 +98,7 @@ export function PaginationBar({
           ) : (
             <Button
               key={p}
-              variant={page + 1 === p ? "default" : "outline"}
+              variant={uiPage === p ? "default" : "outline"}
               size="sm"
               className="h-7 w-7 p-0 text-[13px]"
               onClick={() => onPageChange(pageBase === 0 ? p - 1 : p)}
@@ -108,7 +111,7 @@ export function PaginationBar({
           variant="outline"
           size="sm"
           className="h-7 px-2.5 text-[13px]"
-          disabled={page + 1 === totalPages}
+          disabled={page + 1 > totalPages}
           onClick={() => onPageChange(page + 1)}
         >
           Next

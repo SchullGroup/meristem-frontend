@@ -10,7 +10,7 @@ export function formatNaira(amount: number): string {
   return `₦${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function formatNumber(num: number): string {
+export function formatNumber(num?: number): string {
   if (num === null || num === undefined) return "—";
   return num.toLocaleString();
 }

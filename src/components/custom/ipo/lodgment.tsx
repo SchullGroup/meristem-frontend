@@ -131,12 +131,14 @@ export default function ICULodgment({ tab }: { tab: string }) {
       {
         onSuccess: (data) => {
           const blob = new Blob([data], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            // type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type: "text/plain;charset=utf-8",
           });
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `lodgment_${lodgmentReviewing.batchReference}.xlsx`;
+          // a.download = `lodgment_${lodgmentReviewing.batchReference}.xlsx`;
+          a.download = `lodgment_${lodgmentReviewing.batchReference}.txt`;
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
@@ -288,9 +290,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
                       <td className="px-4 py-3 text-[13px] text-muted-foreground">
                         {row.icuApprovedAt
                           ? format(
-                              new Date(row.icuApprovedAt),
-                              "dd MMM yyyy, HH:mm",
-                            )
+                            new Date(row.icuApprovedAt),
+                            "dd MMM yyyy, HH:mm",
+                          )
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -427,9 +429,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
             <div className="font-mono mt-0.5">
               {lodgmentReviewing?.icuApprovedAt
                 ? format(
-                    new Date(lodgmentReviewing.icuApprovedAt),
-                    "dd MMM yyyy, HH:mm",
-                  )
+                  new Date(lodgmentReviewing.icuApprovedAt),
+                  "dd MMM yyyy, HH:mm",
+                )
                 : "—"}
             </div>
           </div>
@@ -493,7 +495,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y">
                   {lodgmentDetail?.previewRows &&
-                  lodgmentDetail.previewRows.length > 0 ? (
+                    lodgmentDetail.previewRows.length > 0 ? (
                     lodgmentDetail.previewRows.map((row, i) => (
                       <tr key={i} className="hover:bg-muted/20">
                         <td className="p-2 font-mono">
@@ -596,7 +598,7 @@ export function ApproveLodgmentDialog({
         batchRef: batchReference,
         payload: {
           comment: comment,
-          lodgedBy: currentUser?.email || currentUser?.id || "ADMIN",
+          lodgedBy: currentUser?.email || currentUser?.username || "ADMIN",
         },
       },
       {
