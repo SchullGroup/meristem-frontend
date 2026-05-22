@@ -288,9 +288,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
                       <td className="px-4 py-3 text-[13px] text-muted-foreground">
                         {row.icuApprovedAt
                           ? format(
-                            new Date(row.icuApprovedAt),
-                            "dd MMM yyyy, HH:mm",
-                          )
+                              new Date(row.icuApprovedAt),
+                              "dd MMM yyyy, HH:mm",
+                            )
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -427,9 +427,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
             <div className="font-mono mt-0.5">
               {lodgmentReviewing?.icuApprovedAt
                 ? format(
-                  new Date(lodgmentReviewing.icuApprovedAt),
-                  "dd MMM yyyy, HH:mm",
-                )
+                    new Date(lodgmentReviewing.icuApprovedAt),
+                    "dd MMM yyyy, HH:mm",
+                  )
                 : "—"}
             </div>
           </div>
@@ -493,7 +493,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y">
                   {lodgmentDetail?.previewRows &&
-                    lodgmentDetail.previewRows.length > 0 ? (
+                  lodgmentDetail.previewRows.length > 0 ? (
                     lodgmentDetail.previewRows.map((row, i) => (
                       <tr key={i} className="hover:bg-muted/20">
                         <td className="p-2 font-mono">
@@ -528,7 +528,6 @@ export default function ICULodgment({ tab }: { tab: string }) {
             </div>
           </div>
 
-
           <div className="flex flex-wrap gap-4">
             <Button
               variant="outline"
@@ -560,7 +559,6 @@ export default function ICULodgment({ tab }: { tab: string }) {
             >
               <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
             </Button>
-
           </div>
         </div>
       </Card>
@@ -598,7 +596,7 @@ export function ApproveLodgmentDialog({
         batchRef: batchReference,
         payload: {
           comment: comment,
-          lodgdedBy: currentUser?.username || currentUser?.id || "ADMIN",
+          lodgedBy: currentUser?.email || currentUser?.id || "ADMIN",
         },
       },
       {
@@ -612,7 +610,7 @@ export function ApproveLodgmentDialog({
           const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
           toast.error(errorMessage?.message || "Failed to approve lodgment.");
         },
-      }
+      },
     );
   };
 

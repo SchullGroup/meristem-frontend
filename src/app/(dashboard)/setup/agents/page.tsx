@@ -70,7 +70,7 @@ const agentSchema = z.object({
   type: z.string().min(1, "Type required"),
   code: z.string().min(2, "Code required"),
   cscsMemberCode: z.string().optional(),
-  status: z.enum(["Active", "Inactive"]),
+  status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
 export default function AgentsPage() {
@@ -88,7 +88,7 @@ export default function AgentsPage() {
   } | null>(null);
   const form = useForm<z.infer<typeof agentSchema>>({
     resolver: zodResolver(agentSchema),
-    defaultValues: { type: "BANK", status: "Active" },
+    defaultValues: { type: "BANK", status: "ACTIVE" },
   });
 
   const { data: agents, isLoading: isAgentsLoading } = useQuery({
@@ -183,7 +183,7 @@ export default function AgentsPage() {
       code: agent.code,
       cscsMemberCode: agent.cscsMemberCode || "",
       address: agent.address,
-      status: agent.status as "Active" | "Inactive",
+      status: agent.status as "ACTIVE" | "INACTIVE",
     });
     setOpen(true);
   };
@@ -197,7 +197,7 @@ export default function AgentsPage() {
       code: "",
       cscsMemberCode: "",
       address: "",
-      status: "Active",
+      status: "ACTIVE",
     });
     setOpen(true);
   };
@@ -587,7 +587,7 @@ export default function AgentsPage() {
                             >
                               <div className="flex items-center space-x-2.5">
                                 <RadioGroupItem
-                                  value="Active"
+                                  value="ACTIVE"
                                   id="a-active"
                                   className="h-5 w-5"
                                 />
@@ -600,7 +600,7 @@ export default function AgentsPage() {
                               </div>
                               <div className="flex items-center space-x-2.5">
                                 <RadioGroupItem
-                                  value="Inactive"
+                                  value="INACTIVE"
                                   id="a-in"
                                   className="h-5 w-5"
                                 />

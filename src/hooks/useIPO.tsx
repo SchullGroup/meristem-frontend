@@ -67,10 +67,16 @@ export const ipoKeys = {
       [...ipoKeys.reports.all(), "stateSummary", register] as const,
     rangeAnalysis: (register?: string) =>
       [...ipoKeys.reports.all(), "rangeAnalysis", register] as const,
-    fullSubscription: (params: { register?: string; page?: number; size?: number }) =>
-      [...ipoKeys.reports.all(), "fullSubscription", params] as const,
-    applicationOffer: (params: { register?: string; page?: number; size?: number }) =>
-      [...ipoKeys.reports.all(), "applicationOffer", params] as const,
+    fullSubscription: (params: {
+      register?: string;
+      page?: number;
+      size?: number;
+    }) => [...ipoKeys.reports.all(), "fullSubscription", params] as const,
+    applicationOffer: (params: {
+      register?: string;
+      page?: number;
+      size?: number;
+    }) => [...ipoKeys.reports.all(), "applicationOffer", params] as const,
     applicationOfferSummary: (register?: string) =>
       [...ipoKeys.reports.all(), "applicationOfferSummary", register] as const,
   },
@@ -334,7 +340,7 @@ export const useGetBatchSummaryReport = (
   options?: Omit<
     UseQueryOptions<BatchSummaryResponse, Error, BatchSummaryResponse>,
     "queryKey" | "queryFn"
-  >
+  >,
 ) => {
   return useQuery({
     queryKey: ipoKeys.reports.batchSummary(register),
@@ -354,7 +360,7 @@ export const useGetStateSummaryReport = (
   options?: Omit<
     UseQueryOptions<StateSummaryResponse, Error, StateSummaryResponse>,
     "queryKey" | "queryFn"
-  >
+  >,
 ) => {
   return useQuery({
     queryKey: ipoKeys.reports.stateSummary(register),
@@ -374,7 +380,7 @@ export const useGetRangeAnalysisReport = (
   options?: Omit<
     UseQueryOptions<RangeAnalysisResponse, Error, RangeAnalysisResponse>,
     "queryKey" | "queryFn"
-  >
+  >,
 ) => {
   return useQuery({
     queryKey: ipoKeys.reports.rangeAnalysis(register),
@@ -402,7 +408,7 @@ export const useGetFullSubscriptionListReport = (
       FullSubscriptionListResponse
     >,
     "queryKey" | "queryFn"
-  >
+  >,
 ) => {
   return useQuery({
     queryKey: ipoKeys.reports.fullSubscription(params),
@@ -413,7 +419,8 @@ export const useGetFullSubscriptionListReport = (
 
 export const useExportFullSubscriptionListReport = () => {
   return useMutation({
-    mutationFn: (register?: string) => exportFullSubscriptionListReport(register),
+    mutationFn: (register?: string) =>
+      exportFullSubscriptionListReport(register),
   });
 };
 
@@ -426,7 +433,7 @@ export const useGetApplicationOfferReport = (
   options?: Omit<
     UseQueryOptions<ApplicationOfferResponse, Error, ApplicationOfferResponse>,
     "queryKey" | "queryFn"
-  >
+  >,
 ) => {
   return useQuery({
     queryKey: ipoKeys.reports.applicationOffer(params),
@@ -450,7 +457,7 @@ export const useGetApplicationOfferSummaryReport = (
       ApplicationOfferSummaryResponse
     >,
     "queryKey" | "queryFn"
-  >
+  >,
 ) => {
   return useQuery({
     queryKey: ipoKeys.reports.applicationOfferSummary(register),
@@ -461,7 +468,8 @@ export const useGetApplicationOfferSummaryReport = (
 
 export const useExportApplicationOfferSummaryReport = () => {
   return useMutation({
-    mutationFn: (register?: string) => exportApplicationOfferSummaryReport(register),
+    mutationFn: (register?: string) =>
+      exportApplicationOfferSummaryReport(register),
   });
 };
 
@@ -474,7 +482,7 @@ export const useApproveBatchLodgment = () => {
       payload,
     }: {
       batchRef: string;
-      payload: { comment: string; lodgdedBy: string };
+      payload: { comment: string; lodgedBy: string };
     }) => approveLodgment(batchRef, payload),
 
     onSuccess: (_, variables) => {
