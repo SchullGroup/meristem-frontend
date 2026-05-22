@@ -27,6 +27,9 @@ export interface RightsIssue {
   icuApprovedByName: string;
   icuReason: string;
   narrative: string;
+  lodgedAt: string;
+  processedBy: string;
+  notes: string;
 }
 
 export type RightsIssueStatus =
@@ -37,7 +40,7 @@ export type RightsIssueStatus =
   | "ICU_APPROVED"
   | "ICU_REJECTED"
   | "ALLOTTED"
-  | "CLOSED";
+  | "CLOSED" | "LODGED";
 
 export interface CreateRightsIssue {
   registerId: string;
@@ -302,7 +305,7 @@ export interface RightsAllotmentRow {
   certShares: number;
   amountPayable: number;
   status: string;
-  bankName: string;     
+  bankName: string;
   accountNo: string;
   reason: string | null;
 }

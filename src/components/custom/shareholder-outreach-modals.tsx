@@ -23,6 +23,8 @@ import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { useReactToPrint } from "react-to-print";
 import Image from "next/image";
+import { emailShareholders } from "@/actions/rightsActions";
+import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 
 /* ─── shared types ─────────────────────────────────────────────────────────── */
 
@@ -61,6 +63,7 @@ export interface EmailPreviewModalProps {
   contactEmail: string;
   shareholders: OutreachShareholder[];
   totalCount: number;
+  issueId: string;
 }
 
 /* ─── Sticky Label Preview Modal ────────────────────────────────────────────── */
@@ -442,18 +445,18 @@ function EmailBody({
 
   const placeholderRows = isRights
     ? [
-        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-        ["Name", "[SHAREHOLDER NAME]"],
-        ["Units Held", "[UNITS HELD]"],
-        ["Rights Due", "[RIGHTS DUE]"],
-        ["Amount Payable", "[AMOUNT PAYABLE]"],
-      ]
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Rights Due", "[RIGHTS DUE]"],
+      ["Amount Payable", "[AMOUNT PAYABLE]"],
+    ]
     : [
-        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-        ["Name", "[SHAREHOLDER NAME]"],
-        ["Units Held", "[UNITS HELD]"],
-        ["Bonus Due", "[BONUS DUE]"],
-      ];
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Bonus Due", "[BONUS DUE]"],
+    ];
 
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>
@@ -830,6 +833,7 @@ export function EmailPreviewModal({
   allotDate,
   contactEmail,
   totalCount,
+  issueId
 }: EmailPreviewModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
@@ -837,8 +841,6 @@ export function EmailPreviewModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
 
-  const addEmailJob = useStore((s) => s.addEmailJob);
-  const updateEmailJob = useStore((s) => s.updateEmailJob);
 
   const resetAndClose = (v: boolean) => {
     if (!v) {
@@ -857,39 +859,18 @@ export function EmailPreviewModal({
     reader.readAsDataURL(file);
   };
 
-  const handleSend = () => {
-    const jobId = crypto.randomUUID();
-    addEmailJob({
-      id: jobId,
-      offerName,
-      companyName,
-      totalRecipients: totalCount,
-      sent: 0,
-      bounced: 0,
-      status: "sending",
-      startedAt: new Date().toISOString(),
-    });
-    resetAndClose(false);
-    toast.success(
-      `Sending emails — check the notifications bell for progress.`,
-    );
+  const handleSend = async () => {
 
-    const batchSize = Math.ceil(totalCount / 20);
-    let sent = 0;
-    const interval = setInterval(() => {
-      sent = Math.min(sent + batchSize, totalCount);
-      updateEmailJob(jobId, { sent });
-      if (sent >= totalCount) {
-        clearInterval(interval);
-        const bounced = Math.floor(totalCount * 0.02);
-        updateEmailJob(jobId, {
-          sent: totalCount - bounced,
-          bounced,
-          status: "complete",
-          completedAt: new Date().toISOString(),
-        });
+    try {
+      const res = await emailShareholders(issueId);
+      if (res.data) {
+        toast.success("Emails sent to shareholders");
       }
-    }, 300);
+      resetAndClose(false);
+    } catch (error) {
+      const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(errorMessge?.message || "Failed to send emails");
+    }
   };
 
   return (

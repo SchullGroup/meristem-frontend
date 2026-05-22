@@ -49,6 +49,7 @@ export const WORLD_CURRENCIES: WorldCurrency[] = [
 
 export const ipoTemplateFields = [
   "subscriberName",
+  "email",
   "accountNumber",
   "chn",
   "units",

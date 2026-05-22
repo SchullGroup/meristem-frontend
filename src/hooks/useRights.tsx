@@ -30,6 +30,7 @@ import {
   exportNonAcceptanceReport,
   exportAllotmentReport,
   exportAcceptanceSummaryReport,
+  lodgeRightsIssueDeclaration,
 } from "@/actions/rightsActions";
 import {
   CreateRightsIssue,
@@ -380,6 +381,27 @@ export const useDeleteTradedRights = () => {
   return useMutation({
     mutationFn: (params: { id: string; entryId: string }) =>
       deleteTradedRights(params),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["rights-issue", variables.id, "traded-rights"],
+      });
+    },
+  });
+};
+
+export const useLodgeRightsIssueDeclaration = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: {
+      id: string;
+      data: {
+        lodgmentDate: string;
+        lodgmentRef: string;
+        notes: string;
+        processedBy: string
+      }
+    }) => lodgeRightsIssueDeclaration(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["rights-issue", variables.id, "traded-rights"],

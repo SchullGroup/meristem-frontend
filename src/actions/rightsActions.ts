@@ -343,6 +343,56 @@ export const deleteTradedRights = async (params: {
   }
 };
 
+// lodge rights issue declaration
+export const lodgeRightsIssueDeclaration = async (
+  id: string,
+  data: {
+    lodgmentDate: string;
+    lodgmentRef: string;
+    notes: string;
+    processedBy: string
+  }
+) => {
+
+  try {
+    const response = await api.post<ApiResponse<{
+      id: string;
+      ref: string;
+      offerName: string;
+      registerName: string;
+      registerSymbol: string;
+      status: string;
+      lodgmentDate: string;
+      lodgmentRef: string;
+      notes: string;
+      lodgedAt: string;
+      lodgedBy: string
+    }>>(
+      `/offers/rights-issue/declarations/${id}/lodge`, data
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// email shareholders their rights issue declaration
+export const emailShareholders = async (
+  id: string,
+) => {
+
+  try {
+    const response = await api.post<ApiResponse<string>>(
+      `/offers/rights-issue/declarations/${id}/email-shareholders`
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const getShareholdersProfile = async (params: RightsIssueParams) => {
   const { id, ...rest } = params;
 
