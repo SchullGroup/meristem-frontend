@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Search, Loader2 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -30,7 +30,7 @@ export default function RightsIssueTradedLodgment() {
   const [listPageSize, setListPageSize] = useState(10);
   const [listSearch, setListSearch] = useState("");
   const [selectedIssue, setSelectedIssue] = useState<RightsIssue | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string>("ALLOTTED");
+  const [selectedStatus, setSelectedStatus] = useState<string>("");
   const debouncedListSearch = useDebounce(listSearch, 500);
 
   // Rights issue list
@@ -43,8 +43,15 @@ export default function RightsIssueTradedLodgment() {
     page: listPage,
     pageSize: listPageSize,
     search: debouncedListSearch != "" ? debouncedListSearch : undefined,
-    status: selectedStatus,
+    status: selectedStatus !== "" ? selectedStatus : undefined
   });
+
+  const filteredList = useMemo(() => {
+    if (!issuesList?.content) return [];
+    return issuesList?.content.filter((r) => {
+      return r.status === "ALLOTTED" || r.status === "LODGED";
+    });
+  }, [issuesList?.content]);
 
   /* ══════════════════════════════════════════
      LIST VIEW — no issue selected
@@ -115,7 +122,7 @@ export default function RightsIssueTradedLodgment() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {issuesList?.content?.map((issue) => (
+                    {filteredList?.map((issue) => (
                       <tr key={issue.id} className="mrpsl-table-row">
                         <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                           {issue.ref}
@@ -152,17 +159,16 @@ export default function RightsIssueTradedLodgment() {
                         </td>
                       </tr>
                     ))}
-                    {(!issuesList?.content ||
-                      issuesList.content.length === 0) && (
-                        <tr>
-                          <td
-                            colSpan={6}
-                            className="px-4 py-12 text-center text-sm text-muted-foreground italic"
-                          >
-                            No rights issues found
-                          </td>
-                        </tr>
-                      )}
+                    {(filteredList.length === 0) && (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-4 py-12 text-center text-sm text-muted-foreground italic"
+                        >
+                          No rights declarations found
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -173,6 +179,7 @@ export default function RightsIssueTradedLodgment() {
                   pageSize={listPageSize}
                   onPageSizeChange={setListPageSize}
                   onPageChange={(p) => setListPage(p)}
+                  pageBase={1}
                 />
               )}
             </>

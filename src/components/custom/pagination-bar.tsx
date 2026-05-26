@@ -82,7 +82,7 @@ export function PaginationBar({
           variant="outline"
           size="sm"
           className="h-7 px-2.5 text-[13px]"
-          disabled={page === totalPages}
+          disabled={uiPage === totalPages}
           onClick={() => onPageChange(page - 1)}
         >
           Previous
@@ -111,7 +111,7 @@ export function PaginationBar({
           variant="outline"
           size="sm"
           className="h-7 px-2.5 text-[13px]"
-          disabled={page + 1 > totalPages}
+          disabled={uiPage === totalPages}
           onClick={() => onPageChange(page + 1)}
         >
           Next

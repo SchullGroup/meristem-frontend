@@ -26,11 +26,11 @@ export const DataErrorState = ({
   </div>
 );
 
-export const PendingListSkeleton = () => (
+export const PendingListSkeleton = ({ cols = 5 }: { cols?: number }) => (
   <div className="space-y-4">
     <div className="border rounded-xl overflow-hidden">
       <div className="bg-muted/30 h-10 w-full animate-pulse" />
-      {[...Array(5)].map((_, i) => (
+      {[...Array(cols)].map((_, i) => (
         <div key={i} className="flex gap-4 p-4 border-t items-center">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-4 w-24" />
@@ -62,7 +62,7 @@ export const BatchDetailSkeleton = () => (
   </div>
 );
 
-export const SubscribersSkeleton = ({}) => (
+export const SubscribersSkeleton = ({ }) => (
   <div className="p-4 space-y-3">
     <div className="flex gap-4">
       <Skeleton className="h-8 w-24" />

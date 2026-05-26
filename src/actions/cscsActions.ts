@@ -2,7 +2,8 @@
 
 import api from "@/services/api";
 import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
-import { FlaggedTransaction, FlaggedTransactionsResponse, ProcessedFile, ProcessedLogsResponse, ProcessingQueueResponse } from "@/types/cscs";
+import { FlaggedTransaction, FlaggedTransactionsResponse, Holder, ProcessedFile, ProcessedLogsResponse, ProcessingQueueResponse } from "@/types/cscs";
+import { ContentPaginatedResponse } from "@/types";
 
 export const GET_CSCS_PROCESSED_LOGS = async (params?: {
   search?: string;
@@ -22,6 +23,20 @@ export const GET_CSCS_PROCESSED_LOGS = async (params?: {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const INJECT_CSCS_ZIP_FILE = async (data: FormData) => {
+  try {
+    const res = await api.post<string>(`/cscs-ingestion/upload`, data, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+}
 
 
 export const UPLOAD_CSCS_FILE = async (data: FormData) => {
@@ -88,8 +103,6 @@ export const GET_CSCS_FLAGGED_TRANSACTIONS = async (params?: {
   }
 };
 
-
-
 export const GET_CSCS_FLAGGED_TRANSACTIONS_HISTORY = async (chn: string) => {
   try {
     const res = await api.get<FlaggedTransaction[]>(`/cscs/flagged-transactions/history/${chn}`);
@@ -99,3 +112,51 @@ export const GET_CSCS_FLAGGED_TRANSACTIONS_HISTORY = async (chn: string) => {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const GET_HOLDERS = async (params?: {
+  name?: string;
+  email?: string;
+  chn?: string;
+  registerId?: string;
+  page?: number; // 0 indexed
+  size?: number;
+}) => {
+  try {
+    const res = await api.get<ContentPaginatedResponse<Holder>>(`/holders`, { params });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+}
+
+export const UPDATE_HOLDER_STATES = async (data: {
+  updates: {
+    id: string;
+    state: string;
+  }[];
+}) => {
+  try {
+    const res = await api.patch<unknown>(`/holders/states`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+}
+
+export const LOOKUP_HOLDER_STATES = async (data: Array<{
+  chn: string;
+  address: string;
+}>) => {
+  try {
+    const res = await api.post<Array<{
+      chn: string;
+      address: string;
+    }>>(`/holders/lookup-states`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+}

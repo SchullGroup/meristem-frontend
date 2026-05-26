@@ -223,3 +223,23 @@ export interface CertificateParams {
     fromDate?: string;
     toDate?: string;
 }
+
+export interface Holder {
+    id: string;
+    name: string;
+    email: string;
+    chn: string;
+    address: string;
+    state: string;
+    bank: string;
+    bvnAccount: string;
+    phone: string;
+    altPhone: string;
+    nextOfKin: string;
+    dateOfBirth: string | null;
+    registers: Array<{
+        id: number;
+        registerName: string;
+        symbol: string
+    }>
+}
