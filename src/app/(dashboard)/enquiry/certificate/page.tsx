@@ -42,8 +42,8 @@ export default function CertificateEnquiryPage() {
       </div>
 
       <Card className="mrpsl-card p-5">
-        <div className="flex flex-wrap gap-4 items-end">
-          <div className="space-y-2">
+        <div className="flex gap-4 items-end flex-nowrap overflow-x-auto pb-1">
+          <div className="space-y-1.5">
             <label className="mrpsl-label">Register</label>
             <Select>
               <SelectTrigger className="w-48 mrpsl-input">
@@ -58,23 +58,23 @@ export default function CertificateEnquiryPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="mrpsl-label">Transfer No</label>
             <Input className="mrpsl-input w-36" />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="mrpsl-label">Account No</label>
             <Input className="mrpsl-input w-36" />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="mrpsl-label">Certificate No</label>
             <Input className="mrpsl-input w-40" />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="mrpsl-label">Units</label>
             <Input placeholder="Exactly X units" className="mrpsl-input w-40" />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="mrpsl-label">Holder Units</label>
             <Input placeholder="≥ X units" className="mrpsl-input w-40" />
           </div>
