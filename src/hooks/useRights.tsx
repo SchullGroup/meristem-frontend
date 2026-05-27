@@ -23,6 +23,14 @@ import {
   createTradedRights,
   deleteTradedRights,
   getShareholdersProfile,
+  getTradedRightsReport,
+  exportStateAnalysisReport,
+  getRightsEntitlementReport,
+  exportRangeAnalysisReport,
+  exportNonAcceptanceReport,
+  exportAllotmentReport,
+  exportAcceptanceSummaryReport,
+  lodgeRightsIssueDeclaration,
 } from "@/actions/rightsActions";
 import {
   CreateRightsIssue,
@@ -30,6 +38,13 @@ import {
   Shareholder,
   AllotmentParams,
   Allotment,
+  RangeAnalysisResponse,
+  StateAnalysisResponse,
+  TradedRightsResponse,
+  RightsEntitlementResponse,
+  NonAcceptanceResponse,
+  RightsAllotmentResponse,
+  RightsAcceptanceSummaryResponse,
 } from "@/types/rights";
 import { ApiResponse, EntitlementResponse, PaginatedResponse } from "@/types";
 
@@ -374,6 +389,27 @@ export const useDeleteTradedRights = () => {
   });
 };
 
+export const useLodgeRightsIssueDeclaration = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: {
+      id: string;
+      data: {
+        lodgmentDate: string;
+        lodgmentRef: string;
+        notes: string;
+        processedBy: string
+      }
+    }) => lodgeRightsIssueDeclaration(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["rights-issue", variables.id, "traded-rights"],
+      });
+    },
+  });
+};
+
 export const useGetShareholdersProfile = (
   params: RightsIssueParams,
   options?: Omit<
@@ -405,6 +441,118 @@ export const useGetShareholdersProfile = (
         },
       };
     },
+    ...options,
+  });
+};
+
+export const useGetTradedRightsReport = (
+  registerId?: string,
+  format?: "json" | "excel",
+  options?: Omit<
+    UseQueryOptions<ApiResponse<TradedRightsResponse> | Blob, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["rights-report", "traded-rights", registerId, format],
+    queryFn: () => getTradedRightsReport(registerId, format),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+export const useGetStateAnalysisReport = (
+  registerId?: string,
+  format?: "json" | "excel",
+  options?: Omit<
+    UseQueryOptions<ApiResponse<StateAnalysisResponse> | Blob, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["rights-report", "state-analysis", registerId, format],
+    queryFn: () => exportStateAnalysisReport(registerId, format),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+export const useGetRightsEntitlementReport = (
+  registerId?: string,
+  format?: "json" | "excel",
+  options?: Omit<
+    UseQueryOptions<ApiResponse<RightsEntitlementResponse> | Blob, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["rights-report", "rights-entitlement", registerId, format],
+    queryFn: () => getRightsEntitlementReport(registerId, format),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+export const useGetRangeAnalysisReport = (
+  registerId?: string,
+  format?: "json" | "excel",
+  options?: Omit<
+    UseQueryOptions<ApiResponse<RangeAnalysisResponse> | Blob, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["rights-report", "range-analysis", registerId, format],
+    queryFn: () => exportRangeAnalysisReport(registerId, format),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+export const useGetNonAcceptanceReport = (
+  registerId?: string,
+  format?: "json" | "excel",
+  options?: Omit<
+    UseQueryOptions<ApiResponse<NonAcceptanceResponse> | Blob, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["rights-report", "non-acceptance", registerId, format],
+    queryFn: () => exportNonAcceptanceReport(registerId, format),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+export const useGetAllotmentReport = (
+  registerId?: string,
+  format?: "json" | "excel",
+  options?: Omit<
+    UseQueryOptions<ApiResponse<RightsAllotmentResponse> | Blob, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["rights-report", "allotment", registerId, format],
+    queryFn: () => exportAllotmentReport(registerId, format),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+export const useGetAcceptanceSummaryReport = (
+  registerId?: string,
+  format?: "json" | "excel",
+  options?: Omit<
+    UseQueryOptions<ApiResponse<RightsAcceptanceSummaryResponse> | Blob, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["rights-report", "acceptance-summary", registerId, format],
+    queryFn: () => exportAcceptanceSummaryReport(registerId, format),
+    refetchOnWindowFocus: false,
     ...options,
   });
 };

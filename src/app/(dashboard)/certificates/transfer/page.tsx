@@ -2,126 +2,14 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import { Check, AlertCircle, X, Pencil } from "lucide-react";
-import { usePagination } from "@/lib/use-pagination";
-import { TablePagination } from "@/components/custom/table-pagination";
+import { Transfer } from "@/components/custom/certificate-transfer/transfer";
+import { PendingApprovals } from "@/components/custom/certificate-transfer/pending-approvals";
+import { ApprovedTransfers } from "@/components/custom/certificate-transfer/approved-transfers";
 
-type PendingTransfer = {
-  id: string;
-  date: string;
-  cert: string;
-  from: string;
-  fromAcct: string;
-  to: string;
-  toAcct: string;
-  units: number;
-  stampDuty: number;
-  submittedBy: string;
-};
-
-const PENDING_TRANSFERS: PendingTransfer[] = [
-  {
-    id: "TR1",
-    date: "28 Apr 2026",
-    cert: "CERT-DANGCEM-00121",
-    from: "Binta Lawal",
-    fromAcct: "DANGCEM-10015",
-    to: "Adeyemi John",
-    toAcct: "DANGCEM-10088",
-    units: 5000,
-    stampDuty: 250,
-    submittedBy: "Chidi Okafor",
-  },
-  {
-    id: "TR2",
-    date: "27 Apr 2026",
-    cert: "CERT-ACCESS-00553",
-    from: "Ngozi Eze",
-    fromAcct: "ACCESS-00553",
-    to: "Ibrahim Musa",
-    toAcct: "ACCESS-01122",
-    units: 12000,
-    stampDuty: 600,
-    submittedBy: "Ngozi Eze",
-  },
-];
 
 export default function TransferPage() {
-  const [srcLoaded, setSrcLoaded] = useState(false);
-  const [destLoaded, setDestLoaded] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [selected, setSelected] = useState<PendingTransfer | null>(null);
   const [activeTab, setActiveTab] = useState("transfer");
-  const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
-  const [lastRejComment, setLastRejComment] = useState("");
-  const [rejectComment, setRejectComment] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [batchRejectOpen, setBatchRejectOpen] = useState(false);
-  const [batchComment, setBatchComment] = useState("");
-  const [editingRejected, setEditingRejected] =
-    useState<PendingTransfer | null>(null);
-  const [units, setUnits] = useState("");
-  const [stampDuty, setStampDuty] = useState("");
 
-  function openReview(row: PendingTransfer) {
-    setSelected(row);
-    setRejectComment("");
-    setReviewOpen(true);
-  }
-
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  }
-  function toggleSelectAll(ids: string[]) {
-    setSelectedIds((prev) =>
-      prev.size === ids.length ? new Set() : new Set(ids),
-    );
-  }
-  function handleBatchApprove() {
-    toast.success(
-      `${selectedIds.size} record${selectedIds.size !== 1 ? "s" : ""} approved.`,
-    );
-    setSelectedIds(new Set());
-  }
-  function handleBatchReject() {
-    if (!batchComment.trim()) {
-      toast.error("Comment required for rejection.");
-      return;
-    }
-    setRejectedIds((prev) => new Set([...prev, ...selectedIds]));
-    setLastRejComment(batchComment);
-    toast.error(
-      `${selectedIds.size} record${selectedIds.size !== 1 ? "s" : ""} rejected.`,
-    );
-    setSelectedIds(new Set());
-    setBatchComment("");
-    setBatchRejectOpen(false);
-  }
-
-  const pendingTransfers = PENDING_TRANSFERS.filter(
-    (row) => !rejectedIds.has(row.id),
-  );
-  const transferPg = usePagination(pendingTransfers);
-  const visibleTransferIds = transferPg.paged.map((r) => r.id);
-  const transferAllSelected =
-    visibleTransferIds.length > 0 &&
-    visibleTransferIds.every((id) => selectedIds.has(id));
 
   return (
     <div className="space-y-6">
@@ -149,16 +37,23 @@ export default function TransferPage() {
             New Transfer
           </TabsTrigger>
           <TabsTrigger
-            value="auth"
+            value="pending"
             className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
           >
             Pending Approvals
+          </TabsTrigger>
+          <TabsTrigger
+            value="approved"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            Approved Transfers
           </TabsTrigger>
         </TabsList>
 
         <div className="mt-6">
           <TabsContent value="transfer" className="space-y-6">
-            {rejectedIds.size > 0 && (
+            <Transfer setTab={setActiveTab} />
+            {/* {rejectedIds.size > 0 && (
               <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -342,11 +237,12 @@ export default function TransferPage() {
                   </Button>
                 </div>
               </Card>
-            )}
+            )} */}
           </TabsContent>
 
-          <TabsContent value="auth" className="space-y-4">
-            {selectedIds.size > 0 && (
+          <TabsContent value="pending" className="space-y-4">
+            <PendingApprovals />
+            {/* {selectedIds.size > 0 && (
               <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
                 <span className="text-sm font-semibold text-primary">
                   {selectedIds.size} selected
@@ -449,188 +345,14 @@ export default function TransferPage() {
               total={transferPg.total}
               onPageChange={transferPg.setPage}
               onPageSizeChange={transferPg.setPageSize}
-            />
+            /> */}
+          </TabsContent>
+          <TabsContent value="approved" className="space-y-4">
+            <ApprovedTransfers />
           </TabsContent>
         </div>
       </Tabs>
 
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Review Certificate Transfer</DialogTitle>
-          </DialogHeader>
-          {selected && (
-            <div className="space-y-6 px-8 pb-8">
-              <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
-                <div className="mrpsl-section-title">Certificate</div>
-                <div className="font-mono font-bold">{selected.cert}</div>
-                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/40">
-                  <div>
-                    <div className="mrpsl-section-title">From (Transferor)</div>
-                    <div className="font-semibold text-sm mt-0.5">
-                      {selected.from}
-                    </div>
-                    <div className="font-mono text-[13px] text-muted-foreground">
-                      {selected.fromAcct}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mrpsl-section-title">To (Transferee)</div>
-                    <div className="font-semibold text-sm mt-0.5">
-                      {selected.to}
-                    </div>
-                    <div className="font-mono text-[13px] text-muted-foreground">
-                      {selected.toAcct}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mrpsl-section-title">Units Transferred</div>
-                    <div className="text-xl tabular-nums font-bold mt-0.5">
-                      {selected.units.toLocaleString()}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mrpsl-section-title">Stamp Duty</div>
-                    <div className="text-xl tabular-nums font-bold mt-0.5">
-                      ₦{selected.stampDuty.toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-border/60 rounded-xl p-4">
-                <h4 className="text-sm font-bold border-b border-border/60 pb-2 mb-4">
-                  Approval Chain
-                </h4>
-                <div className="space-y-4">
-                  {((): Array<{
-                    label: string;
-                    done: boolean;
-                    pending?: boolean;
-                    time?: string | null;
-                  }> => [
-                    {
-                      label: `Submitted by ${selected.submittedBy}`,
-                      done: true,
-                      time: selected.date + ", 09:14",
-                    },
-                    {
-                      label: "Authorised by Ngozi Adeyemi (Operations Manager)",
-                      done: true,
-                      time: selected.date + ", 11:30",
-                    },
-                    {
-                      label: "ICU Final Review — Approved",
-                      done: true,
-                      time: selected.date + ", 14:00",
-                    },
-                  ])().map((step, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
-                      >
-                        {step.done && (
-                          <Check
-                            className="h-3 w-3 text-white"
-                            style={{ strokeWidth: 3 }}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-sm">{step.label}</div>
-                        {step.time && (
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                            {step.time}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="mrpsl-label">Comment</label>
-                <Textarea
-                  value={rejectComment}
-                  onChange={(e) => setRejectComment(e.target.value)}
-                  placeholder="Required for rejection..."
-                  className="resize-none"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4 border-t border-border/60">
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => {
-                    setRejectedIds((prev) => new Set([...prev, selected!.id]));
-                    setLastRejComment(rejectComment);
-                    toast.error("Transfer rejected.");
-                    setReviewOpen(false);
-                  }}
-                >
-                  Reject
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    toast.success("Transfer approved and processed.");
-                    setReviewOpen(false);
-                  }}
-                >
-                  Approve Transfer
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              Reject {selectedIds.size} Record
-              {selectedIds.size !== 1 ? "s" : ""}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 px-6 pb-6">
-            <p className="text-sm text-muted-foreground">
-              This comment will be applied to all selected records and sent to
-              the initiator.
-            </p>
-            <div className="space-y-2">
-              <label className="mrpsl-label">
-                Rejection Comment <span className="text-destructive">*</span>
-              </label>
-              <Textarea
-                value={batchComment}
-                onChange={(e) => setBatchComment(e.target.value)}
-                placeholder="State reason for rejection..."
-                className="resize-none"
-                rows={4}
-              />
-            </div>
-            <div className="flex gap-3 pt-2 border-t">
-              <Button
-                variant="ghost"
-                className="flex-1"
-                onClick={() => setBatchRejectOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                className="flex-1"
-                onClick={handleBatchReject}
-              >
-                Confirm Rejection
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

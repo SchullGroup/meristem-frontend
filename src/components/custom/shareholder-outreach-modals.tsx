@@ -23,6 +23,8 @@ import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { useReactToPrint } from "react-to-print";
 import Image from "next/image";
+import { emailShareholders } from "@/actions/rightsActions";
+import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 
 /* ─── shared types ─────────────────────────────────────────────────────────── */
 
@@ -61,6 +63,7 @@ export interface EmailPreviewModalProps {
   contactEmail: string;
   shareholders: OutreachShareholder[];
   totalCount: number;
+  issueId?: string;
 }
 
 /* ─── Sticky Label Preview Modal ────────────────────────────────────────────── */
@@ -830,15 +833,13 @@ export function EmailPreviewModal({
   allotDate,
   contactEmail,
   totalCount,
+  issueId,
 }: EmailPreviewModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
   const [circularLinkUrl, setCircularLinkUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
-
-  const addEmailJob = useStore((s) => s.addEmailJob);
-  const updateEmailJob = useStore((s) => s.updateEmailJob);
 
   const resetAndClose = (v: boolean) => {
     if (!v) {
@@ -857,39 +858,21 @@ export function EmailPreviewModal({
     reader.readAsDataURL(file);
   };
 
-  const handleSend = () => {
-    const jobId = crypto.randomUUID();
-    addEmailJob({
-      id: jobId,
-      offerName,
-      companyName,
-      totalRecipients: totalCount,
-      sent: 0,
-      bounced: 0,
-      status: "sending",
-      startedAt: new Date().toISOString(),
-    });
-    resetAndClose(false);
-    toast.success(
-      `Sending emails — check the notifications bell for progress.`,
-    );
-
-    const batchSize = Math.ceil(totalCount / 20);
-    let sent = 0;
-    const interval = setInterval(() => {
-      sent = Math.min(sent + batchSize, totalCount);
-      updateEmailJob(jobId, { sent });
-      if (sent >= totalCount) {
-        clearInterval(interval);
-        const bounced = Math.floor(totalCount * 0.02);
-        updateEmailJob(jobId, {
-          sent: totalCount - bounced,
-          bounced,
-          status: "complete",
-          completedAt: new Date().toISOString(),
-        });
+  const handleSend = async () => {
+    if (!issueId) {
+      toast.error("No issue ID available to send emails.");
+      return;
+    }
+    try {
+      const res = await emailShareholders(issueId);
+      if (res.data) {
+        toast.success("Emails sent to shareholders");
       }
-    }, 300);
+      resetAndClose(false);
+    } catch (error) {
+      const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(errorMessge?.message || "Failed to send emails");
+    }
   };
 
   return (

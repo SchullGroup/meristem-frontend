@@ -86,9 +86,9 @@ export default function PrincipalsPage() {
 
   const total = principalStats?.billingBreakdown
     ? Object.values(principalStats.billingBreakdown).reduce(
-        (sum, value) => sum + value,
-        0,
-      )
+      (sum, value) => sum + value,
+      0,
+    )
     : 0;
 
   const { mutate, isPending: toggleStatusLoading } = useUpdatePrincipalStatus();
@@ -109,31 +109,8 @@ export default function PrincipalsPage() {
     if (!selectedPrincipal) return;
     const newStatus =
       selectedPrincipal.status.toLowerCase() === "active"
-        ? "inactive"
-        : "active";
-
-    // if (newStatus === "INACTIVE") {
-    //   const hasActiveRegisters = registers.some(
-    //     (r) => r.principalId === selectedPrincipal.id && r.status === "ACTIVE",
-    //   );
-    //   if (hasActiveRegisters) {
-    //     toast.error("Cannot deactivate a principal with active registers.");
-    //     setConfirmStatusOpen(false);
-    //     return;
-    //   }
-    // }
-
-    // updatePrincipal(selectedPrincipal.id, { status: newStatus });
-    // logAudit({
-    //   action: "PRINCIPAL_STATUS_CHANGED",
-    //   entityType: "Principal",
-    //   entityId: selectedPrincipal.id,
-    //   before: selectedPrincipal,
-    //   after: { ...selectedPrincipal, status: newStatus },
-    //   actor: "Current User",
-    //   actorId: "usr",
-    //   role: "ADMIN",
-    // });
+        ? "INACTIVE"
+        : "ACTIVE";
 
     mutate(
       {
@@ -153,11 +130,6 @@ export default function PrincipalsPage() {
         },
       },
     );
-
-    // toast.success(
-    //   `Principal ${selectedPrincipal.principalName} has been marked as ${newStatus}.`,
-    // );
-    // setConfirmStatusOpen(false);
   };
 
   const openStatusConfirm = (p: Principal) => {
@@ -165,19 +137,6 @@ export default function PrincipalsPage() {
     setConfirmStatusOpen(true);
   };
 
-  // const principalFStats = useMemo(() => {
-  //   const inactive = principals?.content?.filter(
-  //     (p) => p.status.toLowerCase() === "inactive",
-  //   );
-  //   const active = principals?.content?.filter(
-  //     (p) => p.status.toLowerCase() === "active",
-  //   );
-
-  //   return {
-  //     active: active?.length ?? 0,
-  //     inactive: inactive?.length ?? 0,
-  //   };
-  // }, [principals]);
 
   return (
     <div className="space-y-6">
@@ -382,13 +341,12 @@ export default function PrincipalsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${
-                          p.billingCategory === "A"
+                        className={`border-0 text-xs ${p.billingCategory === "A"
                             ? "bg-emerald-100 text-emerald-800"
                             : p.billingCategory === "B"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-amber-100 text-amber-800"
-                        }`}
+                          }`}
                       >
                         Category {p.billingCategory}
                       </Badge>

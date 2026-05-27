@@ -91,6 +91,7 @@ const OPERATIONS_GROUPS = [
       { label: "Dividend Payment", href: "/dividends/payment" },
       { label: "Dividend Split", href: "/dividends/split" },
       { label: "Warrant Mark-Off", href: "/dividends/warrant-markoff" },
+      { label: "Dividend Reports", href: "/dividends/reports" },
     ],
   },
   {
@@ -109,6 +110,7 @@ const OPERATIONS_GROUPS = [
     title: "Enquiry",
     icon: Search,
     items: [
+      { label: "Shareholders", href: "/enquiry/shareholders" },
       { label: "Holder", href: "/enquiry/holder" },
       { label: "Certificate", href: "/enquiry/certificate" },
       { label: "Warrant", href: "/enquiry/warrant" },

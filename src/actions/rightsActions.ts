@@ -9,6 +9,13 @@ import {
   TradedRights,
   AllotmentParams,
   AllotmentStatus,
+  RangeAnalysisResponse,
+  StateAnalysisResponse,
+  TradedRightsResponse,
+  RightsEntitlementResponse,
+  NonAcceptanceResponse,
+  RightsAllotmentResponse,
+  RightsAcceptanceSummaryResponse,
 } from "@/types/rights";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 
@@ -336,6 +343,56 @@ export const deleteTradedRights = async (params: {
   }
 };
 
+// lodge rights issue declaration
+export const lodgeRightsIssueDeclaration = async (
+  id: string,
+  data: {
+    lodgmentDate: string;
+    lodgmentRef: string;
+    notes: string;
+    processedBy: string
+  }
+) => {
+
+  try {
+    const response = await api.post<ApiResponse<{
+      id: string;
+      ref: string;
+      offerName: string;
+      registerName: string;
+      registerSymbol: string;
+      status: string;
+      lodgmentDate: string;
+      lodgmentRef: string;
+      notes: string;
+      lodgedAt: string;
+      lodgedBy: string
+    }>>(
+      `/offers/rights-issue/declarations/${id}/lodge`, data
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// email shareholders their rights issue declaration
+export const emailShareholders = async (
+  id: string,
+) => {
+
+  try {
+    const response = await api.post<ApiResponse<string>>(
+      `/offers/rights-issue/declarations/${id}/email-shareholders`
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const getShareholdersProfile = async (params: RightsIssueParams) => {
   const { id, ...rest } = params;
 
@@ -356,3 +413,118 @@ export const getShareholdersProfile = async (params: RightsIssueParams) => {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+// reports endpoints
+
+export const getTradedRightsReport = async (registerId?: string, format?: "json" | "excel") => {
+  try {
+    const response = await api.get<ApiResponse<TradedRightsResponse> | Blob>(
+      `/offers/rights-issue/reports/traded-rights-report`,
+      {
+        params: { registerId, format },
+        ...(format === "excel" ? { responseType: "blob" } : {}),
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const exportStateAnalysisReport = async (registerId?: string, format?: "json" | "excel") => {
+  try {
+    const response = await api.get<ApiResponse<StateAnalysisResponse> | Blob>(
+      `/offers/rights-issue/reports/state-analysis`,
+      {
+        params: { registerId, format },
+        ...(format === "excel" ? { responseType: "blob" } : {}),
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const getRightsEntitlementReport = async (registerId?: string, format?: "json" | "excel") => {
+  try {
+    const response = await api.get<ApiResponse<RightsEntitlementResponse> | Blob>(
+      `/offers/rights-issue/reports/rights-entitlement-list`,
+      {
+        params: { registerId, format },
+        ...(format === "excel" ? { responseType: "blob" } : {}),
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const exportRangeAnalysisReport = async (registerId?: string, format?: "json" | "excel") => {
+  try {
+    const response = await api.get<ApiResponse<RangeAnalysisResponse> | Blob>(
+      `/offers/rights-issue/reports/range-analysis`,
+      {
+        params: { registerId, format },
+        ...(format === "excel" ? { responseType: "blob" } : {}),
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const exportNonAcceptanceReport = async (registerId?: string, format?: "json" | "excel") => {
+  try {
+    const response = await api.get<ApiResponse<NonAcceptanceResponse> | Blob>(
+      `/offers/rights-issue/reports/non-acceptance-list`,
+      {
+        params: { registerId, format },
+        ...(format === "excel" ? { responseType: "blob" } : {}),
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const exportAllotmentReport = async (registerId?: string, format?: "json" | "excel") => {
+  try {
+    const response = await api.get<ApiResponse<RightsAllotmentResponse> | Blob>(
+      `/offers/rights-issue/reports/allotment-report`,
+      {
+        params: { registerId, format },
+        ...(format === "excel" ? { responseType: "blob" } : {}),
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const exportAcceptanceSummaryReport = async (registerId?: string, format?: "json" | "excel") => {
+  try {
+    const response = await api.get<ApiResponse<RightsAcceptanceSummaryResponse> | Blob>(
+      `/offers/rights-issue/reports/acceptance-summary`,
+      {
+        params: { registerId, format },
+        ...(format === "excel" ? { responseType: "blob" } : {}),
+      },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+

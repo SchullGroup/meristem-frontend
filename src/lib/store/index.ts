@@ -39,6 +39,7 @@ const SEED_AGENT_TYPES: AgentType[] = [
 ];
 import { RightsIssue } from "@/types/rights";
 import { seedStore as seedStoreData } from "../mocks/seed";
+import { TransferRequest } from "@/types/cscs";
 
 export interface RejectedBatch {
   id?: string;
@@ -53,6 +54,8 @@ export interface AppState {
   // Auth
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
+  isSessionExpired: boolean;
+  setIsSessionExpired: (expired: boolean) => void;
 
   // Master data
   principals: Principal[];
@@ -76,6 +79,7 @@ export interface AppState {
   emailJobs: EmailJob[];
   rejectedRightsIssue: { ref: string; comment: string } | null;
   rejectedBatches: RejectedBatch[];
+  rejectedTransfers: TransferRequest[];
 
   // CRUD actions
   addPrincipal: (p: Principal) => void;
@@ -109,6 +113,8 @@ export interface AppState {
   addRejectedBatch: (batch: RejectedBatch) => void;
   removeRejectedBatch: (id: string) => void;
   clearRejectedBatches: () => void;
+  addRejectedTransfer: (transfer: TransferRequest) => void;
+  removeRejectedTransfer: (id: string) => void;
 
   // Utilities
   seedStore: () => void;
@@ -119,6 +125,8 @@ export const useStore = create<AppState>()(
     (set) => ({
       currentUser: null,
       setCurrentUser: (user) => set({ currentUser: user }),
+      isSessionExpired: false,
+      setIsSessionExpired: (expired) => set({ isSessionExpired: expired }),
 
       principals: [],
       registers: [],
@@ -139,6 +147,7 @@ export const useStore = create<AppState>()(
       emailJobs: [],
       rejectedRightsIssue: null,
       rejectedBatches: [],
+      rejectedTransfers: [],
 
       addPrincipal: (p) =>
         set((state) => ({ principals: [...state.principals, p] })),
@@ -254,6 +263,14 @@ export const useStore = create<AppState>()(
           rejectedBatches: state.rejectedBatches.filter((b) => b.ref !== ref),
         })),
       clearRejectedBatches: () => set({ rejectedBatches: [] }),
+      addRejectedTransfer: (transfer) =>
+        set((state) => ({
+          rejectedTransfers: [...state.rejectedTransfers, transfer],
+        })),
+      removeRejectedTransfer: (id) =>
+        set((state) => ({
+          rejectedTransfers: state.rejectedTransfers.filter((t) => t.id !== id),
+        })),
     }),
     {
       name: "mrpsl-cpa-store",

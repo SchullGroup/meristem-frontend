@@ -28,7 +28,7 @@ const ToggleStatusDialog = ({
 }: ToggleStatusDialogProps) => {
   if (!selectedPrincipal) return null;
 
-  const isActive = selectedPrincipal.status === "Active";
+  const isActive = selectedPrincipal.status === "ACTIVE";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

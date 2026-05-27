@@ -157,6 +157,14 @@ export default function NewMandatePage() {
     useState<MandateApproval[]>(INITIAL_PENDING);
   const [icuMandate, setIcuMandate] = useState<MandateApproval[]>(INITIAL_ICU);
 
+  const [pendingApprIds, setPendingApprIds] = useState<Set<string>>(new Set());
+  const [icuApprIds, setIcuApprIds] = useState<Set<string>>(new Set());
+  const [batchApprRejectOpen, setBatchApprRejectOpen] = useState(false);
+  const [batchApprComment, setBatchApprComment] = useState("");
+  const [batchApprTarget, setBatchApprTarget] = useState<
+    "pending" | "icu" | null
+  >(null);
+
   const [rejectedId, setRejectedId] = useState<string | null>(null);
   const [rejectedComment, setRejectedComment] = useState("");
   const [rejectedIsIcu, setRejectedIsIcu] = useState(false);
@@ -266,6 +274,70 @@ export default function NewMandatePage() {
     ];
   };
 
+  function togglePendingAppr(id: string) {
+    setPendingApprIds((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }
+  function togglePendingApprAll(ids: string[]) {
+    setPendingApprIds((prev) =>
+      ids.every((id) => prev.has(id)) ? new Set() : new Set(ids),
+    );
+  }
+  function toggleIcuAppr(id: string) {
+    setIcuApprIds((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }
+  function toggleIcuApprAll(ids: string[]) {
+    setIcuApprIds((prev) =>
+      ids.every((id) => prev.has(id)) ? new Set() : new Set(ids),
+    );
+  }
+  function handleBatchApproveMandate(target: "pending" | "icu") {
+    const ids = target === "pending" ? pendingApprIds : icuApprIds;
+    if (target === "pending") {
+      setPendingMandate((prev) => prev.filter((r) => !ids.has(r.id)));
+      setPendingApprIds(new Set());
+      toast.success(
+        `${ids.size} payment${ids.size !== 1 ? "s" : ""} approved. Forwarded to ICU.`,
+      );
+    } else {
+      setIcuMandate((prev) => prev.filter((r) => !ids.has(r.id)));
+      setIcuApprIds(new Set());
+      toast.success(
+        `${ids.size} payment${ids.size !== 1 ? "s" : ""} ICU approved. Queued for payment.`,
+      );
+    }
+  }
+  function openBatchApprReject(target: "pending" | "icu") {
+    setBatchApprTarget(target);
+    setBatchApprComment("");
+    setBatchApprRejectOpen(true);
+  }
+  function handleBatchApprReject() {
+    if (!batchApprComment.trim()) {
+      toast.error("Comment required for rejection.");
+      return;
+    }
+    const ids = batchApprTarget === "pending" ? pendingApprIds : icuApprIds;
+    if (batchApprTarget === "pending") {
+      setPendingMandate((prev) => prev.filter((r) => !ids.has(r.id)));
+      setPendingApprIds(new Set());
+    } else {
+      setIcuMandate((prev) => prev.filter((r) => !ids.has(r.id)));
+      setIcuApprIds(new Set());
+    }
+    toast.error(`${ids.size} payment${ids.size !== 1 ? "s" : ""} rejected.`);
+    setBatchApprComment("");
+    setBatchApprRejectOpen(false);
+    setBatchApprTarget(null);
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -328,7 +400,7 @@ export default function NewMandatePage() {
               </Card>
             )}
 
-            <div className="flex items-center gap-3">
+            <div className="flex gap-3 items-end">
               <Select
                 value={queueRegister}
                 onValueChange={(v) => setQueueRegister(v ?? "all")}
@@ -396,7 +468,7 @@ export default function NewMandatePage() {
                         <th className="p-3">NEW BANK</th>
                         <th className="p-3">NEW ACCOUNT NO</th>
                         <th className="p-3">DIVIDEND NO</th>
-                        <th className="p-3 text-right">AMOUNT (₦)</th>
+                        <th className="p-3">AMOUNT (₦)</th>
                         <th className="p-3">SOURCE</th>
                       </tr>
                     </thead>
@@ -459,196 +531,351 @@ export default function NewMandatePage() {
           </TabsContent>
 
           <TabsContent value="auth" className="space-y-4">
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toast.success("Records downloaded.")}
-              >
-                <Download className="mr-2 h-4 w-4" /> Download Records
-              </Button>
-            </div>
-            <Card className="mrpsl-card overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="p-3">DATE</th>
-                    <th className="p-3">ACCOUNT</th>
-                    <th className="p-3">HOLDER</th>
-                    <th className="p-3">NEW BANK</th>
-                    <th className="p-3">NEW ACCOUNT NO</th>
-                    <th className="p-3">DIVIDEND NO</th>
-                    <th className="p-3 text-right">AMOUNT (₦)</th>
-                    <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-[13px]">
-                  {mandatePg.paged.map((row) => (
-                    <tr key={row.id} className="mrpsl-table-row">
-                      <td className="p-3 text-muted-foreground">{row.date}</td>
-                      <td className="p-3 font-mono">{row.account}</td>
-                      <td className="p-3 font-medium">{row.holder}</td>
-                      <td className="p-3">{row.bank}</td>
-                      <td className="p-3 font-mono">{row.accountNo}</td>
-                      <td className="p-3 font-mono text-muted-foreground">
-                        {row.dividendNo}
-                      </td>
-                      <td className="p-3 text-right font-mono font-semibold">
-                        {row.amount.toLocaleString()}.00
-                      </td>
-                      <td className="p-3 text-muted-foreground">
-                        {row.submittedBy}
-                      </td>
-                      <td className="p-3 text-right">
-                        <Button
-                          size="sm"
-                          onClick={() => openReview(row, false)}
-                        >
-                          Review &amp; Decide
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {mandatePg.paged.length === 0 && (
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.success("Records downloaded.")}
+                >
+                  <Download className="mr-2 h-4 w-4" /> Download Records
+                </Button>
+              </div>
+
+              {pendingApprIds.size > 0 && (
+                <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                  <span className="text-sm font-medium text-primary">
+                    {pendingApprIds.size} record
+                    {pendingApprIds.size !== 1 ? "s" : ""} selected
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                      onClick={() => openBatchApprReject("pending")}
+                    >
+                      Reject Selected
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleBatchApproveMandate("pending")}
+                    >
+                      Approve Selected
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <Card className="mrpsl-card overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
                     <tr>
-                      <td
-                        colSpan={9}
-                        className="p-8 text-center text-muted-foreground"
-                      >
-                        No records pending approval.
-                      </td>
+                      <th className="p-3 w-10">
+                        <Checkbox
+                          checked={
+                            mandatePg.paged.length > 0 &&
+                            mandatePg.paged.every((r) =>
+                              pendingApprIds.has(r.id),
+                            )
+                          }
+                          onCheckedChange={() =>
+                            togglePendingApprAll(
+                              mandatePg.paged.map((r) => r.id),
+                            )
+                          }
+                        />
+                      </th>
+                      <th className="p-3">DATE</th>
+                      <th className="p-3">ACCOUNT</th>
+                      <th className="p-3">HOLDER</th>
+                      <th className="p-3">NEW BANK</th>
+                      <th className="p-3">NEW ACCOUNT NO</th>
+                      <th className="p-3">DIVIDEND NO</th>
+                      <th className="p-3">AMOUNT (₦)</th>
+                      <th className="p-3">SUBMITTED BY</th>
+                      <th className="p-3">ACTIONS</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </Card>
-            <TablePagination
-              page={mandatePg.page}
-              pageSize={mandatePg.pageSize}
-              totalPages={mandatePg.totalPages}
-              from={mandatePg.from}
-              to={mandatePg.to}
-              total={mandatePg.total}
-              onPageChange={mandatePg.setPage}
-              onPageSizeChange={mandatePg.setPageSize}
-            />
+                  </thead>
+                  <tbody className="divide-y text-[13px]">
+                    {mandatePg.paged.map((row) => (
+                      <tr
+                        key={row.id}
+                        className={`mrpsl-table-row ${pendingApprIds.has(row.id) ? "bg-primary/5" : ""}`}
+                      >
+                        <td className="p-3">
+                          <Checkbox
+                            checked={pendingApprIds.has(row.id)}
+                            onCheckedChange={() => togglePendingAppr(row.id)}
+                          />
+                        </td>
+                        <td className="p-3 text-muted-foreground">
+                          {row.date}
+                        </td>
+                        <td className="p-3 font-mono">{row.account}</td>
+                        <td className="p-3 font-medium">{row.holder}</td>
+                        <td className="p-3">{row.bank}</td>
+                        <td className="p-3 font-mono">{row.accountNo}</td>
+                        <td className="p-3 font-mono text-muted-foreground">
+                          {row.dividendNo}
+                        </td>
+                        <td className="p-3 text-right font-mono font-semibold">
+                          {row.amount.toLocaleString()}.00
+                        </td>
+                        <td className="p-3 text-muted-foreground">
+                          {row.submittedBy}
+                        </td>
+                        <td className="p-3 text-right">
+                          <Button
+                            size="sm"
+                            onClick={() => openReview(row, false)}
+                          >
+                            Review &amp; Decide
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {mandatePg.paged.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="p-8 text-center text-muted-foreground"
+                        >
+                          No records pending approval.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </Card>
+              <TablePagination
+                page={mandatePg.page}
+                pageSize={mandatePg.pageSize}
+                totalPages={mandatePg.totalPages}
+                from={mandatePg.from}
+                to={mandatePg.to}
+                total={mandatePg.total}
+                onPageChange={mandatePg.setPage}
+                onPageSizeChange={mandatePg.setPageSize}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="icu" className="space-y-4">
-            <div className="flex items-center justify-between gap-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                  <Check className="h-4 w-4 text-blue-700" />
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-blue-900">
-                    ICU Sign-Off Required
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                    <Check className="h-4 w-4 text-blue-700" />
                   </div>
-                  <div className="text-[13px] text-blue-700">
-                    Items below exceed Tier 3 threshold and require ICU officer
-                    sign-off before payment release.
+                  <div>
+                    <div className="text-sm font-bold text-blue-900">
+                      ICU Sign-Off Required
+                    </div>
+                    <div className="text-[13px] text-blue-700">
+                      Items below exceed Tier 3 threshold and require ICU
+                      officer sign-off before payment release.
+                    </div>
                   </div>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => toast.success("Records downloaded.")}
+                >
+                  <Download className="mr-2 h-4 w-4" /> Download Records
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => toast.success("Records downloaded.")}
-              >
-                <Download className="mr-2 h-4 w-4" /> Download Records
-              </Button>
-            </div>
 
-            <Card className="mrpsl-card overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="p-3">DATE</th>
-                    <th className="p-3">ACCOUNT</th>
-                    <th className="p-3">HOLDER</th>
-                    <th className="p-3">NEW BANK</th>
-                    <th className="p-3">NEW ACCOUNT NO</th>
-                    <th className="p-3">DIVIDEND NO</th>
-                    <th className="p-3 text-right">AMOUNT (₦)</th>
-                    <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-[13px]">
-                  {icuPg.paged.map((row) => (
-                    <tr key={row.id} className="mrpsl-table-row">
-                      <td className="p-3 text-muted-foreground">{row.date}</td>
-                      <td className="p-3 font-mono">{row.account}</td>
-                      <td className="p-3 font-medium">{row.holder}</td>
-                      <td className="p-3">{row.bank}</td>
-                      <td className="p-3 font-mono">{row.accountNo}</td>
-                      <td className="p-3 font-mono text-muted-foreground">
-                        {row.dividendNo}
-                      </td>
-                      <td className="p-3 text-right font-mono font-bold text-red-600">
-                        {row.amount.toLocaleString()}.00
-                      </td>
-                      <td className="p-3 text-muted-foreground">
-                        {row.submittedBy}
-                      </td>
-                      <td className="p-3 text-right">
-                        <Button size="sm" onClick={() => openReview(row, true)}>
-                          Review &amp; Decide
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                  {icuPg.paged.length === 0 && (
+              {icuApprIds.size > 0 && (
+                <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                  <span className="text-sm font-medium text-primary">
+                    {icuApprIds.size} record{icuApprIds.size !== 1 ? "s" : ""}{" "}
+                    selected
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                      onClick={() => openBatchApprReject("icu")}
+                    >
+                      Reject Selected
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleBatchApproveMandate("icu")}
+                    >
+                      ICU Approve Selected
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <Card className="mrpsl-card overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
                     <tr>
-                      <td
-                        colSpan={9}
-                        className="p-8 text-center text-muted-foreground"
-                      >
-                        No items awaiting ICU sign-off.
-                      </td>
+                      <th className="p-3 w-10">
+                        <Checkbox
+                          checked={
+                            icuPg.paged.length > 0 &&
+                            icuPg.paged.every((r) => icuApprIds.has(r.id))
+                          }
+                          onCheckedChange={() =>
+                            toggleIcuApprAll(icuPg.paged.map((r) => r.id))
+                          }
+                        />
+                      </th>
+                      <th className="p-3">DATE</th>
+                      <th className="p-3">ACCOUNT</th>
+                      <th className="p-3">HOLDER</th>
+                      <th className="p-3">NEW BANK</th>
+                      <th className="p-3">NEW ACCOUNT NO</th>
+                      <th className="p-3">DIVIDEND NO</th>
+                      <th className="p-3">AMOUNT (₦)</th>
+                      <th className="p-3">SUBMITTED BY</th>
+                      <th className="p-3">ACTIONS</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </Card>
-            <TablePagination
-              page={icuPg.page}
-              pageSize={icuPg.pageSize}
-              totalPages={icuPg.totalPages}
-              from={icuPg.from}
-              to={icuPg.to}
-              total={icuPg.total}
-              onPageChange={icuPg.setPage}
-              onPageSizeChange={icuPg.setPageSize}
-            />
+                  </thead>
+                  <tbody className="divide-y text-[13px]">
+                    {icuPg.paged.map((row) => (
+                      <tr
+                        key={row.id}
+                        className={`mrpsl-table-row ${icuApprIds.has(row.id) ? "bg-primary/5" : ""}`}
+                      >
+                        <td className="p-3">
+                          <Checkbox
+                            checked={icuApprIds.has(row.id)}
+                            onCheckedChange={() => toggleIcuAppr(row.id)}
+                          />
+                        </td>
+                        <td className="p-3 text-muted-foreground">
+                          {row.date}
+                        </td>
+                        <td className="p-3 font-mono">{row.account}</td>
+                        <td className="p-3 font-medium">{row.holder}</td>
+                        <td className="p-3">{row.bank}</td>
+                        <td className="p-3 font-mono">{row.accountNo}</td>
+                        <td className="p-3 font-mono text-muted-foreground">
+                          {row.dividendNo}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-red-600">
+                          {row.amount.toLocaleString()}.00
+                        </td>
+                        <td className="p-3 text-muted-foreground">
+                          {row.submittedBy}
+                        </td>
+                        <td className="p-3 text-right">
+                          <Button
+                            size="sm"
+                            onClick={() => openReview(row, true)}
+                          >
+                            Review &amp; Decide
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {icuPg.paged.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="p-8 text-center text-muted-foreground"
+                        >
+                          No items awaiting ICU sign-off.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </Card>
+              <TablePagination
+                page={icuPg.page}
+                pageSize={icuPg.pageSize}
+                totalPages={icuPg.totalPages}
+                from={icuPg.from}
+                to={icuPg.to}
+                total={icuPg.total}
+                onPageChange={icuPg.setPage}
+                onPageSizeChange={icuPg.setPageSize}
+              />
+            </div>
           </TabsContent>
         </div>
       </Tabs>
 
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-w-lg">
+      {/* ── Batch Reject Dialog ── */}
+      <Dialog open={batchApprRejectOpen} onOpenChange={setBatchApprRejectOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>
+            <DialogTitle>Reject Selected Payments</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 px-8 pb-8">
+            <p className="text-sm text-muted-foreground">
+              {batchApprTarget === "pending"
+                ? pendingApprIds.size
+                : icuApprIds.size}{" "}
+              payment
+              {(batchApprTarget === "pending"
+                ? pendingApprIds.size
+                : icuApprIds.size) !== 1
+                ? "s"
+                : ""}{" "}
+              will be rejected.
+            </p>
+            <div className="space-y-2">
+              <label className="mrpsl-label">Rejection Comment *</label>
+              <Textarea
+                value={batchApprComment}
+                onChange={(e) => setBatchApprComment(e.target.value)}
+                placeholder="Comment is required for rejection..."
+                className="resize-none"
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setBatchApprRejectOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleBatchApprReject}
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0">
+          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
+            <div className="flex items-center gap-2">
+              <DialogTitle className="flex-1">
                 {isIcu
                   ? "ICU Review — New Mandate"
                   : "Review New Mandate Payment"}
               </DialogTitle>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-8 text-[13px] text-muted-foreground"
+                className="gap-1.5 shrink-0 h-8 text-[13px]"
                 onClick={() => toast.info("Downloading...")}
               >
-                <Download className="mr-1 h-3.5 w-3.5" /> Download
+                <Download className="h-3.5 w-3.5" /> Download
               </Button>
             </div>
           </DialogHeader>
 
           {selected && (
-            <div className="space-y-6 px-8 pb-8">
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-5 space-y-5">
               {isIcu && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
                   This transaction exceeds the standard authorisation threshold

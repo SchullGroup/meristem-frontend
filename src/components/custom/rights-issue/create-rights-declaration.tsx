@@ -426,14 +426,14 @@ export default function CreateRightsDeclaration() {
             {(retryId ||
               newRightsIssue.registerId !== "" ||
               newRightsIssue.issueName !== "") && (
-              <Button
-                variant="outline"
-                onClick={handleResetForm}
-                disabled={createMutation.isPending}
-              >
-                Reset Form
-              </Button>
-            )}
+                <Button
+                  variant="outline"
+                  onClick={handleResetForm}
+                  disabled={createMutation.isPending}
+                >
+                  Reset Form
+                </Button>
+              )}
           </div>
           {computed && (
             <div className="flex items-center gap-2 mt-2 text-green-700 text-sm font-medium">
