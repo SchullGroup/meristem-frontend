@@ -63,7 +63,7 @@ export interface EmailPreviewModalProps {
   contactEmail: string;
   shareholders: OutreachShareholder[];
   totalCount: number;
-  issueId: string;
+  issueId?: string;
 }
 
 /* ─── Sticky Label Preview Modal ────────────────────────────────────────────── */
@@ -445,18 +445,18 @@ function EmailBody({
 
   const placeholderRows = isRights
     ? [
-      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-      ["Name", "[SHAREHOLDER NAME]"],
-      ["Units Held", "[UNITS HELD]"],
-      ["Rights Due", "[RIGHTS DUE]"],
-      ["Amount Payable", "[AMOUNT PAYABLE]"],
-    ]
+        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+        ["Name", "[SHAREHOLDER NAME]"],
+        ["Units Held", "[UNITS HELD]"],
+        ["Rights Due", "[RIGHTS DUE]"],
+        ["Amount Payable", "[AMOUNT PAYABLE]"],
+      ]
     : [
-      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-      ["Name", "[SHAREHOLDER NAME]"],
-      ["Units Held", "[UNITS HELD]"],
-      ["Bonus Due", "[BONUS DUE]"],
-    ];
+        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+        ["Name", "[SHAREHOLDER NAME]"],
+        ["Units Held", "[UNITS HELD]"],
+        ["Bonus Due", "[BONUS DUE]"],
+      ];
 
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>
@@ -833,14 +833,13 @@ export function EmailPreviewModal({
   allotDate,
   contactEmail,
   totalCount,
-  issueId
+  issueId,
 }: EmailPreviewModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
   const [circularLinkUrl, setCircularLinkUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
-
 
   const resetAndClose = (v: boolean) => {
     if (!v) {
@@ -860,7 +859,10 @@ export function EmailPreviewModal({
   };
 
   const handleSend = async () => {
-
+    if (!issueId) {
+      toast.error("No issue ID available to send emails.");
+      return;
+    }
     try {
       const res = await emailShareholders(issueId);
       if (res.data) {

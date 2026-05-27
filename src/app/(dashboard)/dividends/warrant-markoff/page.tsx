@@ -25,6 +25,7 @@ import { Check, AlertTriangle, AlertCircle, X } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { useStore } from "@/lib/store";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type MarkOffApproval = {
   id: string;
@@ -235,6 +236,9 @@ export default function MarkOffPage() {
 
   const [pendingMarkoff, setPendingMarkoff] =
     useState<MarkOffApproval[]>(INITIAL_PENDING);
+  const [authSelIds, setAuthSelIds] = useState<Set<string>>(new Set());
+  const [batchMarkRejectOpen, setBatchMarkRejectOpen] = useState(false);
+  const [batchMarkComment, setBatchMarkComment] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<MarkOffApproval | null>(null);
   const [rejectedId, setRejectedId] = useState<string | null>(null);
@@ -307,6 +311,47 @@ export default function MarkOffPage() {
       );
     }
     setReviewOpen(false);
+  }
+
+  function toggleAuthSel(id: string) {
+    setAuthSelIds((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }
+  function toggleAuthAll(ids: string[]) {
+    setAuthSelIds((prev) =>
+      ids.every((id) => prev.has(id)) ? new Set() : new Set(ids),
+    );
+  }
+  function handleBatchMarkApprove() {
+    const ids = authSelIds;
+    setPendingMarkoff((prev) =>
+      prev
+        .map((r) => {
+          if (!ids.has(r.id)) return r;
+          if (r.tier === 3) return null as unknown as typeof r;
+          return { ...r, tier: (r.tier + 1) as 2 | 3 };
+        })
+        .filter(Boolean),
+    );
+    setAuthSelIds(new Set());
+    toast.success(
+      `${ids.size} warrant${ids.size !== 1 ? "s" : ""} approved and advanced.`,
+    );
+  }
+  function handleBatchMarkReject() {
+    if (!batchMarkComment.trim()) {
+      toast.error("Comment required for rejection.");
+      return;
+    }
+    const ids = authSelIds;
+    setPendingMarkoff((prev) => prev.filter((r) => !ids.has(r.id)));
+    setAuthSelIds(new Set());
+    toast.error(`${ids.size} warrant${ids.size !== 1 ? "s" : ""} rejected.`);
+    setBatchMarkComment("");
+    setBatchMarkRejectOpen(false);
   }
 
   return (
@@ -478,50 +523,52 @@ export default function MarkOffPage() {
           </TabsContent>
 
           <TabsContent value="bulk" className="space-y-4">
-            <Card className="mrpsl-card p-4 flex flex-wrap gap-4 items-end">
-              <div className="space-y-1">
-                <label className="mrpsl-label">Register</label>
-                <Select
-                  value={enBlocRegister}
-                  onValueChange={(v) => setEnBlocRegister(v || "")}
-                >
-                  <SelectTrigger className="w-52 mrpsl-input">
-                    <SelectValue placeholder="Select register" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {registers
-                      .filter((r) => r.status === "ACTIVE")
-                      .map((r) => (
-                        <SelectItem key={r.id} value={r.id}>
-                          {r.symbol}
-                        </SelectItem>
-                      ))}
-                    {registers.filter((r) => r.status === "ACTIVE").length ===
-                      0 && <SelectItem value="DANGCEM">DANGCEM</SelectItem>}
-                  </SelectContent>
-                </Select>
+            <Card className="mrpsl-card p-4">
+              <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-4 items-end">
+                <div className="space-y-1.5">
+                  <label className="mrpsl-label">Register</label>
+                  <Select
+                    value={enBlocRegister}
+                    onValueChange={(v) => setEnBlocRegister(v || "")}
+                  >
+                    <SelectTrigger className="mrpsl-input">
+                      <SelectValue placeholder="Select register" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {registers
+                        .filter((r) => r.status === "ACTIVE")
+                        .map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.symbol}
+                          </SelectItem>
+                        ))}
+                      {registers.filter((r) => r.status === "ACTIVE").length ===
+                        0 && <SelectItem value="DANGCEM">DANGCEM</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="mrpsl-label">From</label>
+                  <Input
+                    type="date"
+                    className="mrpsl-input"
+                    value={enBlocFrom}
+                    onChange={(e) => setEnBlocFrom(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="mrpsl-label">To</label>
+                  <Input
+                    type="date"
+                    className="mrpsl-input"
+                    value={enBlocTo}
+                    onChange={(e) => setEnBlocTo(e.target.value)}
+                  />
+                </div>
+                <Button onClick={() => setEnBlocLoaded(true)}>
+                  Load Unpaid Warrants
+                </Button>
               </div>
-              <div className="space-y-1">
-                <label className="mrpsl-label">From</label>
-                <Input
-                  type="date"
-                  className="mrpsl-input w-44"
-                  value={enBlocFrom}
-                  onChange={(e) => setEnBlocFrom(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="mrpsl-label">To</label>
-                <Input
-                  type="date"
-                  className="mrpsl-input w-44"
-                  value={enBlocTo}
-                  onChange={(e) => setEnBlocTo(e.target.value)}
-                />
-              </div>
-              <Button onClick={() => setEnBlocLoaded(true)}>
-                Load Unpaid Warrants
-              </Button>
             </Card>
 
             {enBlocLoaded && (
@@ -542,7 +589,7 @@ export default function MarkOffPage() {
                         <th className="p-3">ACCOUNT</th>
                         <th className="p-3">HOLDER</th>
                         <th className="p-3">DIVIDEND</th>
-                        <th className="p-3 text-right">AMOUNT (₦)</th>
+                        <th className="p-3">AMOUNT (₦)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-[13px]">
@@ -593,64 +640,112 @@ export default function MarkOffPage() {
           </TabsContent>
 
           <TabsContent value="auth">
-            <Card className="mrpsl-card overflow-hidden">
-              <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="p-3">DATE</th>
-                    <th className="p-3">WARRANT NO</th>
-                    <th className="p-3">ACCOUNT</th>
-                    <th className="p-3">HOLDER</th>
-                    <th className="p-3">DIVIDEND</th>
-                    <th className="p-3">AMOUNT (₦)</th>
-                    <th className="p-3">SUBMITTED BY</th>
-                    <th className="p-3">TIER</th>
-                    <th className="p-3">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-[13px]">
-                  {markoffPg.paged.map((row) => (
-                    <tr key={row.id} className="mrpsl-table-row">
-                      <td className="p-3 text-muted-foreground">{row.date}</td>
-                      <td className="p-3 font-mono">{row.warrantNo}</td>
-                      <td className="p-3 font-mono">{row.account}</td>
-                      <td className="p-3 font-medium">{row.holder}</td>
-                      <td className="p-3 text-muted-foreground">
-                        {row.dividend}
-                      </td>
-                      <td className="p-3 text-right font-mono font-semibold">
-                        {row.amount.toLocaleString()}.00
-                      </td>
-                      <td className="p-3 text-muted-foreground">
-                        {row.submittedBy}
-                      </td>
-                      <td className="p-3">
-                        <Badge
-                          className={`border-0 text-[12px] ${tierBadgeClass(row.tier)}`}
-                        >
-                          {tierLabel(row.tier)}
-                        </Badge>
-                      </td>
-                      <td className="p-3 text-right">
-                        <Button size="sm" onClick={() => openReview(row)}>
-                          Review &amp; Decide
-                        </Button>
-                      </td>
+            <div className="space-y-4">
+              {authSelIds.size > 0 && (
+                <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                  <span className="text-sm font-medium text-primary">
+                    {authSelIds.size} warrant{authSelIds.size !== 1 ? "s" : ""}{" "}
+                    selected
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        setBatchMarkComment("");
+                        setBatchMarkRejectOpen(true);
+                      }}
+                    >
+                      Reject Selected
+                    </Button>
+                    <Button size="sm" onClick={handleBatchMarkApprove}>
+                      Approve Selected
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <Card className="mrpsl-card overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="p-3 w-10">
+                        <Checkbox
+                          checked={
+                            markoffPg.paged.length > 0 &&
+                            markoffPg.paged.every((r) => authSelIds.has(r.id))
+                          }
+                          onCheckedChange={() =>
+                            toggleAuthAll(markoffPg.paged.map((r) => r.id))
+                          }
+                        />
+                      </th>
+                      <th className="p-3">DATE</th>
+                      <th className="p-3">WARRANT NO</th>
+                      <th className="p-3">ACCOUNT</th>
+                      <th className="p-3">HOLDER</th>
+                      <th className="p-3">DIVIDEND</th>
+                      <th className="p-3">AMOUNT (₦)</th>
+                      <th className="p-3">SUBMITTED BY</th>
+                      <th className="p-3">TIER</th>
+                      <th className="p-3">ACTIONS</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Card>
-            <TablePagination
-              page={markoffPg.page}
-              pageSize={markoffPg.pageSize}
-              totalPages={markoffPg.totalPages}
-              from={markoffPg.from}
-              to={markoffPg.to}
-              total={markoffPg.total}
-              onPageChange={markoffPg.setPage}
-              onPageSizeChange={markoffPg.setPageSize}
-            />
+                  </thead>
+                  <tbody className="divide-y text-[13px]">
+                    {markoffPg.paged.map((row) => (
+                      <tr
+                        key={row.id}
+                        className={`mrpsl-table-row ${authSelIds.has(row.id) ? "bg-primary/5" : ""}`}
+                      >
+                        <td className="p-3">
+                          <Checkbox
+                            checked={authSelIds.has(row.id)}
+                            onCheckedChange={() => toggleAuthSel(row.id)}
+                          />
+                        </td>
+                        <td className="p-3 text-muted-foreground">
+                          {row.date}
+                        </td>
+                        <td className="p-3 font-mono">{row.warrantNo}</td>
+                        <td className="p-3 font-mono">{row.account}</td>
+                        <td className="p-3 font-medium">{row.holder}</td>
+                        <td className="p-3 text-muted-foreground">
+                          {row.dividend}
+                        </td>
+                        <td className="p-3 text-right font-mono font-semibold">
+                          {row.amount.toLocaleString()}.00
+                        </td>
+                        <td className="p-3 text-muted-foreground">
+                          {row.submittedBy}
+                        </td>
+                        <td className="p-3">
+                          <Badge
+                            className={`border-0 text-[12px] ${tierBadgeClass(row.tier)}`}
+                          >
+                            {tierLabel(row.tier)}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-right">
+                          <Button size="sm" onClick={() => openReview(row)}>
+                            Review &amp; Decide
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Card>
+              <TablePagination
+                page={markoffPg.page}
+                pageSize={markoffPg.pageSize}
+                totalPages={markoffPg.totalPages}
+                from={markoffPg.from}
+                to={markoffPg.to}
+                total={markoffPg.total}
+                onPageChange={markoffPg.setPage}
+                onPageSizeChange={markoffPg.setPageSize}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="history">
@@ -716,14 +811,14 @@ export default function MarkOffPage() {
       </Tabs>
 
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0">
+          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>
               {selected ? modalTitle(selected.tier) : "Review"}
             </DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="max-h-[80vh] overflow-y-auto space-y-6 px-8 pb-8">
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-5 space-y-5">
               <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>
@@ -825,6 +920,47 @@ export default function MarkOffPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Batch Reject Dialog ── */}
+      <Dialog open={batchMarkRejectOpen} onOpenChange={setBatchMarkRejectOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject Selected Warrants</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 px-8 pb-8">
+            <p className="text-sm text-muted-foreground">
+              {authSelIds.size} warrant{authSelIds.size !== 1 ? "s" : ""} will
+              be rejected and returned to the submitter.
+            </p>
+            <div className="space-y-2">
+              <label className="mrpsl-label">Rejection Comment *</label>
+              <Textarea
+                value={batchMarkComment}
+                onChange={(e) => setBatchMarkComment(e.target.value)}
+                placeholder="Comment is required for rejection..."
+                className="resize-none"
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setBatchMarkRejectOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleBatchMarkReject}
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -1056,7 +1056,7 @@ export default function DematPage() {
       {/* ── Review Dialog ── */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0">
-          <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
+          <DialogHeader className="pl-6 pr-14 pt-5 pb-4 border-b shrink-0">
             <DialogTitle>
               {selected?.status === "CALLOVER"
                 ? "Callover Review"

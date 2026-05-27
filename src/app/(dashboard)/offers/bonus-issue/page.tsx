@@ -2566,193 +2566,203 @@ export default function BonusIssuePage() {
                     <div ref={printAreaRef} className="space-y-4">
                       {/* Print header (visible only in print preview / save as PDF) */}
                       <div className="hidden print:block mb-6 border-b pb-4">
-                        <h2 className="text-xl font-bold uppercase">{selectedReport}</h2>
+                        <h2 className="text-xl font-bold uppercase">
+                          {selectedReport}
+                        </h2>
                         <div className="text-sm text-muted-foreground mt-1 flex justify-between">
-                          <span>Register: {registerList?.find((r) => r.registerId === reportRegister)?.registerName || "All Registers"}</span>
-                          <span>Generated: {format(new Date(), "dd MMM yyyy, HH:mm")}</span>
+                          <span>
+                            Register:{" "}
+                            {registerList?.find(
+                              (r) => r.registerId === reportRegister,
+                            )?.registerName || "All Registers"}
+                          </span>
+                          <span>
+                            Generated:{" "}
+                            {format(new Date(), "dd MMM yyyy, HH:mm")}
+                          </span>
                         </div>
                       </div>
 
                       {selectedReport === "Summary of Bonus Shares Issued" ? (
-                      /* Summary table — grouped by broker/category */
-                      <Card className="mrpsl-card overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-sm">
-                            <thead className="mrpsl-table-header">
-                              <tr>
-                                <th className="px-4 py-3">STOCKBROKER</th>
-                                <th className="px-4 py-3 text-right">
-                                  ELIGIBLE SHs
-                                </th>
-                                <th className="px-4 py-3 text-right">
-                                  UNITS AT QUAL DATE
-                                </th>
-                                <th className="px-4 py-3 text-right">
-                                  BONUS SHARES ISSUED
-                                </th>
-                                <th className="px-4 py-3 text-right">
-                                  FRACTIONAL UNITS
-                                </th>
-                                <th className="px-4 py-3 text-right">
-                                  % OF TOTAL NEW SHARES
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y text-[13px] font-mono">
-                              {fetchedReportList?.map(
-                                (
-                                  list: {
-                                    stockbroker: string;
-                                    eligibleShareholders: number;
-                                    unitsAtQualDate: number;
-                                    bonusSharesIssued: number;
-                                    fractionalUnits: number;
-                                    percentageOfTotalNewShares: number;
-                                  },
-                                  i: number,
-                                ) => (
-                                  <tr key={i} className="mrpsl-table-row">
-                                    <td className="px-4 py-2.5 font-sans font-medium">
-                                      {list.stockbroker}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right">
-                                      {list.eligibleShareholders.toLocaleString()}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right">
-                                      {list.unitsAtQualDate.toLocaleString()}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right text-green-700 font-bold">
-                                      {list.bonusSharesIssued.toLocaleString()}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right text-amber-600">
-                                      {list.fractionalUnits}
-                                    </td>
-                                    <td className="px-4 py-2.5 text-right">
-                                      {list.percentageOfTotalNewShares}%
-                                    </td>
-                                  </tr>
-                                ),
-                              )}
-                            </tbody>
-                            <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-                              <tr>
-                                <td className="px-4 py-2.5 text-muted-foreground">
-                                  TOTALS
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                  {fetchedReportData?.totalShareholders?.toLocaleString()}
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                  {fetchedReportData?.totalUnitsAtQualDate?.toLocaleString()}
-                                </td>
-                                <td className="px-4 py-2.5 text-right text-green-700">
-                                  {fetchedReportData?.totalBonusSharesIssued?.toLocaleString()}
-                                </td>
-                                <td className="px-4 py-2.5 text-right text-amber-600">
-                                  {fetchedReportData?.totalFractionalUnits}
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                  {fetchedReportData?.percentageOfTotalNewShares ||
-                                    100.0}{" "}
-                                  %
-                                </td>
-                              </tr>
-                            </tfoot>
-                          </table>
-                        </div>
-                      </Card>
-                    ) : selectedReport === "Exception and Rounding Report" ? (
-                      /* Exception report — only shareholders with fractions */
-                      <Card className="mrpsl-card overflow-hidden">
-                        <div className="p-3 border-b bg-amber-50 text-[13px] font-semibold text-amber-800">
-                          Showing {fetchedReportList?.length} shareholders with
-                          fractional entitlements — fractions pooled to
-                          fractional account.
-                        </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-[13px]">
-                            <thead className="mrpsl-table-header">
-                              <tr>
-                                <th className="px-4 py-2.5">#</th>
-                                <th className="px-4 py-2.5">ACCOUNT NO</th>
-                                <th className="px-4 py-2.5">HOLDER NAME</th>
-                                <th className="px-4 py-2.5 text-right">
-                                  UNITS AT QUAL DATE
-                                </th>
-                                <th className="px-4 py-2.5 text-right">
-                                  EXACT ENTITLEMENT
-                                </th>
-                                <th className="px-4 py-2.5 text-right">
-                                  BONUS ISSUED (ROUNDED)
-                                </th>
-                                <th className="px-4 py-2.5 text-right">
-                                  FRACTION POOLED
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y font-mono">
-                              {fetchedReportList?.length > 0 ? (
-                                reportRows.map(
+                        /* Summary table — grouped by broker/category */
+                        <Card className="mrpsl-card overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                              <thead className="mrpsl-table-header">
+                                <tr>
+                                  <th className="px-4 py-3">STOCKBROKER</th>
+                                  <th className="px-4 py-3 text-right">
+                                    ELIGIBLE SHs
+                                  </th>
+                                  <th className="px-4 py-3 text-right">
+                                    UNITS AT QUAL DATE
+                                  </th>
+                                  <th className="px-4 py-3 text-right">
+                                    BONUS SHARES ISSUED
+                                  </th>
+                                  <th className="px-4 py-3 text-right">
+                                    FRACTIONAL UNITS
+                                  </th>
+                                  <th className="px-4 py-3 text-right">
+                                    % OF TOTAL NEW SHARES
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y text-[13px] font-mono">
+                                {fetchedReportList?.map(
                                   (
-                                    s: {
+                                    list: {
+                                      stockbroker: string;
+                                      eligibleShareholders: number;
                                       unitsAtQualDate: number;
-                                      accountNumber: string;
-                                      accountHolderName: string;
-                                      bonusDue: number;
-                                      fractionalRemainder: number;
-                                      name: string;
+                                      bonusSharesIssued: number;
+                                      fractionalUnits: number;
+                                      percentageOfTotalNewShares: number;
                                     },
                                     i: number,
-                                  ) => {
-                                    const exact = s.unitsAtQualDate / 4;
-                                    return (
-                                      <tr key={i} className="mrpsl-table-row">
-                                        <td className="px-4 py-2.5 text-muted-foreground">
-                                          {reportStart + i + 1}
-                                        </td>
-                                        <td className="px-4 py-2.5">
-                                          {s.accountNumber}
-                                        </td>
-                                        <td className="px-4 py-2.5 font-sans font-medium">
-                                          {s.name}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right">
-                                          {s.unitsAtQualDate?.toLocaleString()}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right">
-                                          {exact.toFixed(4)}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right text-green-600 font-bold">
-                                          {s.bonusDue?.toLocaleString()}
-                                        </td>
-                                        <td className="px-4 py-2.5 text-right text-amber-600">
-                                          {s.fractionalRemainder?.toFixed(4)}
-                                        </td>
-                                      </tr>
-                                    );
-                                  },
-                                )
-                              ) : (
+                                  ) => (
+                                    <tr key={i} className="mrpsl-table-row">
+                                      <td className="px-4 py-2.5 font-sans font-medium">
+                                        {list.stockbroker}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right">
+                                        {list.eligibleShareholders.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right">
+                                        {list.unitsAtQualDate.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right text-green-700 font-bold">
+                                        {list.bonusSharesIssued.toLocaleString()}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right text-amber-600">
+                                        {list.fractionalUnits}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right">
+                                        {list.percentageOfTotalNewShares}%
+                                      </td>
+                                    </tr>
+                                  ),
+                                )}
+                              </tbody>
+                              <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
                                 <tr>
-                                  <td
-                                    colSpan={7}
-                                    className="px-4 py-10 text-center text-muted-foreground"
-                                  >
-                                    No exception shareholders found
+                                  <td className="px-4 py-2.5 text-muted-foreground">
+                                    TOTALS
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    {fetchedReportData?.totalShareholders?.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    {fetchedReportData?.totalUnitsAtQualDate?.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right text-green-700">
+                                    {fetchedReportData?.totalBonusSharesIssued?.toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right text-amber-600">
+                                    {fetchedReportData?.totalFractionalUnits}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    {fetchedReportData?.percentageOfTotalNewShares ||
+                                      100.0}{" "}
+                                    %
                                   </td>
                                 </tr>
-                              )}
-                            </tbody>
-                            <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-                              <tr>
-                                <td
-                                  colSpan={5}
-                                  className="px-4 py-2.5 text-right text-muted-foreground"
-                                >
-                                  TOTALS ({fetchedReportList?.length} exception
-                                  shareholders)
-                                </td>
-                                {/* <td className="px-4 py-2.5 text-right text-green-600">
+                              </tfoot>
+                            </table>
+                          </div>
+                        </Card>
+                      ) : selectedReport === "Exception and Rounding Report" ? (
+                        /* Exception report — only shareholders with fractions */
+                        <Card className="mrpsl-card overflow-hidden">
+                          <div className="p-3 border-b bg-amber-50 text-[13px] font-semibold text-amber-800">
+                            Showing {fetchedReportList?.length} shareholders
+                            with fractional entitlements — fractions pooled to
+                            fractional account.
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[13px]">
+                              <thead className="mrpsl-table-header">
+                                <tr>
+                                  <th className="px-4 py-2.5">#</th>
+                                  <th className="px-4 py-2.5">ACCOUNT NO</th>
+                                  <th className="px-4 py-2.5">HOLDER NAME</th>
+                                  <th className="px-4 py-2.5 text-right">
+                                    UNITS AT QUAL DATE
+                                  </th>
+                                  <th className="px-4 py-2.5 text-right">
+                                    EXACT ENTITLEMENT
+                                  </th>
+                                  <th className="px-4 py-2.5 text-right">
+                                    BONUS ISSUED (ROUNDED)
+                                  </th>
+                                  <th className="px-4 py-2.5 text-right">
+                                    FRACTION POOLED
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y font-mono">
+                                {fetchedReportList?.length > 0 ? (
+                                  reportRows.map(
+                                    (
+                                      s: {
+                                        unitsAtQualDate: number;
+                                        accountNumber: string;
+                                        accountHolderName: string;
+                                        bonusDue: number;
+                                        fractionalRemainder: number;
+                                        name: string;
+                                      },
+                                      i: number,
+                                    ) => {
+                                      const exact = s.unitsAtQualDate / 4;
+                                      return (
+                                        <tr key={i} className="mrpsl-table-row">
+                                          <td className="px-4 py-2.5 text-muted-foreground">
+                                            {reportStart + i + 1}
+                                          </td>
+                                          <td className="px-4 py-2.5">
+                                            {s.accountNumber}
+                                          </td>
+                                          <td className="px-4 py-2.5 font-sans font-medium">
+                                            {s.name}
+                                          </td>
+                                          <td className="px-4 py-2.5 text-right">
+                                            {s.unitsAtQualDate?.toLocaleString()}
+                                          </td>
+                                          <td className="px-4 py-2.5 text-right">
+                                            {exact.toFixed(4)}
+                                          </td>
+                                          <td className="px-4 py-2.5 text-right text-green-600 font-bold">
+                                            {s.bonusDue?.toLocaleString()}
+                                          </td>
+                                          <td className="px-4 py-2.5 text-right text-amber-600">
+                                            {s.fractionalRemainder?.toFixed(4)}
+                                          </td>
+                                        </tr>
+                                      );
+                                    },
+                                  )
+                                ) : (
+                                  <tr>
+                                    <td
+                                      colSpan={7}
+                                      className="px-4 py-10 text-center text-muted-foreground"
+                                    >
+                                      No exception shareholders found
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                              <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
+                                <tr>
+                                  <td
+                                    colSpan={5}
+                                    className="px-4 py-2.5 text-right text-muted-foreground"
+                                  >
+                                    TOTALS ({fetchedReportList?.length}{" "}
+                                    exception shareholders)
+                                  </td>
+                                  {/* <td className="px-4 py-2.5 text-right text-green-600">
                                 {fetchedReportList.length > 0
                                   ? reportRows
                                       .reduce(
@@ -2773,7 +2783,7 @@ export default function BonusIssuePage() {
                                       )
                                       .toLocaleString()}
                               </td> */}
-                                {/* <td className="px-4 py-2.5 text-right text-amber-600">
+                                  {/* <td className="px-4 py-2.5 text-right text-amber-600">
                                 {fetchedReportList.length > 0
                                   ? reportRows
                                       .reduce(
@@ -2797,43 +2807,43 @@ export default function BonusIssuePage() {
                                       )
                                       .toFixed(4)}
                               </td> */}
-                              </tr>
-                            </tfoot>
-                          </table>
-                        </div>
-                        <PaginationBar
-                          page={reportPage}
-                          total={fetchedReportList.length}
-                          onPageChange={setReportPage}
-                        />
-                      </Card>
-                    ) : (
-                      /* Bonus Entitlement Register & Shareholder Bonus Allotment List */
-                      <Card className="mrpsl-card overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-[13px]">
-                            <BonusTableHead />
-                            <tbody className="divide-y">
-                              <EntitlementTableRows
-                                rows={reportRows}
-                                startIdx={reportStart}
-                              />
-                            </tbody>
-                            {reportRows.length > 0 && (
-                              <EntitlementTfoot
-                                rows={reportRows}
-                                total={reportTotal}
-                              />
-                            )}
-                          </table>
-                        </div>
-                        <PaginationBar
-                          page={reportPage}
-                          total={reportTotal}
-                          onPageChange={setReportPage}
-                        />
-                      </Card>
-                    )}
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                          <PaginationBar
+                            page={reportPage}
+                            total={fetchedReportList.length}
+                            onPageChange={setReportPage}
+                          />
+                        </Card>
+                      ) : (
+                        /* Bonus Entitlement Register & Shareholder Bonus Allotment List */
+                        <Card className="mrpsl-card overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[13px]">
+                              <BonusTableHead />
+                              <tbody className="divide-y">
+                                <EntitlementTableRows
+                                  rows={reportRows}
+                                  startIdx={reportStart}
+                                />
+                              </tbody>
+                              {reportRows.length > 0 && (
+                                <EntitlementTfoot
+                                  rows={reportRows}
+                                  total={reportTotal}
+                                />
+                              )}
+                            </table>
+                          </div>
+                          <PaginationBar
+                            page={reportPage}
+                            total={reportTotal}
+                            onPageChange={setReportPage}
+                          />
+                        </Card>
+                      )}
                     </div>
                   </div>
                 )}

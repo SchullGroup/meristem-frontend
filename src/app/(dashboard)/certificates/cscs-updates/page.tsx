@@ -523,7 +523,7 @@ export default function CSCSUpdatesPage() {
   // ---Processed Logs Query ---
   const { data: processedLogsData } = useQuery({
     queryKey: ["cscs-processed-logs"],
-    queryFn: GET_CSCS_PROCESSED_LOGS,
+    queryFn: () => GET_CSCS_PROCESSED_LOGS(),
   });
 
   console.log(processedLogsData);
