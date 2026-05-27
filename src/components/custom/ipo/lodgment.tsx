@@ -131,12 +131,14 @@ export default function ICULodgment({ tab }: { tab: string }) {
       {
         onSuccess: (data) => {
           const blob = new Blob([data], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            // type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type: "text/plain;charset=utf-8",
           });
           const url = window.URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `lodgment_${lodgmentReviewing.batchReference}.xlsx`;
+          // a.download = `lodgment_${lodgmentReviewing.batchReference}.xlsx`;
+          a.download = `lodgment_${lodgmentReviewing.batchReference}.txt`;
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
@@ -528,7 +530,6 @@ export default function ICULodgment({ tab }: { tab: string }) {
             </div>
           </div>
 
-
           <div className="flex flex-wrap gap-4">
             <Button
               variant="outline"
@@ -560,7 +561,6 @@ export default function ICULodgment({ tab }: { tab: string }) {
             >
               <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
             </Button>
-
           </div>
         </div>
       </Card>
@@ -598,7 +598,7 @@ export function ApproveLodgmentDialog({
         batchRef: batchReference,
         payload: {
           comment: comment,
-          lodgdedBy: currentUser?.username || currentUser?.id || "ADMIN",
+          lodgedBy: currentUser?.email || currentUser?.username || "ADMIN",
         },
       },
       {
@@ -612,7 +612,7 @@ export function ApproveLodgmentDialog({
           const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
           toast.error(errorMessage?.message || "Failed to approve lodgment.");
         },
-      }
+      },
     );
   };
 

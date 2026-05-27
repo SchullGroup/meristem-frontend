@@ -29,7 +29,7 @@ export const CREATE_AGENT = async (data: {
   code: string;
   cscsMemberCode?: string;
   address: string;
-  status: "Active" | "Inactive";
+  status: "ACTIVE" | "INACTIVE";
 }) => {
   try {
     const res = await api.post(`/agents`, data);
@@ -48,7 +48,7 @@ export const UPDATE_AGENT = async (
     code: string;
     cscsMemberCode?: string;
     address: string;
-    status: "Active" | "Inactive";
+    status: "ACTIVE" | "INACTIVE";
   },
 ) => {
   try {

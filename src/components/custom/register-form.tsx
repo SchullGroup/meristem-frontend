@@ -58,29 +58,29 @@ export function RegisterForm({
     resolver: zodResolver(registerSchema),
     defaultValues: initialData
       ? {
-          registerName: initialData.registerName,
-          principalId: initialData.principalId,
-          registerType: initialData.registerType,
-          symbol: initialData.symbol,
-          nominalValue: initialData.nominalValue,
-          stockInIssueAtSetup: initialData.stockInIssueAtSetup,
-          shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
-          currentStockInIssue: initialData.currentStockInIssue,
-          currentShareholdersSize: initialData.currentShareholdersSize,
-          status: initialData.status ?? "ACTIVE",
-        }
+        registerName: initialData.registerName,
+        principalId: initialData.principalId,
+        registerType: initialData.registerType,
+        symbol: initialData.symbol,
+        nominalValue: initialData.nominalValue,
+        stockInIssueAtSetup: initialData.stockInIssueAtSetup,
+        shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
+        currentStockInIssue: initialData.currentStockInIssue,
+        currentShareholdersSize: initialData.currentShareholdersSize,
+        status: initialData.status ?? "ACTIVE",
+      }
       : {
-          registerName: "",
-          principalId: "",
-          registerType: "ORDINARY",
-          symbol: "",
-          nominalValue: 0,
-          stockInIssueAtSetup: 0,
-          shareholderSizeAtSetup: 0,
-          currentStockInIssue: 0,
-          currentShareholdersSize: 0,
-          status: "ACTIVE",
-        },
+        registerName: "",
+        principalId: "",
+        registerType: "ORDINARY",
+        symbol: "",
+        nominalValue: 0,
+        stockInIssueAtSetup: 0,
+        shareholderSizeAtSetup: 0,
+        currentStockInIssue: 0,
+        currentShareholdersSize: 0,
+        status: "ACTIVE",
+      },
   });
 
   const onSubmit = (values: RegisterFormValues) => {
@@ -358,7 +358,7 @@ export function RegisterForm({
                       render={({ field }) => (
                         <FormItem className="space-y-2">
                           <FormLabel className="mrpsl-label">
-                            Number of Shareholders *
+                            Current Number of Shareholders *
                           </FormLabel>
                           <FormControl>
                             <Input

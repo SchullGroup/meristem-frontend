@@ -25,10 +25,14 @@ export const GET_DECLARATION_BY_ID = async (declarationId?: string) => {
   }
 };
 
-export const GET_DELCARED_BONUS_ALLOTMENTS = async (declarationId?: string) => {
+export const GET_DELCARED_BONUS_ALLOTMENTS = async (
+  declarationId?: string,
+  params?: { page?: number; pageSize?: number },
+) => {
   try {
     const res = await api.get(
       `/offers/bonus-issue/declarations/${declarationId}/allotment`,
+      { params },
     );
     return res.data;
   } catch (error) {
@@ -43,6 +47,7 @@ export const EXPORT_DELCARED_BONUS_ALLOTMENTS = async (
   try {
     const res = await api.get(
       `/offers/bonus-issue/declarations/${declarationId}/allotment/export/excel`,
+      { responseType: "blob" },
     );
     return res.data;
   } catch (error) {
@@ -71,10 +76,12 @@ export const PROCESS_BONUS_ISSUE_ALLOTMENT = async ({
 
 export const GET_SHAREHOLDERS_BY_DECLARATION_ID = async (
   declarationId?: string,
+  params?: { page?: number; pageSize?: number },
 ) => {
   try {
     const res = await api.get(
       `/offers/bonus-issue/declarations/${declarationId}/entitlements`,
+      { params },
     );
     return res.data;
   } catch (error) {
@@ -211,12 +218,16 @@ export const GENERATE_BONUS_REPORT = async (
     registerId?: string;
     dateFrom?: string;
     dateTo?: string;
+    format?: "json" | "excel";
   },
 ) => {
   try {
     const res = await api.get(
       `/offers/bonus-issue/declarations/reports/${reportTypePath}`,
-      { params },
+      {
+        params,
+        ...(params?.format === "excel" ? { responseType: "blob" } : {}),
+      },
     );
     return res.data;
   } catch (error) {

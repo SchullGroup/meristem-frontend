@@ -17,11 +17,13 @@ import {
   useApproveRightsIssue,
   useIcuApprove,
   useIcuReject,
+  useLodgeRightsIssueDeclaration,
   useRejectRightsIssue,
 } from "@/hooks/useRights";
 import { useStore } from "@/lib/store";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { RightsIssue } from "@/types/rights";
+import { format } from "date-fns";
 
 interface DialogProps {
   id: string;
@@ -236,6 +238,86 @@ export function RejectRightsDialog({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
             Reject Declaration
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function LodgeRightsDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  rightsIssueDetails
+
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+  rightsIssueDetails?: RightsIssue;
+}) {
+  const { currentUser } = useStore();
+  const [notes, setNotes] = useState("");
+  const lodgeMutation = useLodgeRightsIssueDeclaration();
+
+
+  const handleProcessLodgment = () => {
+    if (!rightsIssueDetails?.id) return;
+
+    lodgeMutation.mutate(
+      {
+        id: rightsIssueDetails?.id,
+        data: {
+          lodgmentDate: format(new Date(), "yyyy-MM-dd"),
+          lodgmentRef: rightsIssueDetails?.ref,
+          notes,
+          processedBy: currentUser?.email || 'ADMIN'
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success(`${rightsIssueDetails?.ref} lodged successfully`)
+          setNotes("")
+          onSuccess()
+          onOpenChange(false)
+        },
+        onError: (err) => toast.error(err?.message ?? "Failed to process lodgment"),
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="text-green-600">
+            Lodge Rights Issue ({rightsIssueDetails?.ref})
+          </DialogTitle>
+          <DialogDescription>
+            Please provide notes for the lodgment.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="p-4">
+          <Textarea
+            placeholder="Enter lodgment notes..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="min-h-[100px]"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleProcessLodgment}
+            disabled={lodgeMutation.isPending}
+          >
+            {lodgeMutation.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Process
           </Button>
         </DialogFooter>
       </DialogContent>

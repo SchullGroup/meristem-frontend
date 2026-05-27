@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Check, AlertCircle, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { useStore } from "@/lib/store";
@@ -108,9 +109,46 @@ export default function DivSplitPage() {
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<SplitApproval | null>(null);
-  const [rejectedId, setRejectedId] = useState<string | null>(null);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [rejectedComment, setRejectedComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchRejectOpen, setBatchRejectOpen] = useState(false);
+  const [batchComment, setBatchComment] = useState("");
+
+  function toggleSel(id: string) {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }
+  function toggleAll(ids: string[]) {
+    setSelectedIds((prev) =>
+      ids.every((id) => prev.has(id)) ? new Set() : new Set(ids),
+    );
+  }
+  function handleBatchApprove() {
+    const n = selectedIds.size;
+    setRemovedIds((prev) => new Set([...prev, ...selectedIds]));
+    setSelectedIds(new Set());
+    toast.success(`${n} split${n !== 1 ? "s" : ""} approved.`);
+  }
+  function handleBatchReject() {
+    if (!batchComment.trim()) {
+      toast.error("Comment required for rejection.");
+      return;
+    }
+    const n = selectedIds.size;
+    setRemovedIds((prev) => new Set([...prev, ...selectedIds]));
+    setRejectedComment(batchComment);
+    setSelectedIds(new Set());
+    setBatchComment("");
+    setBatchRejectOpen(false);
+    toast.error(`${n} split${n !== 1 ? "s" : ""} rejected.`);
+    setActiveTab("split");
+  }
 
   const selectedDividendMeta = DIVIDEND_OPTIONS.find(
     (d) => d.value === splitDividend,
@@ -164,8 +202,11 @@ export default function DivSplitPage() {
     setReviewOpen(true);
   }
 
-  const pendingSplits = PENDING_SPLITS.filter((row) => row.id !== rejectedId);
+  const pendingSplits = PENDING_SPLITS.filter((row) => !removedIds.has(row.id));
   const splitPg = usePagination(pendingSplits);
+  const visibleIds = splitPg.paged.map((r) => r.id);
+  const allSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
 
   return (
     <div className="space-y-6">
@@ -196,22 +237,19 @@ export default function DivSplitPage() {
 
         <div className="mt-6">
           <TabsContent value="split" className="space-y-6">
-            {rejectedId && (
+            {rejectedComment && (
               <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1 space-y-1">
                   <div className="font-semibold text-sm text-red-800">
-                    Request Rejected — ID: {rejectedId}
+                    Request Rejected
                   </div>
                   <div className="text-[13px] text-red-700">
-                    {rejectedComment || "No comment provided."}
+                    {rejectedComment}
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    setRejectedId(null);
-                    setRejectedComment("");
-                  }}
+                  onClick={() => setRejectedComment("")}
                   className="text-red-400 hover:text-red-600 transition-colors shrink-0"
                 >
                   <X className="h-4 w-4" />
@@ -418,11 +456,42 @@ export default function DivSplitPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="auth">
+          <TabsContent value="auth" className="space-y-4">
+            {selectedIds.size > 0 && (
+              <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                <span className="text-sm font-medium text-primary">
+                  {selectedIds.size} split{selectedIds.size !== 1 ? "s" : ""}{" "}
+                  selected
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      setBatchComment("");
+                      setBatchRejectOpen(true);
+                    }}
+                  >
+                    Reject Selected
+                  </Button>
+                  <Button size="sm" onClick={handleBatchApprove}>
+                    Approve Selected
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <Card className="mrpsl-card overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="mrpsl-table-header">
                   <tr>
+                    <th className="p-3 w-10">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={() => toggleAll(visibleIds)}
+                      />
+                    </th>
                     <th className="p-3">DATE</th>
                     <th className="p-3">WARRANT NO</th>
                     <th className="p-3">ACCOUNT</th>
@@ -435,7 +504,16 @@ export default function DivSplitPage() {
                 </thead>
                 <tbody className="divide-y text-[13px]">
                   {splitPg.paged.map((row) => (
-                    <tr key={row.id} className="mrpsl-table-row">
+                    <tr
+                      key={row.id}
+                      className={`mrpsl-table-row ${selectedIds.has(row.id) ? "bg-primary/5" : ""}`}
+                    >
+                      <td className="p-3">
+                        <Checkbox
+                          checked={selectedIds.has(row.id)}
+                          onCheckedChange={() => toggleSel(row.id)}
+                        />
+                      </td>
                       <td className="p-3 text-muted-foreground">{row.date}</td>
                       <td className="p-3 font-mono">{row.warrantNo}</td>
                       <td className="p-3 font-mono">{row.account}</td>
@@ -456,6 +534,16 @@ export default function DivSplitPage() {
                       </td>
                     </tr>
                   ))}
+                  {splitPg.total === 0 && (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="p-8 text-center text-muted-foreground"
+                      >
+                        No pending split approvals.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </Card>
@@ -473,13 +561,55 @@ export default function DivSplitPage() {
         </div>
       </Tabs>
 
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent className="max-w-lg">
+      {/* ── Batch Reject Dialog ── */}
+      <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
+            <DialogTitle>Reject Selected Splits</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 px-8 pb-8">
+            <p className="text-sm text-muted-foreground">
+              {selectedIds.size} split{selectedIds.size !== 1 ? "s" : ""} will
+              be rejected and returned to the submitter.
+            </p>
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Rejection Comment *</label>
+              <Textarea
+                value={batchComment}
+                onChange={(e) => setBatchComment(e.target.value)}
+                placeholder="Comment is required for rejection..."
+                className="resize-none"
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setBatchRejectOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={handleBatchReject}
+              >
+                Confirm Rejection
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Individual Review Dialog ── */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0">
+          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>Review Dividend Split</DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="max-h-[80vh] overflow-y-auto space-y-6 px-8 pb-8">
+            <div className="overflow-y-auto flex-1 min-h-0 px-6 py-5 space-y-5">
               <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -590,8 +720,10 @@ export default function DivSplitPage() {
                   variant="destructive"
                   className="flex-1"
                   onClick={() => {
-                    setRejectedId(selected!.id);
-                    setRejectedComment(rejectComment);
+                    setRemovedIds((prev) => new Set([...prev, selected!.id]));
+                    setRejectedComment(
+                      rejectComment || "Rejected by authoriser.",
+                    );
                     toast.error("Split rejected.");
                     setReviewOpen(false);
                     setActiveTab("split");
@@ -602,6 +734,7 @@ export default function DivSplitPage() {
                 <Button
                   className="flex-1"
                   onClick={() => {
+                    setRemovedIds((prev) => new Set([...prev, selected!.id]));
                     toast.success("Dividend split approved.");
                     setReviewOpen(false);
                   }}

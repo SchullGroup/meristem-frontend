@@ -256,6 +256,8 @@ export interface ApprovalItem {
   status: "PENDING" | "APPROVED" | "REJECTED";
   approvalSteps: ApprovalStep[];
   attachments?: ApprovalAttachment[];
+  payload?: Record<string, unknown>;
+  rejectComment?: string;
 }
 
 export interface ApprovalStep {
