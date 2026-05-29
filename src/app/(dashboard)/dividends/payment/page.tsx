@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import {
@@ -23,7 +23,10 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Download, Play, Eye, RotateCcw, AlertTriangle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useStore } from "@/lib/store";
+import { usePagination } from "@/lib/use-pagination";
+import { TablePagination } from "@/components/custom/table-pagination";
 
 type RepushRow = {
   acct: string;
@@ -55,47 +58,47 @@ const NIBSS_PREVIEW: {
   accountName: string;
   narration: string;
 }[] = [
-  {
-    serial: 1,
-    accountNo: "0029384812",
-    sortCode: "044",
-    amount: 5400.0,
-    accountName: "LUKMAN BELLO",
-    narration: "DANGCEM-WRT89412-DIV-PAY001",
-  },
-  {
-    serial: 2,
-    accountNo: "3012849001",
-    sortCode: "011",
-    amount: 5400.0,
-    accountName: "FATIMA ABDULLAHI",
-    narration: "DANGCEM-WRT89413-DIV-PAY001",
-  },
-  {
-    serial: 3,
-    accountNo: "0045612378",
-    sortCode: "058",
-    amount: 5400.0,
-    accountName: "EMEKA EZE",
-    narration: "DANGCEM-WRT89414-DIV-PAY001",
-  },
-  {
-    serial: 4,
-    accountNo: "0076123490",
-    sortCode: "044",
-    amount: 5400.0,
-    accountName: "OLUMIDE ADEYEMI",
-    narration: "DANGCEM-WRT89415-DIV-PAY001",
-  },
-  {
-    serial: 5,
-    accountNo: "2012341290",
-    sortCode: "057",
-    amount: 5400.0,
-    accountName: "NGOZI EZE",
-    narration: "DANGCEM-WRT89416-DIV-PAY001",
-  },
-];
+    {
+      serial: 1,
+      accountNo: "0029384812",
+      sortCode: "044",
+      amount: 5400.0,
+      accountName: "LUKMAN BELLO",
+      narration: "DANGCEM-WRT89412-DIV-PAY001",
+    },
+    {
+      serial: 2,
+      accountNo: "3012849001",
+      sortCode: "011",
+      amount: 5400.0,
+      accountName: "FATIMA ABDULLAHI",
+      narration: "DANGCEM-WRT89413-DIV-PAY001",
+    },
+    {
+      serial: 3,
+      accountNo: "0045612378",
+      sortCode: "058",
+      amount: 5400.0,
+      accountName: "EMEKA EZE",
+      narration: "DANGCEM-WRT89414-DIV-PAY001",
+    },
+    {
+      serial: 4,
+      accountNo: "0076123490",
+      sortCode: "044",
+      amount: 5400.0,
+      accountName: "OLUMIDE ADEYEMI",
+      narration: "DANGCEM-WRT89415-DIV-PAY001",
+    },
+    {
+      serial: 5,
+      accountNo: "2012341290",
+      sortCode: "057",
+      amount: 5400.0,
+      accountName: "NGOZI EZE",
+      narration: "DANGCEM-WRT89416-DIV-PAY001",
+    },
+  ];
 
 const INITIAL_MANDATE_QUEUE: MandatePaymentRow[] = [
   {
@@ -129,6 +132,43 @@ const INITIAL_MANDATE_QUEUE: MandatePaymentRow[] = [
     status: "FAILED",
   },
 ];
+
+const HISTORY_ROWS = [
+  {
+    ref: "PAYRUN-2025-001",
+    payNo: "PAY-2025-DANGCEM-001",
+    reg: "DANGCEM",
+    gw: "NIBSS",
+    records: 180248,
+    amount: "69.01B",
+    amountRaw: 69010000000,
+    date: "15 Jan 2025",
+    status: "PAID",
+  },
+  {
+    ref: "PAYRUN-2024-003",
+    payNo: "PAY-2024-ACCESSCORP-003",
+    reg: "ACCESS",
+    gw: "Remita",
+    records: 92410,
+    amount: "12.5B",
+    amountRaw: 12500000000,
+    date: "03 Nov 2024",
+    status: "PAID",
+  },
+  {
+    ref: "PAYRUN-2024-002",
+    payNo: "PAY-2024-GTCO-002",
+    reg: "GTCO",
+    gw: "NIBSS",
+    records: 134000,
+    amount: "8.3B",
+    amountRaw: 8300000000,
+    date: "28 Jul 2024",
+    status: "FAILED",
+  },
+];
+
 
 const INITIAL_REPUSH: RepushRow[] = [
   {
@@ -194,7 +234,7 @@ function repushStatusBadge(status: RepushRow["status"]) {
 }
 
 export default function PaymentPage() {
-  const { registers, dividendDeclarations } = useStore();
+  const { registers, shareholders, dividendDeclarations } = useStore();
   const authDivs = dividendDeclarations.filter(
     (d) => d.status === "AUTHORIZED",
   );
@@ -212,6 +252,74 @@ export default function PaymentPage() {
   const [repushStatusFlt, setRepushStatusFlt] = useState("all");
   const [repushConfirmOpen, setRepushConfirmOpen] = useState(false);
   const [repushTarget, setRepushTarget] = useState<RepushRow | null>(null);
+
+  const [payRunViewOpen, setPayRunViewOpen] = useState(false);
+  const [payRunViewTarget, setPayRunViewTarget] = useState<
+    (typeof HISTORY_ROWS)[0] | null
+  >(null);
+
+  const [holderViewOpen, setHolderViewOpen] = useState(false);
+  const [holderViewTarget, setHolderViewTarget] = useState<RepushRow | null>(
+    null,
+  );
+
+  const [mandateSelIds, setMandateSelIds] = useState<Set<string>>(new Set());
+
+  function toggleMandateSel(id: string) {
+    setMandateSelIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
+  }
+  function toggleMandateAll(ids: string[]) {
+    setMandateSelIds((prev) =>
+      ids.every((id) => prev.has(id)) ? new Set() : new Set(ids),
+    );
+  }
+  function batchPushToNibss() {
+    const eligible = filteredMandateQueue.filter(
+      (r) => mandateSelIds.has(r.id) && r.status !== "PAID",
+    );
+    setMandateQueue((prev) =>
+      prev.map((r) =>
+        mandateSelIds.has(r.id) && r.status !== "PAID"
+          ? { ...r, status: "PAID" }
+          : r,
+      ),
+    );
+    setMandateSelIds(new Set());
+    toast.success(
+      `${eligible.length} payment${eligible.length !== 1 ? "s" : ""} pushed to NIBSS.`,
+    );
+  }
+
+  const selectedDivDecl = authDivs.find((d) => d.id === selectedDiv);
+  const selectedReg = registers.find(
+    (r) => r.id === selectedDivDecl?.registerId,
+  );
+  const divRate = selectedDivDecl?.rate ?? 0;
+
+  const paymentRows = useMemo(
+    () => {
+      return shareholders.map((s, i) => ({
+        serial: i + 1,
+        accountNo: s.accountNumber,
+        holderName: `${s.firstName} ${s.lastName}`,
+        sortCode: ["044", "058", "011", "057", "035"][i % 5],
+        amount: s.holdings * divRate,
+        narration: `${selectedReg?.symbol ?? "REG"}-WRT${String(89410 + i).padStart(5, "0")}-DIV-PAY001`,
+        status: "UNPAID" as const,
+      }))
+    },
+    [shareholders, divRate, selectedReg],
+  );
+
+  const paymentPg = usePagination(paymentRows);
 
   const today = new Date();
   const dateTag = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
@@ -260,6 +368,7 @@ export default function PaymentPage() {
     setRepushTarget(null);
   }
 
+
   return (
     <div className="space-y-6">
       <div>
@@ -299,7 +408,7 @@ export default function PaymentPage() {
 
         <div className="mt-6">
           <TabsContent value="decl" className="space-y-6">
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-end">
               <Select>
                 <SelectTrigger className="w-48 mrpsl-input">
                   <SelectValue placeholder="Register" />
@@ -368,114 +477,150 @@ export default function PaymentPage() {
               </Card>
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-1 space-y-4">
-                <Card className="p-4 border-l-4 border-primary bg-muted/10">
+            {/* Gateway + action controls — single horizontal bar */}
+            <Card className="p-5 border-l-4 border-primary bg-muted/10">
+              <div className="flex items-center gap-8 flex-wrap">
+                <div className="shrink-0">
                   <h3 className="font-semibold text-sm mb-3">
                     Select Payment Gateway
                   </h3>
                   <RadioGroup
                     value={gateway}
                     onValueChange={setGateway}
-                    className="space-y-3"
+                    className="flex gap-6"
                   >
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="nibss" id="g1" />
-                      <label htmlFor="g1" className="text-sm font-medium">
-                        NIBSS
-                        <br />
+                      <label
+                        htmlFor="g1"
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        NIBSS{" "}
                         <span className="text-[13px] text-muted-foreground font-normal">
-                          Nigeria Inter-Bank Settlement System
+                          — Nigeria Inter-Bank Settlement System
                         </span>
                       </label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="remita" id="g2" />
-                      <label htmlFor="g2" className="text-sm font-medium">
-                        Remita
-                        <br />
+                      <label
+                        htmlFor="g2"
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        Remita{" "}
                         <span className="text-[13px] text-muted-foreground font-normal">
-                          Remita by SystemSpecs
+                          — SystemSpecs
                         </span>
                       </label>
                     </div>
                   </RadioGroup>
-                </Card>
-
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={initiatePaymentRun}
-                >
-                  <Play className="mr-2 h-4 w-4" /> Initiate Payment Run
-                </Button>
-
-                {payRunInitiated && (
+                </div>
+                <div className="flex gap-3 items-center ml-auto flex-wrap">
                   <Button
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    size="lg"
-                    onClick={approvePaymentRun}
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() =>
+                      toast.success("NIBSS file PAY-DIV-9283.txt downloaded")
+                    }
                   >
-                    Approve Payment Run
+                    <Download className="h-4 w-4" /> Download NIBSS File (.txt)
                   </Button>
-                )}
-
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() =>
-                    toast.success("NIBSS file PAY-DIV-9283.txt downloaded")
-                  }
-                >
-                  <Download className="mr-2 h-4 w-4" /> Download NIBSS File
-                  (.txt)
-                </Button>
+                  <Button size="lg" onClick={initiatePaymentRun}>
+                    <Play className="mr-2 h-4 w-4" /> Initiate Payment Run
+                  </Button>
+                  {payRunInitiated && (
+                    <Button
+                      size="lg"
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={approvePaymentRun}
+                    >
+                      Approve Payment Run
+                    </Button>
+                  )}
+                </div>
               </div>
+            </Card>
 
-              <div className="col-span-2">
-                <Card className="mrpsl-card overflow-hidden">
-                  <div className="p-3 bg-muted/20 border-b text-[13px] font-mono font-bold text-muted-foreground">
-                    PREVIEW (5 ROWS)
-                  </div>
-                  <table className="w-full text-left text-sm">
-                    <thead className="mrpsl-table-header">
-                      <tr>
-                        <th className="p-3">SERIAL NO</th>
-                        <th className="p-3">ACCOUNT NO</th>
-                        <th className="p-3">BANK SORT CODE</th>
-                        <th className="p-3 text-right">AMOUNT (₦)</th>
-                        <th className="p-3">ACCOUNT NAME</th>
-                        <th className="p-3">NARRATION</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y font-mono text-[13px]">
-                      {NIBSS_PREVIEW.map((row) => (
-                        <tr key={row.serial} className="hover:bg-accent/5">
-                          <td className="p-3 text-muted-foreground">
-                            {String(row.serial).padStart(3, "0")}
-                          </td>
-                          <td className="p-3">{row.accountNo}</td>
-                          <td className="p-3">{row.sortCode}</td>
-                          <td className="p-3 text-right tabular-nums">
-                            {row.amount.toLocaleString("en-NG", {
+            {/* Full payment records table */}
+            <Card className="mrpsl-card overflow-hidden">
+              <div className="px-4 py-3 bg-muted/20 border-b flex items-center justify-between">
+                <span className="text-[13px] font-bold text-muted-foreground uppercase tracking-wide">
+                  Payment File — {paymentRows.length.toLocaleString()} records
+                </span>
+                <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
+                  Unpaid
+                </Badge>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="p-3">SERIAL NO</th>
+                      <th className="p-3">ACCOUNT NO</th>
+                      <th className="p-3">HOLDER NAME</th>
+                      <th className="p-3">BANK SORT CODE</th>
+                      <th className="p-3">AMOUNT (₦)</th>
+                      <th className="p-3">NARRATION</th>
+                      <th className="p-3">STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y font-mono text-[13px]">
+                    {paymentPg.paged.map((row) => (
+                      <tr key={row.serial} className="hover:bg-accent/5">
+                        <td className="p-3 text-muted-foreground">
+                          {String(row.serial).padStart(3, "0")}
+                        </td>
+                        <td className="p-3">{row.accountNo}</td>
+                        <td className="p-3 font-sans font-medium">
+                          {row.holderName}
+                        </td>
+                        <td className="p-3">{row.sortCode}</td>
+                        <td className="p-3 text-right tabular-nums">
+                          {row.amount > 0
+                            ? row.amount.toLocaleString("en-NG", {
                               minimumFractionDigits: 2,
-                            })}
-                          </td>
-                          <td className="p-3">{row.accountName}</td>
-                          <td className="p-3 text-muted-foreground">
-                            {row.narration}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Card>
+                            })
+                            : "—"}
+                        </td>
+                        <td className="p-3 text-muted-foreground text-[12px]">
+                          {row.narration}
+                        </td>
+                        <td className="p-3">
+                          <Badge className="border-0 text-[12px] bg-amber-100 text-amber-800">
+                            {row.status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                    {paymentPg.total === 0 && (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="p-8 text-center text-muted-foreground font-sans"
+                        >
+                          Select a register and dividend to load payment
+                          records.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            </Card>
+            <TablePagination
+              page={paymentPg.page}
+              pageSize={paymentPg.pageSize}
+              totalPages={paymentPg.totalPages}
+              from={paymentPg.from}
+              to={paymentPg.to}
+              total={paymentPg.total}
+              onPageChange={paymentPg.setPage}
+              onPageSizeChange={paymentPg.setPageSize}
+            />
           </TabsContent>
 
           <TabsContent value="new" className="space-y-4">
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-end">
               <Select
                 value={mandateRegister}
                 onValueChange={(v) => setMandateRegister(v ?? "all")}
@@ -510,15 +655,59 @@ export default function PaymentPage() {
               </Select>
             </div>
 
+            {/* Batch action toolbar */}
+            {mandateSelIds.size > 0 && (
+              <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                <span className="text-sm font-medium text-primary">
+                  {mandateSelIds.size} record
+                  {mandateSelIds.size !== 1 ? "s" : ""} selected
+                  {(() => {
+                    const total = filteredMandateQueue
+                      .filter(
+                        (r) => mandateSelIds.has(r.id) && r.status !== "PAID",
+                      )
+                      .reduce((s, r) => s + r.amount, 0);
+                    return total > 0 ? ` — ₦${total.toLocaleString()}.00` : "";
+                  })()}
+                </span>
+                <Button
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={batchPushToNibss}
+                >
+                  Push Selected to NIBSS
+                </Button>
+              </div>
+            )}
+
             <Card className="mrpsl-card overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="mrpsl-table-header">
                   <tr>
+                    <th className="p-3 w-10">
+                      <Checkbox
+                        checked={
+                          filteredMandateQueue.filter(
+                            (r) => r.status !== "PAID",
+                          ).length > 0 &&
+                          filteredMandateQueue
+                            .filter((r) => r.status !== "PAID")
+                            .every((r) => mandateSelIds.has(r.id))
+                        }
+                        onCheckedChange={() =>
+                          toggleMandateAll(
+                            filteredMandateQueue
+                              .filter((r) => r.status !== "PAID")
+                              .map((r) => r.id),
+                          )
+                        }
+                      />
+                    </th>
                     <th className="p-3">ACCOUNT NO</th>
                     <th className="p-3">HOLDER NAME</th>
                     <th className="p-3">NEW BANK</th>
                     <th className="p-3">SORT CODE</th>
-                    <th className="p-3 text-right">AMOUNT (₦)</th>
+                    <th className="p-3">AMOUNT (₦)</th>
                     <th className="p-3">DIVIDEND NO</th>
                     <th className="p-3">PAYMENT STATUS</th>
                     <th className="p-3">ACTIONS</th>
@@ -526,7 +715,18 @@ export default function PaymentPage() {
                 </thead>
                 <tbody className="divide-y text-[13px]">
                   {filteredMandateQueue.map((row) => (
-                    <tr key={row.id} className="mrpsl-table-row">
+                    <tr
+                      key={row.id}
+                      className={`mrpsl-table-row ${mandateSelIds.has(row.id) ? "bg-primary/5" : ""}`}
+                    >
+                      <td className="p-3">
+                        {row.status !== "PAID" && (
+                          <Checkbox
+                            checked={mandateSelIds.has(row.id)}
+                            onCheckedChange={() => toggleMandateSel(row.id)}
+                          />
+                        )}
+                      </td>
                       <td className="p-3 font-mono">{row.account}</td>
                       <td className="p-3 font-medium">{row.holder}</td>
                       <td className="p-3">{row.bank}</td>
@@ -554,7 +754,7 @@ export default function PaymentPage() {
                   {filteredMandateQueue.length === 0 && (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={9}
                         className="p-8 text-center text-muted-foreground"
                       >
                         No records match the selected filters.
@@ -584,38 +784,7 @@ export default function PaymentPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {[
-                      {
-                        ref: "PAYRUN-2025-001",
-                        payNo: "PAY-2025-DANGCEM-001",
-                        reg: "DANGCEM",
-                        gw: "NIBSS",
-                        records: 180248,
-                        amount: "69.01B",
-                        date: "15 Jan 2025",
-                        status: "PAID",
-                      },
-                      {
-                        ref: "PAYRUN-2024-003",
-                        payNo: "PAY-2024-ACCESSCORP-003",
-                        reg: "ACCESS",
-                        gw: "Remita",
-                        records: 92410,
-                        amount: "12.5B",
-                        date: "03 Nov 2024",
-                        status: "PAID",
-                      },
-                      {
-                        ref: "PAYRUN-2024-002",
-                        payNo: "PAY-2024-GTCO-002",
-                        reg: "GTCO",
-                        gw: "NIBSS",
-                        records: 134000,
-                        amount: "8.3B",
-                        date: "28 Jul 2024",
-                        status: "FAILED",
-                      },
-                    ].map((row) => (
+                    {HISTORY_ROWS.map((row) => (
                       <tr key={row.ref} className="mrpsl-table-row">
                         <td className="px-4 py-3 font-mono text-muted-foreground">
                           {row.ref}
@@ -645,7 +814,10 @@ export default function PaymentPage() {
                               variant="ghost"
                               size="sm"
                               className="h-7 text-[13px]"
-                              onClick={() => toast.info("Payment run details")}
+                              onClick={() => {
+                                setPayRunViewTarget(row);
+                                setPayRunViewOpen(true);
+                              }}
                             >
                               <Eye className="mr-1 h-3 w-3" /> View
                             </Button>
@@ -684,7 +856,7 @@ export default function PaymentPage() {
           </TabsContent>
 
           <TabsContent value="repush" className="space-y-4">
-            <div className="flex gap-3">
+            <div className="flex gap-3 items-end">
               <Select
                 value={repushStatusFlt}
                 onValueChange={(v) => setRepushStatusFlt(v ?? "all")}
@@ -738,7 +910,10 @@ export default function PaymentPage() {
                               variant="ghost"
                               size="sm"
                               className="h-7 text-[13px]"
-                              onClick={() => toast.info("Holder details")}
+                              onClick={() => {
+                                setHolderViewTarget(row);
+                                setHolderViewOpen(true);
+                              }}
                             >
                               <Eye className="mr-1 h-3 w-3" /> View Holder
                             </Button>
@@ -774,7 +949,7 @@ export default function PaymentPage() {
       <Dialog open={repushConfirmOpen} onOpenChange={setRepushConfirmOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <div className="flex items-center gap-4 mb-2">
+            <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-full flex items-center justify-center shrink-0 bg-amber-100">
                 <AlertTriangle className="h-6 w-6 text-amber-600" />
               </div>
@@ -787,7 +962,7 @@ export default function PaymentPage() {
           </DialogHeader>
 
           {repushTarget && (
-            <div className="space-y-3 px-1">
+            <div className="space-y-4">
               <div className="bg-muted/30 rounded-xl border p-4 grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
@@ -848,6 +1023,186 @@ export default function PaymentPage() {
               <RotateCcw className="mr-2 h-4 w-4" /> Confirm Re-Push
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Payment Run View Dialog ── */}
+      <Dialog open={payRunViewOpen} onOpenChange={setPayRunViewOpen}>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0">
+          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
+            <DialogTitle>Payment Run Details</DialogTitle>
+            <DialogDescription>{payRunViewTarget?.ref ?? ""}</DialogDescription>
+          </DialogHeader>
+          {payRunViewTarget && (
+            <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  {
+                    label: "Pay Run Reference",
+                    value: payRunViewTarget.ref,
+                    mono: true,
+                  },
+                  {
+                    label: "Payment Number",
+                    value: payRunViewTarget.payNo,
+                    mono: true,
+                  },
+                  {
+                    label: "Register",
+                    value: payRunViewTarget.reg,
+                    mono: false,
+                  },
+                  { label: "Gateway", value: payRunViewTarget.gw, mono: false },
+                  {
+                    label: "Date Run",
+                    value: payRunViewTarget.date,
+                    mono: false,
+                  },
+                  {
+                    label: "Total Records",
+                    value: payRunViewTarget.records.toLocaleString(),
+                    mono: true,
+                  },
+                ].map(({ label, value, mono }) => (
+                  <div key={label}>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+                      {label}
+                    </div>
+                    <div
+                      className={`mt-0.5 text-sm font-medium ${mono ? "font-mono" : ""}`}
+                    >
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-muted/30 rounded-xl border p-4 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="mrpsl-section-title">Total Amount</div>
+                  <div className="text-2xl font-mono font-bold mt-1">
+                    ₦{payRunViewTarget.amount}
+                  </div>
+                </div>
+                <div>
+                  <div className="mrpsl-section-title">Status</div>
+                  <div className="mt-1">
+                    <span
+                      className={`inline-block text-sm font-semibold px-3 py-1 rounded-full ${payRunViewTarget.status === "PAID" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
+                    >
+                      {payRunViewTarget.status === "PAID" ? "Paid" : "Failed"}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="mrpsl-section-title">Paid Records</div>
+                  <div className="text-lg font-mono font-bold mt-1 text-green-700">
+                    {payRunViewTarget.status === "PAID"
+                      ? payRunViewTarget.records.toLocaleString()
+                      : "0"}
+                  </div>
+                </div>
+                <div>
+                  <div className="mrpsl-section-title">Failed Records</div>
+                  <div className="text-lg font-mono font-bold mt-1 text-red-600">
+                    {payRunViewTarget.status === "FAILED"
+                      ? payRunViewTarget.records.toLocaleString()
+                      : "0"}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-1.5"
+                  onClick={() => toast.success("Receipt downloaded")}
+                >
+                  <Download className="h-4 w-4" /> Download Receipt
+                </Button>
+                {payRunViewTarget.status === "FAILED" && (
+                  <Button
+                    className="flex-1 gap-1.5"
+                    onClick={() => {
+                      toast.success("Added to re-push queue");
+                      setPayRunViewOpen(false);
+                    }}
+                  >
+                    <RotateCcw className="h-4 w-4" /> Add to Re-Push Queue
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Holder View Dialog ── */}
+      <Dialog open={holderViewOpen} onOpenChange={setHolderViewOpen}>
+        <DialogContent className="max-w-md flex flex-col max-h-[90vh] p-0 gap-0">
+          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
+            <DialogTitle>Holder Details</DialogTitle>
+            <DialogDescription>
+              {holderViewTarget?.acct ?? ""}
+            </DialogDescription>
+          </DialogHeader>
+          {holderViewTarget && (
+            <div className="px-6 py-5 space-y-4">
+              <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
+                {[
+                  {
+                    label: "Account No",
+                    value: holderViewTarget.acct,
+                    mono: true,
+                  },
+                  {
+                    label: "Holder Name",
+                    value: holderViewTarget.name,
+                    mono: false,
+                  },
+                  { label: "Bank", value: holderViewTarget.bank, mono: false },
+                  {
+                    label: "Payment No",
+                    value: holderViewTarget.payNo,
+                    mono: true,
+                  },
+                  {
+                    label: "Amount (₦)",
+                    value: holderViewTarget.amount,
+                    mono: true,
+                  },
+                ].map(({ label, value, mono }) => (
+                  <div
+                    key={label}
+                    className="flex justify-between items-center py-1.5 border-b border-border/40 last:border-0"
+                  >
+                    <span className="text-sm text-muted-foreground">
+                      {label}
+                    </span>
+                    <span
+                      className={`text-sm font-semibold ${mono ? "font-mono" : ""}`}
+                    >
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex gap-3">
+                <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-red-700">
+                  <span className="font-semibold">Failure reason: </span>
+                  {holderViewTarget.reason}
+                </div>
+              </div>
+              <Button
+                className="w-full gap-1.5"
+                onClick={() => {
+                  openRepushConfirm(holderViewTarget);
+                  setHolderViewOpen(false);
+                }}
+              >
+                <RotateCcw className="h-4 w-4" /> Re-Push This Payment
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
