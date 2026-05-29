@@ -95,13 +95,13 @@ export default function ApprovalsPage() {
       const updatedSteps = item.approvalSteps.map((s) =>
         s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
           ? {
-              ...s,
-              decision: "APPROVED" as const,
-              comment: batchComment,
-              decidedAt: new Date().toISOString(),
-              approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-              approverId: currentUser.id,
-            }
+            ...s,
+            decision: "APPROVED" as const,
+            comment: batchComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
           : s,
       );
       const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
@@ -128,13 +128,13 @@ export default function ApprovalsPage() {
       const updatedSteps = item.approvalSteps.map((s) =>
         s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
           ? {
-              ...s,
-              decision: "REJECTED" as const,
-              comment: batchComment,
-              decidedAt: new Date().toISOString(),
-              approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-              approverId: currentUser.id,
-            }
+            ...s,
+            decision: "REJECTED" as const,
+            comment: batchComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
           : s,
       );
       updateApprovalItem(id, {
@@ -197,13 +197,13 @@ export default function ApprovalsPage() {
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
       s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
         ? {
-            ...s,
-            decision: "APPROVED" as const,
-            comment: reviewComment,
-            decidedAt: new Date().toISOString(),
-            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-            approverId: currentUser.id,
-          }
+          ...s,
+          decision: "APPROVED" as const,
+          comment: reviewComment,
+          decidedAt: new Date().toISOString(),
+          approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+          approverId: currentUser.id,
+        }
         : s,
     );
     const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
@@ -228,12 +228,12 @@ export default function ApprovalsPage() {
       const tt = reviewItem.transactionType;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (tt === "Create Principal") addPrincipal(p as any);
-       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       else if (tt === "Update Principal")
         updatePrincipal(p.id as string, (p.updates ?? p) as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       else if (tt === "Create User") addUser(p as any);
-       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       else if (tt === "Update User")
         updateUser(p.id as string, (p.updates ?? p) as any);
       toast.success(
@@ -254,13 +254,13 @@ export default function ApprovalsPage() {
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
       s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
         ? {
-            ...s,
-            decision: "REJECTED" as const,
-            comment: reviewComment,
-            decidedAt: new Date().toISOString(),
-            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-            approverId: currentUser.id,
-          }
+          ...s,
+          decision: "REJECTED" as const,
+          comment: reviewComment,
+          decidedAt: new Date().toISOString(),
+          approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+          approverId: currentUser.id,
+        }
         : s,
     );
     updateApprovalItem(reviewItem.id, {
