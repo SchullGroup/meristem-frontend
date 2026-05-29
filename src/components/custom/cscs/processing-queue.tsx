@@ -109,36 +109,55 @@ export const ProcessingQueue = ({
           />
         </div>
 
-        <Select
-          value={queueRegister}
-          onValueChange={(v) => setQueueRegister(v || "ALL")}
-        >
-          <SelectTrigger className="mrpsl-input w-40">
-            <SelectValue placeholder="All Registers" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Registers</SelectItem>
-            {activeRegisters?.content?.map((r) => (
-              <SelectItem key={r.registerId} value={r.registerId}>
-                {r.registerName} · {r.symbol}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={queueStatus}
-          onValueChange={(v) => setQueueStatus(v || "ALL")}
-        >
-          <SelectTrigger className="w-40 mrpsl-input">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Status</SelectItem>
-            <SelectItem value="COMPLETE">Complete</SelectItem>
-            <SelectItem value="PARTIAL">Partial</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="">
+          <Select
+            value={queueRegister}
+            onValueChange={(v) => setQueueRegister(v || "ALL")}
+          >
+            <SelectTrigger className="mrpsl-input">
+              <SelectValue placeholder="All Registers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Registers</SelectItem>
+              {activeRegisters?.content?.map((r) => (
+                <SelectItem key={r.registerId} value={r.registerId}>
+                  {r.registerName} · {r.symbol}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="">
+          <Select
+            value={queueStatus}
+            onValueChange={(v) => setQueueStatus(v || "ALL")}
+          >
+            <SelectTrigger className="mrpsl-input">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="COMPLETE">Complete</SelectItem>
+              <SelectItem value="PARTIAL">Partial</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {/* <div className="">
+          <Select
+            value={queueStatus}
+            onValueChange={(v) => setQueueStatus(v || "ALL")}
+          >
+            <SelectTrigger className="w-40 mrpsl-input">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Dates</SelectItem>
+              <SelectItem value="TODAY">Today</SelectItem>
+              <SelectItem value="THIS_WEEK">This Week</SelectItem>
+              <SelectItem value="THIS_MONTH">This Month</SelectItem>
+            </SelectContent>
+          </Select>
+          </div> */}
       </div>
 
       <Card className="mrpsl-card overflow-hidden">
@@ -173,7 +192,7 @@ export const ProcessingQueue = ({
               </thead>
               <tbody className="divide-y divide-border/60">
                 {Array.isArray(processingQueue?.content) &&
-                processingQueue?.content.length > 0 ? (
+                  processingQueue?.content.length > 0 ? (
                   processingQueue?.content?.map((row) => (
                     <tr key={row.batchRef} className="mrpsl-table-row">
                       <td className="px-4 py-3 tabular-nums text-[13px] text-muted-foreground">

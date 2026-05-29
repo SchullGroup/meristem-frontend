@@ -42,13 +42,21 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
-import { ApprovalItem, ApprovalStep } from "@/lib/types";
+import { ApprovalItem } from "@/lib/types";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 
 export default function ApprovalsPage() {
-  const { pendingApprovals, currentUser, updateApprovalItem, logAudit } =
-    useStore();
+  const {
+    pendingApprovals,
+    currentUser,
+    updateApprovalItem,
+    logAudit,
+    addPrincipal,
+    updatePrincipal,
+    addUser,
+    updateUser,
+  } = useStore();
   const [search, setSearch] = useState("");
   const [moduleFilter, setModuleFilter] = useState("All");
   const [tierFilter, setTierFilter] = useState("All");
@@ -206,14 +214,34 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser.roles?.[0] || "",
+      role: currentUser.roles[0],
       action: "APPROVE",
       entityType: "APPROVAL",
       entityId: reviewItem.id,
       before: { status: reviewItem.status },
       after: { status: allApproved ? "APPROVED" : "PENDING" },
     });
-    toast.success("Transaction approved and committed.");
+
+    // Apply SETUP changes to store when fully approved
+    if (allApproved && reviewItem.module === "SETUP" && reviewItem.payload) {
+      const p = reviewItem.payload;
+      const tt = reviewItem.transactionType;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (tt === "Create Principal") addPrincipal(p as any);
+       
+      else if (tt === "Update Principal")
+        updatePrincipal(p.id as string, (p.updates ?? p) as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      else if (tt === "Create User") addUser(p as any);
+       
+      else if (tt === "Update User")
+        updateUser(p.id as string, (p.updates ?? p) as any);
+      toast.success(
+        `${reviewItem.transactionType} approved and applied to the system.`,
+      );
+    } else {
+      toast.success("Transaction approved and committed.");
+    }
     setReviewOpen(false);
   };
 
@@ -242,7 +270,7 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser.roles?.[0] || "",
+      role: currentUser.roles[0],
       action: "REJECT",
       entityType: "APPROVAL",
       entityId: reviewItem.id,
@@ -267,9 +295,7 @@ export default function ApprovalsPage() {
       toast.error("Please describe the changes you made before resubmitting.");
       return;
     }
-    const resetSteps: ApprovalStep[] = editItem.approvalSteps.map((s) => ({
-      roles: s?.roles || [],
-    }));
+    const resetSteps = editItem.approvalSteps.map((s) => ({ roles: s.roles }));
     const parsedAmount = editAmount.replace(/,/g, "").trim();
     updateApprovalItem(editItem.id, {
       status: "PENDING",
@@ -281,7 +307,7 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser.roles?.[0] || "",
+      role: currentUser?.roles?.[0] || "",
       action: "RESUBMIT",
       entityType: "APPROVAL",
       entityId: editItem.id,
@@ -405,6 +431,7 @@ export default function ApprovalsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Modules</SelectItem>
+            <SelectItem value="SETUP">Setup</SelectItem>
             <SelectItem value="DIVIDENDS">Dividends</SelectItem>
             <SelectItem value="CERTIFICATES">Certificates</SelectItem>
             <SelectItem value="ACCOUNT MAINTENANCE">
@@ -692,6 +719,37 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
 
+                {/* SETUP payload — show the exact data being approved */}
+                {reviewItem.module === "SETUP" && reviewItem.payload && (
+                  <div className="p-4 border border-primary/20 rounded-xl bg-primary/5">
+                    <h4 className="text-sm font-bold text-primary mb-3 border-b border-primary/20 pb-2">
+                      Data to be Applied
+                    </h4>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                      {Object.entries(reviewItem.payload)
+                        .filter(
+                          ([k]) => !["id", "action", "updates"].includes(k),
+                        )
+                        .map(([key, value]) => (
+                          <div key={key} className="flex flex-col">
+                            <span className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">
+                              {key.replace(/([A-Z])/g, " $1").trim()}
+                            </span>
+                            <span className="text-sm font-medium mt-0.5 break-words">
+                              {typeof value === "boolean"
+                                ? value
+                                  ? "Yes"
+                                  : "No"
+                                : Array.isArray(value)
+                                  ? (value as string[]).join(", ") || "—"
+                                  : String(value ?? "—")}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
                 {reviewItem.attachments &&
                   reviewItem.attachments.length > 0 && (
                     <div className="p-4 border rounded-xl">
@@ -780,7 +838,7 @@ export default function ApprovalsPage() {
                         )}
                         <div className="text-sm">
                           <span className="font-semibold">
-                            {s?.roles?.[0]?.replace(/_/g, " ") ?? "Unknown"}
+                            {s?.roles?.[0]?.replace(/_/g, " ") ?? ""}
                           </span>
                           {s.decision ? (
                             <span

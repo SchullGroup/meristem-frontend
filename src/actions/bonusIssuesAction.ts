@@ -47,6 +47,7 @@ export const EXPORT_DELCARED_BONUS_ALLOTMENTS = async (
   try {
     const res = await api.get(
       `/offers/bonus-issue/declarations/${declarationId}/allotment/export/excel`,
+      { responseType: "blob" },
     );
     return res.data;
   } catch (error) {
@@ -217,12 +218,16 @@ export const GENERATE_BONUS_REPORT = async (
     registerId?: string;
     dateFrom?: string;
     dateTo?: string;
+    format?: "json" | "excel";
   },
 ) => {
   try {
     const res = await api.get(
       `/offers/bonus-issue/declarations/reports/${reportTypePath}`,
-      { params },
+      {
+        params,
+        ...(params?.format === "excel" ? { responseType: "blob" } : {}),
+      },
     );
     return res.data;
   } catch (error) {
