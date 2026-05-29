@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, X, CheckCircle2 } from "lucide-react";
+import { FileText, X, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_ACCEPT, FILE_TYPE_COLORS } from "@/lib/mocks/doc-types";
+import { GetPDFUrl } from "@/lib/utils/get-file-url";
 
 interface DocUploadZoneProps {
   label: string;
@@ -12,6 +13,8 @@ interface DocUploadZoneProps {
   required?: boolean;
   compact?: boolean;
   className?: string;
+  onUploadSuccess?: (url: string) => void;
+  folderName?: string;
 }
 
 export function DocUploadZone({
@@ -21,29 +24,51 @@ export function DocUploadZone({
   required,
   compact,
   className,
+  onUploadSuccess,
+  folderName = "dematerialization",
 }: DocUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile]   = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const accept = fileTypes
     .map(t => FILE_TYPE_ACCEPT[t] ?? "")
     .filter(Boolean)
     .join(",");
 
-  const handleFile = (f: File) => {
+  const handleFile = async (f: File) => {
     setError(null);
     if (f.size > maxSizeMB * 1024 * 1024) {
       setError(`File too large — max ${maxSizeMB} MB`);
       return;
     }
     setFile(f);
+    setIsUploading(true);
+    
+    try {
+      const response = await GetPDFUrl(f, folderName);
+      if (response?.type === "success") {
+        if (onUploadSuccess) {
+          onUploadSuccess(response.result);
+        }
+      } else {
+        setError(response?.result || "Failed to upload file");
+        setFile(null);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to upload file");
+      setFile(null);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const clear = () => {
     setFile(null);
     setError(null);
+    if (onUploadSuccess) onUploadSuccess("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -82,7 +107,14 @@ export function DocUploadZone({
       />
 
       {/* Upload zone / file preview */}
-      {file ? (
+      {isUploading ? (
+        <div className="flex items-center gap-2.5 px-3 py-2.5 border border-primary/20 bg-primary/5 rounded-xl">
+          <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-primary truncate">Uploading {file?.name}...</p>
+          </div>
+        </div>
+      ) : file ? (
         <div className="flex items-center gap-2.5 px-3 py-2.5 border border-green-200 bg-green-50/60 rounded-xl">
           <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
           <div className="flex-1 min-w-0">

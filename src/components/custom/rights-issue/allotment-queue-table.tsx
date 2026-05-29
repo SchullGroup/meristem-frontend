@@ -216,6 +216,7 @@ export function AllotmentQueueTable({
               pageSize={pageSize}
               onPageChange={setCurrentPage}
               onPageSizeChange={setPageSize}
+              pageBase={1}
             />
           </>
         )}
