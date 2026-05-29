@@ -422,7 +422,7 @@ export const RIGHTS_REPORT_TYPES = [
   "Range Analysis",
 ];
 
-const REPORT_TYPES = [
+export const REPORT_TYPES = [
   "Application Offer",
   "Application Offer Summary",
   "Full Subscription List",
@@ -812,4 +812,190 @@ export const MOCK_ICU_SUBMISSIONS = [
     opsApprover: "Adaeze Okafor",
     opsDate: "27 Apr 2026, 16:48",
   },
+];
+
+// ── Types ─────────────────────────────────────────────────────────
+
+type AddressRecord = {
+  id: string;
+  register: string;
+  registerName: string;
+  chn: string;
+  accountNo: string;
+  holderName: string;
+  phone: string;
+  email: string;
+  address: string; // new CSCS address — always replaces old
+  detectedState: string; // GIS-inferred state for tax jurisdiction
+  confirmedState: string | null; // null = unconfirmed
+};
+
+// ── Mock data ─────────────────────────────────────────────────────
+
+export const INITIAL_RECORDS: AddressRecord[] = [
+  {
+    id: "r1",
+    register: "DANGCEM",
+    registerName: "Dangote Cement Plc",
+    chn: "C00002198KL",
+    accountNo: "DANGCEM-10044",
+    holderName: "Chukwuemeka Obi",
+    phone: "08031234567",
+    email: "c.obi@email.com",
+    address: "45 Aminu Kano Crescent, Wuse 2",
+    detectedState: "Abuja (FCT)",
+    confirmedState: null,
+  },
+  {
+    id: "r2",
+    register: "DANGCEM",
+    registerName: "Dangote Cement Plc",
+    chn: "C00003312MN",
+    accountNo: "DANGCEM-10091",
+    holderName: "Fatima Aliyu",
+    phone: "07059876543",
+    email: "f.aliyu@email.com",
+    address: "7 Ahmadu Bello Way, Kaduna South",
+    detectedState: "Kaduna",
+    confirmedState: null,
+  },
+  {
+    id: "r3",
+    register: "DANGCEM",
+    registerName: "Dangote Cement Plc",
+    chn: "C00005023RT",
+    accountNo: "DANGCEM-10109",
+    holderName: "Yusuf Mohammed",
+    phone: "08098765432",
+    email: "y.mohammed@mail.com",
+    address: "Plot 3 Ibrahim Taiwo Road, Nassarawa",
+    detectedState: "Kano",
+    confirmedState: null,
+  },
+  {
+    id: "r4",
+    register: "DANGCEM",
+    registerName: "Dangote Cement Plc",
+    chn: "C00006112BC",
+    accountNo: "DANGCEM-10158",
+    holderName: "Halima Yusuf",
+    phone: "08123456789",
+    email: "h.yusuf@company.ng",
+    address: "14 Shehu Shagari Way, Minna",
+    detectedState: "Niger",
+    confirmedState: null,
+  },
+  {
+    id: "r5",
+    register: "ZENITHBANK",
+    registerName: "Zenith Bank Plc",
+    chn: "C00008821AB",
+    accountNo: "ZENITHBANK-20033",
+    holderName: "Adaeze Nwosu",
+    phone: "08122334455",
+    email: "adaeze.n@gmail.com",
+    address: "14 Marina Street, Lagos Island",
+    detectedState: "Lagos",
+    confirmedState: null,
+  },
+  {
+    id: "r6",
+    register: "ZENITHBANK",
+    registerName: "Zenith Bank Plc",
+    chn: "C00009102XY",
+    accountNo: "ZENITHBANK-20081",
+    holderName: "Emeka Eze",
+    phone: "07033221144",
+    email: "emeka.e@yahoo.com",
+    address: "22 New GRA, Trans Amadi",
+    detectedState: "Rivers",
+    confirmedState: null,
+  },
+  {
+    id: "r7",
+    register: "ZENITHBANK",
+    registerName: "Zenith Bank Plc",
+    chn: "C00010344PQ",
+    accountNo: "ZENITHBANK-20102",
+    holderName: "Tunde Adeyemi",
+    phone: "09011223344",
+    email: "t.adeyemi@mail.com",
+    address: "3 Obafemi Awolowo Road, Alausa, Ikeja",
+    detectedState: "Lagos",
+    confirmedState: null,
+  },
+  {
+    id: "r8",
+    register: "ACCESSCORP",
+    registerName: "Access Holdings Plc",
+    chn: "C00011299PQ",
+    accountNo: "ACCESSCORP-30017",
+    holderName: "Ngozi Okafor",
+    phone: "09012344321",
+    email: "n.okafor@company.ng",
+    address: "Plot 999 Danmole Street, Victoria Island",
+    detectedState: "Lagos",
+    confirmedState: null,
+  },
+  {
+    id: "r9",
+    register: "ACCESSCORP",
+    registerName: "Access Holdings Plc",
+    chn: "C00012580RS",
+    accountNo: "ACCESSCORP-30044",
+    holderName: "Uche Okeke",
+    phone: "08077889900",
+    email: "u.okeke@firm.ng",
+    address: "18 Douglas Road, Owerri",
+    detectedState: "Imo",
+    confirmedState: null,
+  },
+  {
+    id: "r10",
+    register: "GTCO",
+    registerName: "GTCO Holdings Plc",
+    chn: "C00015001ZA",
+    accountNo: "GTCO-40011",
+    holderName: "Bello Musa",
+    phone: "07022334455",
+    email: "b.musa@email.com",
+    address: "5 Paiko Road, Minna",
+    detectedState: "Niger",
+    confirmedState: null,
+  },
+  {
+    id: "r11",
+    register: "GTCO",
+    registerName: "GTCO Holdings Plc",
+    chn: "C00015894TW",
+    accountNo: "GTCO-40039",
+    holderName: "Chioma Ike",
+    phone: "08166778899",
+    email: "chioma.i@gmail.com",
+    address: "22 Ogui Road, Enugu",
+    detectedState: "Enugu",
+    confirmedState: null,
+  },
+  {
+    id: "r12",
+    register: "GTCO",
+    registerName: "GTCO Holdings Plc",
+    chn: "C00016230WX",
+    accountNo: "GTCO-40067",
+    holderName: "Suleiman Garba",
+    phone: "07099887766",
+    email: "s.garba@kano.ng",
+    address: "Plot 44 Ibrahim Taiwo Road",
+    detectedState: "Kano",
+    confirmedState: null,
+  },
+];
+
+export const PROCESSING_STAGES: [number, string][] = [
+  [15, "Verifying ZIP integrity…"],
+  [30, "Extracting register data…"],
+  [50, "Parsing shareholder records…"],
+  [70, "Running GIS state detection…"],
+  [90, "Grouping by register…"],
+  [100, "Ready for review"],
 ];

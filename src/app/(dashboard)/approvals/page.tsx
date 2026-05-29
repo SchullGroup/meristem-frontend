@@ -95,13 +95,13 @@ export default function ApprovalsPage() {
       const updatedSteps = item.approvalSteps.map((s) =>
         s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
           ? {
-              ...s,
-              decision: "APPROVED" as const,
-              comment: batchComment,
-              decidedAt: new Date().toISOString(),
-              approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-              approverId: currentUser.id,
-            }
+            ...s,
+            decision: "APPROVED" as const,
+            comment: batchComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
           : s,
       );
       const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
@@ -128,13 +128,13 @@ export default function ApprovalsPage() {
       const updatedSteps = item.approvalSteps.map((s) =>
         s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
           ? {
-              ...s,
-              decision: "REJECTED" as const,
-              comment: batchComment,
-              decidedAt: new Date().toISOString(),
-              approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-              approverId: currentUser.id,
-            }
+            ...s,
+            decision: "REJECTED" as const,
+            comment: batchComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
           : s,
       );
       updateApprovalItem(id, {
@@ -197,13 +197,13 @@ export default function ApprovalsPage() {
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
       s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
         ? {
-            ...s,
-            decision: "APPROVED" as const,
-            comment: reviewComment,
-            decidedAt: new Date().toISOString(),
-            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-            approverId: currentUser.id,
-          }
+          ...s,
+          decision: "APPROVED" as const,
+          comment: reviewComment,
+          decidedAt: new Date().toISOString(),
+          approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+          approverId: currentUser.id,
+        }
         : s,
     );
     const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
@@ -254,13 +254,13 @@ export default function ApprovalsPage() {
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
       s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
         ? {
-            ...s,
-            decision: "REJECTED" as const,
-            comment: reviewComment,
-            decidedAt: new Date().toISOString(),
-            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-            approverId: currentUser.id,
-          }
+          ...s,
+          decision: "REJECTED" as const,
+          comment: reviewComment,
+          decidedAt: new Date().toISOString(),
+          approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+          approverId: currentUser.id,
+        }
         : s,
     );
     updateApprovalItem(reviewItem.id, {

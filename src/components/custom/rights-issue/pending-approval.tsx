@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowLeft, Download, Search, Loader2 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -38,6 +38,7 @@ import { DataErrorState } from "../ipo/loaders";
 import { ApproveRightsDialog, RejectRightsDialog } from "./approval-dialogs";
 import { format } from "date-fns";
 import { useDebounce } from "@/hooks/useDebounce";
+import { formatDate } from "@/lib/utils/format";
 
 export default function RightsIssuePendingApproval({
   setActiveTab,
@@ -129,7 +130,7 @@ export default function RightsIssuePendingApproval({
   const [showReject, setShowReject] = useState(false);
 
   // Registers for filter
-  const { data: registersData } = useGetRegisters({ status: "ACTIVE" });
+  const { data: registersData } = useGetRegisters({ status: "ACTIVE", size: 100 });
   const activeRegisters = registersData?.content || [];
 
   // Main list query
@@ -143,7 +144,7 @@ export default function RightsIssuePendingApproval({
     page: listPage,
     pageSize: listPageSize,
     search: debouncedListSearch != "" ? debouncedListSearch : undefined,
-    status: selectedStatus === "" ? "PENDING_AUTH" : selectedStatus,
+    status: selectedStatus === "" ? undefined : selectedStatus,
   });
 
   // Review mode queries
@@ -164,6 +165,13 @@ export default function RightsIssuePendingApproval({
       enabled: !!authReviewingBatch,
     },
   });
+
+  const filteredList = useMemo(() => {
+    if (!pendingList?.content) return [];
+    return pendingList?.content.filter((r) => {
+      return r.status === "PENDING_AUTH" || r.status === "DRAFT";
+    });
+  }, [pendingList?.content]);
 
   const handleSubmitForApproval = () => {
     submitMutation.mutate(authReviewingBatch?.id || "", {
@@ -267,7 +275,7 @@ export default function RightsIssuePendingApproval({
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {(pendingList?.content || [])?.map((issue: RightsIssue) => (
+                  {filteredList?.map((issue: RightsIssue) => (
                     <tr key={issue.id} className="mrpsl-table-row">
                       <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                         {issue.ref}
@@ -279,9 +287,9 @@ export default function RightsIssuePendingApproval({
                       <td className="px-4 py-3 text-muted-foreground text-[13px]">
                         {issue.qualificationDate
                           ? format(
-                              new Date(issue.qualificationDate),
-                              "dd MMM yyyy",
-                            )
+                            new Date(issue.qualificationDate),
+                            "dd MMM yyyy",
+                          )
                           : "----"}{" "}
                       </td>
                       <td className="px-4 py-3 font-mono text-right">
@@ -299,7 +307,7 @@ export default function RightsIssuePendingApproval({
                         </div>
                         <div className="text-[13px] text-muted-foreground">
                           {issue.submittedAt
-                            ? format(new Date(issue.submittedAt), "dd MMM yyyy")
+                            ? formatDate(issue.submittedAt)
                             : "----"}{" "}
                         </div>
                       </td>
@@ -322,7 +330,7 @@ export default function RightsIssuePendingApproval({
                       </td>
                     </tr>
                   ))}
-                  {(pendingList?.content || [])?.length === 0 && (
+                  {filteredList?.length === 0 && (
                     <tr>
                       <td
                         colSpan={10}
@@ -343,6 +351,7 @@ export default function RightsIssuePendingApproval({
             pageSize={listPageSize}
             onPageChange={setListPage}
             onPageSizeChange={setListPageSize}
+            pageBase={1}
           />
         </Card>
       </div>
@@ -465,6 +474,7 @@ export default function RightsIssuePendingApproval({
         onPageChange={setAuthPage}
         pageSize={authPageSize}
         onPageSizeChange={setAuthPageSize}
+        pageBase={1}
       />
 
       {/* Approve / Reject */}
