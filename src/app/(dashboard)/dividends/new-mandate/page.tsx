@@ -20,11 +20,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { useStore } from "@/lib/store";
 import { toast } from "sonner";
-import { Check, AlertCircle, X, Download } from "lucide-react";
+import { Check, AlertCircle, X, Download, Loader2 } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { useQuery } from "@tanstack/react-query";
+import { GET_LOADED_MANDATE_QUEUES } from "@/actions/divNewMandate";
+import { GET_ALL_DIVIDEND_DECLARATIONS } from "@/actions/divDeclarationActions";
 
 type MandateApproval = {
   id: string;
@@ -146,7 +149,11 @@ const INITIAL_ICU: MandateApproval[] = [
 ];
 
 export default function NewMandatePage() {
-  const { registers } = useStore();
+  const { data: registersData } = useGetRegisters({
+    size: 1000,
+  });
+
+  const registerList = registersData?.content;
 
   const [queueRegister, setQueueRegister] = useState("all");
   const [queueDividend, setQueueDividend] = useState("all");
@@ -184,6 +191,24 @@ export default function NewMandatePage() {
   const selectedTotal = QUEUE_DATA.filter((r) => selectedIds.has(r.id)).reduce(
     (s, r) => s + r.amount,
     0,
+  );
+
+  const { data, isLoading: mandateQueueLoading } = useQuery({
+    queryKey: ["loaded-mandate-queue", queueRegister, queueDividend, 0, 20],
+    queryFn: GET_LOADED_MANDATE_QUEUES,
+    enabled: !!queueRegister && !!queueDividend,
+  });
+
+  const mandateQueue = data?.data?.content;
+
+  const { data: declarationData } = useQuery({
+    queryKey: ["all-declarations", 20, 1],
+    queryFn: GET_ALL_DIVIDEND_DECLARATIONS,
+  });
+
+  const declarationList = declarationData?.data?.content || [];
+  const approvedDivNum = declarationList?.filter(
+    (declaration: { status: string }) => declaration.status === "AUTHORIZED",
   );
 
   function toggleAll() {
@@ -410,11 +435,11 @@ export default function NewMandatePage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Registers</SelectItem>
-                  {registers
-                    .filter((r) => r.status === "ACTIVE")
+                  {registerList
+                    ?.filter((r) => r?.status === "ACTIVE")
                     .map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.symbol}
+                      <SelectItem key={r?.registerId} value={r?.registerId}>
+                        {r?.symbol} - {r?.registerId}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -429,9 +454,16 @@ export default function NewMandatePage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Dividend Numbers</SelectItem>
-                  <SelectItem value="DIV-2025-001">DIV-2025-001</SelectItem>
-                  <SelectItem value="DIV-2025-002">DIV-2025-002</SelectItem>
-                  <SelectItem value="DIV-2025-003">DIV-2025-003</SelectItem>
+                  {approvedDivNum?.map(
+                    (dividend: { paymentNumber: string }) => (
+                      <SelectItem
+                        key={dividend?.paymentNumber}
+                        value={dividend?.paymentNumber}
+                      >
+                        {dividend?.paymentNumber}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
 
@@ -473,37 +505,63 @@ export default function NewMandatePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {QUEUE_DATA.map((row) => (
-                        <tr key={row.id} className="hover:bg-accent/5">
-                          <td className="p-3">
-                            <Checkbox
-                              checked={selectedIds.has(row.id)}
-                              onCheckedChange={() => toggleRow(row.id)}
-                            />
-                          </td>
-                          <td className="p-3 font-mono text-[13px]">
-                            {row.account}
-                          </td>
-                          <td className="p-3 font-medium text-[13px]">
-                            {row.holder}
-                          </td>
-                          <td className="p-3 text-[13px]">{row.bank}</td>
-                          <td className="p-3 font-mono text-[13px]">
-                            {row.accountNo}
-                          </td>
-                          <td className="p-3 font-mono text-[13px] text-muted-foreground">
-                            {row.dividendNo}
-                          </td>
-                          <td className="p-3 font-mono text-right text-[13px]">
-                            {row.amount.toLocaleString()}.00
-                          </td>
-                          <td className="p-3">
-                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
-                              KYC Update
-                            </Badge>
+                      {mandateQueueLoading ? (
+                        <tr>
+                          <td colSpan={8} className="p-3 text-center">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <div
+                                key={i}
+                                className="animate-pulse bg-gray-200 w-full h-10 my-2 rounded"
+                              ></div>
+                            ))}
                           </td>
                         </tr>
-                      ))}
+                      ) : mandateQueue?.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="p-3 text-center">
+                            No records found
+                          </td>
+                        </tr>
+                      ) : (
+                        mandateQueue?.map(
+                          (
+                            q: {
+                              [x: string]: string;
+                            },
+                            i: number,
+                          ) => (
+                            <tr key={i} className="hover:bg-accent/5">
+                              <td className="p-3">
+                                <Checkbox
+                                  checked={selectedIds.has(q?.id)}
+                                  onCheckedChange={() => toggleRow(q?.id)}
+                                />
+                              </td>
+                              <td className="p-3 font-mono text-[13px]">
+                                {q?.account}
+                              </td>
+                              <td className="p-3 font-medium text-[13px]">
+                                {q?.holder}
+                              </td>
+                              <td className="p-3 text-[13px]">{q?.bank}</td>
+                              <td className="p-3 font-mono text-[13px]">
+                                {q?.accountNo}
+                              </td>
+                              <td className="p-3 font-mono text-[13px] text-muted-foreground">
+                                {q?.dividendNo}
+                              </td>
+                              <td className="p-3 font-mono text-right text-[13px]">
+                                {q?.amount.toLocaleString()}.00
+                              </td>
+                              <td className="p-3">
+                                <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                                  KYC Update
+                                </Badge>
+                              </td>
+                            </tr>
+                          ),
+                        )
+                      )}
                     </tbody>
                   </table>
                 </Card>
@@ -598,7 +656,60 @@ export default function NewMandatePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {mandatePg.paged.map((row) => (
+                    {mandateQueue?.filter(
+                      (q: { status: string }) => q.status === "PENDING",
+                    )?.length > 0 ? (
+                      mandateQueue
+                        ?.filter(
+                          (q: { status: string }) => q.status === "PENDING",
+                        )
+                        ?.map((row: any) => (
+                          <tr
+                            key={row.id}
+                            className={`mrpsl-table-row ${pendingApprIds.has(row.id) ? "bg-primary/5" : ""}`}
+                          >
+                            <td className="p-3">
+                              <Checkbox
+                                checked={pendingApprIds.has(row.id)}
+                                onCheckedChange={() =>
+                                  togglePendingAppr(row.id)
+                                }
+                              />
+                            </td>
+                            <td className="p-3 text-muted-foreground">
+                              {row.date}
+                            </td>
+                            <td className="p-3 font-mono">{row.account}</td>
+                            <td className="p-3 font-medium">{row.holder}</td>
+                            <td className="p-3">{row.bank}</td>
+                            <td className="p-3 font-mono">{row.accountNo}</td>
+                            <td className="p-3 font-mono text-muted-foreground">
+                              {row.dividendNo}
+                            </td>
+                            <td className="p-3 text-right font-mono font-semibold">
+                              {row.amount.toLocaleString()}.00
+                            </td>
+                            <td className="p-3 text-muted-foreground">
+                              {row.submittedBy}
+                            </td>
+                            <td className="p-3 text-right">
+                              <Button
+                                size="sm"
+                                onClick={() => openReview(row, false)}
+                              >
+                                Review &amp; Decide
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={10} className="p-3 text-center">
+                          No records pending approval.
+                        </td>
+                      </tr>
+                    )}
+                    {/* {mandatePg.paged.map((row) => (
                       <tr
                         key={row.id}
                         className={`mrpsl-table-row ${pendingApprIds.has(row.id) ? "bg-primary/5" : ""}`}
@@ -644,7 +755,7 @@ export default function NewMandatePage() {
                           No records pending approval.
                         </td>
                       </tr>
-                    )}
+                    )} */}
                   </tbody>
                 </table>
               </Card>
@@ -654,7 +765,11 @@ export default function NewMandatePage() {
                 totalPages={mandatePg.totalPages}
                 from={mandatePg.from}
                 to={mandatePg.to}
-                total={mandatePg.total}
+                total={
+                  mandateQueue?.filter(
+                    (q: { status: string }) => q.status === "PENDING",
+                  )?.length
+                }
                 onPageChange={mandatePg.setPage}
                 onPageSizeChange={mandatePg.setPageSize}
               />

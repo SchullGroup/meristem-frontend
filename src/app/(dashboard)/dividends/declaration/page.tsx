@@ -12,6 +12,7 @@ import {
   X,
   Pencil,
   Download,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,7 +48,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useStore } from "@/lib/store";
@@ -55,12 +55,28 @@ import { toast } from "sonner";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import type { DividendDeclaration } from "@/lib/types";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { useGetCurrencies } from "@/hooks/useCurrency";
+import {
+  dividendLiabilityKeys,
+  useGetDividendLiabilityPreview,
+} from "@/hooks/useGetDividendLiabilityPreview";
+import {
+  APPROVE_DIVIDEND_DECLARATION,
+  GET_ALL_DIVIDEND_DECLARATIONS,
+  GET_DIVIDEND_LIABILITY_PREVIEW_FULL,
+  POST_CREATE_DIVIDEND_DECLARATION,
+  REJECT_DIVIDEND_DECLARATION,
+  SUBMIT_DIVIDEND_DECLARATION,
+} from "@/actions/divDeclarationActions";
+import * as XLSX from "xlsx";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatCustomDate } from "@/utils/helperFunctions";
 
 export default function DeclarationPage() {
-  const { currentUser, registers, shareholders, dividendDeclarations } =
-    useStore();
+  const queryClient = useQueryClient();
+  const { currentUser, dividendDeclarations } = useStore();
   const [activeTab, setActiveTab] = useState("new");
-
   const [selectedRegister, setSelectedRegister] = useState("");
   const [divType, setDivType] = useState("FINAL");
   const [rate, setRate] = useState<number | "">("");
@@ -68,15 +84,15 @@ export default function DeclarationPage() {
   const [date2, setDate2] = useState<Date>();
   const [date3, setDate3] = useState<Date>();
   const [fractional, setFractional] = useState(false);
-
+  const [currency, setCurrency] = useState("NGN");
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [successVersion, setSuccessVersion] = useState<number | null>(null);
-  const [versionCounter, setVersionCounter] = useState(1);
-
+  const [narrative, setNarrative] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedDecl, setSelectedDecl] = useState<DividendDeclaration | null>(
     null,
   );
+
   const [sheetComment, setSheetComment] = useState("");
   const [rejectedDecl, setRejectedDecl] = useState<{
     ref: string;
@@ -100,9 +116,37 @@ export default function DeclarationPage() {
   const [batchTarget, setBatchTarget] = useState<"pending" | "icu" | null>(
     null,
   );
+  const [previewPage, setPreviewPage] = useState(1);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
-  const register = registers.find((r) => r.id === selectedRegister);
-  const stockToday = register?.stockToday || 0;
+  const { data: currenciesData } = useGetCurrencies();
+  const currencies = currenciesData?.content || [];
+
+  const { data: registersData } = useGetRegisters({
+    size: 1000,
+  });
+
+  const { data: declarationData } = useQuery({
+    queryKey: ["all-declarations", 20, 1],
+    queryFn: GET_ALL_DIVIDEND_DECLARATIONS,
+  });
+
+  const declarationList = declarationData?.data?.content || [];
+
+  const {
+    data: dividendLiabilityPreview,
+    isFetching: liabilityPreviewFetching,
+    isLoading: liabilityPreviewLoading,
+  } = useGetDividendLiabilityPreview({
+    registerId: selectedRegister,
+    rate,
+    page: previewPage - 1, // API is 0-indexed
+  });
+  const previewData = (dividendLiabilityPreview as any)?.data;
+
+  const registerlist = registersData?.content;
+  const register = registerlist?.find((r) => r.registerId === selectedRegister);
+  const stockToday = register?.currentShareholdersSize || 0;
   const rateNum = typeof rate === "number" ? rate : 0;
   const grossLiability = rateNum * stockToday;
   const wht = grossLiability * 0.1;
@@ -167,8 +211,74 @@ export default function DeclarationPage() {
 
   const formatNaira = (num: number) => {
     if (num >= 1_000_000_000) return `₦${(num / 1_000_000_000).toFixed(2)}B`;
-    return `₦${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₦${num?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  const createDeclarationMutation = useMutation({
+    mutationFn: POST_CREATE_DIVIDEND_DECLARATION,
+    onSuccess: () => {
+      toast.success("Dividend declaration created successfully");
+      queryClient.invalidateQueries({ queryKey: dividendLiabilityKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["all-declarations"] });
+      setDate1(undefined);
+      setDate2(undefined);
+      setDate3(undefined);
+      setRate("");
+      setDivType("");
+      setFractional(false);
+      setNarrative("");
+      setSelectedRegister("");
+      setCurrency("");
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to create dividend declaration");
+    },
+  });
+
+  const submitForApprovalMutation = useMutation({
+    mutationFn: SUBMIT_DIVIDEND_DECLARATION,
+    onSuccess: () => {
+      toast.success("Dividend declaration submitted successfully");
+      queryClient.invalidateQueries({ queryKey: dividendLiabilityKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["all-declarations"] });
+      setSheetOpen(false);
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to submit dividend declaration");
+    },
+  });
+
+  const rejectDividendDeclarationMutation = useMutation({
+    mutationFn: REJECT_DIVIDEND_DECLARATION,
+    onSuccess: () => {
+      toast.success("Dividend declaration rejected successfully");
+      queryClient.invalidateQueries({ queryKey: dividendLiabilityKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["all-declarations"] });
+      setSheetOpen(false);
+      setSheetComment("");
+      setIcuApprovalOpen(false);
+      setIcuComment("");
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to reject dividend declaration");
+    },
+  });
+
+  const approveDividendDeclarationMutation = useMutation({
+    mutationFn: APPROVE_DIVIDEND_DECLARATION,
+    onSuccess: () => {
+      toast.success("Dividend declaration approved successfully");
+      queryClient.invalidateQueries({ queryKey: dividendLiabilityKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["all-declarations"] });
+      setSheetOpen(false);
+      setSheetComment("");
+      setIcuApprovalOpen(false);
+      setIcuComment("");
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to approve dividend declaration");
+    },
+  });
 
   const handleSubmit = () => {
     if (registerBlocked) {
@@ -177,42 +287,199 @@ export default function DeclarationPage() {
       );
       return;
     }
-    if (grossLiability > (currentUser?.divTransactionLimit || 0)) {
-      toast.error("Transaction value exceeds your authorised limit.");
+    if (!date1) {
+      toast.error("Qualification date is required.");
       return;
     }
-    const v = versionCounter;
-    setVersionCounter(v + 1);
-    setSuccessVersion(v);
-    setEditingRejected(null);
-    setActiveTab("auth");
+    if (!date2) {
+      toast.error("Closure date is required.");
+      return;
+    }
+    if (!date3) {
+      toast.error("Payment date is required.");
+      return;
+    }
+    if (date1) {
+      const today = new Date();
+      if (date1 < today) {
+        toast.error("Qualification date must be greater than today date.");
+        return;
+      }
+    }
+    if (date2) {
+      const today = new Date();
+      if (date2 < today) {
+        toast.error("Closure date must be greater than today date.");
+        return;
+      }
+    }
+    if (date3) {
+      const today = new Date();
+      if (date3 < today) {
+        toast.error("Payment date must be greater than today date.");
+        return;
+      }
+    }
+
+    if (date1 && date2) {
+      if (date2 < date1) {
+        toast.error("Closure date must be greater than qualification date.");
+        return;
+      }
+    }
+
+    if (date2 && date3) {
+      if (date3 < date2) {
+        toast.error("Payment date must be greater than closure date.");
+        return;
+      }
+    }
+    const payload = {
+      registerId: selectedRegister,
+      dividendType: divType,
+      rate: rateNum,
+      currency: currency,
+      qualificationDate: date1 ? format(date1, "yyyy-MM-dd") : null,
+      closureDate: date2 ? format(date2, "yyyy-MM-dd") : null,
+      paymentDate: date3 ? format(date3, "yyyy-MM-dd") : null,
+      fractionalRegister: fractional,
+      narrative: narrative,
+      initiatedBy: currentUser?.email,
+    };
+
+    createDeclarationMutation.mutate(payload);
   };
 
-  const [previewPage, setPreviewPage] = useState(1);
-  const PREVIEW_PAGE_SIZE = 10;
-  const previewStart = (previewPage - 1) * PREVIEW_PAGE_SIZE;
-  const previewPagedRows = shareholders.slice(
-    previewStart,
-    previewStart + PREVIEW_PAGE_SIZE,
-  );
-  const previewTotalPages = Math.max(
-    1,
-    Math.ceil(shareholders.length / PREVIEW_PAGE_SIZE),
-  );
+  const submitForApproval = (id: number) => {
+    submitForApprovalMutation.mutate({ id });
+  };
 
-  const allTotals = shareholders.reduce(
-    (acc, s) => {
-      const g = s.holdings * rateNum;
-      const w = g * 0.1;
-      return {
-        units: acc.units + s.holdings,
-        gross: acc.gross + g,
-        wht: acc.wht + w,
-        net: acc.net + (g - w),
-      };
-    },
-    { units: 0, gross: 0, wht: 0, net: 0 },
-  );
+  const handleReject = (id: number) => {
+    if (!sheetComment) {
+      toast.error("Comment is required");
+      return;
+    }
+    const payload = {
+      comment: sheetComment,
+      authorisedBy: currentUser?.email,
+    };
+
+    rejectDividendDeclarationMutation.mutate({ id, payload });
+  };
+
+  const handleIcuReject = (id: number) => {
+    if (!icuComment) {
+      toast.error("Comment is required");
+      return;
+    }
+    const payload = {
+      comment: icuComment,
+      authorisedBy: currentUser?.email,
+    };
+    rejectDividendDeclarationMutation.mutate({ id, payload });
+  };
+
+  const handleApprove = (id: number) => {
+    if (!sheetComment) {
+      toast.error("Comment is required");
+      return;
+    }
+    const payload = {
+      comment: sheetComment,
+      authorisedBy: currentUser?.email,
+    };
+    approveDividendDeclarationMutation.mutate({ id, payload });
+  };
+
+  const handleIcuApprove = (id: number) => {
+    if (!icuComment) {
+      toast.error("Comment is required");
+      return;
+    }
+    const payload = {
+      comment: icuComment,
+      authorisedBy: currentUser?.email,
+    };
+    approveDividendDeclarationMutation.mutate({ id, payload });
+  };
+
+  const handleExportExcel = async () => {
+    if (!selectedRegister || rate === "") return;
+    setIsExportingExcel(true);
+    toast.info("Preparing Excel download...");
+    try {
+      const fullPreviewResponse = await GET_DIVIDEND_LIABILITY_PREVIEW_FULL({
+        registerId: selectedRegister,
+        rate: String(rate),
+        size: previewTotalElements || 100000,
+      });
+
+      const rows = fullPreviewResponse?.data?.rows?.content || [];
+      if (!rows.length) {
+        toast.error("No preview data available to download.");
+        setIsExportingExcel(false);
+        return;
+      }
+
+      // Format/clean the data for a professional Excel report
+      const cleanedData = rows.map(
+        (
+          row: {
+            accountNumber: number;
+            holderName: string;
+            units: number;
+            grossDividend: number;
+            whtAmount: number;
+            netDividend: number;
+          },
+          index: number,
+        ) => ({
+          "S/N": index + 1,
+          "Account Number": row.accountNumber || "-",
+          "Holder Name": row.holderName || "-",
+          "Units at Qualification Date": row.units || 0,
+          "Gross Dividend (₦)": row.grossDividend || 0,
+          "WHT (₦)": row.whtAmount || 0,
+          "Net Dividend (₦)": row.netDividend || 0,
+        }),
+      );
+
+      const symbol = previewData?.registerSymbol || selectedRegister;
+      const date = new Date();
+      const timestamp = date.toISOString().replace(/[:.]/g, "-");
+      const filename = `dividend_liability_preview_${symbol}_${timestamp}.xlsx`;
+
+      const worksheet = XLSX.utils.json_to_sheet(cleanedData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Liability Preview");
+
+      // Auto-fit columns
+      const maxLens = Object.keys(cleanedData[0] || {}).map((key) => {
+        return Math.max(
+          key.length,
+          ...cleanedData.map((row: any) => String(row[key] ?? "").length),
+        );
+      });
+      worksheet["!cols"] = maxLens.map((len) => ({ wch: len + 3 }));
+
+      XLSX.writeFile(workbook, filename);
+      toast.success("Excel downloaded successfully.");
+    } catch (error) {
+      toast.error(
+        (error as { message: string }).message ||
+          "Failed to download Excel report.",
+      );
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  // Server-side pagination — derive values from the API response
+  const previewRows = previewData?.rows;
+  const previewTotalPages = previewRows?.totalPages ?? 1;
+  const previewTotalElements = previewRows?.totalElements ?? 0;
+  const previewPageSize = previewRows?.size ?? 10;
+  const previewStart = (previewPage - 1) * previewPageSize;
 
   const pendingDecs = dividendDeclarations.filter((d) =>
     d.status.startsWith("PENDING"),
@@ -324,6 +591,12 @@ export default function DeclarationPage() {
             className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
           >
             New Declaration
+          </TabsTrigger>
+          <TabsTrigger
+            value="draft"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            Draft
           </TabsTrigger>
           <TabsTrigger
             value="auth"
@@ -460,25 +733,31 @@ export default function DeclarationPage() {
                       <label className="mrpsl-label">Register *</label>
                       <Select
                         value={selectedRegister}
-                        onValueChange={(v) => setSelectedRegister(v || "")}
+                        onValueChange={(v) => {
+                          setSelectedRegister(v || "");
+                          setPreviewPage(1);
+                        }}
                       >
                         <SelectTrigger className="mrpsl-input">
                           <SelectValue placeholder="Select Active Register" />
                         </SelectTrigger>
                         <SelectContent>
-                          {registers
-                            .filter((r) => r.status === "ACTIVE")
+                          {registerlist
+                            ?.filter((r) => r?.status === "ACTIVE")
                             .map((r) => (
-                              <SelectItem key={r.id} value={r.id}>
-                                {r.symbol}
+                              <SelectItem
+                                key={r.registerId}
+                                value={r?.registerId}
+                              >
+                                {r?.registerId} - {r?.symbol}
                               </SelectItem>
                             ))}
                         </SelectContent>
                       </Select>
                       {register && (
                         <p className="text-[13px] bg-muted/60 p-1.5 rounded text-muted-foreground">
-                          Type: {register.registerType} · Shareholders:{" "}
-                          {register.shareholdersToday.toLocaleString()}
+                          Type: {register?.registerType} · Shareholders:{" "}
+                          {register?.currentShareholdersSize?.toLocaleString()}
                         </p>
                       )}
                     </div>
@@ -490,7 +769,7 @@ export default function DeclarationPage() {
                         onValueChange={(v) => setDivType(v || "")}
                       >
                         <SelectTrigger className="mrpsl-input">
-                          <SelectValue />
+                          <SelectValue placeholder="Select Dividend Type" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="FINAL">Final</SelectItem>
@@ -502,13 +781,19 @@ export default function DeclarationPage() {
 
                     <div className="space-y-2">
                       <label className="mrpsl-label">Currency</label>
-                      <Select defaultValue="NGN">
+                      <Select
+                        value={currency}
+                        onValueChange={(v) => setCurrency(v || "")}
+                      >
                         <SelectTrigger className="mrpsl-input">
-                          <SelectValue />
+                          <SelectValue placeholder="Select Currency" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="NGN">NGN (₦)</SelectItem>
-                          <SelectItem value="USD">USD ($)</SelectItem>
+                          {currencies?.map((c) => (
+                            <SelectItem key={c?.id} value={c?.code}>
+                              {c?.name} ({c?.symbol})
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -639,6 +924,8 @@ export default function DeclarationPage() {
                     <Textarea
                       placeholder="Add notes or context for approvers..."
                       className="resize-none"
+                      value={narrative}
+                      onChange={(e) => setNarrative(e.target.value)}
                     />
                   </div>
 
@@ -683,11 +970,19 @@ export default function DeclarationPage() {
                       onClick={() => {
                         handleSubmit();
                       }}
-                      disabled={!rate || !selectedRegister || registerBlocked}
+                      disabled={
+                        !rate ||
+                        !selectedRegister ||
+                        registerBlocked ||
+                        createDeclarationMutation.isPending
+                      }
                     >
                       {editingRejected
                         ? "Resubmit Declaration"
                         : "Submit Declaration"}
+                      {createDeclarationMutation.isPending && (
+                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                      )}
                     </Button>
                   </div>
                 </Card>
@@ -695,12 +990,21 @@ export default function DeclarationPage() {
             )}
           </TabsContent>
 
-          {/* ── Pending Approval ── */}
-          <TabsContent value="auth">
+          {/* ── Draft ── */}
+          <TabsContent value="draft">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {pendingDecsPg.total} pending declaration
-                {pendingDecsPg.total !== 1 ? "s" : ""}
+                {
+                  declarationList?.filter(
+                    (d: { status: string }) => d.status === "DRAFT",
+                  )?.length
+                }{" "}
+                pending declaration
+                {declarationList?.filter(
+                  (d: { status: string }) => d.status === "DRAFT",
+                )?.length !== 1
+                  ? "s"
+                  : ""}
               </p>
               <Button
                 variant="outline"
@@ -760,70 +1064,315 @@ export default function DeclarationPage() {
                         <th className="px-4 py-3">PAYMENT NO</th>
                         <th className="px-4 py-3">REGISTER</th>
                         <th className="px-4 py-3">TYPE</th>
-                        <th className="px-4 py-3">RATE</th>
-                        <th className="px-4 py-3">GROSS LIABILITY</th>
-                        <th className="px-4 py-3">TIER</th>
-                        <th className="px-4 py-3">STATUS</th>
-                        <th className="px-4 py-3">ACTIONS</th>
+                        <th className="px-4 py-3 text-center">RATE</th>
+                        <th className="px-4 py-3 text-center">
+                          GROSS LIABILITY
+                        </th>
+                        <th className="px-4 py-3 text-center">TIER</th>
+                        <th className="px-4 py-3 text-center">STATUS</th>
+                        <th className="px-4 py-3 text-center">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {pendingDecsPg.paged.map((d) => {
-                        const reg = registers.find(
-                          (r) => r.id === d.registerId,
-                        );
-                        return (
-                          <tr
-                            key={d.id}
-                            className={`mrpsl-table-row ${pendingSelIds.has(d.id) ? "bg-primary/5" : ""}`}
+                      {declarationList?.filter(
+                        (d: DividendDeclaration) => d.status === "DRAFT",
+                      )?.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="text-center py-4">
+                            No pending declarations
+                          </td>
+                        </tr>
+                      ) : (
+                        declarationList
+                          ?.filter(
+                            (d: DividendDeclaration) => d.status === "DRAFT",
+                          )
+                          .map(
+                            (d: {
+                              id: string;
+                              paymentNumber: string;
+                              registerSymbol: string;
+                              dividendType: string;
+                              rate: string;
+                              grossLiability: string;
+                              tier: number;
+                              status: string;
+                            }) => {
+                              return (
+                                <tr
+                                  key={d.id}
+                                  className={`mrpsl-table-row ${pendingSelIds.has(d.id) ? "bg-primary/5" : ""}`}
+                                >
+                                  <td className="px-4 py-3">
+                                    <Checkbox
+                                      checked={pendingSelIds.has(d.id)}
+                                      onCheckedChange={() =>
+                                        togglePendingSel(d.id)
+                                      }
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
+                                    {d.paymentNumber}
+                                  </td>
+                                  <td className="px-4 py-3 font-semibold">
+                                    {d?.registerSymbol}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {d.dividendType}
+                                  </td>
+                                  <td className="px-4 py-3 tabular text-center">
+                                    ₦{Number(d.rate)?.toFixed(4)}
+                                  </td>
+                                  <td className="px-4 py-3 tabular text-center font-bold">
+                                    {formatNaira(Number(d.grossLiability))}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Badge
+                                      className={`${getTierBadge(d.tier)} text-[13px]`}
+                                    >
+                                      Tier {d.tier}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Badge
+                                      className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
+                                    >
+                                      {formatStatus(d.status)}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedDecl({
+                                          ...d,
+                                          rate: Number(d.rate),
+                                          grossLiability: Number(
+                                            d.grossLiability,
+                                          ),
+                                          whtAmount:
+                                            Number(d.grossLiability) * 0.1,
+                                          netLiability:
+                                            Number(d.grossLiability) * 0.9,
+                                          registerId: d.registerSymbol || "",
+                                        } as unknown as DividendDeclaration);
+                                        setSheetOpen(true);
+                                      }}
+                                    >
+                                      Review &amp; Decide
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            },
+                          )
+                      )}
+                      {pendingDecsPg.total === 0 && (
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="px-4 py-12 text-center text-muted-foreground"
                           >
-                            <td className="px-4 py-3">
-                              <Checkbox
-                                checked={pendingSelIds.has(d.id)}
-                                onCheckedChange={() => togglePendingSel(d.id)}
-                              />
-                            </td>
-                            <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
-                              {d.paymentNumber}
-                            </td>
-                            <td className="px-4 py-3 font-semibold">
-                              {reg?.symbol}
-                            </td>
-                            <td className="px-4 py-3">{d.dividendType}</td>
-                            <td className="px-4 py-3 text-right tabular">
-                              ₦{d.rate.toFixed(4)}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular font-bold">
-                              {formatNaira(d.grossLiability)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge
-                                className={`${getTierBadge(d.tier)} text-[13px]`}
-                              >
-                                Tier {d.tier}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge
-                                className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
-                              >
-                                {formatStatus(d.status)}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedDecl(d);
-                                  setSheetOpen(true);
-                                }}
-                              >
-                                Review &amp; Decide
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                            No pending declarations.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+              <TablePagination
+                page={pendingDecsPg.page}
+                pageSize={pendingDecsPg.pageSize}
+                totalPages={pendingDecsPg.totalPages}
+                from={pendingDecsPg.from}
+                to={pendingDecsPg.to}
+                total={pendingDecsPg.total}
+                onPageChange={pendingDecsPg.setPage}
+                onPageSizeChange={pendingDecsPg.setPageSize}
+              />
+            </div>
+          </TabsContent>
+
+          {/* ── Pending Approval ── */}
+          <TabsContent value="auth">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                {
+                  declarationList?.filter(
+                    (d: { status: string }) => d.status === "PENDING_TIER2",
+                  )?.length
+                }{" "}
+                pending declaration
+                {declarationList?.filter(
+                  (d: { status: string }) => d.status === "PENDING_TIER2",
+                )?.length !== 1
+                  ? "s"
+                  : ""}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => toast.info("Downloading...")}
+              >
+                <Download className="h-4 w-4" /> Download Records
+              </Button>
+            </div>
+            <div className="space-y-4">
+              {pendingSelIds.size > 0 && (
+                <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+                  <span className="text-sm font-medium text-primary">
+                    {pendingSelIds.size} declaration
+                    {pendingSelIds.size !== 1 ? "s" : ""} selected
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+                      onClick={() => openBatchReject("pending")}
+                    >
+                      Reject Selected
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => handleBatchApprove("pending")}
+                    >
+                      Approve Selected
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <Card className="mrpsl-card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="mrpsl-table-header">
+                      <tr>
+                        <th className="px-4 py-3 w-10">
+                          <Checkbox
+                            checked={
+                              pendingDecsPg.paged.length > 0 &&
+                              pendingDecsPg.paged.every((d) =>
+                                pendingSelIds.has(d.id),
+                              )
+                            }
+                            onCheckedChange={() =>
+                              togglePendingAll(
+                                pendingDecsPg.paged.map((d) => d.id),
+                              )
+                            }
+                          />
+                        </th>
+                        <th className="px-4 py-3">PAYMENT NO</th>
+                        <th className="px-4 py-3">REGISTER</th>
+                        <th className="px-4 py-3">TYPE</th>
+                        <th className="px-4 py-3 text-center">RATE</th>
+                        <th className="px-4 py-3 text-center">
+                          GROSS LIABILITY
+                        </th>
+                        <th className="px-4 py-3 text-center">TIER</th>
+                        <th className="px-4 py-3 text-center">STATUS</th>
+                        <th className="px-4 py-3 text-center">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {declarationList?.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="px-4 py-12 text-center text-muted-foreground"
+                          >
+                            No pending declarations.
+                          </td>
+                        </tr>
+                      ) : (
+                        declarationList
+                          ?.filter(
+                            (d: DividendDeclaration) =>
+                              d.status === "PENDING_TIER2",
+                          )
+                          .map(
+                            (d: {
+                              id: string;
+                              paymentNumber: string;
+                              registerSymbol: string;
+                              dividendType: string;
+                              rate: string;
+                              grossLiability: string;
+                              tier: number;
+                              status: string;
+                            }) => {
+                              return (
+                                <tr
+                                  key={d.id}
+                                  className={`mrpsl-table-row ${pendingSelIds.has(d.id) ? "bg-primary/5" : ""}`}
+                                >
+                                  <td className="px-4 py-3">
+                                    <Checkbox
+                                      checked={pendingSelIds.has(d.id)}
+                                      onCheckedChange={() =>
+                                        togglePendingSel(d.id)
+                                      }
+                                    />
+                                  </td>
+                                  <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
+                                    {d.paymentNumber}
+                                  </td>
+                                  <td className="px-4 py-3 font-semibold">
+                                    {d?.registerSymbol}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {d.dividendType}
+                                  </td>
+                                  <td className="px-4 py-3 text-center tabular">
+                                    ₦{Number(d.rate)?.toFixed(4)}
+                                  </td>
+                                  <td className="px-4 py-3 text-center tabular font-bold">
+                                    {formatNaira(Number(d.grossLiability))}
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Badge
+                                      className={`${getTierBadge(d.tier)} text-[13px]`}
+                                    >
+                                      Tier {d.tier}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Badge
+                                      className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
+                                    >
+                                      {formatStatus(d.status)}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 text-center">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedDecl({
+                                          ...d,
+                                          rate: Number(d.rate),
+                                          grossLiability: Number(
+                                            d.grossLiability,
+                                          ),
+                                          whtAmount:
+                                            Number(d.grossLiability) * 0.1,
+                                          netLiability:
+                                            Number(d.grossLiability) * 0.9,
+                                          registerId: d.registerSymbol || "",
+                                        } as unknown as DividendDeclaration);
+                                        setSheetOpen(true);
+                                      }}
+                                    >
+                                      Review &amp; Decide
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            },
+                          )
+                      )}
                       {pendingDecsPg.total === 0 && (
                         <tr>
                           <td
@@ -855,7 +1404,17 @@ export default function DeclarationPage() {
           <TabsContent value="icu">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {icuDecsPg.total} declaration{icuDecsPg.total !== 1 ? "s" : ""}{" "}
+                {
+                  declarationList?.filter(
+                    (d: DividendDeclaration) => d.status === "PENDING_TIER3",
+                  )?.length
+                }{" "}
+                declaration{" "}
+                {declarationList?.filter(
+                  (d: DividendDeclaration) => d.status === "PENDING_TIER3",
+                )?.length !== 1
+                  ? "s"
+                  : ""}{" "}
                 pending ICU review
               </p>
               <Button
@@ -912,71 +1471,99 @@ export default function DeclarationPage() {
                         <th className="px-4 py-3">PAYMENT NO</th>
                         <th className="px-4 py-3">REGISTER</th>
                         <th className="px-4 py-3">TYPE</th>
-                        <th className="px-4 py-3">RATE</th>
-                        <th className="px-4 py-3">GROSS LIABILITY</th>
-                        <th className="px-4 py-3">TIER</th>
-                        <th className="px-4 py-3">STATUS</th>
-                        <th className="px-4 py-3">ACTIONS</th>
+                        <th className="px-4 py-3 text-center">RATE</th>
+                        <th className="px-4 py-3 text-center">
+                          GROSS LIABILITY
+                        </th>
+                        <th className="px-4 py-3 text-center">TIER</th>
+                        <th className="px-4 py-3 text-center">STATUS</th>
+                        <th className="px-4 py-3 text-center">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {icuDecsPg.paged.map((d) => {
-                        const reg = registers.find(
-                          (r) => r.id === d.registerId,
-                        );
-                        return (
-                          <tr
-                            key={d.id}
-                            className={`mrpsl-table-row ${icuSelIds.has(d.id) ? "bg-primary/5" : ""}`}
-                          >
-                            <td className="px-4 py-3">
-                              <Checkbox
-                                checked={icuSelIds.has(d.id)}
-                                onCheckedChange={() => toggleIcuSel(d.id)}
-                              />
-                            </td>
-                            <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
-                              {d.paymentNumber}
-                            </td>
-                            <td className="px-4 py-3 font-semibold">
-                              {reg?.symbol}
-                            </td>
-                            <td className="px-4 py-3">{d.dividendType}</td>
-                            <td className="px-4 py-3 text-right tabular">
-                              ₦{d.rate.toFixed(4)}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular font-bold">
-                              {formatNaira(d.grossLiability)}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge
-                                className={`${getTierBadge(d.tier)} text-[13px]`}
+                      {declarationList
+                        ?.filter(
+                          (d: { status: string }) =>
+                            d.status === "PENDING_TIER3",
+                        )
+                        ?.map(
+                          (d: {
+                            id: string;
+                            paymentNumber: string;
+                            registerSymbol: string;
+                            dividendType: string;
+                            rate: string;
+                            grossLiability: string;
+                            tier: number;
+                            status: string;
+                          }) => {
+                            return (
+                              <tr
+                                key={d.id}
+                                className={`mrpsl-table-row ${icuSelIds.has(d.id) ? "bg-primary/5" : ""}`}
                               >
-                                Tier {d.tier}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge
-                                className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
-                              >
-                                {formatStatus(d.status)}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedIcuDecl(d);
-                                  setIcuApprovalOpen(true);
-                                }}
-                              >
-                                Review &amp; Decide
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {icuDecsPg.total === 0 && (
+                                <td className="px-4 py-3">
+                                  <Checkbox
+                                    checked={icuSelIds.has(d.id)}
+                                    onCheckedChange={() => toggleIcuSel(d.id)}
+                                  />
+                                </td>
+                                <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
+                                  {d.paymentNumber}
+                                </td>
+                                <td className="px-4 py-3 font-semibold">
+                                  {d?.registerSymbol}
+                                </td>
+                                <td className="px-4 py-3">{d.dividendType}</td>
+                                <td className="px-4 py-3 text-center tabular">
+                                  ₦{Number(d?.rate)?.toFixed(4)}
+                                </td>
+                                <td className="px-4 py-3 text-center tabular font-bold">
+                                  {formatNaira(Number(d.grossLiability))}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Badge
+                                    className={`${getTierBadge(d.tier)} text-[13px]`}
+                                  >
+                                    Tier {d.tier}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Badge
+                                    className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
+                                  >
+                                    {formatStatus(d.status)}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedIcuDecl({
+                                        ...d,
+                                        rate: Number(d.rate),
+                                        grossLiability: Number(
+                                          d.grossLiability,
+                                        ),
+                                        whtAmount:
+                                          Number(d.grossLiability) * 0.1,
+                                        netLiability:
+                                          Number(d.grossLiability) * 0.9,
+                                        registerId: d.registerSymbol || "",
+                                      } as unknown as DividendDeclaration);
+                                      setIcuApprovalOpen(true);
+                                    }}
+                                  >
+                                    Review &amp; Decide
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          },
+                        )}
+                      {declarationList?.filter(
+                        (d: { status: string }) => d.status === "PENDING_TIER3",
+                      )?.length === 0 && (
                         <tr>
                           <td
                             colSpan={9}
@@ -1014,119 +1601,125 @@ export default function DeclarationPage() {
                       <th className="px-4 py-3">REGISTER</th>
                       <th className="px-4 py-3">TYPE</th>
                       <th className="px-4 py-3">QUAL DATE</th>
-                      <th className="px-4 py-3">RATE (₦)</th>
-                      <th className="px-4 py-3">GROSS LIABILITY</th>
-                      <th className="px-4 py-3">TIER</th>
-                      <th className="px-4 py-3">STATUS</th>
-                      <th className="px-4 py-3">ACTIONS</th>
+                      <th className="px-4 py-3 text-center">RATE (₦)</th>
+                      <th className="px-4 py-3 text-center">GROSS LIABILITY</th>
+                      <th className="px-4 py-3 text-center">TIER</th>
+                      <th className="px-4 py-3 text-center">STATUS</th>
+                      <th className="px-4 py-3 text-center">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {historyDecsPg.paged.map((d) => {
-                      const reg = registers.find((r) => r.id === d.registerId);
-                      return (
-                        <tr key={d.id} className="mrpsl-table-row">
-                          <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                            {d.paymentNumber}
-                          </td>
-                          <td className="px-4 py-3 font-semibold">
-                            {reg?.symbol}
-                          </td>
-                          <td className="px-4 py-3">
-                            {d.dividendType === "FINAL"
-                              ? "Final"
-                              : d.dividendType === "INTERIM"
-                                ? "Interim"
-                                : "Special"}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-[13px]">
-                            {d.qualificationDate
-                              ? format(
-                                  new Date(d.qualificationDate),
-                                  "dd MMM yyyy",
-                                )
-                              : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums">
-                            {d.rate.toFixed(4)}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums font-semibold">
-                            {formatNaira(d.grossLiability)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge
-                              className={`${getTierBadge(d.tier)} text-[13px]`}
-                            >
-                              Tier {d.tier}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3">
-                            <Badge
-                              className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
-                            >
-                              {formatStatus(d.status)}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedDecl(d);
-                                    setSheetOpen(true);
-                                  }}
-                                >
-                                  <Eye className="mr-2 h-4 w-4" /> View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    toast.success("Warrant advice printed")
-                                  }
-                                >
-                                  <Printer className="mr-2 h-4 w-4" /> Print
-                                  Warrant Advice
-                                </DropdownMenuItem>
-                                {d.status === "DRAFT" && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      className="text-destructive"
-                                      onClick={() =>
-                                        toast.success("Declaration recalled")
-                                      }
-                                    >
-                                      <RotateCcw className="mr-2 h-4 w-4" />{" "}
-                                      Recall Declaration
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {d.status === "REJECTED" && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onClick={() =>
-                                        toast.success(
-                                          "Resubmitted for approval",
-                                        )
-                                      }
-                                    >
-                                      <RotateCcw className="mr-2 h-4 w-4" />{" "}
-                                      Re-submit
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {historyDecsPg.total === 0 && (
+                    {declarationList
+                      ?.filter((d: { status: string }) => {
+                        return d.status === "AUTHORIZED";
+                      })
+                      ?.map((d: DividendDeclaration) => {
+                        return (
+                          <tr key={d.id} className="mrpsl-table-row">
+                            <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                              {d.paymentNumber}
+                            </td>
+                            <td className="px-4 py-3 font-semibold">
+                              {d?.registerSymbol}
+                            </td>
+                            <td className="px-4 py-3">
+                              {d.dividendType === "FINAL"
+                                ? "Final"
+                                : d.dividendType === "INTERIM"
+                                  ? "Interim"
+                                  : "Special"}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground text-[13px]">
+                              {d.qualificationDate
+                                ? format(
+                                    new Date(d.qualificationDate),
+                                    "dd MMM yyyy",
+                                  )
+                                : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-center tabular-nums">
+                              {d.rate.toFixed(4)}
+                            </td>
+                            <td className="px-4 py-3 text-center tabular-nums font-semibold">
+                              {formatNaira(d.grossLiability)}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <Badge
+                                className={`${getTierBadge(d.tier)} text-[13px]`}
+                              >
+                                Tier {d.tier}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <Badge
+                                className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
+                              >
+                                {formatStatus(d.status)}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedDecl(d);
+                                      setSheetOpen(true);
+                                    }}
+                                  >
+                                    <Eye className="mr-2 h-4 w-4" /> View
+                                    Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      toast.success("Warrant advice printed")
+                                    }
+                                  >
+                                    <Printer className="mr-2 h-4 w-4" /> Print
+                                    Warrant Advice
+                                  </DropdownMenuItem>
+                                  {d.status === "DRAFT" && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        className="text-destructive"
+                                        onClick={() =>
+                                          toast.success("Declaration recalled")
+                                        }
+                                      >
+                                        <RotateCcw className="mr-2 h-4 w-4" />{" "}
+                                        Recall Declaration
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {d.status === "REJECTED" && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          toast.success(
+                                            "Resubmitted for approval",
+                                          )
+                                        }
+                                      >
+                                        <RotateCcw className="mr-2 h-4 w-4" />{" "}
+                                        Re-submit
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    {declarationList?.filter((d: { status: string }) => {
+                      return d.status === "AUTHORIZED";
+                    })?.length === 0 && (
                       <tr>
                         <td
                           colSpan={9}
@@ -1209,18 +1802,21 @@ export default function DeclarationPage() {
           if (!open) setPreviewPage(1);
         }}
       >
-        <DialogContent className="max-w-[min(95vw,1140px)] flex flex-col max-h-[90vh] p-0 gap-0 overflow-hidden">
+        <DialogContent className="max-w-[min(95vw,1400px)] flex flex-col max-h-[90vh] p-0 gap-0 overflow-hidden">
           <DialogHeader className="pl-6 pr-14 pt-5 pb-4 border-b shrink-0">
             <DialogTitle>Dividend Liability Preview</DialogTitle>
             <DialogDescription className="mt-1">
               {register ? (
                 <>
-                  <strong>{register.name ?? register.symbol}</strong> ·{" "}
+                  <strong>
+                    {previewData?.registerSymbol + " - " + register.registerId}
+                  </strong>{" "}
+                  ·{" "}
                 </>
               ) : (
                 ""
               )}
-              Rate: <strong>₦{rateNum.toFixed(4)}/share</strong>
+              Rate: <strong>₦{previewData?.rate?.toFixed(2)}/share</strong>
               {date1 ? (
                 <>
                   {" "}
@@ -1230,31 +1826,39 @@ export default function DeclarationPage() {
               ) : (
                 ""
               )}{" "}
-              · {shareholders.length.toLocaleString()} eligible shareholders
+              · {previewData?.totalShareholders?.toLocaleString()} eligible
+              shareholders
             </DialogDescription>
           </DialogHeader>
 
-          {/* Summary stat cards */}
           <div className="px-6 py-3 grid grid-cols-4 gap-3 border-b shrink-0 bg-muted/20">
             {[
               {
                 label: "Total Eligible Shareholders",
-                value: shareholders.length.toLocaleString(),
+                value: previewData?.totalShareholders
+                  ? previewData?.totalShareholders?.toLocaleString()
+                  : 0,
                 color: "text-foreground",
               },
               {
                 label: "Total Gross Liability",
-                value: formatNaira(allTotals.gross),
+                value: previewData?.grossLiability
+                  ? formatNaira(previewData?.grossLiability)
+                  : 0,
                 color: "text-foreground font-bold",
               },
               {
                 label: "Total WHT (10%)",
-                value: formatNaira(allTotals.wht),
+                value: previewData?.whtAmount
+                  ? formatNaira(previewData?.whtAmount)
+                  : 0,
                 color: "text-amber-600 font-bold",
               },
               {
                 label: "Total Net Payout",
-                value: formatNaira(allTotals.net),
+                value: previewData?.netPayout
+                  ? formatNaira(previewData?.netPayout)
+                  : 0,
                 color: "text-green-700 font-bold",
               },
             ].map((s) => (
@@ -1267,7 +1871,6 @@ export default function DeclarationPage() {
             ))}
           </div>
 
-          {/* Scrollable table body */}
           <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0">
             <table className="w-full min-w-[780px] text-left text-sm">
               <thead className="mrpsl-table-header sticky top-0 z-10">
@@ -1282,39 +1885,59 @@ export default function DeclarationPage() {
                 </tr>
               </thead>
               <tbody className="divide-y text-[13px]">
-                {previewPagedRows.map((s, i) => {
-                  const g = s.holdings * rateNum;
-                  const w = g * 0.1;
-                  const n = g - w;
-                  return (
-                    <tr
-                      key={s.id}
-                      className="hover:bg-muted/30 transition-colors"
-                    >
-                      <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
-                        {previewStart + i + 1}
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-muted-foreground text-[12px]">
-                        {s.accountNumber}
-                      </td>
-                      <td className="px-4 py-2.5 font-medium">
-                        {s.firstName} {s.lastName}
-                      </td>
-                      <td className="px-4 py-2.5 tabular-nums text-right">
-                        {s.holdings.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2.5 tabular-nums text-right">
-                        {formatNaira(g)}
-                      </td>
-                      <td className="px-4 py-2.5 tabular-nums text-right text-amber-600">
-                        {formatNaira(w)}
-                      </td>
-                      <td className="px-4 py-2.5 tabular-nums text-right text-green-700 font-semibold">
-                        {formatNaira(n)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {liabilityPreviewLoading || liabilityPreviewFetching ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <Loader2 className="animate-spin h-6 w-6" />
+                        <span>Loading...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  previewData?.rows?.content?.map(
+                    (
+                      s: {
+                        accountNumber: string;
+                        holderName: string;
+                        units: number;
+                        grossDividend: number;
+                        whtAmount: number;
+                        netDividend: number;
+                      },
+                      i: number,
+                    ) => {
+                      return (
+                        <tr
+                          key={i}
+                          className="hover:bg-muted/30 transition-colors"
+                        >
+                          <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
+                            {previewStart + i + 1}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono text-muted-foreground text-[12px]">
+                            {s?.accountNumber}
+                          </td>
+                          <td className="px-4 py-2.5 font-medium">
+                            {s?.holderName}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-right">
+                            {s?.units}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-right">
+                            {formatNaira(s?.grossDividend)}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-right text-amber-600">
+                            {formatNaira(s?.whtAmount)}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums text-right text-green-700 font-semibold">
+                            {formatNaira(s?.netDividend)}
+                          </td>
+                        </tr>
+                      );
+                    },
+                  )
+                )}
               </tbody>
               <tfoot className="bg-muted/40 border-t-2 sticky bottom-0">
                 <tr className="font-bold text-[13px]">
@@ -1322,33 +1945,60 @@ export default function DeclarationPage() {
                     colSpan={3}
                     className="px-4 py-2.5 text-muted-foreground uppercase tracking-wide text-[12px]"
                   >
-                    Page Totals ({shareholders.length.toLocaleString()} total)
+                    Page Totals ({previewData?.rows?.totalElements} total)
                   </td>
                   <td className="px-4 py-2.5 tabular-nums text-right">
-                    {previewPagedRows
-                      .reduce((s, r) => s + r.holdings, 0)
+                    {previewData?.rows?.content
+                      .reduce(
+                        (s: number, r: { units: number }) => s + r.units,
+                        0,
+                      )
                       .toLocaleString()}
                   </td>
                   <td className="px-4 py-2.5 tabular-nums text-right">
                     {formatNaira(
-                      previewPagedRows.reduce(
-                        (s, r) => s + r.holdings * rateNum,
+                      previewData?.rows?.content.reduce(
+                        (
+                          s: number,
+                          r: {
+                            units: number;
+                            grossDividend: number;
+                            whtAmount: number;
+                            netDividend: number;
+                          },
+                        ) => s + r.grossDividend,
                         0,
                       ),
                     )}
                   </td>
                   <td className="px-4 py-2.5 tabular-nums text-right text-amber-600">
                     {formatNaira(
-                      previewPagedRows.reduce(
-                        (s, r) => s + r.holdings * rateNum * 0.1,
+                      previewData?.rows?.content.reduce(
+                        (
+                          s: number,
+                          r: {
+                            units: number;
+                            grossDividend: number;
+                            whtAmount: number;
+                            netDividend: number;
+                          },
+                        ) => s + r.whtAmount,
                         0,
                       ),
                     )}
                   </td>
                   <td className="px-4 py-2.5 tabular-nums text-right text-green-700">
                     {formatNaira(
-                      previewPagedRows.reduce(
-                        (s, r) => s + r.holdings * rateNum * 0.9,
+                      previewData?.rows?.content.reduce(
+                        (
+                          s: number,
+                          r: {
+                            units: number;
+                            grossDividend: number;
+                            whtAmount: number;
+                            netDividend: number;
+                          },
+                        ) => s + r.netDividend,
                         0,
                       ),
                     )}
@@ -1358,19 +2008,18 @@ export default function DeclarationPage() {
             </table>
           </div>
 
-          {/* Pagination + footer */}
           <div className="border-t shrink-0 px-4 py-3 flex items-center justify-between gap-4 bg-muted/10">
             <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
               Showing {previewStart + 1}–
-              {Math.min(previewStart + PREVIEW_PAGE_SIZE, shareholders.length)}{" "}
-              of {shareholders.length.toLocaleString()} shareholders
+              {Math.min(previewStart + previewPageSize, previewTotalElements)}{" "}
+              of {previewTotalElements.toLocaleString()} shareholders
             </div>
             <div className="flex items-center gap-1">
               <Button
                 variant="outline"
                 size="sm"
                 className="h-7 px-2.5 text-[13px]"
-                disabled={previewPage === 1}
+                disabled={previewPage === 1 || liabilityPreviewFetching}
                 onClick={() => setPreviewPage((p) => p - 1)}
               >
                 Previous
@@ -1382,7 +2031,9 @@ export default function DeclarationPage() {
                 variant="outline"
                 size="sm"
                 className="h-7 px-2.5 text-[13px]"
-                disabled={previewPage === previewTotalPages}
+                disabled={
+                  previewPage >= previewTotalPages || liabilityPreviewFetching
+                }
                 onClick={() => setPreviewPage((p) => p + 1)}
               >
                 Next
@@ -1392,9 +2043,17 @@ export default function DeclarationPage() {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => toast.info("Downloading full list...")}
+              onClick={handleExportExcel}
+              disabled={isExportingExcel || !previewTotalElements}
             >
-              <Download className="h-4 w-4" /> Download Full List (Excel)
+              {isExportingExcel ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {isExportingExcel
+                ? "Downloading..."
+                : "Download Full List (Excel)"}
             </Button>
           </div>
         </DialogContent>
@@ -1402,7 +2061,7 @@ export default function DeclarationPage() {
 
       {/* ── Pending Approval Review Dialog ── */}
       <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
-        <DialogContent className="max-w-xl flex flex-col max-h-[90vh] p-0 gap-0">
+        <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <div className="flex items-center gap-2">
               <DialogTitle className="flex-1">
@@ -1473,81 +2132,91 @@ export default function DeclarationPage() {
                     <Check className="h-3 w-3 text-green-600" />
                   </div>
                   <div className="text-sm">
-                    <span className="font-semibold">Chidinma Nwosu</span>
-                    <span className="text-muted-foreground ml-2">
-                      ✓ Submitted 2h ago
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="h-5 w-5 rounded-full bg-amber-200 flex items-center justify-center animate-pulse" />
-                  <div className="text-sm">
                     <span className="font-semibold">
-                      {currentUser?.roles[0].replace(/_/g, " ")}
+                      {selectedDecl?.initiatorName}
                     </span>
-                    <span className="text-amber-600 ml-2">
-                      ⏳ Pending your action
+                    <span className="text-muted-foreground ml-2">
+                      {selectedDecl?.status === "DRAFT"
+                        ? "✓ Initiated at"
+                        : "✓ Submitted at"}{" "}
+                      {formatCustomDate(selectedDecl?.createdAt)}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 rounded-full border-2 border-muted" />
-                  <div className="text-sm text-muted-foreground">
-                    Board / MD — Awaiting
+                {selectedDecl?.approvals?.map((approval, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-green-600" />
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-semibold">
+                        {approval.approverName}
+                      </span>
+                      <span className="text-muted-foreground ml-2">
+                        {approval.decision === "APPROVED" && "✓ Approved at"}{" "}
+                        {formatCustomDate(approval.decidedAt)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="mrpsl-label">Comment</label>
-              <Textarea
-                value={sheetComment}
-                onChange={(e) => setSheetComment(e.target.value)}
-                placeholder="Required for rejection..."
-                className="resize-none"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-4 border-t border-border/60">
+            {selectedDecl?.status !== "DRAFT" &&
+              selectedDecl?.status !== "AUTHORIZED" && (
+                <div className="space-y-2">
+                  <label className="mrpsl-label">Comment</label>
+                  <Textarea
+                    value={sheetComment}
+                    onChange={(e) => setSheetComment(e.target.value)}
+                    placeholder="Required for rejection..."
+                    className="resize-none"
+                  />
+                </div>
+              )}
+            {selectedDecl?.status === "DRAFT" ? (
               <Button
-                variant="destructive"
-                className="flex-1"
-                onClick={() => {
-                  const ref = selectedDecl
-                    ? `${selectedDecl.registerId}-${selectedDecl.dividendType}-${selectedDecl.paymentNumber}`
-                    : "Declaration";
-                  setRejectedDecl({ ref, comment: sheetComment });
-                  setActiveTab("new");
-                  toast.error(
-                    "Declaration rejected and returned to submitter.",
-                  );
-                  setSheetOpen(false);
-                  setSheetComment("");
-                }}
+                className="flex-1 w-full"
+                onClick={() => submitForApproval(Number(selectedDecl?.id))}
+                disabled={submitForApprovalMutation.isPending}
               >
-                Reject
+                Submit
+                {submitForApprovalMutation.isPending && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
               </Button>
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  toast.success(
-                    "Approved. Forwarded to ICU for final sign-off.",
-                  );
-                  setSheetOpen(false);
-                  setSheetComment("");
-                }}
-              >
-                Approve
-              </Button>
-            </div>
+            ) : selectedDecl?.status !== "AUTHORIZED" ? (
+              <div className="flex gap-3 pt-4 border-t border-border/60">
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => handleReject(Number(selectedDecl?.id))}
+                  disabled={rejectDividendDeclarationMutation.isPending}
+                >
+                  Reject
+                  {rejectDividendDeclarationMutation.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => handleApprove(Number(selectedDecl?.id))}
+                  disabled={approveDividendDeclarationMutation.isPending}
+                >
+                  Approve
+                  {approveDividendDeclarationMutation.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* ── ICU Approval Dialog ── */}
       <Dialog open={icuApprovalOpen} onOpenChange={setIcuApprovalOpen}>
-        <DialogContent className="max-w-xl flex flex-col max-h-[90vh] p-0 gap-0">
+        <DialogContent className="max-w-2xl flex flex-col max-h-[90vh] p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>ICU Approval — Dividend Declaration</DialogTitle>
             <DialogDescription>
@@ -1610,32 +2279,33 @@ export default function DeclarationPage() {
                     <Check className="h-3 w-3 text-green-600" />
                   </div>
                   <div className="text-sm">
-                    <span className="font-semibold">Chidinma Nwosu</span>
+                    <span className="font-semibold">
+                      {selectedIcuDecl?.initiatorName}
+                    </span>
                     <span className="text-muted-foreground ml-2">
-                      ✓ Submitted
+                      {selectedIcuDecl?.status === "DRAFT"
+                        ? "✓ Initiated at"
+                        : "✓ Submitted at"}{" "}
+                      {formatCustomDate(selectedIcuDecl?.createdAt)}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
-                    <Check className="h-3 w-3 text-green-600" />
+                {selectedIcuDecl?.approvals?.map((approval, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center">
+                      <Check className="h-3 w-3 text-green-600" />
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-semibold">
+                        {approval.approverName}
+                      </span>
+                      <span className="text-muted-foreground ml-2">
+                        {approval.decision === "APPROVED" && "✓ Approved"}{" "}
+                        {formatCustomDate(approval.decidedAt)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-sm">
-                    <span className="font-semibold">Ops Manager</span>
-                    <span className="text-muted-foreground ml-2">
-                      ✓ Ops Authorised
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="h-5 w-5 rounded-full bg-amber-200 flex items-center justify-center animate-pulse" />
-                  <div className="text-sm">
-                    <span className="font-semibold">ICU</span>
-                    <span className="text-amber-600 ml-2">
-                      ⏳ ICU Pending — your action required
-                    </span>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
@@ -1653,35 +2323,23 @@ export default function DeclarationPage() {
               <Button
                 variant="destructive"
                 className="flex-1"
-                onClick={() => {
-                  toast.error(
-                    "ICU rejected the declaration. Returned to submitter.",
-                  );
-                  setIcuApprovalOpen(false);
-                  setIcuComment("");
-                }}
+                onClick={() => handleIcuReject(Number(selectedIcuDecl?.id))}
+                disabled={rejectDividendDeclarationMutation.isPending}
               >
                 Reject
+                {rejectDividendDeclarationMutation.isPending && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
               </Button>
               <Button
                 className="flex-1"
-                onClick={() => {
-                  if (selectedIcuDecl) {
-                    const reg = registers.find(
-                      (r) => r.id === selectedIcuDecl.registerId,
-                    );
-                    toast.success(
-                      `ICU approved. Payment number generated: PAY-${reg?.id ?? selectedIcuDecl.registerId}-${selectedIcuDecl.paymentNumber}. Shareholders queued for payment.`,
-                    );
-                    setIcuApprovedIds((prev) =>
-                      new Set(prev).add(selectedIcuDecl.id),
-                    );
-                  }
-                  setIcuApprovalOpen(false);
-                  setIcuComment("");
-                }}
+                onClick={() => handleIcuApprove(Number(selectedIcuDecl?.id))}
+                disabled={approveDividendDeclarationMutation.isPending}
               >
                 ICU Approve
+                {approveDividendDeclarationMutation.isPending && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
               </Button>
             </div>
           </div>

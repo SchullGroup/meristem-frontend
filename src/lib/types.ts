@@ -134,6 +134,7 @@ export interface DividendDeclaration {
   whtAmount: number;
   netLiability: number;
   tier: 1 | 2 | 3 | 4;
+  registerSymbol: string;
   status:
     | "DRAFT"
     | "PENDING_TIER2"
@@ -143,6 +144,7 @@ export interface DividendDeclaration {
     | "PAID"
     | "REJECTED";
   initiatorId: string;
+  initiatorName: string;
   approvals: ApprovalStep[];
   narrative?: string;
   createdAt: string;
