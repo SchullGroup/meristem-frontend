@@ -109,11 +109,8 @@ export default function RightsIssueICUApproval({
     }
   };
 
-  //   const [icuSubTab, setIcuSubTab] = useState("approved");
-  //   const [approvalModal, setApprovalModal] = useState<{
-  //     action: "approve" | "reject" | null;
-  //     section: "ops" | "icu" | null;
-  //     // Filters & List State
+
+  // Filters & List State
   const [authRegister, setAuthRegister] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -130,8 +127,9 @@ export default function RightsIssueICUApproval({
   const [showReject, setShowReject] = useState(false);
 
   // Registers for filter
-  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
+  const { data: registersData } = useGetRegisters({
     status: "ACTIVE",
+    size: 100
   });
   const activeRegisters = registersData?.content || [];
 
@@ -146,7 +144,7 @@ export default function RightsIssueICUApproval({
     page: listPage,
     pageSize: listPageSize,
     status: "PENDING_ICU",
-    search: debouncedListSearch != "" ? debouncedListSearch : undefined,
+    search: debouncedListSearch !== "" ? debouncedListSearch : undefined,
   });
 
   const {
@@ -190,9 +188,6 @@ export default function RightsIssueICUApproval({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">All Registers</SelectItem>
-                  {loadingRegisters && (
-                    <SelectItem disabled>Loading...</SelectItem>
-                  )}
                   {activeRegisters.map((r) => (
                     <SelectItem key={r.registerId} value={r.registerId}>
                       {r.symbol}
@@ -222,19 +217,8 @@ export default function RightsIssueICUApproval({
           ) : (
             <table className="w-full text-left text-sm">
               <thead className="mrpsl-table-header">
-                {/* <tr>
-                  <th className="px-4 py-3">BATCH REF</th>
-                  <th className="px-4 py-3">REGISTER</th>
-                  <th className="px-4 py-3">DATE</th>
-                  <th className="px-4 py-3 text-right">APPROVED</th>
-                  <th className="px-4 py-3 text-right">DISAPPROVED</th>
-                  <th className="px-4 py-3 text-right">INVALID</th>
-                  <th className="px-4 py-3 text-right">AMOUNT</th>
-                  <th className="px-4 py-3">OPS APPROVER</th>
-                  <th className="px-4 py-3">STATUS</th>
-                </tr> */}
                 <tr>
-                  <th className="px-4 py-3">DECLARATION REF</th>
+                  <th className="px-4 py-3">BATCH REF</th>
                   <th className="px-4 py-3">REGISTER</th>
                   <th className="px-4 py-3">RIGHTS ISSUE</th>
                   <th className="px-4 py-3">QUALIFICATION DATE</th>
@@ -259,9 +243,9 @@ export default function RightsIssueICUApproval({
                     <td className="px-4 py-3 text-muted-foreground text-[13px]">
                       {issue.qualificationDate
                         ? format(
-                            new Date(issue.qualificationDate),
-                            "dd MMM yyyy",
-                          )
+                          new Date(issue.qualificationDate),
+                          "dd MMM yyyy",
+                        )
                         : "----"}
                     </td>
                     <td className="px-4 py-3 font-mono text-right">
@@ -294,7 +278,6 @@ export default function RightsIssueICUApproval({
                         variant="outline"
                         onClick={() => {
                           setIcuReviewingBatch(issue);
-                          // setIcuSubTab("approved");
                         }}
                       >
                         Review
@@ -312,46 +295,7 @@ export default function RightsIssueICUApproval({
                     </td>
                   </tr>
                 )}
-                {/* {icuIlist?.content.map((sub) => (
-                  <tr
-                    key={sub.id}
-                    className="mrpsl-table-row cursor-pointer hover:bg-muted/40 transition-colors"
-                    onClick={() => {
-                      setIcuReviewingBatch(sub.id);
-                      setIcuSubTab("approved");
-                    }}
-                  >
-                    <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                      {sub.ref}
-                    </td>
-                    <td className="px-4 py-3 font-semibold">
-                      {sub.registerId}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground text-[13px]">
-                      {sub?.authorizedAt}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
-                      {sub?.approved}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-right text-amber-600 font-semibold">
-                      {sub?.disapproved}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-right text-red-600 font-semibold">
-                      {sub.invalid}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-right">
-                      {sub.totalAmount}
-                    </td>
-                    <td className="px-4 py-3 text-[13px]">
-                      {sub.authorizedBy}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-                        {sub.status}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))} */}
+
               </tbody>
             </table>
           )}
@@ -363,6 +307,7 @@ export default function RightsIssueICUApproval({
               onPageChange={setListPage}
               pageSize={listPageSize}
               onPageSizeChange={setListPageSize}
+              pageBase={1}
             />
           ) : null}
         </Card>
@@ -409,33 +354,6 @@ export default function RightsIssueICUApproval({
         </Button>
       </div>
 
-      {/* <Card className="mrpsl-card p-4 bg-muted/20 border-l-4 border-l-primary">
-        <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
-          Operations Approval Record
-        </p>
-        <div className="flex items-center gap-8 text-sm flex-wrap">
-          <div>
-            <div className="mrpsl-section-title">Approved By</div>
-            <div className="font-semibold mt-0.5">{sub.opsApprover}</div>
-          </div>
-          <div>
-            <div className="mrpsl-section-title">Role</div>
-            <div className="mt-0.5">Operations Manager</div>
-          </div>
-          <div>
-            <div className="mrpsl-section-title">Approval Date &amp; Time</div>
-            <div className="font-mono mt-0.5">{sub.opsDate}</div>
-          </div>
-          <div>
-            <div className="mrpsl-section-title">Declaration Date</div>
-            <div className="font-mono mt-0.5">{sub.date}</div>
-          </div>
-          <div>
-            <div className="mrpsl-section-title">Total Allotment Value</div>
-            <div className="font-mono font-semibold mt-0.5">{sub.amount}</div>
-          </div>
-        </div>
-      </Card> */}
 
       {/* Stats */}
       {shLoading ? (
@@ -479,230 +397,6 @@ export default function RightsIssueICUApproval({
         </div>
       )}
 
-      {/* <div className="grid grid-cols-4 gap-3">
-        {[
-          {
-            label: "Total Entitlements",
-            value: (
-              sub.approved +
-              sub.disapproved +
-              sub.invalid
-            ).toLocaleString(),
-            color: "text-foreground",
-            tab: null as null,
-          },
-          {
-            label: "Approved",
-            value: sub.approved.toLocaleString(),
-            color: "text-green-700",
-            tab: "approved" as const,
-          },
-          {
-            label: "Disapproved",
-            value: sub.disapproved.toLocaleString(),
-            color: "text-amber-600",
-            tab: "disapproved" as const,
-          },
-          {
-            label: "Invalid",
-            value: sub.invalid.toLocaleString(),
-            color: "text-red-600",
-            tab: "invalid" as const,
-          },
-        ].map((s) => (
-          <Card
-            key={s.label}
-            className={cn(
-              "mrpsl-card p-3",
-              s.tab &&
-                "cursor-pointer hover:border-primary/40 transition-colors",
-            )}
-            onClick={() => s.tab && setIcuSubTab(s.tab)}
-          >
-            <div className="mrpsl-section-title">{s.label}</div>
-            <div className={cn("text-xl font-mono font-bold mt-1", s.color)}>
-              {s.value}
-            </div>
-            {s.tab && (
-              <div className="text-[13px] text-muted-foreground mt-0.5">
-                click to view
-              </div>
-            )}
-          </Card>
-        ))}
-      </div> */}
-
-      {/* Data sub-tabs */}
-      {/* <Card className="mrpsl-card overflow-hidden">
-        <div className="flex items-center gap-1 border-b px-4 bg-muted/10">
-          {(["approved", "disapproved", "invalid"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setIcuSubTab(t)}
-              className={cn(
-                "px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors capitalize",
-                icuSubTab === t
-                  ? t === "approved"
-                    ? "border-green-600 text-green-700"
-                    : t === "disapproved"
-                      ? "border-amber-500 text-amber-700"
-                      : "border-red-500 text-red-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t === "approved"
-                ? `Approved (${sub.approved.toLocaleString()})`
-                : t === "disapproved"
-                  ? `Disapproved (${sub.disapproved.toLocaleString()})`
-                  : `Invalid (${sub.invalid.toLocaleString()})`}
-            </button>
-          ))}
-          <div className="flex-1" />
-          <Button
-            variant="outline"
-            size="sm"
-            className="my-1.5 mr-1"
-            onClick={() => toast.success("Exporting list...")}
-          >
-            <Download className="mr-1.5 h-4 w-4" /> Export
-          </Button>
-        </div>
-        <div className="overflow-x-auto">
-          {icuSubTab === "approved" && (
-            <table className="w-full text-left text-[13px]">
-              <thead className="mrpsl-table-header">
-                <tr>
-                  <th className="px-4 py-2.5">#</th>
-                  <th className="px-4 py-2.5">SHAREHOLDER NAME</th>
-                  <th className="px-4 py-2.5">CHN</th>
-                  <th className="px-4 py-2.5">STOCKBROKER CODE</th>
-                  <th className="px-4 py-2.5 text-right">UNITS HELD</th>
-                  <th className="px-4 py-2.5 text-right">RIGHTS DUE</th>
-                  <th className="px-4 py-2.5 text-right">
-                    ADDITIONAL CERTIFICATE
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {MOCK_ALLOT_APPROVED.map((r, i) => (
-                  <tr key={i} className="mrpsl-table-row">
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {i + 1}
-                    </td>
-                    <td className="px-4 py-2.5 font-medium">{r.name}</td>
-                    <td className="px-4 py-2.5 font-mono">{r.chn}</td>
-                    <td className="px-4 py-2.5 font-mono">{r.broker}</td>
-                    <td className="px-4 py-2.5 text-right font-mono">
-                      {r.unitsHeld.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-blue-600">
-                      {r.rightsDue.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-green-700">
-                      {r.certShares.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-2.5 text-right text-muted-foreground"
-                  >
-                    TOTALS (showing {MOCK_ALLOT_APPROVED.length} of{" "}
-                    {sub.approved.toLocaleString()})
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-blue-600">
-                    {MOCK_ALLOT_APPROVED.reduce(
-                      (a, r) => a + r.rightsDue,
-                      0,
-                    ).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-green-700">
-                    {MOCK_ALLOT_APPROVED.reduce(
-                      (a, r) => a + r.certShares,
-                      0,
-                    ).toLocaleString()}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          )}
-          {icuSubTab === "disapproved" && (
-            <table className="w-full text-left text-[13px]">
-              <thead className="mrpsl-table-header">
-                <tr>
-                  <th className="px-4 py-2.5">#</th>
-                  <th className="px-4 py-2.5">SHAREHOLDER NAME</th>
-                  <th className="px-4 py-2.5">CHN</th>
-                  <th className="px-4 py-2.5">BANK NAME</th>
-                  <th className="px-4 py-2.5">ACCOUNT NO</th>
-                  <th className="px-4 py-2.5 text-right">
-                    AMOUNT TO RETURN (₦)
-                  </th>
-                  <th className="px-4 py-2.5">REASON</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {MOCK_ALLOT_DISAPPROVED.map((r, i) => (
-                  <tr key={i} className="mrpsl-table-row">
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {i + 1}
-                    </td>
-                    <td className="px-4 py-2.5 font-medium">{r.name}</td>
-                    <td className="px-4 py-2.5 font-mono">{r.chn}</td>
-                    <td className="px-4 py-2.5">{r.bank}</td>
-                    <td className="px-4 py-2.5 font-mono">{r.acct}</td>
-                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-amber-700">
-                      {r.amount.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px] font-normal">
-                        {r.reason}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {icuSubTab === "invalid" && (
-            <table className="w-full text-left text-[13px]">
-              <thead className="mrpsl-table-header">
-                <tr>
-                  <th className="px-4 py-2.5">#</th>
-                  <th className="px-4 py-2.5">SHAREHOLDER NAME</th>
-                  <th className="px-4 py-2.5">CHN</th>
-                  <th className="px-4 py-2.5 text-right">
-                    AMOUNT TO RETURN (₦)
-                  </th>
-                  <th className="px-4 py-2.5">REASON</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {MOCK_ALLOT_INVALID.map((r, i) => (
-                  <tr key={i} className="mrpsl-table-row">
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {i + 1}
-                    </td>
-                    <td className="px-4 py-2.5 font-medium">{r.name}</td>
-                    <td className="px-4 py-2.5 font-mono">{r.chn}</td>
-                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-red-700">
-                      {r.amount.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <Badge className="bg-red-100 text-red-800 border-0 text-[13px] font-normal">
-                        {r.reason}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </Card> */}
 
       {/* Shareholder table */}
       {shLoading ? (
@@ -738,64 +432,10 @@ export default function RightsIssueICUApproval({
         onPageChange={setAuthPage}
         pageSize={authPageSize}
         onPageSizeChange={setAuthPageSize}
+        pageBase={1}
       />
 
       {/* Actions */}
-      {/* {icuSubmissionStatuses[icuReviewingBatch] === "pending" ? (
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="destructive"
-            size="lg"
-            className="h-12 text-base font-semibold"
-            onClick={() => {
-              setApprovalModal({
-                action: "reject",
-                section: "icu",
-              });
-            }}
-          >
-            Return to Ops
-          </Button>
-          <Button
-            size="lg"
-            className="h-12 text-base font-semibold"
-            onClick={() => {
-              setApprovalModal({
-                action: "approve",
-                section: "icu",
-              });
-            }}
-          >
-            ICU Approve &amp; Clear for Allotment
-          </Button>
-        </div>
-      ) : (
-        <Card
-          className={cn(
-            "mrpsl-card p-4 flex items-center gap-3",
-            icuSubmissionStatuses[icuReviewingBatch] === "approved"
-              ? "bg-green-50 border-green-200"
-              : "bg-red-50/60 border-red-200",
-          )}
-        >
-          {icuSubmissionStatuses[icuReviewingBatch] === "approved" ? (
-            <>
-              <FileCheck2 className="h-5 w-5 text-green-600 shrink-0" />
-              <p className="text-sm font-semibold text-green-800">
-                This submission has been ICU approved and cleared for allotment
-                processing.
-              </p>
-            </>
-          ) : (
-            <>
-              <FileX2 className="h-5 w-5 text-red-600 shrink-0" />
-              <p className="text-sm font-semibold text-red-800">
-                This submission was returned to Operations for review.
-              </p>
-            </>
-          )}
-        </Card>
-      )} */}
       {icuReviewingBatch?.status === "PENDING_ICU" ? (
         <div className="grid grid-cols-2 gap-3">
           <Button
@@ -804,10 +444,6 @@ export default function RightsIssueICUApproval({
             className="h-12 text-base font-semibold"
             onClick={() => {
               setShowReject(true);
-              //   setApprovalModal({
-              //     action: "reject",
-              //     section: "icu",
-              //   });
             }}
           >
             Return to Ops
@@ -817,10 +453,6 @@ export default function RightsIssueICUApproval({
             className="h-12 text-base font-semibold"
             onClick={() => {
               setShowApprove(true);
-              //   setApprovalModal({
-              //     action: "approve",
-              //     section: "icu",
-              //   });
             }}
           >
             ICU Approve &amp; Clear for Allotment

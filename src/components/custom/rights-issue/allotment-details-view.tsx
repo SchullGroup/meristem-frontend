@@ -20,7 +20,7 @@ import {
 } from "@/components/custom/shareholder-outreach-modals";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { useGetAllotment, useGetShareholdersProfile } from "@/hooks/useRights";
+import { useGetAllotment, useGetStickyLabels } from "@/hooks/useRights";
 import { exportAllotmentExcel } from "@/actions/rightsActions";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 
@@ -61,7 +61,7 @@ export function AllotmentDetailsView({
 
   // Shareholders outreach profile
   const { data: outreachShareholders, isLoading: shareholdersLoading } =
-    useGetShareholdersProfile(
+    useGetStickyLabels(
       {
         id: allotReviewing.id,
         page: outreachPage,

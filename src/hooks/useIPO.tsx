@@ -30,6 +30,7 @@ import {
   getApplicationOfferSummaryReport,
   exportApplicationOfferSummaryReport,
   approveLodgment,
+  getRejectedOpsBatches,
 } from "@/actions/ipoActions";
 
 import { ContentPaginatedResponse } from "@/types";
@@ -210,6 +211,17 @@ export const useOpsRejectIpo = () => {
         queryKey: ipoKeys.detail(variables.batchRef),
       });
     },
+  });
+};
+
+export const useGetRejectedIpoBatches = (
+  params?: PendingApprovalParams,
+  options?: Omit<UseQueryOptions<ContentPaginatedResponse<IPO>, Error, ContentPaginatedResponse<IPO>>, "queryKey" | "queryFn">,
+) => {
+  return useQuery({
+    queryKey: ["rejected", params],
+    queryFn: () => getRejectedOpsBatches(params),
+    ...options,
   });
 };
 

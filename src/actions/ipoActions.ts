@@ -107,6 +107,21 @@ export const opsRejectIpo = async (
   }
 };
 
+// REJECTED IPO BATCH
+export const getRejectedOpsBatches = async (params?: PendingApprovalParams) => {
+  try {
+    const response = await api.get<ContentPaginatedResponse<IPO>>(
+      `/ipo/batches/ops-rejected`,
+      { params },
+    );
+
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 // REVIEW IPO AS ICU
 export const icuReviewIpo = async (
   batchRef: string,

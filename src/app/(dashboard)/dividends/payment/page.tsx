@@ -58,47 +58,47 @@ const NIBSS_PREVIEW: {
   accountName: string;
   narration: string;
 }[] = [
-  {
-    serial: 1,
-    accountNo: "0029384812",
-    sortCode: "044",
-    amount: 5400.0,
-    accountName: "LUKMAN BELLO",
-    narration: "DANGCEM-WRT89412-DIV-PAY001",
-  },
-  {
-    serial: 2,
-    accountNo: "3012849001",
-    sortCode: "011",
-    amount: 5400.0,
-    accountName: "FATIMA ABDULLAHI",
-    narration: "DANGCEM-WRT89413-DIV-PAY001",
-  },
-  {
-    serial: 3,
-    accountNo: "0045612378",
-    sortCode: "058",
-    amount: 5400.0,
-    accountName: "EMEKA EZE",
-    narration: "DANGCEM-WRT89414-DIV-PAY001",
-  },
-  {
-    serial: 4,
-    accountNo: "0076123490",
-    sortCode: "044",
-    amount: 5400.0,
-    accountName: "OLUMIDE ADEYEMI",
-    narration: "DANGCEM-WRT89415-DIV-PAY001",
-  },
-  {
-    serial: 5,
-    accountNo: "2012341290",
-    sortCode: "057",
-    amount: 5400.0,
-    accountName: "NGOZI EZE",
-    narration: "DANGCEM-WRT89416-DIV-PAY001",
-  },
-];
+    {
+      serial: 1,
+      accountNo: "0029384812",
+      sortCode: "044",
+      amount: 5400.0,
+      accountName: "LUKMAN BELLO",
+      narration: "DANGCEM-WRT89412-DIV-PAY001",
+    },
+    {
+      serial: 2,
+      accountNo: "3012849001",
+      sortCode: "011",
+      amount: 5400.0,
+      accountName: "FATIMA ABDULLAHI",
+      narration: "DANGCEM-WRT89413-DIV-PAY001",
+    },
+    {
+      serial: 3,
+      accountNo: "0045612378",
+      sortCode: "058",
+      amount: 5400.0,
+      accountName: "EMEKA EZE",
+      narration: "DANGCEM-WRT89414-DIV-PAY001",
+    },
+    {
+      serial: 4,
+      accountNo: "0076123490",
+      sortCode: "044",
+      amount: 5400.0,
+      accountName: "OLUMIDE ADEYEMI",
+      narration: "DANGCEM-WRT89415-DIV-PAY001",
+    },
+    {
+      serial: 5,
+      accountNo: "2012341290",
+      sortCode: "057",
+      amount: 5400.0,
+      accountName: "NGOZI EZE",
+      narration: "DANGCEM-WRT89416-DIV-PAY001",
+    },
+  ];
 
 const INITIAL_MANDATE_QUEUE: MandatePaymentRow[] = [
   {
@@ -132,6 +132,43 @@ const INITIAL_MANDATE_QUEUE: MandatePaymentRow[] = [
     status: "FAILED",
   },
 ];
+
+const HISTORY_ROWS = [
+  {
+    ref: "PAYRUN-2025-001",
+    payNo: "PAY-2025-DANGCEM-001",
+    reg: "DANGCEM",
+    gw: "NIBSS",
+    records: 180248,
+    amount: "69.01B",
+    amountRaw: 69010000000,
+    date: "15 Jan 2025",
+    status: "PAID",
+  },
+  {
+    ref: "PAYRUN-2024-003",
+    payNo: "PAY-2024-ACCESSCORP-003",
+    reg: "ACCESS",
+    gw: "Remita",
+    records: 92410,
+    amount: "12.5B",
+    amountRaw: 12500000000,
+    date: "03 Nov 2024",
+    status: "PAID",
+  },
+  {
+    ref: "PAYRUN-2024-002",
+    payNo: "PAY-2024-GTCO-002",
+    reg: "GTCO",
+    gw: "NIBSS",
+    records: 134000,
+    amount: "8.3B",
+    amountRaw: 8300000000,
+    date: "28 Jul 2024",
+    status: "FAILED",
+  },
+];
+
 
 const INITIAL_REPUSH: RepushRow[] = [
   {
@@ -231,7 +268,11 @@ export default function PaymentPage() {
   function toggleMandateSel(id: string) {
     setMandateSelIds((prev) => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
       return n;
     });
   }
@@ -263,19 +304,15 @@ export default function PaymentPage() {
   );
   const divRate = selectedDivDecl?.rate ?? 0;
 
-  const paymentRows = useMemo(
-    () =>
-      shareholders.map((s, i) => ({
-        serial: i + 1,
-        accountNo: s.accountNumber,
-        holderName: `${s.firstName} ${s.lastName}`,
-        sortCode: ["044", "058", "011", "057", "035"][i % 5],
-        amount: s.holdings * divRate,
-        narration: `${selectedReg?.symbol ?? "REG"}-WRT${String(89410 + i).padStart(5, "0")}-DIV-PAY001`,
-        status: "UNPAID" as const,
-      })),
-    [shareholders, divRate, selectedReg],
-  );
+  const paymentRows = shareholders.map((s, i) => ({
+    serial: i + 1,
+    accountNo: s.accountNumber,
+    holderName: `${s.firstName} ${s.lastName}`,
+    sortCode: ["044", "058", "011", "057", "035"][i % 5],
+    amount: s.holdings * divRate,
+    narration: `${selectedReg?.symbol ?? "REG"}-WRT${String(89410 + i).padStart(5, "0")}-DIV-PAY001`,
+    status: "UNPAID" as const,
+  }))
 
   const paymentPg = usePagination(paymentRows);
 
@@ -326,41 +363,6 @@ export default function PaymentPage() {
     setRepushTarget(null);
   }
 
-  const HISTORY_ROWS = [
-    {
-      ref: "PAYRUN-2025-001",
-      payNo: "PAY-2025-DANGCEM-001",
-      reg: "DANGCEM",
-      gw: "NIBSS",
-      records: 180248,
-      amount: "69.01B",
-      amountRaw: 69010000000,
-      date: "15 Jan 2025",
-      status: "PAID",
-    },
-    {
-      ref: "PAYRUN-2024-003",
-      payNo: "PAY-2024-ACCESSCORP-003",
-      reg: "ACCESS",
-      gw: "Remita",
-      records: 92410,
-      amount: "12.5B",
-      amountRaw: 12500000000,
-      date: "03 Nov 2024",
-      status: "PAID",
-    },
-    {
-      ref: "PAYRUN-2024-002",
-      payNo: "PAY-2024-GTCO-002",
-      reg: "GTCO",
-      gw: "NIBSS",
-      records: 134000,
-      amount: "8.3B",
-      amountRaw: 8300000000,
-      date: "28 Jul 2024",
-      status: "FAILED",
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -571,8 +573,8 @@ export default function PaymentPage() {
                         <td className="p-3 text-right tabular-nums">
                           {row.amount > 0
                             ? row.amount.toLocaleString("en-NG", {
-                                minimumFractionDigits: 2,
-                              })
+                              minimumFractionDigits: 2,
+                            })
                             : "—"}
                         </td>
                         <td className="p-3 text-muted-foreground text-[12px]">

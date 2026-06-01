@@ -336,14 +336,14 @@ export default function RegistersPage() {
                 registers?.content?.map((r) => (
                   <tr key={r.registerId} className="mrpsl-table-row">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-foreground truncate max-w-[200px]">
+                      <div className="font-semibold text-foreground truncate max-w-50">
                         {r.registerName}
                       </div>
                       <div className="text-xs font-mono text-muted-foreground">
                         {r.registerId}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm truncate max-w-[150px]">
+                    <td className="px-4 py-3 text-sm truncate max-w-37.5">
                       {r.principalName}
                     </td>
                     <td className="px-4 py-3">

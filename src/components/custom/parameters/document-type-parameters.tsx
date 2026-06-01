@@ -31,6 +31,7 @@ import {
   useDeleteDocumentType,
 } from "@/hooks/useDocumentTypes";
 import { DocumentType, DocumentTypeStatus } from "@/types/parameters";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const REQUIRED_FOR_OPTIONS = [
   "KYC",
@@ -69,25 +70,19 @@ export default function DocumentTypeParameters({
   const [docMode, setDocMode] = useState<"add" | "edit">("add");
   const [editDoc, setEditDoc] = useState<DocumentType | null>(null);
   const [docName, setDocName] = useState("");
+  const [docStatus, setDocStatus] = useState<DocumentTypeStatus>("ACTIVE")
   const [docReqFor, setDocReqFor] = useState<string[]>([]);
-  // const [docFileTypes, setDocFileTypes] = useState<string[]>(["PDF"]);
-  // const [docMaxSize, setDocMaxSize] = useState<number>(5);
   const [docNote, setDocNote] = useState("");
 
   const toggleReqFor = (v: string) =>
     setDocReqFor((p) => (p.includes(v) ? p.filter((x) => x !== v) : [...p, v]));
-  // const toggleFileType = (v: string) =>
-  //   setDocFileTypes((p) =>
-  //     p.includes(v) ? p.filter((x) => x !== v) : [...p, v],
-  //   );
 
   const openAddDoc = () => {
     setDocMode("add");
     setEditDoc(null);
     setDocName("");
     setDocReqFor([]);
-    // setDocFileTypes(["PDF"]);
-    // setDocMaxSize(5);
+    setDocStatus("ACTIVE")
     setDocNote("");
     setDocOpen(true);
   };
@@ -97,8 +92,7 @@ export default function DocumentTypeParameters({
     setEditDoc(x);
     setDocName(x.name);
     setDocReqFor([...x.requiredFor]);
-    // setDocFileTypes(["PDF"]);
-    // setDocMaxSize(5);
+    setDocStatus(x.status as DocumentTypeStatus);
     setDocNote(x.reasonForChange);
     setDocOpen(true);
   };
@@ -110,7 +104,7 @@ export default function DocumentTypeParameters({
         {
           name: docName.trim(),
           requiredFor: docReqFor,
-          status: "Active" as DocumentTypeStatus,
+          status: docStatus as DocumentTypeStatus,
           reasonForChange: docNote || "Added new document type",
         },
         {
@@ -229,30 +223,9 @@ export default function DocumentTypeParameters({
                       ))}
                     </div>
                   </td>
-                  {/* <td className="px-5 py-3">
-                    <div className="flex gap-1 flex-wrap">
-                      {x.map((t) => (
-                        <span
-                          key={t}
-                          className={cn(
-                            "text-[10px] font-bold border rounded px-1.5 py-0.5 leading-none",
-                            FILE_TYPE_COLORS[t] ??
-                              "bg-gray-50 text-gray-600 border-gray-200",
-                          )}
-                        >
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </td> */}
-                  {/* <td className="px-5 py-3 text-right">
-                    <div className="flex items-center gap-1 justify-end text-xs text-muted-foreground">
-                      <HardDrive className="h-3 w-3" />5 MB
-                    </div>
-                  </td> */}
                   <td className="px-5 py-3 text-center">
                     <Switch
-                      checked={x.status === "Active"}
+                      checked={x.status === "ACTIVE"}
                       onCheckedChange={(v) => {
                         updateDocMutation.mutate(
                           {
@@ -261,8 +234,8 @@ export default function DocumentTypeParameters({
                               name: x.name,
                               requiredFor: x.requiredFor,
                               status: (v
-                                ? "Active"
-                                : "Inactive") as DocumentTypeStatus,
+                                ? "ACTIVE"
+                                : "INACTIVE") as DocumentTypeStatus,
                               reasonForChange: v ? "Activated" : "Deactivated",
                             },
                           },
@@ -351,62 +324,6 @@ export default function DocumentTypeParameters({
                 ))}
               </div>
             </div>
-            {/* 
-            <div className="space-y-2">
-              <label className={labelClass}>
-                Accepted File Types *{" "}
-                <span className="text-muted-foreground/60 normal-case font-normal tracking-normal">
-                  (select all that apply)
-                </span>
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {FILE_TYPE_OPTIONS.map((ft) => (
-                  <label
-                    key={ft}
-                    className={cn(
-                      "flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors",
-                      docFileTypes.includes(ft)
-                        ? cn("border-2", FILE_TYPE_COLORS[ft])
-                        : "border-border/60 hover:bg-muted/30",
-                    )}
-                  >
-                    <Checkbox
-                      checked={docFileTypes.includes(ft)}
-                      onCheckedChange={() => toggleFileType(ft)}
-                    />
-                    <span
-                      className={cn(
-                        "text-sm font-bold",
-                        docFileTypes.includes(ft) ? "" : "text-foreground",
-                      )}
-                    >
-                      {ft}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className={labelClass}>Maximum File Size *</label>
-              <div className="flex gap-2">
-                {MAX_SIZE_OPTIONS.map((mb) => (
-                  <button
-                    key={mb}
-                    type="button"
-                    onClick={() => setDocMaxSize(mb)}
-                    className={cn(
-                      "flex-1 py-2 rounded-lg border text-sm font-semibold transition-colors",
-                      docMaxSize === mb
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border/60 text-muted-foreground hover:bg-muted/30 hover:text-foreground",
-                    )}
-                  >
-                    {mb} MB
-                  </button>
-                ))}
-              </div>
-            </div> */}
 
             <div className="space-y-1.5">
               <label className={labelClass}>Notes</label>
@@ -417,6 +334,34 @@ export default function DocumentTypeParameters({
                 rows={2}
                 className="resize-none text-sm"
               />
+            </div>
+
+            <div className="space-y-3">
+              <RadioGroup
+                onValueChange={(value) => setDocStatus(value as DocumentTypeStatus)}
+                value={docStatus}
+                className="flex flex-row gap-8"
+              >
+                <div className="flex items-center space-x-2.5 space-y-0">
+                  <RadioGroupItem
+                    value="ACTIVE"
+                    className="h-5 w-5"
+                  />
+                  <label className="font-medium text-sm text-green-700">
+                    Active
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2.5 space-y-0">
+                  <RadioGroupItem
+                    value="INACTIVE"
+                    className="h-5 w-5"
+                  />
+                  <label className="font-medium text-sm text-muted-foreground">
+                    Inactive
+                  </label>
+                </div>
+
+              </RadioGroup>
             </div>
           </div>
           <DialogFooter>

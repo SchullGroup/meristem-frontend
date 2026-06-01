@@ -145,7 +145,7 @@ export interface TransformedCautionReasons {
 // types/document-type.ts
 // ========================================
 
-export type DocumentTypeStatus = "Active" | "Inactive";
+export type DocumentTypeStatus = "ACTIVE" | "INACTIVE";
 
 export interface DocumentType {
   code: string;

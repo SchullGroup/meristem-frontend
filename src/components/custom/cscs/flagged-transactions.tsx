@@ -136,126 +136,114 @@ export const FlaggedTransactions = ({ tab }: {
 
             <Card className="mrpsl-card overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="mrpsl-table-header">
-                            <tr>
-                                <th
-                                    className="px-4 py-3 cursor-pointer select-none"
-                                // onClick={() => toggleSort("chn")}
-                                >
-                                    CHN{" "}
-                                    {/* <SortIcon
-                                  col="chn"
-                                  sortCol={sortCol}
-                                  sortDir={sortDir}
-                                /> */}
-                                </th>
-                                <th className="px-4 py-3">REGISTER</th>
-                                <th className="px-4 py-3">HOLDER</th>
-                                <th className="px-4 py-3">TRANSFER NO</th>
-                                <th className="px-4 py-3">TYPE</th>
-                                <th
-                                    className="px-4 py-3 text-right cursor-pointer select-none"
-                                // onClick={() => toggleSort("attempted")}
-                                >
-                                    ATTEMPTED
-                                    {/* <SortIcon
-                                  col="attempted"
-                                  sortCol={sortCol}
-                                  sortDir={sortDir}
-                                /> */}
-                                </th>
-                                <th className="px-4 py-3 text-right">HOLDINGS</th>
-                                <th
-                                    className="px-4 py-3 text-right cursor-pointer select-none"
-                                // onClick={() => toggleSort("shortfall")}
-                                >
-                                    SHORTFALL{" "}
-                                    {/* <SortIcon
-                                  col="shortfall"
-                                  sortCol={sortCol}
-                                  sortDir={sortDir}
-                                /> */}
-                                </th>
-                                <th className="px-4 py-3">STATUS</th>
-                                <th className="px-4 py-3 text-right">ACTIONS</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/60">
-                            {
-                                isLoading ? (
-                                    <PendingListSkeleton />
-                                ) : isError ? (
-                                    <DataErrorState
-                                        message={returnErrorMessage(error as ErrorLike)}
-                                        onRetry={refetch}
-                                    />
-                                ) :
-                                    Array.isArray(flaggedTransactions?.content) && flaggedTransactions?.content.length > 0 ?
-                                        flaggedTransactions?.content?.map((row) => (
-                                            <tr key={row.chn} className="mrpsl-table-row">
-                                                <td className="px-4 py-3 text-[13px] text-muted-foreground tabular-nums">
-                                                    {row.chn}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <Badge
-                                                        className="border-0 text-[13px] bg-gray-100 text-gray-800"
-                                                    >
-                                                        {row.register}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-4 py-3 font-semibold">
-                                                    {row.holderName}
-                                                </td>
-                                                <td className="px-4 py-3 text-[13px] tabular-nums text-muted-foreground">
-                                                    {row.transferNo}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <Badge
-                                                        className={`border-0 text-[13px] ${row.type === "Sell" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-800"}`}
-                                                    >
-                                                        {row.type}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-4 py-3 text-right tabular-nums text-red-600 font-semibold">
-                                                    {formatNumber(row.attemptedUnits)}
-                                                </td>
-                                                <td className="px-4 py-3 text-right tabular-nums">
-                                                    {formatNumber(row.currentHoldings)}
-                                                </td>
-                                                <td className="px-4 py-3 text-right tabular-nums text-amber-600 font-semibold">
-                                                    {formatNumber(row.shortfall)}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <Badge
-                                                        className={`border-0 text-[13px] ${row.status === "RESOLVED" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-                                                    >
-                                                        {row.status}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => {
-                                                            setSelectedTransaction(row)
-                                                            setFlagSheetOpen(true)
-                                                        }}
-                                                    >
-                                                        Pull History
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        )) : (<tr>
-                                            <td
-                                                colSpan={9}
-                                                className="text-center py-10 text-muted-foreground"
+                    {
+                        isLoading ? (
+                            <PendingListSkeleton />
+                        ) : isError ? (
+                            <DataErrorState
+                                message={returnErrorMessage(error as ErrorLike)}
+                                onRetry={refetch}
+                            />
+                        ) :
+                            (
+                                <table className="w-full text-left text-sm">
+                                    <thead className="mrpsl-table-header">
+                                        <tr>
+                                            <th
+                                                className="px-4 py-3 cursor-pointer select-none"
                                             >
-                                                No records found
-                                            </td>
-                                        </tr>)}
-                        </tbody>
-                    </table>
+                                                CHN{" "}
+
+                                            </th>
+                                            <th className="px-4 py-3">REGISTER</th>
+                                            <th className="px-4 py-3">HOLDER</th>
+                                            <th className="px-4 py-3">TRANSFER NO</th>
+                                            <th className="px-4 py-3">TYPE</th>
+                                            <th
+                                                className="px-4 py-3 text-right cursor-pointer select-none"
+                                            >
+                                                ATTEMPTED
+
+                                            </th>
+                                            <th className="px-4 py-3 text-right">HOLDINGS</th>
+                                            <th
+                                                className="px-4 py-3 text-right cursor-pointer select-none"
+                                            >
+                                                SHORTFALL{" "}
+
+                                            </th>
+                                            <th className="px-4 py-3">STATUS</th>
+                                            <th className="px-4 py-3 text-right">ACTIONS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/60">
+                                        {
+                                            Array.isArray(flaggedTransactions?.content) && flaggedTransactions?.content.length > 0 ?
+                                                flaggedTransactions?.content?.map((row) => (
+                                                    <tr key={row.chn} className="mrpsl-table-row">
+                                                        <td className="px-4 py-3 text-[13px] text-muted-foreground tabular-nums">
+                                                            {row.chn}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <Badge
+                                                                className="border-0 text-[13px] bg-gray-100 text-gray-800"
+                                                            >
+                                                                {row.register}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-4 py-3 font-semibold">
+                                                            {row.holderName}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-[13px] tabular-nums text-muted-foreground">
+                                                            {row.transferNo}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <Badge
+                                                                className={`border-0 text-[13px] ${row.type === "Sell" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-800"}`}
+                                                            >
+                                                                {row.type}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right tabular-nums text-red-600 font-semibold">
+                                                            {formatNumber(row.attemptedUnits)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right tabular-nums">
+                                                            {formatNumber(row.currentHoldings)}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right tabular-nums text-amber-600 font-semibold">
+                                                            {formatNumber(row.shortfall)}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <Badge
+                                                                className={`border-0 text-[13px] ${row.status === "RESOLVED" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                                                            >
+                                                                {row.status}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => {
+                                                                    setSelectedTransaction(row)
+                                                                    setFlagSheetOpen(true)
+                                                                }}
+                                                            >
+                                                                Pull History
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                )) : (<tr>
+                                                    <td
+                                                        colSpan={9}
+                                                        className="text-center py-10 text-muted-foreground"
+                                                    >
+                                                        No records found
+                                                    </td>
+                                                </tr>)}
+                                    </tbody>
+                                </table>
+                            )}
                 </div>
 
                 {/* Pagination */}

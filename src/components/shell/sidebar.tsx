@@ -343,7 +343,7 @@ export function Sidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold truncate">
-                {currentUser.username}
+                {currentUser?.username}
               </p>
               <p className="text-[13px] text-muted-foreground truncate uppercase tracking-wide">
                 {currentUser.roles[0]?.replace(/_/g, " ")}
