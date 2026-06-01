@@ -53,7 +53,11 @@ export const ReviewTranser = ({
         approvalId: selected.id,
         data: {
           comment: comment,
-          authorisedBy: currentUser?.username || currentUser?.email || "ADMIN",
+          authorisedBy:
+            currentUser?.username ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.email ||
+            "ADMIN",
         },
       },
       {
@@ -87,7 +91,11 @@ export const ReviewTranser = ({
         approvalId: selected.id,
         data: {
           comment: comment,
-          authorisedBy: currentUser?.username || currentUser?.email || "ADMIN",
+          authorisedBy:
+            currentUser?.username ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.email ||
+            "ADMIN",
         },
       },
       {
@@ -268,7 +276,11 @@ export const RejectTransfer = ({
         approveIds: [],
         rejectIds: selectedIds,
         rejectComment: batchComment,
-        authorisedBy: currentUser?.username || currentUser?.email || "ADMIN",
+        authorisedBy:
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          currentUser?.email ||
+          "ADMIN",
       },
       {
         onSuccess: () => {

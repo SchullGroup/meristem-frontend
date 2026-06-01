@@ -154,7 +154,10 @@ export default function CreateRightsDeclaration() {
       closureDate: format(newRightsIssue.closureDate, "yyyy-MM-dd"),
       allotmentDate: format(newRightsIssue.allotmentDate, "yyyy-MM-dd"), // Default or add another field
       narrative: newRightsIssue.narrative,
-      createdBy: currentUser?.email,
+      createdBy:
+        currentUser?.username ||
+        `${currentUser?.firstName} ${currentUser?.lastName}` ||
+        currentUser?.email,
       declarationId: retryId || undefined,
     };
 

@@ -22,7 +22,7 @@ import {
   getTradedRights,
   createTradedRights,
   deleteTradedRights,
-  getShareholdersProfile,
+  getStickyLabels,
   getTradedRightsReport,
   exportStateAnalysisReport,
   getRightsEntitlementReport,
@@ -410,7 +410,7 @@ export const useLodgeRightsIssueDeclaration = () => {
   });
 };
 
-export const useGetShareholdersProfile = (
+export const useGetStickyLabels = (
   params: RightsIssueParams,
   options?: Omit<
     UseQueryOptions<
@@ -430,7 +430,7 @@ export const useGetShareholdersProfile = (
 ) => {
   return useQuery({
     queryKey: ["rights-issue", params.id, "sticky-label", params],
-    queryFn: () => getShareholdersProfile(params),
+    queryFn: () => getStickyLabels(params),
     select: (data) => {
       return {
         content: data?.data?.content,

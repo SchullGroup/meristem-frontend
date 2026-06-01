@@ -4,22 +4,40 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { AlertCircle, Plus, Pencil, X } from "lucide-react";
 import { useGetHolders } from "@/hooks/useCscs";
-import { useGetAllCertificateDemat, useCaptureDematRequest, useSubmitForCalloverDematRequest } from "@/hooks/useCertDematerialisation";
+import {
+  useGetAllCertificateDemat,
+  useCaptureDematRequest,
+} from "@/hooks/useCertDematerialisation";
 import { DocUploadZone } from "@/components/custom/doc-upload-zone";
 import { getDocType } from "@/lib/mocks/doc-types";
 import { useGetRegisters } from "@/hooks/useRegisters";
+import { format } from "date-fns";
 
-export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, setActiveTab: React.Dispatch<React.SetStateAction<string>> }) => {
+export const CaptureDematerialization = ({
+  tab,
+  setActiveTab,
+}: {
+  tab: string;
+  setActiveTab: React.Dispatch<React.SetStateAction<string>>;
+}) => {
   const { data: activeRegisters } = useGetRegisters({
     size: 100,
     status: "ACTIVE",
   });
 
-  const [editingRejectedId, setEditingRejectedId] = useState<string | null>(null);
+  const [editingRejectedId, setEditingRejectedId] = useState<string | null>(
+    null,
+  );
   const [holderQuery, setHolderQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -31,22 +49,29 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
   const [dematFormUrl, setDematFormUrl] = useState("");
   const [scannedCertsUrl, setScannedCertsUrl] = useState("");
 
-  const { data: holders, isFetching: isSearchingHolder } = useGetHolders({
-    chn: searchQuery || undefined
-  }, {
-    enabled: !!searchQuery
-  });
+  const { data: holders, isFetching: isSearchingHolder } = useGetHolders(
+    {
+      chn: searchQuery || undefined,
+    },
+    {
+      enabled: !!searchQuery,
+    },
+  );
   const foundHolder = holders?.content?.[0] || null;
   const holderNotFound = !!searchQuery && !isSearchingHolder && !foundHolder;
 
-  const { data: rejectedData } = useGetAllCertificateDemat({
-    status: "REJECTED",
-    size: 100
-  }, {
-    enabled: tab === "capture"
-  });
+  const { data: rejectedData } = useGetAllCertificateDemat(
+    {
+      status: "REJECTED",
+      size: 100,
+    },
+    {
+      enabled: tab === "capture",
+    },
+  );
 
-  const { mutate: captureDemat, isPending: isCapturing } = useCaptureDematRequest();
+  const { mutate: captureDemat, isPending: isCapturing } =
+    useCaptureDematRequest();
   // const { mutate: submitForCallover, isPending: isSubmitting } = useSubmitForCalloverDematRequest();
 
   function handleHolderLookup() {
@@ -65,44 +90,12 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
     setScannedCertsUrl("");
   }
 
-  // const handleSubmitForCallover = () => {
-  //   if (!register || !stockbroker || certificates.some(c => !c.certNo || !c.units)) {
-  //     toast.error("Please fill all required fields before saving.");
-  //     return;
-  //   }
-  //   if (!shareholderIdUrl || !dematFormUrl || !scannedCertsUrl) {
-  //     toast.error("Please upload all required supporting documents.");
-  //     return;
-  //   }
-  //   const payload = {
-  //     register,
-  //     chn: foundHolder?.chn || holderQuery,
-  //     holderName: foundHolder ? foundHolder.name : "Unknown",
-  //     broker: stockbroker,
-  //     certificates: certificates.map(c => ({ certNo: c.certNo, units: Number(c.units), certDate: new Date().toISOString() })),
-  //     shareholderIdRef: shareholderIdUrl,
-  //     dematFormRef: dematFormUrl,
-  //     scannedCertsRef: scannedCertsUrl
-  //   };
-
-  //   // First save draft, then sub mit for callover
-  //   captureDemat(payload, {
-  //     onSuccess: (res) => {
-  //       submitForCallover(res.id, {
-  //         onSuccess: () => {
-  //           toast.success(editingRejectedId ? "Record corrected and resubmitted for callover." : "Submitted for callover.");
-  //           setActiveTab("callover");
-  //           resetForm();
-  //         },
-  //         onError: (err) => toast.error(`Failed to submit for callover: ${err.message}`)
-  //       });
-  //     },
-  //     onError: (err) => toast.error(`Failed to capture record: ${err.message}`)
-  //   });
-  // }
-
   const handleSubmit = () => {
-    if (!register || !stockbroker || certificates.some(c => !c.certNo || !c.units)) {
+    if (
+      !register ||
+      !stockbroker ||
+      certificates.some((c) => !c.certNo || !c.units)
+    ) {
       toast.error("Please fill all required fields before saving.");
       return;
     }
@@ -110,53 +103,65 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
       toast.error("Please upload all required supporting documents.");
       return;
     }
-    captureDemat({
-      register,
-      chn: foundHolder?.chn || holderQuery,
-      holderName: foundHolder ? foundHolder.name : "Unknown",
-      broker: stockbroker,
-      certificates: certificates.map(c => ({ certNo: c.certNo, units: Number(c.units), certDate: new Date().toISOString() })),
-      shareholderIdRef: shareholderIdUrl,
-      dematFormRef: dematFormUrl,
-      scannedCertsRef: scannedCertsUrl
-    }, {
-      onSuccess: () => {
-        toast.success("Saved as draft.");
-        resetForm();
+    captureDemat(
+      {
+        register,
+        chn: foundHolder?.chn || holderQuery,
+        holderName: foundHolder ? foundHolder.name : "Unknown",
+        broker: stockbroker,
+        certificates: certificates.map((c) => ({
+          certNo: c.certNo,
+          units: Number(c.units),
+          certDate: format(new Date(), "yyyy-MM-dd"),
+        })),
+        shareholderIdRef: shareholderIdUrl,
+        dematFormRef: dematFormUrl,
+        scannedCertsRef: scannedCertsUrl,
       },
-      onError: (err) => toast.error(`Failed to save draft: ${err.message}`)
-    });
-  }
+      {
+        onSuccess: () => {
+          toast.success("Saved as draft.");
+          resetForm();
+          setActiveTab("callover");
+        },
+        onError: (err) => toast.error(`Failed to save draft: ${err.message}`),
+      },
+    );
+  };
 
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        Capture new physical certificates for dematerialisation or edit rejected records.
+        Capture new physical certificates for dematerialisation or edit rejected
+        records.
       </p>
 
       {/* REJECTED RECORDS ALERT */}
-      {rejectedData && rejectedData.content && rejectedData.content.length > 0 && (
-        <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-            <div className="flex-1 space-y-2">
-              <div className="font-semibold text-sm text-red-800">
-                {rejectedData.content.length === 1
-                  ? "Record Rejected"
-                  : `${rejectedData.content.length} Records Rejected`}
-              </div>
-              <div className="text-[13px] text-red-700">
-                Review the comments from the callover officer and correct the details below.
-              </div>
-              <div className="space-y-1.5 mt-1">
-                {rejectedData.content.map(
-                  (rec) => (
+      {rejectedData &&
+        rejectedData.content &&
+        rejectedData.content.length > 0 && (
+          <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-2">
+                <div className="font-semibold text-sm text-red-800">
+                  {rejectedData.content.length === 1
+                    ? "Record Rejected"
+                    : `${rejectedData.content.length} Records Rejected`}
+                </div>
+                <div className="text-[13px] text-red-700">
+                  Review the comments from the callover officer and correct the
+                  details below.
+                </div>
+                <div className="space-y-1.5 mt-1">
+                  {rejectedData.content.map((rec) => (
                     <div
                       key={rec.id}
                       className="flex items-center gap-3 text-[13px] bg-red-100/50 p-2 rounded-lg border border-red-200/60"
                     >
-                      <span className="font-mono text-red-800 truncate max-w-[200px] font-semibold">
-                        {rec.certificates?.map(c => c.certNo).join(', ') || 'No Cert'}
+                      <span className="font-mono text-red-800 truncate max-w-50 font-semibold">
+                        {rec.certificates?.map((c) => c.certNo).join(", ") ||
+                          "No Cert"}
                       </span>
                       <span className="text-red-700">— {rec.holderName}</span>
                       <span className="text-red-600/80 italic line-clamp-1 flex-1">
@@ -174,13 +179,12 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
                         <Pencil className="h-3 w-3" /> Edit &amp; Resubmit
                       </Button>
                     </div>
-                  ),
-                )}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
-      )}
+          </Card>
+        )}
 
       {/* NEW/EDIT FORM */}
       <Card className="mrpsl-card">
@@ -208,9 +212,12 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
             <div className="grid grid-cols-2 gap-x-8 gap-y-6">
               <div className="space-y-2">
                 <label className="mrpsl-label">Register *</label>
-                <Select value={register} onValueChange={(value) => {
-                  setRegister(value || "")
-                }}>
+                <Select
+                  value={register}
+                  onValueChange={(value) => {
+                    setRegister(value || "");
+                  }}
+                >
                   <SelectTrigger className="mrpsl-input h-11">
                     <SelectValue placeholder="Select Register" />
                   </SelectTrigger>
@@ -219,14 +226,18 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
                       <SelectItem key={r.registerId} value={r.registerId}>
                         {r.registerName} · {r.symbol}
                       </SelectItem>
-                    ))}                  </SelectContent>
+                    ))}{" "}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <label className="mrpsl-label">Stockbroker *</label>
-                <Select value={stockbroker} onValueChange={(value) => {
-                  setStockbroker(value || "")
-                }}>
+                <Select
+                  value={stockbroker}
+                  onValueChange={(value) => {
+                    setStockbroker(value || "");
+                  }}
+                >
                   <SelectTrigger className="mrpsl-input h-11">
                     <SelectValue placeholder="Select Stockbroker" />
                   </SelectTrigger>
@@ -246,9 +257,7 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
                       setHolderQuery(e.target.value);
                       if (e.target.value === "") setSearchQuery("");
                     }}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleHolderLookup()
-                    }
+                    onKeyDown={(e) => e.key === "Enter" && handleHolderLookup()}
                   />
                   <Button
                     variant="outline"
@@ -262,14 +271,14 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
                   <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-green-200 bg-green-50/60 mt-2">
                     <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                       <span className="text-primary font-bold text-sm font-mono">
-                        {foundHolder.name.charAt(0).toUpperCase() + foundHolder.name.charAt(1).toUpperCase()}
+                        {foundHolder.name.charAt(0).toUpperCase() +
+                          foundHolder.name.charAt(1).toUpperCase()}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-green-800">
                         {foundHolder.name} . {foundHolder.email}
                       </p>
-
                     </div>
                     <div className="text-right">
                       <p className="text-[13px] text-muted-foreground">
@@ -284,7 +293,8 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
                 {holderNotFound && (
                   <p className="text-[13px] text-red-600 mt-1.5 flex items-center gap-1.5">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    No shareholder found for &quot;{holderQuery}&quot;. Check the CHN or account number.
+                    No shareholder found for &quot;{holderQuery}&quot;. Check
+                    the CHN or account number.
                   </p>
                 )}
               </div>
@@ -300,7 +310,9 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
                 variant="ghost"
                 size="sm"
                 className="h-8 text-primary text-[13px] font-bold"
-                onClick={() => setCertificates([...certificates, { certNo: "", units: "" }])}
+                onClick={() =>
+                  setCertificates([...certificates, { certNo: "", units: "" }])
+                }
               >
                 <Plus className="h-3 w-3 mr-1" /> Add Certificate
               </Button>
@@ -345,7 +357,9 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
                       size="icon"
                       className="h-11 w-11 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0 border border-transparent hover:border-red-200"
                       onClick={() => {
-                        const newCerts = certificates.filter((_, i) => i !== index);
+                        const newCerts = certificates.filter(
+                          (_, i) => i !== index,
+                        );
                         setCertificates(newCerts);
                       }}
                     >
@@ -358,7 +372,10 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
                 <span className="text-[13px] font-bold text-muted-foreground">
                   Total Units:{" "}
                   <span className="text-foreground font-mono">
-                    {certificates.reduce((sum, c) => sum + (Number(c.units) || 0), 0)}
+                    {certificates.reduce(
+                      (sum, c) => sum + (Number(c.units) || 0),
+                      0,
+                    )}
                   </span>
                 </span>
               </div>
@@ -427,10 +444,14 @@ export const CaptureDematerialization = ({ tab, setActiveTab }: { tab: string, s
             disabled={isCapturing}
             onClick={handleSubmit}
           >
-            {isCapturing ? "Processing..." : editingRejectedId ? "Resubmit Record" : "Submit Record"}
+            {isCapturing
+              ? "Processing..."
+              : editingRejectedId
+                ? "Resubmit Record"
+                : "Submit Record"}
           </Button>
         </div>
       </Card>
     </div>
-  )
-}
+  );
+};

@@ -136,7 +136,10 @@ export default function NewConsolidation({
         certIds: Array.from(selectedIds),
         newCertNumber,
         reason,
-        submittedBy: currentUser?.email || currentUser?.username || "ADMIN",
+        submittedBy:
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          "ADMIN",
       },
       {
         onSuccess: () => {

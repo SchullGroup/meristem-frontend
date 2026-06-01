@@ -1,0 +1,141 @@
+"use client";
+
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useGetMarkOffHistory } from "@/hooks/useWarrantMarkoff";
+import { TablePagination } from "@/components/custom/table-pagination";
+import { DataErrorState } from "../ipo/loaders";
+import { EntitlementTableSkeleton } from "../rights-issue/loaders";
+
+function getTierNumber(tier: string | number | undefined): 1 | 2 | 3 {
+  if (!tier) return 1;
+  const str = String(tier).toUpperCase();
+  if (str.includes("3") || str.includes("THREE") || str.includes("MANAGEMENT") || str.includes("FINAL")) return 3;
+  if (str.includes("2") || str.includes("TWO") || str.includes("ICU") || str.includes("SECOND")) return 2;
+  return 1;
+}
+
+function tierLabel(tier: string | number | undefined) {
+  const num = getTierNumber(tier);
+  return num === 1 ? "1st Approval" : num === 2 ? "ICU" : "Management";
+}
+
+function tierBadgeClass(tier: string | number | undefined) {
+  const num = getTierNumber(tier);
+  return num === 1
+    ? "bg-blue-100 text-blue-800"
+    : num === 2
+      ? "bg-purple-100 text-purple-800"
+      : "bg-orange-100 text-orange-800";
+}
+
+export default function History() {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Mark-off history query
+  const {
+    data: historyResponse,
+    isLoading: isLoadingHistory,
+    isError: isErrorHistory,
+    error: historyError,
+    refetch: refetchHistory,
+  } = useGetMarkOffHistory({
+    page: page - 1,
+    size: pageSize,
+  });
+
+  const historyList = historyResponse?.data?.content || [];
+  const totalElements = historyResponse?.data?.totalElements || 0;
+  const totalPages = historyResponse?.data?.totalPages || 0;
+
+  return (
+    <div className="space-y-4">
+      {isLoadingHistory && <EntitlementTableSkeleton />}
+
+      {isErrorHistory && (
+        <DataErrorState
+          message={historyError?.message || "Failed to load mark-off history."}
+          onRetry={refetchHistory}
+        />
+      )}
+
+      {!isLoadingHistory && !isErrorHistory && historyList.length === 0 && (
+        <div className="text-center p-8 border border-dashed rounded-xl text-muted-foreground">
+          No history records found.
+        </div>
+      )}
+
+      {!isLoadingHistory && !isErrorHistory && historyList.length > 0 && (
+        <div className="space-y-4">
+          <Card className="mrpsl-card overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="mrpsl-table-header">
+                <tr>
+                  <th className="p-3">DATE</th>
+                  <th className="p-3">WARRANT NO</th>
+                  <th className="p-3">ACCOUNT</th>
+                  <th className="p-3">HOLDER</th>
+                  <th className="p-3">AMOUNT (₦)</th>
+                  <th className="p-3">MARKED OFF BY</th>
+                  <th className="p-3">TIER</th>
+                  <th className="p-3">STATUS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-[13px]">
+                {historyList.map((row) => (
+                  <tr key={row.id} className="mrpsl-table-row">
+                    <td className="p-3 text-muted-foreground">{row.submittedDate}</td>
+                    <td className="p-3 font-mono">{row.warrantNumber}</td>
+                    <td className="p-3 font-mono">{row.accountNumber}</td>
+                    <td className="p-3 font-medium">{row.holderName}</td>
+                    <td className="p-3 text-right font-mono font-semibold">
+                      {row.amount.toLocaleString()}.00
+                    </td>
+                    <td className="p-3 text-muted-foreground">{row.submittedBy}</td>
+                    <td className="p-3">
+                      <Badge
+                        className={`border-0 text-[12px] ${tierBadgeClass(
+                          row.currentTier
+                        )}`}
+                      >
+                        {tierLabel(row.currentTier)}
+                      </Badge>
+                    </td>
+                    <td className="p-3">
+                      <Badge
+                        className={`border-0 text-[13px] ${
+                          row.status === "APPROVED"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {row.status ? (
+                          row.status.charAt(0) + row.status.slice(1).toLowerCase()
+                        ) : (
+                          "Approved"
+                        )}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            totalPages={totalPages}
+            from={(page - 1) * pageSize + 1}
+            to={Math.min(page * pageSize, totalElements)}
+            total={totalElements}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
