@@ -37,6 +37,12 @@ export interface Pageable {
   sort: Sort;
 }
 
+export interface Sort {
+  unsorted: boolean;
+  sorted: boolean;
+  empty: boolean;
+}
+
 export interface ContentPaginatedResponse<T> {
   content: T[];
   last: boolean;
@@ -81,8 +87,4 @@ export type EntitlementResponse = ApiResponse<{
   id: string | null;
 }>;
 
-export interface Sort {
-  unsorted: boolean;
-  sorted: boolean;
-  empty: boolean;
-}
+

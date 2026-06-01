@@ -13,7 +13,7 @@ import {
 } from "@/hooks/useCertTransfer";
 import { CscsShareholder, TransferRequest } from "@/types/cscs";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
-import { useGetShareholders } from "@/hooks/useCertificates";
+import { useGetShareholdersCertificate } from "@/hooks/useCertificates";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 
 export const Transfer = ({
@@ -61,11 +61,11 @@ export const Transfer = ({
   const [uploadingIot, setUploadingIot] = useState(false);
 
   // Setup queries
-  const { refetch: fetchSrc, isFetching: srcFetching } = useGetShareholders(
+  const { refetch: fetchSrc, isFetching: srcFetching } = useGetShareholdersCertificate(
     { search: srcSearch },
     { enabled: false },
   );
-  const { refetch: fetchDest, isFetching: destFetching } = useGetShareholders(
+  const { refetch: fetchDest, isFetching: destFetching } = useGetShareholdersCertificate(
     { search: destSearch },
     { enabled: false },
   );

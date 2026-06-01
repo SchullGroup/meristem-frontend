@@ -228,12 +228,12 @@ export default function ApprovalsPage() {
       const tt = reviewItem.transactionType;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (tt === "Create Principal") addPrincipal(p as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       else if (tt === "Update Principal")
         updatePrincipal(p.id as string, (p.updates ?? p) as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       else if (tt === "Create User") addUser(p as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       else if (tt === "Update User")
         updateUser(p.id as string, (p.updates ?? p) as any);
       toast.success(
