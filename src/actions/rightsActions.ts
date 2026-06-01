@@ -393,7 +393,7 @@ export const emailShareholders = async (
   }
 };
 
-export const getShareholdersProfile = async (params: RightsIssueParams) => {
+export const getStickyLabels = async (params: RightsIssueParams) => {
   const { id, ...rest } = params;
 
   try {

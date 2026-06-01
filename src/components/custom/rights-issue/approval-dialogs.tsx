@@ -63,7 +63,10 @@ export function ApproveRightsDialog({
       id,
       decision: "APPROVED",
       comment,
-      createdBy: currentUser?.email,
+      createdBy:
+        currentUser?.username ||
+        `${currentUser?.firstName} ${currentUser?.lastName}` ||
+        currentUser?.email,
     };
 
     if (type === "icu") {
@@ -159,7 +162,10 @@ export function RejectRightsDialog({
       id,
       decision: "REJECTED",
       comment,
-      createdBy: currentUser?.email,
+      createdBy:
+        currentUser?.username ||
+        `${currentUser?.firstName} ${currentUser?.lastName}` ||
+        currentUser?.email,
     };
 
     if (type === "icu") {
@@ -222,7 +228,7 @@ export function RejectRightsDialog({
             placeholder="Enter rejection reason..."
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            className="min-h-[100px]"
+            className="min-h-25"
           />
         </div>
         <DialogFooter>
@@ -249,8 +255,7 @@ export function LodgeRightsDialog({
   open,
   onOpenChange,
   onSuccess,
-  rightsIssueDetails
-
+  rightsIssueDetails,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -260,7 +265,6 @@ export function LodgeRightsDialog({
   const { currentUser } = useStore();
   const [notes, setNotes] = useState("");
   const lodgeMutation = useLodgeRightsIssueDeclaration();
-
 
   const handleProcessLodgment = () => {
     if (!rightsIssueDetails?.id) return;
@@ -272,17 +276,22 @@ export function LodgeRightsDialog({
           lodgmentDate: format(new Date(), "yyyy-MM-dd"),
           lodgmentRef: rightsIssueDetails?.ref,
           notes,
-          processedBy: currentUser?.email || 'ADMIN'
+          processedBy:
+            currentUser?.username ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.email ||
+            "ADMIN",
         },
       },
       {
         onSuccess: () => {
-          toast.success(`${rightsIssueDetails?.ref} lodged successfully`)
-          setNotes("")
-          onSuccess()
-          onOpenChange(false)
+          toast.success(`${rightsIssueDetails?.ref} lodged successfully`);
+          setNotes("");
+          onSuccess();
+          onOpenChange(false);
         },
-        onError: (err) => toast.error(err?.message ?? "Failed to process lodgment"),
+        onError: (err) =>
+          toast.error(err?.message ?? "Failed to process lodgment"),
       },
     );
   };
@@ -303,7 +312,7 @@ export function LodgeRightsDialog({
             placeholder="Enter lodgment notes..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="min-h-[100px]"
+            className="min-h-25"
           />
         </div>
         <DialogFooter>

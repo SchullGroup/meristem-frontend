@@ -23,11 +23,7 @@ export interface PaginatedResponse<T> {
     size: number;
     content: Array<T>;
     number: number;
-    sort: {
-      unsorted: boolean;
-      sorted: boolean;
-      empty: boolean;
-    };
+    sort: Sort;
     empty: boolean;
   };
 }
@@ -38,11 +34,13 @@ export interface Pageable {
   paged: boolean;
   pageSize: number;
   offset: number;
-  sort: {
-    unsorted: boolean;
-    sorted: boolean;
-    empty: boolean;
-  };
+  sort: Sort;
+}
+
+export interface Sort {
+  unsorted: boolean;
+  sorted: boolean;
+  empty: boolean;
 }
 
 export interface ContentPaginatedResponse<T> {
@@ -78,11 +76,7 @@ export type EntitlementResponse = ApiResponse<{
       amountPayable: number;
     }>;
     number: number;
-    sort: {
-      unsorted: boolean;
-      sorted: boolean;
-      empty: boolean;
-    };
+    sort: Sort;
     empty: boolean;
   };
   totalShareholders: number;
@@ -92,3 +86,5 @@ export type EntitlementResponse = ApiResponse<{
   computedAt: string;
   id: string | null;
 }>;
+
+

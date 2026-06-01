@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
     Search,
 
@@ -33,7 +33,7 @@ import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 const PAGE_SIZE = 10
 
 
-export const ProcessedLogs = ({ tab, setActiveTab }: {
+export const ProcessedLogs = ({ tab }: {
     tab: string; setActiveTab: React.Dispatch<React.SetStateAction<string>>
 }) => {
 
@@ -41,7 +41,7 @@ export const ProcessedLogs = ({ tab, setActiveTab }: {
         size: 100,
         status: "ACTIVE",
     }, {
-        enabled: tab === "processed-logs",
+        enabled: tab === "logs",
     });
 
 
@@ -67,9 +67,8 @@ export const ProcessedLogs = ({ tab, setActiveTab }: {
         page: currentPage,
         size: pageSize
     }, {
-        enabled: tab === "processed-logs"
+        enabled: tab === "logs"
     })
-
 
     return (
         <>
@@ -108,13 +107,12 @@ export const ProcessedLogs = ({ tab, setActiveTab }: {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="All">All Types</SelectItem>
-                        <SelectItem value="Buy">Buy</SelectItem>
-                        <SelectItem value="Sell">Sell</SelectItem>
+                        <SelectItem value="BUY">Buy</SelectItem>
+                        <SelectItem value="SELL">Sell</SelectItem>
                     </SelectContent>
                 </Select>
 
                 <div className="space-y-1.5">
-                    <label className="mrpsl-label">Date Range</label>
                     <DateRangePicker
                         date={logDateRange}
                         setDate={setLogDateRange}
@@ -137,32 +135,33 @@ export const ProcessedLogs = ({ tab, setActiveTab }: {
 
             <Card className="mrpsl-card overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="mrpsl-table-header">
-                            <tr>
-                                <th className="px-4 py-3">DATE</th>
-                                <th className="px-4 py-3">BATCH REF</th>
-                                <th className="px-4 py-3">CHN</th>
-                                <th className="px-4 py-3">REGISTER</th>
-                                <th className="px-4 py-3">HOLDER</th>
-                                <th className="px-4 py-3">TRANSFER NO</th>
-                                <th className="px-4 py-3">TYPE</th>
-                                <th className="px-4 py-3 text-right">UNITS</th>
-                                <th className="px-4 py-3 text-right">BALANCE AFTER</th>
-                                <th className="px-4 py-3">PROCESSED BY</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/60">
-                            {
-                                isLoading ? (
-                                    <PendingListSkeleton />
-                                ) : isError ? (
-                                    <DataErrorState
-                                        message={returnErrorMessage(error as ErrorLike)}
-                                        onRetry={refetch}
-                                    />
-                                ) :
-                                    Array.isArray(processedLogs?.transactions?.content) && processedLogs?.transactions?.content.length > 0 ?
+                    {
+                        isLoading ? (
+                            <PendingListSkeleton cols={10} />
+                        ) : isError ? (
+                            <DataErrorState
+                                message={returnErrorMessage(error as ErrorLike)}
+                                onRetry={refetch}
+                            />) :
+                            (<table className="w-full text-left text-sm">
+                                <thead className="mrpsl-table-header">
+                                    <tr>
+                                        <th className="px-4 py-3">DATE</th>
+                                        <th className="px-4 py-3">BATCH REF</th>
+                                        <th className="px-4 py-3">CHN</th>
+                                        <th className="px-4 py-3">REGISTER</th>
+                                        <th className="px-4 py-3">HOLDER</th>
+                                        <th className="px-4 py-3">TRANSFER NO</th>
+                                        <th className="px-4 py-3">TYPE</th>
+                                        <th className="px-4 py-3 text-right">UNITS</th>
+                                        <th className="px-4 py-3 text-right">BALANCE AFTER</th>
+                                        <th className="px-4 py-3">PROCESSED BY</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody className="divide-y divide-border/60">
+
+                                    {Array.isArray(processedLogs?.transactions?.content) && processedLogs?.transactions?.content.length > 0 ?
                                         processedLogs?.transactions?.content?.map((row) => (
                                             <tr key={row.id} className="mrpsl-table-row">
                                                 <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
@@ -189,7 +188,7 @@ export const ProcessedLogs = ({ tab, setActiveTab }: {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <Badge
-                                                        className={`border-0 text-[13px] ${row.type === "Buy" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
+                                                        className={`border-0 text-[13px] ${row.type === "BUY" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
                                                     >
                                                         {row.type}
                                                     </Badge>
@@ -215,8 +214,8 @@ export const ProcessedLogs = ({ tab, setActiveTab }: {
                                                 </td>
                                             </tr>
                                         )}
-                        </tbody>
-                    </table>
+                                </tbody>
+                            </table>)}
                 </div>
 
             </Card>

@@ -1,6 +1,7 @@
 "use client";
 
 import { ShieldCheck } from "lucide-react";
+import { WhiteSiteLogo } from "./site-logo-white";
 
 export function BrandPanel() {
   return (
@@ -19,13 +20,14 @@ export function BrandPanel() {
           background: "radial-gradient(circle, white 0%, transparent 70%)",
         }}
       />
-      <div className="relative z-10">
-        <p className="text-white font-bold text-lg tracking-tight leading-none">
+      <div className="relative z-10 w-fit">
+        <WhiteSiteLogo />
+        {/* <p className="text-white font-bold text-lg tracking-tight leading-none">
           MRPSL
         </p>
         <p className="text-white/50 text-[10px] uppercase tracking-[0.18em] mt-0.5">
           Core Processing Application
-        </p>
+        </p> */}
       </div>
       <div className="relative z-10 space-y-4">
         <h2 className="text-white text-[2.6rem] font-bold tracking-tight leading-[1.15] max-w-sm">

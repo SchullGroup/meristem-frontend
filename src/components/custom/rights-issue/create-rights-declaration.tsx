@@ -17,6 +17,7 @@ import {
   useCreateRightsIssue,
   useGetRightsIssueShareholders,
   useSubmitForApproval,
+  useAllRightsIssues,
 } from "@/hooks/useRights";
 import { CreateRightsIssue } from "@/types/rights";
 import { toast } from "sonner";
@@ -56,22 +57,26 @@ export default function CreateRightsDeclaration() {
   });
 
   // show rejected rights issues if exist
-  const {
-    rejectedBatches,
-    removeRejectedBatch,
-    clearRejectedBatches,
-    currentUser,
-    setCurrentUser,
-  } = useStore();
+  const { currentUser, setCurrentUser } = useStore();
+  const { data: rejectedData } = useAllRightsIssues({
+    status: "AUTH_REJECTED",
+  });
+
+  const allRejectedBatches = rejectedData?.content || [];
+  const [hiddenRejectedIds, setHiddenRejectedIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const rejectedBatches = allRejectedBatches.filter(
+    (b) => !hiddenRejectedIds.has(b.id),
+  );
+  const [showRejected, setShowRejected] = useState(false);
 
   // Pagination
   const [declPage, setDeclPage] = useState(1);
   const [retryId, setRetryId] = useState<string | null>(null);
 
   // Fetch rejected declaration details for retry directly from store rejections
-  const retryDeclarationData = rejectedBatches.find(
-    (b) => b.id === retryId,
-  )?.rightsIssueDetails;
+  const retryDeclarationData = rejectedBatches.find((b) => b.id === retryId);
 
   useEffect(() => {
     if (retryDeclarationData) {
@@ -149,7 +154,10 @@ export default function CreateRightsDeclaration() {
       closureDate: format(newRightsIssue.closureDate, "yyyy-MM-dd"),
       allotmentDate: format(newRightsIssue.allotmentDate, "yyyy-MM-dd"), // Default or add another field
       narrative: newRightsIssue.narrative,
-      createdBy: currentUser?.email,
+      createdBy:
+        currentUser?.username ||
+        `${currentUser?.firstName} ${currentUser?.lastName}` ||
+        currentUser?.email,
       declarationId: retryId || undefined,
     };
 
@@ -190,7 +198,7 @@ export default function CreateRightsDeclaration() {
       onSuccess: () => {
         toast.success("Declaration submitted for approval.");
         // Clear rejection state
-        clearRejectedBatches();
+        // clearRejectedBatches();
         // Reset state
         setCreatedIssueId("");
         setComputed(false);
@@ -216,56 +224,96 @@ export default function CreateRightsDeclaration() {
 
   return (
     <>
-      {/* Rejected Rights declarations */}
-      {rejectedBatches &&
-        rejectedBatches
-          .filter((b) => b.type === "rights")
-          .map((batch) => (
-            <Card
-              key={batch.ref}
-              className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 mb-4 animate-in fade-in"
+      {/* Rejected Rights declarations toggle */}
+      {rejectedBatches && rejectedBatches.length > 0 && !showRejected && (
+        <div className="mb-6">
+          <Button
+            variant="outline"
+            onClick={() => setShowRejected(true)}
+            className="border-red-200 text-red-700 bg-red-50 hover:bg-red-100 hover:text-red-800"
+          >
+            <AlertCircle className="h-4 w-4 mr-2" />
+            View Rejected Declarations ({rejectedBatches.length})
+          </Button>
+        </div>
+      )}
+
+      {/* Rejected Rights declarations list */}
+      {rejectedBatches && rejectedBatches.length > 0 && showRejected && (
+        <div className="space-y-4 mb-6 animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-red-800 text-sm">
+              Action Required: Rejected Declarations
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowRejected(false)}
+              className="text-muted-foreground h-8 px-2"
             >
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-red-800">
-                    Declaration Rejected — Ref: {batch.ref}
-                  </p>
-                  <p className="text-[13px] text-red-700 mt-0.5">
-                    Authorizer comment:{" "}
-                    {batch.comment || "No comment provided."}
-                  </p>
-                  <div className="text-[13px] text-muted-foreground mt-1.5 flex items-center justify-between">
-                    <span>
-                      Please review the entitlement data and resubmit for
-                      approval.
-                    </span>
-                    {batch.id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setRetryId(batch.id || null);
-                          toast.info(
-                            `Loading declaration details for ${batch.ref}...`,
-                          );
-                        }}
-                        className="h-7 px-3 text-xs bg-red-100 hover:bg-red-200 border-0 text-red-800"
-                      >
-                        Retry
-                      </Button>
-                    )}
+              Hide
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-2">
+            {rejectedBatches.map((batch) => (
+              <Card
+                key={batch.ref}
+                className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 w-full shrink-0"
+              >
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-800">
+                      Declaration Rejected — Ref: {batch.ref}
+                    </p>
+                    <p className="text-[13px] text-red-700 mt-0.5">
+                      Authorizer comment:{" "}
+                      {batch.authorizedReason || "No comment provided."}
+                    </p>
+                    <div className="text-[13px] text-muted-foreground mt-1.5 flex flex-col gap-2">
+                      <span>
+                        Please review the entitlement data and resubmit for
+                        approval.
+                      </span>
+                      {batch.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setRetryId(batch.id || null);
+                            toast.info(
+                              `Loading declaration details for ${batch.ref}...`,
+                            );
+                            setHiddenRejectedIds((prev) =>
+                              new Set(prev).add(batch.id),
+                            );
+                            setShowRejected(false);
+                          }}
+                          className="h-7 px-3 text-xs bg-red-100 hover:bg-red-200 border-0 text-red-800 self-start"
+                        >
+                          Retry
+                        </Button>
+                      )}
+                    </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      setHiddenRejectedIds((prev) =>
+                        new Set(prev).add(batch.id),
+                      );
+                      if (rejectedBatches.length <= 1) setShowRejected(false);
+                    }}
+                    className="rounded-full hover:bg-red-100 p-0.5"
+                  >
+                    <X className="h-3.5 w-3.5 text-red-600" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => removeRejectedBatch(batch.ref)}
-                  className="rounded-full hover:bg-red-100 p-0.5"
-                >
-                  <X className="h-3.5 w-3.5 text-red-600" />
-                </button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Card className="mrpsl-card p-6">
         <h2 className="font-semibold text-lg border-b pb-2 mb-4">
@@ -426,14 +474,14 @@ export default function CreateRightsDeclaration() {
             {(retryId ||
               newRightsIssue.registerId !== "" ||
               newRightsIssue.issueName !== "") && (
-                <Button
-                  variant="outline"
-                  onClick={handleResetForm}
-                  disabled={createMutation.isPending}
-                >
-                  Reset Form
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={handleResetForm}
+                disabled={createMutation.isPending}
+              >
+                Reset Form
+              </Button>
+            )}
           </div>
           {computed && (
             <div className="flex items-center gap-2 mt-2 text-green-700 text-sm font-medium">
@@ -530,6 +578,7 @@ export default function CreateRightsDeclaration() {
                     total={shareholdersData.pagination.total}
                     pageSize={10}
                     onPageChange={setDeclPage}
+                    pageBase={1}
                   />
                 )}
               </Card>

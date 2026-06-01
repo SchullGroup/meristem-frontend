@@ -74,3 +74,16 @@ export function generateCertString(identifier: string) {
 export function capitalizeFirstLetter(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+export function formatDate(dateString: any) {
+  if (!dateString) return "";
+
+  const d = new Date(dateString);
+
+  const year = d.getFullYear();
+
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
