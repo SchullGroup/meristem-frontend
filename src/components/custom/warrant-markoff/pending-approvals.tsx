@@ -138,7 +138,11 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
         id: selected.id,
         data: {
           comment: comment.trim(),
-          authorisedBy: currentUser?.username || currentUser?.email || "System",
+          authorisedBy:
+            currentUser?.username ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.email ||
+            "System",
         },
       },
       {
@@ -166,7 +170,11 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
         id: selected.id,
         data: {
           comment: comment.trim(),
-          authorisedBy: currentUser?.username || currentUser?.email || "System",
+          authorisedBy:
+            currentUser?.username ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.email ||
+            "System",
         },
       },
       {
@@ -193,7 +201,11 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
       {
         ids: Array.from(authSelIds).map((id) => id.toString()) as any,
         comment: "Batch approved",
-        authorisedBy: currentUser?.username || currentUser?.email || "System",
+        authorisedBy:
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          currentUser?.email ||
+          "System",
       },
       {
         onSuccess: (res) => {
@@ -221,7 +233,11 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
       {
         ids: Array.from(authSelIds).map((id) => id.toString()) as any,
         comment: comment.trim(),
-        authorisedBy: currentUser?.username || currentUser?.email || "System",
+        authorisedBy:
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          currentUser?.email ||
+          "System",
       },
       {
         onSuccess: (res) => {

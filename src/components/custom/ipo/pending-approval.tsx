@@ -157,7 +157,11 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         batchRef: reviewingBatch,
         payload: {
           comment: reviewComment,
-          rejectedBy: currentUser?.username || "ADMIN",
+          rejectedBy:
+            currentUser?.username ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.email ||
+            "ADMIN",
         },
       },
       {

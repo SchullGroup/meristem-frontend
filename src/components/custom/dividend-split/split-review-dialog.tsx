@@ -47,7 +47,10 @@ export function SplitReviewDialog({
         data: {
           comment,
           authorisedBy:
-            `${currentUser?.firstName} ${currentUser?.lastName}` || "ADMIN",
+            currentUser?.username ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.email ||
+            "ADMIN",
         },
       },
       {
@@ -78,7 +81,10 @@ export function SplitReviewDialog({
         data: {
           comment,
           authorisedBy:
-            `${currentUser?.firstName} ${currentUser?.lastName}` || "ADMIN",
+            currentUser?.username ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.email ||
+            "ADMIN",
         },
       },
       {

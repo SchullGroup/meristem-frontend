@@ -189,7 +189,9 @@ export function SplitFormPanel() {
         dividendId: splitDividend,
         reason: splitReason,
         submittedBy:
-          `${currentUser?.firstName} ${currentUser?.lastName}` || "ADMIN",
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          "ADMIN",
         parts: partRows.slice(0, splitParts).map((p) => ({
           destinationAccountNumber: p.account,
           amount: Number(p.amount),

@@ -87,7 +87,11 @@ export function PendingSplitsTable() {
       {
         ids: Array.from(selectedIds),
         comment: "Batch approved",
-        authorisedBy: currentUser?.username || currentUser?.email || "SYSTEM",
+        authorisedBy:
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          currentUser?.email ||
+          "SYSTEM",
       } as BatchRejectSplits,
       {
         onSuccess: (res) => {
@@ -121,7 +125,11 @@ export function PendingSplitsTable() {
       {
         ids: Array.from(selectedIds),
         comment: batchComment.trim(),
-        authorisedBy: currentUser?.username || currentUser?.email || "SYSTEM",
+        authorisedBy:
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          currentUser?.email ||
+          "SYSTEM",
       },
       {
         onSuccess: (res) => {

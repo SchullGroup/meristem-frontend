@@ -165,7 +165,11 @@ export default function EnBlocMarkoff() {
       {
         warrantIds: Array.from(selectedIds).map((id) => id.toString()) as any,
         reason: reason.trim(),
-        submittedBy: currentUser?.username || currentUser?.email || "System",
+        submittedBy:
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          currentUser?.email ||
+          "System",
       },
       {
         onSuccess: (res) => {

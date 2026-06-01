@@ -67,7 +67,11 @@ export default function ManualMarkoff({
       {
         warrantNumber: warrant.warrantNumber,
         reason: reason.trim(),
-        submittedBy: currentUser?.username || currentUser?.email || "System",
+        submittedBy:
+          currentUser?.username ||
+          `${currentUser?.firstName} ${currentUser?.lastName}` ||
+          currentUser?.email ||
+          "System",
       },
       {
         onSuccess: (res) => {
