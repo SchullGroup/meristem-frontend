@@ -304,20 +304,15 @@ export default function PaymentPage() {
   );
   const divRate = selectedDivDecl?.rate ?? 0;
 
-  const paymentRows = useMemo(
-    () => {
-      return shareholders.map((s, i) => ({
-        serial: i + 1,
-        accountNo: s.accountNumber,
-        holderName: `${s.firstName} ${s.lastName}`,
-        sortCode: ["044", "058", "011", "057", "035"][i % 5],
-        amount: s.holdings * divRate,
-        narration: `${selectedReg?.symbol ?? "REG"}-WRT${String(89410 + i).padStart(5, "0")}-DIV-PAY001`,
-        status: "UNPAID" as const,
-      }))
-    },
-    [shareholders, divRate, selectedReg],
-  );
+  const paymentRows = shareholders.map((s, i) => ({
+    serial: i + 1,
+    accountNo: s.accountNumber,
+    holderName: `${s.firstName} ${s.lastName}`,
+    sortCode: ["044", "058", "011", "057", "035"][i % 5],
+    amount: s.holdings * divRate,
+    narration: `${selectedReg?.symbol ?? "REG"}-WRT${String(89410 + i).padStart(5, "0")}-DIV-PAY001`,
+    status: "UNPAID" as const,
+  }))
 
   const paymentPg = usePagination(paymentRows);
 
