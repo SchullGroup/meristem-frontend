@@ -27,3 +27,165 @@ export const GET_LOADED_MANDATE_QUEUES = async ({
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const LOAD_ACCOUNT = async () => {
+  try {
+    const res = await api.post(`/dividend/mandate-payments/load`);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const SUBMIT_MANDATE_PAYMENTS = async ({
+  ids,
+  totalAmount,
+  authorisedBy,
+}: {
+  ids: string[];
+  totalAmount: number;
+  authorisedBy: string;
+}) => {
+  try {
+    const res = await api.post(`/dividend/mandate-payments/submit`, {
+      ids,
+      totalAmount,
+      authorisedBy,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_PENDING_MANDATE_PAYMENTS = async ({
+  queryKey,
+}: {
+  queryKey: [string, number, number];
+}) => {
+  const page = queryKey[1];
+  const size = queryKey[2];
+
+  try {
+    const res = await api.get(`/dividend/mandate-payments/pending`, {
+      params: {
+        page,
+        size,
+      },
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_PENDING_ICU_MANDATE_PAYMENTS = async ({
+  queryKey,
+}: {
+  queryKey: [string, number, number];
+}) => {
+  const page = queryKey[1];
+  const size = queryKey[2];
+
+  try {
+    const res = await api.get(`/dividend/mandate-payments/icu`, {
+      params: {
+        page,
+        size,
+      },
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const APPROVE_MANDATE_PAYMENTS = async ({
+  id,
+  comment,
+  authorisedBy,
+}: {
+  id: string;
+  comment: string;
+  authorisedBy: string;
+}) => {
+  try {
+    const res = await api.post(`/dividend/mandate-payments/${id}/approve`, {
+      comment,
+      authorisedBy,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const REJECT_MANDATE_PAYMENTS = async ({
+  id,
+  comment,
+  authorisedBy,
+}: {
+  id: string;
+  comment: string;
+  authorisedBy: string;
+}) => {
+  try {
+    const res = await api.post(`/dividend/mandate-payments/${id}/reject`, {
+      comment,
+      authorisedBy,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const BATCH_APPROVE_MANDATE_PAYMENTS = async ({
+  ids,
+  comment,
+  authorisedBy,
+}: {
+  ids: string[];
+  comment: string;
+  authorisedBy: string;
+}) => {
+  try {
+    const res = await api.post(`/dividend/mandate-payments/batch/approve`, {
+      ids,
+      comment,
+      authorisedBy,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const BATCH_REJECT_MANDATE_PAYMENTS = async ({
+  ids,
+  comment,
+  authorisedBy,
+}: {
+  ids: string[];
+  comment: string;
+  authorisedBy: string;
+}) => {
+  try {
+    const res = await api.post(`/dividend/mandate-payments/batch/reject`, {
+      ids,
+      comment,
+      authorisedBy,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};

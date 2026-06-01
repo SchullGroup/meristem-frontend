@@ -25,9 +25,20 @@ import { Check, AlertCircle, X, Download, Loader2 } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { useGetRegisters } from "@/hooks/useRegisters";
-import { useQuery } from "@tanstack/react-query";
-import { GET_LOADED_MANDATE_QUEUES } from "@/actions/divNewMandate";
-import { GET_ALL_DIVIDEND_DECLARATIONS } from "@/actions/divDeclarationActions";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  APPROVE_MANDATE_PAYMENTS,
+  BATCH_APPROVE_MANDATE_PAYMENTS,
+  BATCH_REJECT_MANDATE_PAYMENTS,
+  GET_LOADED_MANDATE_QUEUES,
+  GET_PENDING_ICU_MANDATE_PAYMENTS,
+  GET_PENDING_MANDATE_PAYMENTS,
+  LOAD_ACCOUNT,
+  REJECT_MANDATE_PAYMENTS,
+  SUBMIT_MANDATE_PAYMENTS,
+} from "@/actions/divNewMandate";
+import { GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS } from "@/actions/divDeclarationActions";
+import { useStore } from "@/lib/store";
 
 type MandateApproval = {
   id: string;
@@ -41,46 +52,6 @@ type MandateApproval = {
   submittedBy: string;
   tier: number;
 };
-
-type QueueRow = {
-  id: string;
-  account: string;
-  holder: string;
-  bank: string;
-  accountNo: string;
-  dividendNo: string;
-  amount: number;
-};
-
-const QUEUE_DATA: QueueRow[] = [
-  {
-    id: "Q1",
-    account: "DANGCEM-10045",
-    holder: "Lukman Bello",
-    bank: "UBA",
-    accountNo: "0029384812",
-    dividendNo: "DIV-2025-001",
-    amount: 45000,
-  },
-  {
-    id: "Q2",
-    account: "ZENITHBANK-9921",
-    holder: "Fatima Abdullahi",
-    bank: "First Bank",
-    accountNo: "3012849001",
-    dividendNo: "DIV-2025-001",
-    amount: 128500,
-  },
-  {
-    id: "Q3",
-    account: "DANGCEM-10102",
-    holder: "Emeka Eze",
-    bank: "GTBank",
-    accountNo: "0045612378",
-    dividendNo: "DIV-2025-002",
-    amount: 62000,
-  },
-];
 
 const INITIAL_PENDING: MandateApproval[] = [
   {
@@ -149,6 +120,8 @@ const INITIAL_ICU: MandateApproval[] = [
 ];
 
 export default function NewMandatePage() {
+  const queryClient = useQueryClient();
+  const { currentUser } = useStore();
   const { data: registersData } = useGetRegisters({
     size: 1000,
   });
@@ -177,21 +150,11 @@ export default function NewMandatePage() {
   const [rejectedIsIcu, setRejectedIsIcu] = useState(false);
 
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [selected, setSelected] = useState<MandateApproval | null>(null);
+  const [selected, setSelected] = useState<any | null>(null);
   const [isIcu, setIsIcu] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
 
-  const mandatePg = usePagination(pendingMandate);
   const icuPg = usePagination(icuMandate);
-
-  const allSelected =
-    queueLoaded &&
-    QUEUE_DATA.length > 0 &&
-    QUEUE_DATA.every((r) => selectedIds.has(r.id));
-  const selectedTotal = QUEUE_DATA.filter((r) => selectedIds.has(r.id)).reduce(
-    (s, r) => s + r.amount,
-    0,
-  );
 
   const { data, isLoading: mandateQueueLoading } = useQuery({
     queryKey: ["loaded-mandate-queue", queueRegister, queueDividend, 0, 20],
@@ -202,20 +165,110 @@ export default function NewMandatePage() {
   const mandateQueue = data?.data?.content;
 
   const { data: declarationData } = useQuery({
-    queryKey: ["all-declarations", 20, 1],
-    queryFn: GET_ALL_DIVIDEND_DECLARATIONS,
+    queryKey: ["all-declarations-numbers"],
+    queryFn: GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS,
   });
 
-  const declarationList = declarationData?.data?.content || [];
-  const approvedDivNum = declarationList?.filter(
-    (declaration: { status: string }) => declaration.status === "AUTHORIZED",
-  );
+  const [pendingPage, setPendingPage] = useState(0);
+  const [pendingPageSize, setPendingPageSize] = useState(10);
+
+  const {
+    data: pendingMandatePaymentsData,
+    isFetching: pendingMandatePaymentsLoading,
+  } = useQuery({
+    queryKey: ["pending-mandate-payments", pendingPage, pendingPageSize],
+    queryFn: GET_PENDING_MANDATE_PAYMENTS,
+  });
+
+  const [icuPage, setIcuPage] = useState(0);
+  const [icuPageSize, setIcuPageSize] = useState(10);
+
+  const {
+    data: icuMandatePaymentsData,
+    isFetching: icuMandatePaymentsLoading,
+  } = useQuery({
+    queryKey: ["pending-icu-mandate-payments", icuPage, icuPageSize],
+    queryFn: GET_PENDING_ICU_MANDATE_PAYMENTS,
+  });
+
+  const pendingMandatePayments = pendingMandatePaymentsData?.data?.content;
+  const pendingTotal = pendingMandatePaymentsData?.data?.totalElements ?? 0;
+  const pendingTotalPages = pendingMandatePaymentsData?.data?.totalPages ?? 1;
+
+  const icuMandatePayments = icuMandatePaymentsData?.data?.content;
+  const icuTotal = icuMandatePaymentsData?.data?.totalElements ?? 0;
+  const icuTotalPages = icuMandatePaymentsData?.data?.totalPages ?? 1;
+
+  const pendingFrom =
+    pendingTotal === 0 ? 0 : pendingPage * pendingPageSize + 1;
+  const pendingTo = Math.min((pendingPage + 1) * pendingPageSize, pendingTotal);
+
+  const icuFrom = icuTotal === 0 ? 0 : icuPage * icuPageSize + 1;
+  const icuTo = Math.min((icuPage + 1) * icuPageSize, icuTotal);
+
+  const handlePendingPageChange = (newPage: number) => {
+    setPendingPage(newPage - 1);
+  };
+
+  const handlePendingPageSizeChange = (newSize: number) => {
+    setPendingPageSize(newSize);
+    setPendingPage(0);
+  };
+
+  const handleIcuPageChange = (newPage: number) => {
+    setIcuPage(newPage - 1);
+  };
+
+  const handleIcuPageSizeChange = (newSize: number) => {
+    setIcuPageSize(newSize);
+    setIcuPage(0);
+  };
+
+  const visiblePendingPayments =
+    pendingMandatePayments?.filter(
+      (q: { status: string }) => q.status === "PENDING_OPS",
+    ) || [];
+
+  const visibleIcuPayments = icuMandatePayments || [];
+
+  const allSelected =
+    mandateQueue?.length > 0 &&
+    mandateQueue?.every((r: { id: string }) => selectedIds.has(r.id));
+  const selectedTotal = mandateQueue
+    ?.filter((r: { id: string }) => selectedIds.has(r.id))
+    ?.reduce((s: number, r: { amount: number }) => s + r.amount, 0);
+
+  const approvedDivNum = declarationData?.data;
+
+  const loadAccountMutation = useMutation({
+    mutationFn: LOAD_ACCOUNT,
+    onSuccess: (data) => {
+      toast.success(data?.responseMessage || "Accounts loaded successfully");
+      setQueueLoaded(true);
+      setSelectedIds(new Set());
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const submitMandatePaymentsMutation = useMutation({
+    mutationFn: SUBMIT_MANDATE_PAYMENTS,
+    onSuccess: (data) => {
+      toast.success(data?.responseMessage || "Accounts submitted successfully");
+      setQueueLoaded(false);
+      setSelectedIds(new Set());
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
 
   function toggleAll() {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(QUEUE_DATA.map((r) => r.id)));
+      setSelectedIds(new Set(mandateQueue?.map((r: { id: string }) => r.id)));
     }
   }
 
@@ -228,9 +281,16 @@ export default function NewMandatePage() {
   }
 
   function submitSelected() {
-    toast.success("Submitted for approval. Authoriser notified.");
-    setQueueLoaded(false);
-    setSelectedIds(new Set());
+    if (queueLoaded && selectedIds.size === 0) {
+      toast.error("No accounts selected");
+      return;
+    }
+    const payload = {
+      ids: Array.from(selectedIds),
+      totalAmount: selectedTotal,
+      authorisedBy: currentUser?.email ?? "",
+    };
+    submitMandatePaymentsMutation.mutate(payload);
   }
 
   function openReview(row: MandateApproval, icu: boolean) {
@@ -240,36 +300,87 @@ export default function NewMandatePage() {
     setReviewOpen(true);
   }
 
+  const approveMandateMutation = useMutation({
+    mutationFn: APPROVE_MANDATE_PAYMENTS,
+    onSuccess: (data) => {
+      toast.success(data?.responseMessage || "Approved successfully");
+      queryClient.invalidateQueries({ queryKey: ["pending-mandate-payments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["pending-icu-mandate-payments"],
+      });
+      setReviewOpen(false);
+      setSelectedIds(new Set());
+      setIcuApprIds(new Set());
+      setPendingApprIds(new Set());
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const rejectMandateMutation = useMutation({
+    mutationFn: REJECT_MANDATE_PAYMENTS,
+    onSuccess: (data) => {
+      toast.success(data?.responseMessage || "Rejected successfully");
+      queryClient.invalidateQueries({ queryKey: ["pending-mandate-payments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["pending-icu-mandate-payments"],
+      });
+      setReviewOpen(false);
+      setSelectedIds(new Set());
+      setIcuApprIds(new Set());
+      setPendingApprIds(new Set());
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   function handleApprove() {
     if (!selected) return;
     if (isIcu) {
-      toast.success("ICU approved. Queued for payment processing.");
-      setIcuMandate((prev) => prev.filter((r) => r.id !== selected.id));
+      const payload = {
+        comment: rejectComment,
+        authorisedBy: currentUser?.email ?? "",
+      };
+      approveMandateMutation.mutate({ id: selected.id, ...payload });
     } else {
-      toast.success("Approved. Forwarded to ICU for sign-off.");
-      setPendingMandate((prev) => prev.filter((r) => r.id !== selected.id));
+      const payload = {
+        comment: rejectComment,
+        authorisedBy: currentUser?.email ?? "",
+      };
+      approveMandateMutation.mutate({ id: selected.id, ...payload });
     }
     setReviewOpen(false);
   }
 
   function handleReject() {
     if (!selected) return;
-    setRejectedId(selected.id);
-    setRejectedComment(rejectComment);
-    setRejectedIsIcu(isIcu);
-    if (isIcu) {
-      setIcuMandate((prev) => prev.filter((r) => r.id !== selected.id));
-    } else {
-      setPendingMandate((prev) => prev.filter((r) => r.id !== selected.id));
+    if (!rejectComment) {
+      toast.error("Comment is required for rejection");
+      return;
     }
-    toast.error("Payment rejected.");
-    setReviewOpen(false);
+    if (isIcu) {
+      const payload = {
+        id: selected.id,
+        comment: rejectComment,
+        authorisedBy: currentUser?.email ?? "",
+      };
+      rejectMandateMutation.mutate(payload);
+    } else {
+      const payload = {
+        id: selected.id,
+        comment: rejectComment,
+        authorisedBy: currentUser?.email ?? "",
+      };
+      rejectMandateMutation.mutate(payload);
+    }
   }
 
   const approvalChainSteps = (row: MandateApproval, icu: boolean) => {
     const base = [
       {
-        label: `Submitted by ${row.submittedBy} · 06 May 2026, 09:14`,
+        label: `Submitted by ${row.submittedBy}`,
         done: true,
         pending: false,
       },
@@ -277,25 +388,25 @@ export default function NewMandatePage() {
     if (icu) {
       return [
         ...base,
-        {
-          label: "Emeka Obiora (Authoriser) · Approved · 07 May 2026, 11:02",
-          done: true,
-          pending: false,
-        },
-        {
-          label: "Fatimah Lawal (ICU Officer) · Pending your sign-off",
-          done: false,
-          pending: true,
-        },
+        // {
+        //   label: "Emeka Obiora (Authoriser) · Approved · 07 May 2026, 11:02",
+        //   done: true,
+        //   pending: false,
+        // },
+        // {
+        //   label: "Fatimah Lawal (ICU Officer) · Pending your sign-off",
+        //   done: false,
+        //   pending: true,
+        // },
       ];
     }
     return [
       ...base,
-      {
-        label: "Emeka Obiora (Authoriser) · Pending your action",
-        done: false,
-        pending: true,
-      },
+      // {
+      //   label: "Emeka Obiora (Authoriser) · Pending your action",
+      //   done: false,
+      //   pending: true,
+      // },
     ];
   };
 
@@ -323,20 +434,62 @@ export default function NewMandatePage() {
       ids.every((id) => prev.has(id)) ? new Set() : new Set(ids),
     );
   }
+
+  const batchApproveMandatePaymentsMutation = useMutation({
+    mutationFn: BATCH_APPROVE_MANDATE_PAYMENTS,
+    onSuccess: (data) => {
+      toast.success(data?.responseMessage || "Approved successfully");
+      queryClient.invalidateQueries({ queryKey: ["pending-mandate-payments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["pending-icu-mandate-payments"],
+      });
+      setSelectedIds(new Set());
+      setPendingApprIds(new Set());
+      setIcuApprIds(new Set());
+      setBatchApprRejectOpen(false);
+      setBatchApprTarget(null);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const batchRejectMandatePaymentsMutation = useMutation({
+    mutationFn: BATCH_REJECT_MANDATE_PAYMENTS,
+    onSuccess: (data) => {
+      toast.success(data?.responseMessage || "Rejected successfully");
+      queryClient.invalidateQueries({ queryKey: ["pending-mandate-payments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["pending-icu-mandate-payments"],
+      });
+      setSelectedIds(new Set());
+      setIcuApprIds(new Set());
+      setPendingApprIds(new Set());
+      setBatchApprComment("");
+      setBatchApprRejectOpen(false);
+      setBatchApprTarget(null);
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
   function handleBatchApproveMandate(target: "pending" | "icu") {
     const ids = target === "pending" ? pendingApprIds : icuApprIds;
     if (target === "pending") {
-      setPendingMandate((prev) => prev.filter((r) => !ids.has(r.id)));
-      setPendingApprIds(new Set());
-      toast.success(
-        `${ids.size} payment${ids.size !== 1 ? "s" : ""} approved. Forwarded to ICU.`,
-      );
+      const payload = {
+        ids: Array.from(ids),
+        comment: batchApprComment,
+        authorisedBy: currentUser?.email ?? "",
+      };
+      batchApproveMandatePaymentsMutation.mutate(payload);
     } else {
-      setIcuMandate((prev) => prev.filter((r) => !ids.has(r.id)));
-      setIcuApprIds(new Set());
-      toast.success(
-        `${ids.size} payment${ids.size !== 1 ? "s" : ""} ICU approved. Queued for payment.`,
-      );
+      const payload = {
+        ids: Array.from(ids),
+        comment: batchApprComment,
+        authorisedBy: currentUser?.email ?? "",
+      };
+      batchApproveMandatePaymentsMutation.mutate(payload);
     }
   }
   function openBatchApprReject(target: "pending" | "icu") {
@@ -344,6 +497,7 @@ export default function NewMandatePage() {
     setBatchApprComment("");
     setBatchApprRejectOpen(true);
   }
+
   function handleBatchApprReject() {
     if (!batchApprComment.trim()) {
       toast.error("Comment required for rejection.");
@@ -351,11 +505,19 @@ export default function NewMandatePage() {
     }
     const ids = batchApprTarget === "pending" ? pendingApprIds : icuApprIds;
     if (batchApprTarget === "pending") {
-      setPendingMandate((prev) => prev.filter((r) => !ids.has(r.id)));
-      setPendingApprIds(new Set());
+      const payload = {
+        ids: Array.from(ids),
+        comment: batchApprComment,
+        authorisedBy: currentUser?.email ?? "",
+      };
+      batchRejectMandatePaymentsMutation.mutate(payload);
     } else {
-      setIcuMandate((prev) => prev.filter((r) => !ids.has(r.id)));
-      setIcuApprIds(new Set());
+      const payload = {
+        ids: Array.from(ids),
+        comment: batchApprComment,
+        authorisedBy: currentUser?.email ?? "",
+      };
+      batchRejectMandatePaymentsMutation.mutate(payload);
     }
     toast.error(`${ids.size} payment${ids.size !== 1 ? "s" : ""} rejected.`);
     setBatchApprComment("");
@@ -454,26 +616,23 @@ export default function NewMandatePage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Dividend Numbers</SelectItem>
-                  {approvedDivNum?.map(
-                    (dividend: { paymentNumber: string }) => (
-                      <SelectItem
-                        key={dividend?.paymentNumber}
-                        value={dividend?.paymentNumber}
-                      >
-                        {dividend?.paymentNumber}
-                      </SelectItem>
-                    ),
-                  )}
+                  {approvedDivNum?.map((d: string) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
               <Button
                 onClick={() => {
-                  setQueueLoaded(true);
-                  setSelectedIds(new Set());
+                  loadAccountMutation.mutate();
                 }}
               >
                 Load Accounts
+                {loadAccountMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
               </Button>
             </div>
 
@@ -538,17 +697,17 @@ export default function NewMandatePage() {
                                 />
                               </td>
                               <td className="p-3 font-mono text-[13px]">
-                                {q?.account}
+                                {q?.registerNumber}
                               </td>
                               <td className="p-3 font-medium text-[13px]">
-                                {q?.holder}
+                                {q?.holderName}
                               </td>
-                              <td className="p-3 text-[13px]">{q?.bank}</td>
+                              <td className="p-3 text-[13px]">{q?.newBank}</td>
                               <td className="p-3 font-mono text-[13px]">
-                                {q?.accountNo}
+                                {q?.accountNumber}
                               </td>
                               <td className="p-3 font-mono text-[13px] text-muted-foreground">
-                                {q?.dividendNo}
+                                {q?.dividendNumber}
                               </td>
                               <td className="p-3 font-mono text-right text-[13px]">
                                 {q?.amount.toLocaleString()}.00
@@ -579,8 +738,14 @@ export default function NewMandatePage() {
                         ₦{selectedTotal.toLocaleString()}.00
                       </span>
                     </div>
-                    <Button onClick={submitSelected}>
+                    <Button
+                      onClick={submitSelected}
+                      disabled={submitMandatePaymentsMutation?.isPending}
+                    >
                       Submit Selected for Approval
+                      {submitMandatePaymentsMutation?.isPending && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
                     </Button>
                   </div>
                 )}
@@ -618,8 +783,12 @@ export default function NewMandatePage() {
                     <Button
                       size="sm"
                       onClick={() => handleBatchApproveMandate("pending")}
+                      disabled={batchApproveMandatePaymentsMutation?.isPending}
                     >
                       Approve Selected
+                      {batchApproveMandatePaymentsMutation?.isPending && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -632,14 +801,14 @@ export default function NewMandatePage() {
                       <th className="p-3 w-10">
                         <Checkbox
                           checked={
-                            mandatePg.paged.length > 0 &&
-                            mandatePg.paged.every((r) =>
+                            visiblePendingPayments.length > 0 &&
+                            visiblePendingPayments.every((r: any) =>
                               pendingApprIds.has(r.id),
                             )
                           }
                           onCheckedChange={() =>
                             togglePendingApprAll(
-                              mandatePg.paged.map((r) => r.id),
+                              visiblePendingPayments.map((r: any) => r.id),
                             )
                           }
                         />
@@ -656,52 +825,82 @@ export default function NewMandatePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {mandateQueue?.filter(
-                      (q: { status: string }) => q.status === "PENDING",
-                    )?.length > 0 ? (
-                      mandateQueue
-                        ?.filter(
-                          (q: { status: string }) => q.status === "PENDING",
-                        )
-                        ?.map((row: any) => (
-                          <tr
-                            key={row.id}
-                            className={`mrpsl-table-row ${pendingApprIds.has(row.id) ? "bg-primary/5" : ""}`}
-                          >
-                            <td className="p-3">
-                              <Checkbox
-                                checked={pendingApprIds.has(row.id)}
-                                onCheckedChange={() =>
-                                  togglePendingAppr(row.id)
-                                }
-                              />
-                            </td>
-                            <td className="p-3 text-muted-foreground">
-                              {row.date}
-                            </td>
-                            <td className="p-3 font-mono">{row.account}</td>
-                            <td className="p-3 font-medium">{row.holder}</td>
-                            <td className="p-3">{row.bank}</td>
-                            <td className="p-3 font-mono">{row.accountNo}</td>
-                            <td className="p-3 font-mono text-muted-foreground">
-                              {row.dividendNo}
-                            </td>
-                            <td className="p-3 text-right font-mono font-semibold">
-                              {row.amount.toLocaleString()}.00
-                            </td>
-                            <td className="p-3 text-muted-foreground">
-                              {row.submittedBy}
-                            </td>
-                            <td className="p-3 text-right">
-                              <Button
-                                size="sm"
-                                onClick={() => openReview(row, false)}
-                              >
-                                Review &amp; Decide
-                              </Button>
-                            </td>
-                          </tr>
-                        ))
+                    {pendingMandatePaymentsLoading ? (
+                      Array.from({ length: pendingPageSize }).map((_, i) => (
+                        <tr
+                          key={`skeleton-${i}`}
+                          className="animate-pulse bg-muted/10"
+                        >
+                          <td className="p-3">
+                            <div className="h-4 w-4 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-20 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-24 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-32 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-24 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-28 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-20 bg-muted rounded" />
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="h-4 w-20 bg-muted rounded ml-auto" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-24 bg-muted rounded" />
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="h-8 w-28 bg-muted rounded ml-auto" />
+                          </td>
+                        </tr>
+                      ))
+                    ) : visiblePendingPayments.length > 0 ? (
+                      visiblePendingPayments.map((row: any) => (
+                        <tr
+                          key={row.id}
+                          className={`mrpsl-table-row ${pendingApprIds.has(row.id) ? "bg-primary/5" : ""}`}
+                        >
+                          <td className="p-3">
+                            <Checkbox
+                              checked={pendingApprIds.has(row.id)}
+                              onCheckedChange={() => togglePendingAppr(row.id)}
+                            />
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {row.date}
+                          </td>
+                          <td className="p-3 font-mono">{row.account}</td>
+                          <td className="p-3 font-medium">{row.holderName}</td>
+                          <td className="p-3">{row.newBank}</td>
+                          <td className="p-3 font-mono">{row.accountNumber}</td>
+                          <td className="p-3 font-mono text-muted-foreground">
+                            {row.dividendNumber}
+                          </td>
+                          <td className="p-3 font-mono font-semibold">
+                            {row.amount.toLocaleString()}.00
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {row.submittedBy}
+                          </td>
+                          <td className="p-3">
+                            <Button
+                              size="sm"
+                              onClick={() => openReview(row, false)}
+                            >
+                              Review &amp; Decide
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
                     ) : (
                       <tr>
                         <td colSpan={10} className="p-3 text-center">
@@ -709,69 +908,18 @@ export default function NewMandatePage() {
                         </td>
                       </tr>
                     )}
-                    {/* {mandatePg.paged.map((row) => (
-                      <tr
-                        key={row.id}
-                        className={`mrpsl-table-row ${pendingApprIds.has(row.id) ? "bg-primary/5" : ""}`}
-                      >
-                        <td className="p-3">
-                          <Checkbox
-                            checked={pendingApprIds.has(row.id)}
-                            onCheckedChange={() => togglePendingAppr(row.id)}
-                          />
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {row.date}
-                        </td>
-                        <td className="p-3 font-mono">{row.account}</td>
-                        <td className="p-3 font-medium">{row.holder}</td>
-                        <td className="p-3">{row.bank}</td>
-                        <td className="p-3 font-mono">{row.accountNo}</td>
-                        <td className="p-3 font-mono text-muted-foreground">
-                          {row.dividendNo}
-                        </td>
-                        <td className="p-3 text-right font-mono font-semibold">
-                          {row.amount.toLocaleString()}.00
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {row.submittedBy}
-                        </td>
-                        <td className="p-3 text-right">
-                          <Button
-                            size="sm"
-                            onClick={() => openReview(row, false)}
-                          >
-                            Review &amp; Decide
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                    {mandatePg.paged.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={10}
-                          className="p-8 text-center text-muted-foreground"
-                        >
-                          No records pending approval.
-                        </td>
-                      </tr>
-                    )} */}
                   </tbody>
                 </table>
               </Card>
               <TablePagination
-                page={mandatePg.page}
-                pageSize={mandatePg.pageSize}
-                totalPages={mandatePg.totalPages}
-                from={mandatePg.from}
-                to={mandatePg.to}
-                total={
-                  mandateQueue?.filter(
-                    (q: { status: string }) => q.status === "PENDING",
-                  )?.length
-                }
-                onPageChange={mandatePg.setPage}
-                onPageSizeChange={mandatePg.setPageSize}
+                page={pendingPage + 1}
+                pageSize={pendingPageSize}
+                totalPages={pendingTotalPages}
+                from={pendingFrom}
+                to={pendingTo}
+                total={pendingTotal}
+                onPageChange={handlePendingPageChange}
+                onPageSizeChange={handlePendingPageSizeChange}
               />
             </div>
           </TabsContent>
@@ -821,8 +969,12 @@ export default function NewMandatePage() {
                     <Button
                       size="sm"
                       onClick={() => handleBatchApproveMandate("icu")}
+                      disabled={batchApproveMandatePaymentsMutation?.isPending}
                     >
                       ICU Approve Selected
+                      {batchApproveMandatePaymentsMutation?.isPending && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -835,11 +987,15 @@ export default function NewMandatePage() {
                       <th className="p-3 w-10">
                         <Checkbox
                           checked={
-                            icuPg.paged.length > 0 &&
-                            icuPg.paged.every((r) => icuApprIds.has(r.id))
+                            visibleIcuPayments.length > 0 &&
+                            visibleIcuPayments.every((r: any) =>
+                              icuApprIds.has(r.id),
+                            )
                           }
                           onCheckedChange={() =>
-                            toggleIcuApprAll(icuPg.paged.map((r) => r.id))
+                            toggleIcuApprAll(
+                              visibleIcuPayments.map((r: any) => r.id),
+                            )
                           }
                         />
                       </th>
@@ -855,44 +1011,83 @@ export default function NewMandatePage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {icuPg.paged.map((row) => (
-                      <tr
-                        key={row.id}
-                        className={`mrpsl-table-row ${icuApprIds.has(row.id) ? "bg-primary/5" : ""}`}
-                      >
-                        <td className="p-3">
-                          <Checkbox
-                            checked={icuApprIds.has(row.id)}
-                            onCheckedChange={() => toggleIcuAppr(row.id)}
-                          />
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {row.date}
-                        </td>
-                        <td className="p-3 font-mono">{row.account}</td>
-                        <td className="p-3 font-medium">{row.holder}</td>
-                        <td className="p-3">{row.bank}</td>
-                        <td className="p-3 font-mono">{row.accountNo}</td>
-                        <td className="p-3 font-mono text-muted-foreground">
-                          {row.dividendNo}
-                        </td>
-                        <td className="p-3 text-right font-mono font-bold text-red-600">
-                          {row.amount.toLocaleString()}.00
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {row.submittedBy}
-                        </td>
-                        <td className="p-3 text-right">
-                          <Button
-                            size="sm"
-                            onClick={() => openReview(row, true)}
-                          >
-                            Review &amp; Decide
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                    {icuPg.paged.length === 0 && (
+                    {icuMandatePaymentsLoading ? (
+                      Array.from({ length: icuPageSize }).map((_, i) => (
+                        <tr
+                          key={`icu-skeleton-${i}`}
+                          className="animate-pulse bg-muted/10"
+                        >
+                          <td className="p-3">
+                            <div className="h-4 w-4 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-20 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-24 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-32 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-24 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-28 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-20 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-20 bg-muted rounded ml-auto" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-24 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-8 w-28 bg-muted rounded ml-auto" />
+                          </td>
+                        </tr>
+                      ))
+                    ) : visibleIcuPayments.length > 0 ? (
+                      visibleIcuPayments.map((row: any) => (
+                        <tr
+                          key={row.id}
+                          className={`mrpsl-table-row ${icuApprIds.has(row.id) ? "bg-primary/5" : ""}`}
+                        >
+                          <td className="p-3">
+                            <Checkbox
+                              checked={icuApprIds.has(row.id)}
+                              onCheckedChange={() => toggleIcuAppr(row.id)}
+                            />
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {row.date}
+                          </td>
+                          <td className="p-3 font-mono">{row.account}</td>
+                          <td className="p-3 font-medium">{row.holderName}</td>
+                          <td className="p-3">{row.newBank}</td>
+                          <td className="p-3 font-mono">{row.accountNumber}</td>
+                          <td className="p-3 font-mono text-muted-foreground">
+                            {row.dividendNumber}
+                          </td>
+                          <td className="p-3 font-mono font-bold text-red-600">
+                            {row.amount.toLocaleString()}.00
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {row.submittedBy}
+                          </td>
+                          <td className="p-3">
+                            <Button
+                              size="sm"
+                              onClick={() => openReview(row, true)}
+                            >
+                              Review &amp; Decide
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
                       <tr>
                         <td
                           colSpan={10}
@@ -906,14 +1101,14 @@ export default function NewMandatePage() {
                 </table>
               </Card>
               <TablePagination
-                page={icuPg.page}
-                pageSize={icuPg.pageSize}
-                totalPages={icuPg.totalPages}
-                from={icuPg.from}
-                to={icuPg.to}
-                total={icuPg.total}
-                onPageChange={icuPg.setPage}
-                onPageSizeChange={icuPg.setPageSize}
+                page={icuPage + 1}
+                pageSize={icuPageSize}
+                totalPages={icuTotalPages}
+                from={icuFrom}
+                to={icuTo}
+                total={icuTotal}
+                onPageChange={handleIcuPageChange}
+                onPageSizeChange={handleIcuPageSizeChange}
               />
             </div>
           </TabsContent>
@@ -961,8 +1156,15 @@ export default function NewMandatePage() {
                 variant="destructive"
                 className="flex-1"
                 onClick={handleBatchApprReject}
+                disabled={
+                  batchRejectMandatePaymentsMutation?.isPending ||
+                  batchApprComment.trim() === ""
+                }
               >
                 Confirm Rejection
+                {batchRejectMandatePaymentsMutation?.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
               </Button>
             </div>
           </div>
@@ -991,7 +1193,7 @@ export default function NewMandatePage() {
 
           {selected && (
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-5 space-y-5">
-              {isIcu && (
+              {selected?.tier > 4 && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
                   This transaction exceeds the standard authorisation threshold
                   (Tier 4). ICU sign-off is required before the payment is
@@ -1008,25 +1210,35 @@ export default function NewMandatePage() {
                     </div>
                   </div>
                   <div>
-                    <div className="mrpsl-section-title">Holder</div>
+                    <div className="mrpsl-section-title font-semibold text-[13px]">
+                      Holder
+                    </div>
                     <div className="font-semibold text-sm mt-0.5">
-                      {selected.holder}
+                      {selected.holderName ?? selected.holder}
                     </div>
                   </div>
                   <div>
-                    <div className="mrpsl-section-title">New Bank</div>
-                    <div className="text-sm mt-0.5">{selected.bank}</div>
-                  </div>
-                  <div>
-                    <div className="mrpsl-section-title">New Account No</div>
-                    <div className="font-mono text-sm mt-0.5">
-                      {selected.accountNo}
+                    <div className="mrpsl-section-title font-semibold text-[13px]">
+                      New Bank
+                    </div>
+                    <div className="text-sm mt-0.5">
+                      {selected.newBank ?? selected.bank}
                     </div>
                   </div>
                   <div>
-                    <div className="mrpsl-section-title">Dividend No</div>
+                    <div className="mrpsl-section-title font-semibold text-[13px]">
+                      New Account No
+                    </div>
                     <div className="font-mono text-sm mt-0.5">
-                      {selected.dividendNo}
+                      {selected.accountNumber ?? selected.accountNo}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mrpsl-section-title font-semibold text-[13px]">
+                      Dividend No
+                    </div>
+                    <div className="font-mono text-sm mt-0.5">
+                      {selected.dividendNumber ?? selected.dividendNo}
                     </div>
                   </div>
                   <div>
@@ -1081,11 +1293,22 @@ export default function NewMandatePage() {
                   variant="destructive"
                   className="flex-1"
                   onClick={handleReject}
+                  disabled={rejectMandateMutation.isPending}
                 >
                   Reject
+                  {rejectMandateMutation.isPending && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                 </Button>
-                <Button className="flex-1" onClick={handleApprove}>
+                <Button
+                  className="flex-1"
+                  onClick={handleApprove}
+                  disabled={approveMandateMutation.isPending}
+                >
                   {isIcu ? "ICU Sign-Off & Approve" : "Approve Payment"}
+                  {approveMandateMutation.isPending && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                 </Button>
               </div>
             </div>

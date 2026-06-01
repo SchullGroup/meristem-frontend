@@ -61,6 +61,16 @@ export const GET_ALL_DIVIDEND_DECLARATIONS = async () => {
   }
 };
 
+export const GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS = async () => {
+  try {
+    const res = await api.get(`/dividend/declarations/dividend-numbers`);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const SUBMIT_DIVIDEND_DECLARATION = async ({ id }: { id: number }) => {
   try {
     const res = await api.post(`/dividend/declarations/${id}/submit`);
