@@ -24,6 +24,8 @@ import DeclarationSummaryReport from "@/components/custom/dividend-reports/decla
 import MandatePaymentReport from "@/components/custom/dividend-reports/mandate-payment-report";
 import { DateRangePicker } from "@/components/custom/date-range-picker";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { getDividendNumbers } from "@/actions/dividendReportActions";
 const REPORT_TYPES = [
   "Dividend Liability Register",
   "WHT Deduction Report",
@@ -49,6 +51,11 @@ export default function DividendReportsPage() {
   const { data: activeRegisters } = useGetRegisters({
     size: 100,
     status: "ACTIVE",
+  });
+
+  const { data: activeDividends } = useQuery({
+    queryKey: ["dividend-numbers"],
+    queryFn: () => getDividendNumbers(),
   });
 
   // Shared filter params for all reports
@@ -148,6 +155,11 @@ export default function DividendReportsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">All Dividends</SelectItem>
+                {activeDividends?.data?.map((r, i) => (
+                  <SelectItem key={i} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

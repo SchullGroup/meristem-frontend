@@ -244,3 +244,21 @@ export const getDeclarationSummaryReport = async (
     throw new Error(returnErrorMessage(err));
   }
 };
+
+// GET ALL DIVIDEND NUMBERS (BELONGS IN DIVIDEND DECLARATION ACTIONS)
+export const getDividendNumbers = async (params?: {
+  registerId?: string;
+  status?: string;
+}) => {
+  try {
+    const res = await api.get<ApiResponse<string[]>>(
+      "/dividend/declarations/dividend-numbers",
+      { params },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};

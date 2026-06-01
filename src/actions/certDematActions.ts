@@ -10,18 +10,20 @@ const getXUserHeader = () => {
   };
 };
 
+export type DematStatus =
+  | "DRAFT"
+  | "CALLOVER"
+  | "AUTHORISED"
+  | "ICU_APPROVED"
+  | "LODGED"
+  | "REJECTED";
+
 export interface DematParams {
   certNo?: string;
   register?: string;
   chn?: string;
   holderName?: string;
-  status?:
-    | "DRAFT"
-    | "CALLOVER"
-    | "AUTHORISED"
-    | "ICU_APPROVED"
-    | "LODGED"
-    | "REJECTED";
+  status?: DematStatus;
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -48,13 +50,7 @@ export interface Demat {
   shareholderIdRef: string;
   dematFormRef: string;
   scannedCertsRef: string;
-  status:
-    | "DRAFT"
-    | "CALLOVER"
-    | "AUTHORISED"
-    | "ICU_APPROVED"
-    | "LODGED"
-    | "REJECTED";
+  status: DematStatus;
   capturedBy: string;
   capturedAt: string; // date-time
   calloverBy: string;

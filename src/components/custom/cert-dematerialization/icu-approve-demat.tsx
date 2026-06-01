@@ -76,6 +76,7 @@ export default function IcuApproveDemat({ tab }: { tab: string }) {
 
       <DematTable
         records={records}
+        type="AUTHORISED"
         onReview={(r) => {
           setSelected(r);
           setReviewOpen(true);

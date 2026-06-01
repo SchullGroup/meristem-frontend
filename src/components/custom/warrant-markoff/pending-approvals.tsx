@@ -174,7 +174,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
             currentUser?.username ||
             `${currentUser?.firstName} ${currentUser?.lastName}` ||
             currentUser?.email ||
-            "System",
+            "ADMIN",
         },
       },
       {
