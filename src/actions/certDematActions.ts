@@ -133,10 +133,8 @@ export const rejectDematRequest = async (
 export const lodgetDematRequest = async (
   id: string,
   data: {
-    reason: {
-      rinStatus: "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS";
-      method: "DOWNLOAD" | "PUSH";
-    };
+    rinStatus: "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS";
+    method: "DOWNLOAD" | "PUSH";
   },
 ) => {
   try {
