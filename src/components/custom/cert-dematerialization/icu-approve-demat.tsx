@@ -18,7 +18,7 @@ import { Demat } from "@/actions/certDematActions";
 export default function IcuApproveDemat({ tab }: { tab: string }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<Demat | null>(null);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
   const { data, isLoading, isError, refetch } = useGetAllCertificateDemat(

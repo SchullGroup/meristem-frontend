@@ -36,15 +36,34 @@ export function PaginationBar({
   pageBase = 0,
   totalPages: propTotalPages
 }: PaginationBarProps) {
+  // Convert to 1‑based for UI (page numbers shown to user start at 1)
   const uiPage = pageBase === 0 ? page + 1 : page;
 
-  const totalPages = propTotalPages ? propTotalPages : Math.max(1, Math.ceil(total / pageSize));
+  // Determine total pages – ensure at least 1
+  const totalPages = propTotalPages ?? Math.max(1, Math.ceil(total / pageSize));
 
-  const visible = getVisiblePages(uiPage, totalPages); // Adjustment for 0-based index if needed, but the logic here assumes 1-based current page
+  // Generate visible page numbers (1‑based)
+  const visible = getVisiblePages(uiPage, totalPages);
 
+  // Compute displayed record range (always 1‑based, user‑friendly)
   const start = total === 0 ? 0 : (uiPage - 1) * pageSize + 1;
-
   const end = total === 0 ? 0 : Math.min(uiPage * pageSize, total);
+
+  // Helper to reset to first page when page size changes
+  const handlePageSizeChange = (newSize: number) => {
+    onPageSizeChange?.(newSize);
+    // Reset to first page in the correct base
+    onPageChange(pageBase === 0 ? 0 : 1);
+  };
+
+  // Helper for navigation – directly modify the external `page` value
+  const goToPrevious = () => {
+    if (uiPage > 1) onPageChange(page - 1);
+  };
+  const goToNext = () => {
+    if (uiPage < totalPages) onPageChange(page + 1);
+  };
+
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/10 text-[13px]">
@@ -57,10 +76,8 @@ export function PaginationBar({
             <span className="text-muted-foreground">Show</span>
             <Select
               value={String(pageSize)}
-              onValueChange={(v) => {
-                onPageSizeChange(Number(v));
-                onPageChange(1);
-              }}
+              onValueChange={(v) => handlePageSizeChange(Number(v))}
+
             >
               <SelectTrigger className="h-6 w-16 text-[13px] px-2 py-0 border-border/60">
                 <SelectValue />
@@ -82,8 +99,8 @@ export function PaginationBar({
           variant="outline"
           size="sm"
           className="h-7 px-2.5 text-[13px]"
-          disabled={uiPage === totalPages}
-          onClick={() => onPageChange(page - 1)}
+          disabled={uiPage === 1}          // ✓ Correct: disabled on first page
+          onClick={goToPrevious}
         >
           Previous
         </Button>
@@ -102,6 +119,7 @@ export function PaginationBar({
               size="sm"
               className="h-7 w-7 p-0 text-[13px]"
               onClick={() => onPageChange(pageBase === 0 ? p - 1 : p)}
+
             >
               {p}
             </Button>
@@ -112,7 +130,7 @@ export function PaginationBar({
           size="sm"
           className="h-7 px-2.5 text-[13px]"
           disabled={uiPage === totalPages}
-          onClick={() => onPageChange(page + 1)}
+          onClick={goToNext}
         >
           Next
         </Button>

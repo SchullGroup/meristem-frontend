@@ -1,4 +1,4 @@
-import { Pageable, PaginatedResponse, Sort } from ".";
+import { ContentPaginatedResponse } from ".";
 import { Principal } from "./principal";
 import { Register } from "./register";
 
@@ -268,9 +268,9 @@ export interface ReconciliationTransaction {
 }
 
 export interface ReconciliationResponse {
-  mrpslPositions: PaginatedResponse<MrpslPosition>;
+  mrpslPositions: ContentPaginatedResponse<MrpslPosition>;
   mrpslTotalUnits: number;
-  cscsPositions: PaginatedResponse<CscsPosition>;
+  cscsPositions: ContentPaginatedResponse<CscsPosition>;
   cscsTotalUnits: number; // int64
 }
 
@@ -278,24 +278,21 @@ interface MrpslPosition {
   createdAt: string;
   updatedAt: string;
   id: string;
-  registers: Array<
-    Register & { holders: string[], principal: Principal }
-  >;
+  registers: Array<Register & { holders: string[]; principal: Principal }>;
   chn: string;
   name: string;
   address: string;
   state: string;
-  bank: string,
-  bvnAccount: string,
-  accountNo: string,
-  units: number,
-  email: string,
-  phone: string,
-  altPhone: string,
-  nextOfKin: string,
-  dateOfBirth: string,
-  status: string
-
+  bank: string;
+  bvnAccount: string;
+  accountNo: string;
+  units: number;
+  email: string;
+  phone: string;
+  altPhone: string;
+  nextOfKin: string;
+  dateOfBirth: string;
+  status: string;
 }
 
 interface CscsPosition {
@@ -329,5 +326,3 @@ export interface ReconciliationFlaggedTransaction {
   status: string;
   transactionDate: string;
 }
-
-

@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Demat, DematStatus } from "@/actions/certDematActions";
 import { TablePagination } from "../table-pagination";
 import { formatDate } from "@/lib/utils/format";
+import { PaginationBar } from "../pagination-bar";
 
 export function DematTable({
   records,
@@ -31,7 +32,7 @@ export function DematTable({
   type,
 }: {
   records: Demat[];
-  onReview: (r: Demat) => void;
+  onReview?: (r: Demat) => void;
   onBatchApprove?: (ids: string[]) => void;
   onBatchReject?: (ids: string[], comment: string) => void;
   page: number;
@@ -218,11 +219,13 @@ export function DematTable({
                 <td className="p-3 text-right tabular-nums font-semibold">
                   {row.totalUnits?.toLocaleString() || 0}
                 </td>
-                <td className="p-3 text-right">
-                  <Button size="sm" onClick={() => onReview(row)}>
-                    Review &amp; Decide
-                  </Button>
-                </td>
+                {onReview && (
+                  <td className="p-3 text-right">
+                    <Button size="sm" onClick={() => onReview(row)}>
+                      Review &amp; Decide
+                    </Button>
+                  </td>
+                )}
               </tr>
             ))}
             {records.length === 0 && (
@@ -239,13 +242,11 @@ export function DematTable({
         </table>
       </Card>
 
-      <TablePagination
+      <PaginationBar
         page={page}
         pageSize={pageSize}
         totalPages={totalPages}
         total={total}
-        from={(page - 1) * pageSize + 1}
-        to={Math.min(page * pageSize, total)}
         onPageChange={onPageChange}
         onPageSizeChange={onPageSizeChange}
       />
