@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { DateRange } from "react-day-picker";
-import { useGetRegistersByType } from "@/hooks/useRegisters";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   useGetPendingApprovals,
   useGetIpoBatch,
@@ -61,7 +61,10 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   );
 
   // Queries
-  const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
+  const { data: activeRegisters } = useGetRegisters({
+    size: 1000,
+    status: "ACTIVE"
+  }, {
     enabled: tab === "auth",
   });
 
@@ -250,7 +253,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Registers</SelectItem>
-                    {ordinaryRegisters?.map((r) => (
+                    {activeRegisters?.content?.map((r) => (
                       <SelectItem key={r.registerId} value={r.registerId}>
                         {r.registerName} · {r.symbol}
                       </SelectItem>
