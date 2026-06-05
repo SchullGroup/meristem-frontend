@@ -266,6 +266,7 @@ export default function RegistersPage() {
               <SelectItem value="PREFERENCE">Preference</SelectItem>
               <SelectItem value="BOND">Bond</SelectItem>
               <SelectItem value="FUND">Fund</SelectItem>
+              <SelectItem value="ETF">Etf</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -355,7 +356,9 @@ export default function RegistersPage() {
                               ? "bg-violet-100 text-violet-800"
                               : r.registerType === "BOND"
                                 ? "bg-amber-100 text-amber-800"
-                                : "bg-emerald-100 text-emerald-800"
+                                : r.registerType === "ETF"
+                                  ? "bg-cyan-100 text-cyan-800"
+                                  : "bg-emerald-100 text-emerald-800"
                         }`}
                       >
                         {r.registerType

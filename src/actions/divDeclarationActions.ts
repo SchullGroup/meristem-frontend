@@ -51,9 +51,15 @@ export const POST_CREATE_DIVIDEND_DECLARATION = async (data: unknown) => {
   }
 };
 
-export const GET_ALL_DIVIDEND_DECLARATIONS = async () => {
+export const GET_ALL_DIVIDEND_DECLARATIONS = async (params?: {
+  size?: number;
+  page?: number;
+  status?: string;
+}) => {
   try {
-    const res = await api.get(`/dividend/declarations`);
+    const res = await api.get(`/dividend/declarations`, {
+      params
+    });
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

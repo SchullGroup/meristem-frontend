@@ -53,9 +53,9 @@ export const ReviewConsolidation = ({
         data: {
           comment: comment,
           authorisedBy:
-            currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
             currentUser?.email ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.username ||
             "ADMIN",
         },
       },
@@ -85,9 +85,9 @@ export const ReviewConsolidation = ({
         data: {
           comment: comment,
           authorisedBy:
-            currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
             currentUser?.email ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.username ||
             "ADMIN",
         },
       },
@@ -205,41 +205,41 @@ export const ReviewConsolidation = ({
                   pending?: boolean;
                   time?: string | null;
                 }> => [
-                  {
-                    label: `Submitted by ${selected.submittedBy}`,
-                    done: true,
-                    time: selected.submittedAt
-                      ? new Date(selected.submittedAt).toLocaleString()
-                      : "N/A",
-                  },
-                  {
-                    label: "ICU Final Review — Pending",
-                    done: false,
-                    pending: true,
-                    time: null,
-                  },
-                ])().map((step, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div
-                      className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
-                    >
-                      {step.done && (
-                        <Check
-                          className="h-3 w-3 text-white"
-                          style={{ strokeWidth: 3 }}
-                        />
-                      )}
+                    {
+                      label: `Submitted by ${selected.submittedBy}`,
+                      done: true,
+                      time: selected.submittedAt
+                        ? new Date(selected.submittedAt).toLocaleString()
+                        : "N/A",
+                    },
+                    {
+                      label: "ICU Final Review — Pending",
+                      done: false,
+                      pending: true,
+                      time: null,
+                    },
+                  ])().map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                      >
+                        {step.done && (
+                          <Check
+                            className="h-3 w-3 text-white"
+                            style={{ strokeWidth: 3 }}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm">{step.label}</div>
+                        {step.time && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {step.time}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm">{step.label}</div>
-                      {step.time && (
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          {step.time}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
