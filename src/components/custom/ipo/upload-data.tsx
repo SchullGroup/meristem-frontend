@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useGetRegistersByType } from "@/hooks/useRegisters";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import { format } from "date-fns";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ export default function UploadIPOData({ tab }: { tab: string }) {
   const [processedBatch, setProcessedBatch] = useState<IPO | null>(null);
   const [showRejected, setShowRejected] = useState(false);
 
-  const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
+  const { data: activeRegisters } = useGetRegisters({ size: 1000, status: "ACTIVE" }, {
     enabled: tab === "upload",
   });
   const uploadIpoMutation = useUploadBatchIpo();
@@ -170,7 +170,7 @@ export default function UploadIPOData({ tab }: { tab: string }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Select Register</SelectItem>
-              {ordinaryRegisters?.map((r) => (
+              {activeRegisters?.content?.map((r) => (
                 <SelectItem key={r.registerId} value={r.registerId}>
                   {r.registerName} ({r.symbol})
                 </SelectItem>

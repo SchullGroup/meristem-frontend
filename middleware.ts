@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
   const { pathname } = request.nextUrl;
 
@@ -10,7 +10,6 @@ export function proxy(request: NextRequest) {
   // We check if it's NOT the login page or public assets.
   const isLoginPage = pathname === "/login";
   const isPublicFile = pathname.includes(".") || pathname.startsWith("/_next");
-  const isRoot = pathname === "/";
 
   // If the user is trying to access the dashboard/root and has no token, redirect to login
   if (!token && !isLoginPage && !isPublicFile) {

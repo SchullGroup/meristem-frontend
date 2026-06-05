@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { DateRange } from "react-day-picker";
-import { useGetRegistersByType } from "@/hooks/useRegisters";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   useGetPendingApprovals,
   useGetIpoBatch,
@@ -61,7 +61,10 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   );
 
   // Queries
-  const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
+  const { data: activeRegisters } = useGetRegisters({
+    size: 1000,
+    status: "ACTIVE"
+  }, {
     enabled: tab === "auth",
   });
 
@@ -158,9 +161,9 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         payload: {
           comment: reviewComment,
           rejectedBy:
-            currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
             currentUser?.email ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.username ||
             "ADMIN",
         },
       },
@@ -250,7 +253,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Registers</SelectItem>
-                    {ordinaryRegisters?.map((r) => (
+                    {activeRegisters?.content?.map((r) => (
                       <SelectItem key={r.registerId} value={r.registerId}>
                         {r.registerName} · {r.symbol}
                       </SelectItem>
@@ -503,9 +506,9 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
             className={cn(
               "mrpsl-card p-3",
               s.tab &&
-                "cursor-pointer hover:border-primary/40 transition-colors",
+              "cursor-pointer hover:border-primary/40 transition-colors",
               s.tab === reviewTab &&
-                "border-primary ring-1 ring-primary/20 bg-primary/5",
+              "border-primary ring-1 ring-primary/20 bg-primary/5",
             )}
             onClick={() => {
               if (s.tab) {
@@ -611,7 +614,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {subscribersData?.content &&
-                  subscribersData.content.length > 0 ? (
+                    subscribersData.content.length > 0 ? (
                     subscribersData.content.map((r, i) => (
                       <tr key={i} className="mrpsl-table-row">
                         <td className="px-4 py-2.5 text-muted-foreground">

@@ -138,10 +138,8 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
         id: selected.id,
         data: {
           comment: comment.trim(),
-          authorisedBy:
-            currentUser?.username ||
+          authorisedBy: currentUser?.email || currentUser?.username ||
             `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.email ||
             "System",
         },
       },
@@ -171,9 +169,9 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
         data: {
           comment: comment.trim(),
           authorisedBy:
-            currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
             currentUser?.email ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.username ||
             "ADMIN",
         },
       },
@@ -211,8 +209,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.success(
-              `${authSelIds.size} warrant${
-                authSelIds.size !== 1 ? "s" : ""
+              `${authSelIds.size} warrant${authSelIds.size !== 1 ? "s" : ""
               } approved and advanced.`,
             );
             setAuthSelIds(new Set());
@@ -243,8 +240,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.error(
-              `${authSelIds.size} warrant${
-                authSelIds.size !== 1 ? "s" : ""
+              `${authSelIds.size} warrant${authSelIds.size !== 1 ? "s" : ""
               } rejected.`,
             );
             setAuthSelIds(new Set());
@@ -341,9 +337,8 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
                 {pendingList.map((row) => (
                   <tr
                     key={row.id}
-                    className={`mrpsl-table-row ${
-                      authSelIds.has(row.id) ? "bg-primary/5" : ""
-                    }`}
+                    className={`mrpsl-table-row ${authSelIds.has(row.id) ? "bg-primary/5" : ""
+                      }`}
                   >
                     <td className="p-3">
                       <Checkbox
