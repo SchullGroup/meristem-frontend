@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { BarChart3, Download, Loader2, AlertCircle, RefreshCcw } from "lucide-react";
+import {
+  BarChart3,
+  Download,
+  Loader2,
+  AlertCircle,
+  RefreshCcw,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -43,7 +49,7 @@ const REPORT_TYPES = [
 export default function IPOReports() {
   const { data: activeRegisters } = useGetRegisters({
     size: 1000,
-    status: "ACTIVE"
+    status: "ACTIVE",
   });
 
   const [selectedReport, setSelectedReport] = useState(REPORT_TYPES[0]);
@@ -309,7 +315,7 @@ export default function IPOReports() {
 
       {/* Report output */}
       {!reportRun ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-70">
           <BarChart3 className="h-10 w-10 mb-3 opacity-20" />
           <p className="text-sm font-medium text-foreground">
             {selectedReport}
@@ -319,16 +325,18 @@ export default function IPOReports() {
           </p>
         </Card>
       ) : isReportLoading ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-70">
           <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary" />
           <p className="text-sm font-medium text-foreground">
             Loading report data...
           </p>
         </Card>
       ) : isReportError ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-red-500/80 min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-red-500/80 min-h-70">
           <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">Failed to load report data</p>
+          <p className="text-sm font-medium text-red-600 dark:text-red-400">
+            Failed to load report data
+          </p>
           <p className="text-sm mt-1 text-muted-foreground mb-4">
             There was an error retrieving the {selectedReport} data.
           </p>
@@ -394,7 +402,7 @@ export default function IPOReports() {
                             r.status === "Approved" || r.status === "APPROVED"
                               ? "bg-green-100 text-green-800"
                               : r.status === "Disapproved" ||
-                                r.status === "DISAPPROVED"
+                                  r.status === "DISAPPROVED"
                                 ? "bg-amber-100 text-amber-800"
                                 : "bg-red-100 text-red-700",
                           )}
@@ -762,7 +770,7 @@ export default function IPOReports() {
                             r.status === "Lodged" || r.status === "LODGED"
                               ? "bg-green-100 text-green-800"
                               : r.status === "ICU Approved" ||
-                                r.status === "ICU_APPROVED"
+                                  r.status === "ICU_APPROVED"
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-amber-100 text-amber-800",
                           )}

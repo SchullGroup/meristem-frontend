@@ -32,16 +32,25 @@ const ToggleStatusDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent>
+      <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Confirm {isActive ? "Deactivation" : "Activation"}</DialogTitle>
+          <DialogTitle>
+            Confirm {isActive ? "Deactivation" : "Activation"}
+          </DialogTitle>
           <DialogDescription>
             Are you sure you want to {isActive ? "deactivate" : "activate"}{" "}
-            <span className="font-semibold">{selectedPrincipal.principalName}</span>?
+            <span className="font-semibold">
+              {selectedPrincipal.principalName}
+            </span>
+            ?
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)} disabled={isLoading}>
+          <Button
+            variant="ghost"
+            onClick={() => setOpen(false)}
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           <Button
