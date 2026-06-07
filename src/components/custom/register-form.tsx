@@ -58,29 +58,29 @@ export function RegisterForm({
     resolver: zodResolver(registerSchema),
     defaultValues: initialData
       ? {
-        registerName: initialData.registerName,
-        principalId: initialData.principalId,
-        registerType: initialData.registerType,
-        symbol: initialData.symbol,
-        nominalValue: initialData.nominalValue,
-        stockInIssueAtSetup: initialData.stockInIssueAtSetup,
-        shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
-        currentStockInIssue: initialData.currentStockInIssue,
-        currentShareholdersSize: initialData.currentShareholdersSize,
-        status: initialData.status ?? "ACTIVE",
-      }
+          registerName: initialData.registerName,
+          principalId: initialData.principalId,
+          registerType: initialData.registerType,
+          symbol: initialData.symbol,
+          nominalValue: initialData.nominalValue,
+          stockInIssueAtSetup: initialData.stockInIssueAtSetup,
+          shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
+          currentStockInIssue: initialData.currentStockInIssue,
+          currentShareholdersSize: initialData.currentShareholdersSize,
+          status: initialData.status ?? "ACTIVE",
+        }
       : {
-        registerName: "",
-        principalId: "",
-        registerType: "ORDINARY",
-        symbol: "",
-        nominalValue: 0,
-        stockInIssueAtSetup: 0,
-        shareholderSizeAtSetup: 0,
-        currentStockInIssue: 0,
-        currentShareholdersSize: 0,
-        status: "ACTIVE",
-      },
+          registerName: "",
+          principalId: "",
+          registerType: "ORDINARY",
+          symbol: "",
+          nominalValue: Number(""),
+          stockInIssueAtSetup: Number(""),
+          shareholderSizeAtSetup: Number(""),
+          currentStockInIssue: Number(""),
+          currentShareholdersSize: Number(""),
+          status: "ACTIVE",
+        },
   });
 
   const onSubmit = (values: RegisterFormValues) => {
@@ -196,6 +196,7 @@ export function RegisterForm({
                               </SelectItem>
                               <SelectItem value="BOND">Bond</SelectItem>
                               <SelectItem value="FUND">Fund</SelectItem>
+                              <SelectItem value="ETF">Etf</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage className="text-[10px] text-destructive mt-1" />
@@ -245,7 +246,6 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
                               step="0.01"
                               {...field}
                               className="mrpsl-input h-11 font-mono"
@@ -265,7 +265,18 @@ export function RegisterForm({
                             Principal *
                           </FormLabel>
                           <Select
-                            onValueChange={field.onChange}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              const selectedPrincipal = data?.content.find(
+                                (p) => p.principalId === value,
+                              );
+                              if (selectedPrincipal) {
+                                form.setValue(
+                                  "shareholderSizeAtSetup",
+                                  selectedPrincipal.shareHoldersAtSetUp,
+                                );
+                              }
+                            }}
                             value={field.value}
                           >
                             <FormControl>
@@ -299,7 +310,6 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
                               min={0}
                               {...field}
                               className="mrpsl-input h-11 font-mono"
@@ -320,8 +330,7 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
-                              min={1}
+                              min={0}
                               {...field}
                               className="mrpsl-input h-11 font-mono"
                             />
@@ -341,8 +350,7 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
-                              min={1}
+                              min={0}
                               {...field}
                               className="mrpsl-input h-11 font-mono"
                             />
@@ -362,8 +370,7 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              type="number"
-                              min={1}
+                              min={0}
                               {...field}
                               className="mrpsl-input h-11 font-mono"
                             />

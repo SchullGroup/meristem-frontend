@@ -93,7 +93,7 @@ export default function AgentsPage() {
 
   const { data: agents, isLoading: isAgentsLoading } = useQuery({
     queryKey: ["agents"],
-    queryFn: GET_AGENTS,
+    queryFn: () => GET_AGENTS(),
   });
   const agentList = agents?.data?.content;
 
@@ -478,7 +478,7 @@ export default function AgentsPage() {
                           </FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger className="mrpsl-input h-11">
@@ -636,8 +636,8 @@ export default function AgentsPage() {
                   {isEditing ? "Update Agent" : "Save Agent"}
                   {(createAgentMutation.isPending ||
                     updateAgentMutation.isPending) && (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  )}
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
                 </Button>
               </DialogFooter>
             </form>

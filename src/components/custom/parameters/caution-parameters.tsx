@@ -29,10 +29,10 @@ import {
   CautionReasonStatus,
 } from "@/types/parameters";
 import { SearchableSelect } from "@/components/custom/searchable-select";
-import { Pagination } from "../pagination";
 import { capitalizeFirstLetter } from "@/utils/helperFunctions";
+import { PaginationBar } from "../pagination-bar";
 
-const SEVERITY_OPTIONS = ["High", "Medium", "Low"];
+const SEVERITY_OPTIONS = ["High", "Medium", "Low", "Critical"];
 const severityColor: Record<string, string> = {
   High: "border-red-200   bg-red-50   text-red-700",
   Medium: "border-amber-200 bg-amber-50 text-amber-700",
@@ -61,6 +61,7 @@ export default function CautionParameters({
   const [cautS, setCautS] = useState("Medium");
   const [cautNote, setCautNote] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   // const [sortBy, setSortBy] = useState("createdAt");
   // const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -69,7 +70,7 @@ export default function CautionParameters({
     useGetCautionReasons(
       {
         page: currentPage,
-        size: PAGE_SIZE,
+        size: pageSize,
       },
       { enabled: tab === "caution" },
     );
@@ -148,6 +149,9 @@ export default function CautionParameters({
         toast.error(err.message || "Failed to remove caution reason"),
     });
   };
+
+  const total = cautionsData?.pagination?.total || 0;
+  const totalPages = cautionsData?.pagination?.totalPages || 0;
 
   return (
     <>
@@ -273,10 +277,13 @@ export default function CautionParameters({
           </tbody>
         </table>
 
-        <Pagination
-          currentPage={currentPage}
-          onPageChange={(page) => setCurrentPage(page)}
-          totalPages={cautionsData?.pagination?.totalPages || 0}
+        <PaginationBar
+          page={currentPage}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          totalPages={totalPages}
+          total={total}
+          pageSize={pageSize}
         />
       </Card>
 

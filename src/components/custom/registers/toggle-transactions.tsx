@@ -60,7 +60,7 @@ const ToggleTransactionDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Confirm Action</DialogTitle>
           <DialogDescription>

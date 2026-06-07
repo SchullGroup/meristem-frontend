@@ -34,7 +34,6 @@ import {
 } from "@/hooks/useIPO";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { DataErrorState, BatchDetailSkeleton } from "./loaders";
-import { Pagination } from "@/components/custom/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -45,6 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
+import { PaginationBar } from "../pagination-bar";
 
 export default function ICULodgment({ tab }: { tab: string }) {
   const { data: activeRegisters } = useGetRegisters({
@@ -54,10 +54,8 @@ export default function ICULodgment({ tab }: { tab: string }) {
 
   // Lodgment drill-down
   const [lodgmentReviewing, setLodgmentReviewing] = useState<IPO | null>(null);
-  const [lodgmentProcessed, setLodgmentProcessed] = useState<
-    Record<string, boolean>
-  >({});
   const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
 
   // Pending Approval filters
@@ -86,7 +84,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
         ? format(authDateRange.to, "yyyy-MM-dd")
         : undefined,
       page: currentPage,
-      size: 10,
+      size: pageSize,
     },
     {
       enabled: lodgmentReviewing === null && tab === "lodgment",
@@ -264,7 +262,6 @@ export default function ICULodgment({ tab }: { tab: string }) {
                   lodgmentBatchesData.content.map((row) => (
                     <tr
                       key={row.batchReference}
-                      onClick={() => setLodgmentReviewing(row)}
                       className="mrpsl-table-row cursor-pointer hover:bg-muted/40 transition-colors"
                     >
                       <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
@@ -306,6 +303,14 @@ export default function ICULodgment({ tab }: { tab: string }) {
                           </Badge>
                         )}
                       </td>
+                      <td>
+                        <Button
+                          size="sm"
+                          onClick={() => setLodgmentReviewing(row)}
+                        >
+                          Review
+                        </Button>
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -321,13 +326,14 @@ export default function ICULodgment({ tab }: { tab: string }) {
               </tbody>
             </table>
           </div>
-          {lodgmentBatchesData?.pagination && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={lodgmentBatchesData.pagination.totalPages}
-              onPageChange={setCurrentPage}
-            />
-          )}
+          <PaginationBar
+            page={currentPage}
+            pageSize={pageSize}
+            totalPages={lodgmentBatchesData?.pagination?.totalPages || 0}
+            total={lodgmentBatchesData?.pagination?.total || 0}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       </div>
     );
@@ -552,10 +558,6 @@ export default function ICULodgment({ tab }: { tab: string }) {
             <Button
               className="flex-1"
               onClick={() => {
-                setLodgmentProcessed((prev) => ({
-                  ...prev,
-                  [lodgmentReviewing.batchReference]: true,
-                }));
                 toast.success("Pushed to CSCS API successfully.");
               }}
             >
@@ -598,11 +600,7 @@ export function ApproveLodgmentDialog({
         batchRef: batchReference,
         payload: {
           comment: comment,
-          lodgedBy:
-            currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.email ||
-            "ADMIN",
+          lodgedBy: currentUser?.email || currentUser?.username || "ADMIN",
         },
       },
       {

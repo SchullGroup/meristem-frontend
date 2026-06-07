@@ -49,7 +49,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const store = useStore.getState();
       store.setCurrentUser(null);
-      Cookies.remove("token");
+      store.setIsSessionExpired(true); // ✅ ADD THIS LINE
+      if (typeof window !== "undefined") {
+        Cookies.remove("token");
+      }
     }
     return Promise.reject(error);
   },

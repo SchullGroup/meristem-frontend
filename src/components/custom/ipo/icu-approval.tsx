@@ -32,14 +32,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { DateRange } from "react-day-picker";
-import { useGetRegistersByType } from "@/hooks/useRegisters";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   useGetIcuApprovals,
   useGetIpoBatch,
   useGetIpoBatchSubscribers,
   useIcuReviewIpo,
 } from "@/hooks/useIPO";
-import { Pagination } from "@/components/custom/pagination";
 import { IPOBatchType } from "@/types/ipo";
 import { exportIpoBatch } from "@/actions/ipoActions";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
@@ -48,6 +47,7 @@ import {
   DataErrorState,
   PendingListSkeleton,
 } from "./loaders";
+import { PaginationBar } from "../pagination-bar";
 
 const PAGE_SIZE = 10;
 
@@ -58,6 +58,9 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
   const [reviewComment, setReviewComment] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [subscribersPage, setSubscribersPage] = useState(0);
+  const [subscribersPageSize, setSubscribersPageSize] = useState(PAGE_SIZE);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+
   const [approvalModal, setApprovalModal] = useState<{
     action: "approve" | "return";
   } | null>(null);
@@ -69,9 +72,15 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
   );
 
   // Queries
-  const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
-    enabled: tab === "icu",
-  });
+  const { data: activeRegisters } = useGetRegisters(
+    {
+      size: 1000,
+      status: "ACTIVE",
+    },
+    {
+      enabled: tab === "icu",
+    },
+  );
 
   const {
     data: icuData,
@@ -87,7 +96,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         : undefined,
       to: icuDateRange?.to ? format(icuDateRange.to, "yyyy-MM-dd") : undefined,
       page: currentPage,
-      size: PAGE_SIZE,
+      size: pageSize,
     },
     { enabled: tab === "icu" && !reviewingBatch },
   );
@@ -138,7 +147,8 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         payload: {
           approved,
           comment: reviewComment,
-          reviewedBy: currentUser?.id || "ICU-ADMIN",
+          reviewedBy:
+            currentUser?.email || currentUser?.username || "ICU-ADMIN",
         },
       },
       {
@@ -214,37 +224,36 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
       <div className="space-y-6">
         {/* Filters */}
         <Card className="mrpsl-card p-5">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="mrpsl-label">Register</label>
-                <Select
-                  value={icuRegister}
-                  onValueChange={(value) => setIcuRegister(value || "")}
-                >
-                  <SelectTrigger className="mrpsl-input w-full">
-                    <SelectValue placeholder="All Registers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Registers</SelectItem>
-                    {ordinaryRegisters?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.registerId}>
-                        {r.registerName} · {r.symbol}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="mrpsl-label">Date Range</label>
-                <DateRangePicker
-                  date={icuDateRange}
-                  setDate={setIcuDateRange}
-                />
-              </div>
+          <div className="flex-1 flex gap-4">
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Register</label>
+              <Select
+                value={icuRegister}
+                onValueChange={(value) => setIcuRegister(value || "")}
+              >
+                <SelectTrigger className="mrpsl-input w-full">
+                  <SelectValue placeholder="All Registers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Registers</SelectItem>
+                  {activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.registerId}>
+                      {r.registerName} · {r.symbol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Button variant="ghost" onClick={resetFilters} className="text-xs">
+
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Date Range</label>
+              <DateRangePicker date={icuDateRange} setDate={setIcuDateRange} />
+            </div>
+            <Button
+              variant="ghost"
+              onClick={resetFilters}
+              className="self-center"
+            >
               Reset
             </Button>
           </div>
@@ -346,13 +355,14 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
               </tbody>
             </table>
           </div>
-          {icuData?.pagination && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={icuData.pagination.totalPages}
-              onPageChange={setCurrentPage}
-            />
-          )}
+          <PaginationBar
+            page={currentPage}
+            pageSize={pageSize}
+            totalPages={icuData?.pagination?.totalPages || 0}
+            total={icuData?.pagination?.total || 0}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       </div>
     );
@@ -592,7 +602,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto min-h-[300px] relative">
+        <div className="overflow-x-auto min-h-75 relative">
           {subscribersError ? (
             <div className="p-8">
               <DataErrorState
@@ -686,13 +696,14 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
             </>
           )}
         </div>
-        {subscribersData?.pagination && (
-          <Pagination
-            currentPage={subscribersPage}
-            totalPages={subscribersData.pagination.totalPages}
-            onPageChange={setSubscribersPage}
-          />
-        )}
+        <PaginationBar
+          page={currentPage}
+          pageSize={subscribersPageSize}
+          totalPages={subscribersData?.pagination?.totalPages || 0}
+          total={subscribersData?.pagination?.total || 0}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setSubscribersPageSize}
+        />
       </Card>
 
       {/* ICU Approval / Return Dialog */}
@@ -738,10 +749,14 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
               />
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => {
-                setApprovalModal(null);
-                setReviewComment("");
-              }}>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setApprovalModal(null);
+                  setReviewComment("");
+                }}
+              >
                 Cancel
               </Button>
               <Button
