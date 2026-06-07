@@ -1,6 +1,6 @@
 export type RegisterStatus = "ACTIVE" | "INACTIVE" | "TRANSACTION_DISABLED";
 
-export type RegisterType = "Ordinary" | "Preference" | "Fund" | "Bond";
+export type RegisterType = "Ordinary" | "Preference" | "Fund" | "Bond" | "Etf";
 
 export interface Register {
   id: number;
