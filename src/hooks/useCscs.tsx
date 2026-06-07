@@ -66,7 +66,7 @@ export const useGetCscsProcessingQueue = (
   >,
 ) => {
   return useQuery({
-    queryKey: ["cscs-processing-queue"],
+    queryKey: ["cscs-processing-queue", params],
     queryFn: () => GET_CSCS_PROCESSING_QUEUE(params),
     refetchOnWindowFocus: false,
     ...options,
@@ -121,7 +121,7 @@ export const useGetCscsFlaggedTransactions = (
   >,
 ) => {
   return useQuery({
-    queryKey: ["cscs-flagged-transactions"],
+    queryKey: ["cscs-flagged-transactions", params],
     queryFn: () => GET_CSCS_FLAGGED_TRANSACTIONS(params),
     refetchOnWindowFocus: false,
     ...options,

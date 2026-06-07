@@ -24,7 +24,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const { currentUser, isSessionExpired, setIsSessionExpired } = useStore();
-  const [mounted, setMounted] = useState(false);
+  // const [mounted, setMounted] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [showSessionDialog, setShowSessionDialog] = useState(false);
 
@@ -34,11 +34,10 @@ export default function DashboardLayout({
     router.replace("/login");
   };
 
+  //  for hydration
   useEffect(() => {
-    //eslint-disable-next-line
-    setMounted(true);
-
     if (useStore.persist.hasHydrated()) {
+      // eslint-disable-next-line
       setHydrated(true);
     } else {
       const unsub = useStore.persist.onFinishHydration(() => {
@@ -48,14 +47,19 @@ export default function DashboardLayout({
     }
   }, []);
 
+  // ✅ Handles both expired session and missing session
   useEffect(() => {
-    if (hydrated && !currentUser && isSessionExpired) {
-      //eslint-disable-next-line
-      setShowSessionDialog(true);
+    if (hydrated) {
+      if (!currentUser && isSessionExpired) {
+        // eslint-disable-next-line
+        setShowSessionDialog(true);
+      } else if (!currentUser && !isSessionExpired) {
+        router.replace("/login");
+      }
     }
-  }, [hydrated, currentUser, isSessionExpired]);
+  }, [hydrated, currentUser, isSessionExpired, router]);
 
-  if (!mounted || !hydrated) return null;
+  if (!hydrated) return null;
 
   if (!currentUser) {
     return (

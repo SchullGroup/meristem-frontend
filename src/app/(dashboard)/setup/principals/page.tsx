@@ -20,7 +20,6 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -42,8 +41,8 @@ import {
   useUpdatePrincipalStatus,
 } from "@/hooks/usePrincipal";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Pagination } from "@/components/custom/pagination";
 import ToggleStatusDialog from "@/components/custom/principal/toggle-status-dialog";
+import { PaginationBar } from "@/components/custom/pagination-bar";
 
 const PAGE_SIZE = 10;
 
@@ -59,8 +58,8 @@ export default function PrincipalsPage() {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
-  const [billingFilter, setBillingFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [billingFilter, setBillingFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -70,6 +69,7 @@ export default function PrincipalsPage() {
 
   const [confirmStatusOpen, setConfirmStatusOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -78,18 +78,21 @@ export default function PrincipalsPage() {
 
   const { data: principals, isLoading: principalsLoading } = useGetPrincipals({
     search: debouncedSearch !== "" ? debouncedSearch : undefined,
-    billingCategory: billingFilter !== null ? billingFilter : undefined,
-    status: statusFilter !== null ? statusFilter : undefined,
+    billingCategory: billingFilter !== "" ? billingFilter : undefined,
+    status: statusFilter !== "" ? statusFilter : undefined,
     page: currentPage,
-    size: PAGE_SIZE,
+    size: pageSize,
   });
 
   const total = principalStats?.billingBreakdown
     ? Object.values(principalStats.billingBreakdown).reduce(
-      (sum, value) => sum + value,
-      0,
-    )
+        (sum, value) => sum + value,
+        0,
+      )
     : 0;
+
+  const totalItems = principals?.pagination?.total || 0;
+  const totalPages = principals?.pagination?.totalPages || 0;
 
   const { mutate, isPending: toggleStatusLoading } = useUpdatePrincipalStatus();
 
@@ -136,7 +139,6 @@ export default function PrincipalsPage() {
     setSelectedPrincipal(p);
     setConfirmStatusOpen(true);
   };
-
 
   return (
     <div className="space-y-6">
@@ -264,8 +266,7 @@ export default function PrincipalsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectLabel>Billing</SelectLabel>
-              <SelectItem value={null}>Billing Category</SelectItem>
+              <SelectItem value="">Billing Category</SelectItem>
               <SelectItem value="A">Category A</SelectItem>
               <SelectItem value="B">Category B</SelectItem>
               <SelectItem value="C">Category C</SelectItem>
@@ -280,9 +281,10 @@ export default function PrincipalsPage() {
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={null}>Status</SelectItem>
+            <SelectItem value="">Status</SelectItem>
             <SelectItem value="Active">Active</SelectItem>
             <SelectItem value="Inactive">Inactive</SelectItem>
+            <SelectItem value="Suspended">Suspended</SelectItem>
           </SelectContent>
         </Select>
         {(search || billingFilter !== null || statusFilter !== null) && (
@@ -290,8 +292,8 @@ export default function PrincipalsPage() {
             variant="ghost"
             onClick={() => {
               setSearch("");
-              setBillingFilter(null);
-              setStatusFilter(null);
+              setBillingFilter("");
+              setStatusFilter("");
             }}
           >
             Clear Filters
@@ -341,12 +343,13 @@ export default function PrincipalsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${p.billingCategory === "A"
+                        className={`border-0 text-xs ${
+                          p.billingCategory === "A"
                             ? "bg-emerald-100 text-emerald-800"
                             : p.billingCategory === "B"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-amber-100 text-amber-800"
-                          }`}
+                        }`}
                       >
                         Category {p.billingCategory}
                       </Badge>
@@ -444,10 +447,13 @@ export default function PrincipalsPage() {
             </tbody>
           </table>
 
-          <Pagination
-            currentPage={currentPage}
-            totalPages={principals?.pagination?.totalPages || 1}
+          <PaginationBar
+            page={currentPage}
+            pageSize={pageSize}
+            totalPages={totalPages}
+            total={totalItems}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         </div>
       </Card>

@@ -277,9 +277,9 @@ export function LodgeRightsDialog({
           lodgmentRef: rightsIssueDetails?.ref,
           notes,
           processedBy:
-            currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
             currentUser?.email ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.username ||
             "ADMIN",
         },
       },

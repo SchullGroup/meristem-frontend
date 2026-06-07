@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { DateRange } from "react-day-picker";
-import { useGetRegistersByType } from "@/hooks/useRegisters";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   useGetPendingApprovals,
   useGetIpoBatch,
@@ -35,11 +35,11 @@ import {
   useOpsRejectIpo,
   useOpsApproveIpo,
 } from "@/hooks/useIPO";
-import { Pagination } from "@/components/custom/pagination";
 import { IPOBatchType } from "@/types/ipo";
 import { exportIpoBatch } from "@/actions/ipoActions";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { BatchDetailSkeleton, DataErrorState } from "./loaders";
+import { PaginationBar } from "../pagination-bar";
 
 const PAGE_SIZE = 10;
 
@@ -50,6 +50,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   const [reviewComment, setReviewComment] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [subscribersPage, setSubscribersPage] = useState(0);
+  const [subscribersPageSize, setSubscribersPageSize] = useState(PAGE_SIZE);
   const [approvalModal, setApprovalModal] = useState<{
     action: "approve" | "reject";
   } | null>(null);
@@ -61,9 +62,15 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   );
 
   // Queries
-  const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY", {
-    enabled: tab === "auth",
-  });
+  const { data: activeRegisters } = useGetRegisters(
+    {
+      size: 1000,
+      status: "ACTIVE",
+    },
+    {
+      enabled: tab === "auth",
+    },
+  );
 
   const {
     data: pendingData,
@@ -81,7 +88,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         ? format(authDateRange.to, "yyyy-MM-dd")
         : undefined,
       page: currentPage,
-      size: PAGE_SIZE,
+      size: subscribersPageSize,
     },
     { enabled: tab === "auth" && !reviewingBatch },
   );
@@ -107,10 +114,13 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
       batchRef: reviewingBatch || "",
       type: reviewTab,
       page: subscribersPage,
-      size: PAGE_SIZE,
+      size: subscribersPageSize,
     },
     { enabled: !!reviewingBatch },
   );
+
+  const totalPages = subscribersData?.pagination?.totalPages || 0;
+  const total = subscribersData?.pagination?.total || 0;
 
   // Mutations
   const approveMutation = useOpsApproveIpo();
@@ -125,7 +135,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         batchRef: reviewingBatch,
         payload: {
           comment: reviewComment,
-          approvedBy: currentUser?.id || "ADMIN",
+          approvedBy: currentUser?.email || currentUser?.username || "ADMIN",
         },
       },
       {
@@ -158,9 +168,9 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         payload: {
           comment: reviewComment,
           rejectedBy:
-            currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
             currentUser?.email ||
+            `${currentUser?.firstName} ${currentUser?.lastName}` ||
+            currentUser?.username ||
             "ADMIN",
         },
       },
@@ -237,37 +247,40 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
       <div className="space-y-6">
         {/* Filters */}
         <Card className="mrpsl-card p-5">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="mrpsl-label">Register</label>
-                <Select
-                  value={authRegister}
-                  onValueChange={(value) => setAuthRegister(value || "")}
-                >
-                  <SelectTrigger className="mrpsl-input w-full">
-                    <SelectValue placeholder="All Registers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Registers</SelectItem>
-                    {ordinaryRegisters?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.registerId}>
-                        {r.registerName} · {r.symbol}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="mrpsl-label">Date Range</label>
-                <DateRangePicker
-                  date={authDateRange}
-                  setDate={setAuthDateRange}
-                />
-              </div>
+          <div className="flex-1 flex gap-4">
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Register</label>
+              <Select
+                value={authRegister}
+                onValueChange={(value) => setAuthRegister(value || "")}
+              >
+                <SelectTrigger className="mrpsl-input w-full">
+                  <SelectValue placeholder="All Registers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Registers</SelectItem>
+                  {activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.registerId}>
+                      {r.registerName} · {r.symbol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Button variant="ghost" onClick={resetFilters} className="text-xs">
+
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Date Range</label>
+              <DateRangePicker
+                date={authDateRange}
+                setDate={setAuthDateRange}
+              />
+            </div>
+
+            <Button
+              className="self-center"
+              variant="ghost"
+              onClick={resetFilters}
+            >
               Reset
             </Button>
           </div>
@@ -372,13 +385,15 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
               </tbody>
             </table>
           </div>
-          {pendingData?.pagination && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={pendingData.pagination.totalPages}
-              onPageChange={setCurrentPage}
-            />
-          )}
+
+          <PaginationBar
+            page={currentPage}
+            pageSize={subscribersPageSize}
+            totalPages={pendingData?.pagination?.totalPages || 0}
+            total={pendingData?.pagination?.total || 0}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setSubscribersPageSize}
+          />
         </Card>
       </div>
     );
@@ -575,7 +590,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto min-h-[300px] relative">
+        <div className="overflow-x-auto min-h-75 relative">
           {subscribersError ? (
             <div className="p-8">
               <DataErrorState
@@ -669,13 +684,14 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
             </>
           )}
         </div>
-        {subscribersData?.pagination && (
-          <Pagination
-            currentPage={subscribersPage}
-            totalPages={subscribersData.pagination.totalPages}
-            onPageChange={setSubscribersPage}
-          />
-        )}
+        <PaginationBar
+          page={subscribersPage}
+          pageSize={subscribersPageSize}
+          totalPages={totalPages}
+          total={total}
+          onPageChange={setSubscribersPage}
+          onPageSizeChange={setSubscribersPageSize}
+        />
       </Card>
 
       {/* Approval / Rejection modal */}
@@ -745,6 +761,9 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                   }
                 }}
               >
+                {(rejectMutation.isPending || approveMutation.isPending) && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
                 Confirm{" "}
                 {approvalModal?.action === "approve" ? "Approval" : "Rejection"}
               </Button>

@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { BarChart3, Download, Loader2, AlertCircle, RefreshCcw } from "lucide-react";
+import {
+  BarChart3,
+  Download,
+  Loader2,
+  AlertCircle,
+  RefreshCcw,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -29,7 +35,7 @@ import {
   useGetBatchSummaryReport,
   useExportBatchSummaryReport,
 } from "@/hooks/useIPO";
-import { useGetRegistersByType } from "@/hooks/useRegisters";
+import { useGetRegisters } from "@/hooks/useRegisters";
 
 const REPORT_TYPES = [
   "Application Offer",
@@ -41,7 +47,10 @@ const REPORT_TYPES = [
 ];
 
 export default function IPOReports() {
-  const { data: ordinaryRegisters } = useGetRegistersByType("ORDINARY");
+  const { data: activeRegisters } = useGetRegisters({
+    size: 1000,
+    status: "ACTIVE",
+  });
 
   const [selectedReport, setSelectedReport] = useState(REPORT_TYPES[0]);
   const [reportRegister, setReportRegister] = useState("all");
@@ -264,7 +273,7 @@ export default function IPOReports() {
               </SelectTrigger>
               <SelectContent className="w-max">
                 <SelectItem value="all">All Registers</SelectItem>
-                {ordinaryRegisters?.map((r) => (
+                {activeRegisters?.content?.map((r) => (
                   <SelectItem key={r.registerId} value={r.registerId}>
                     {r.registerName} · {r.symbol}
                   </SelectItem>
@@ -306,7 +315,7 @@ export default function IPOReports() {
 
       {/* Report output */}
       {!reportRun ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-70">
           <BarChart3 className="h-10 w-10 mb-3 opacity-20" />
           <p className="text-sm font-medium text-foreground">
             {selectedReport}
@@ -316,16 +325,18 @@ export default function IPOReports() {
           </p>
         </Card>
       ) : isReportLoading ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-70">
           <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary" />
           <p className="text-sm font-medium text-foreground">
             Loading report data...
           </p>
         </Card>
       ) : isReportError ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-red-500/80 min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-red-500/80 min-h-70">
           <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">Failed to load report data</p>
+          <p className="text-sm font-medium text-red-600 dark:text-red-400">
+            Failed to load report data
+          </p>
           <p className="text-sm mt-1 text-muted-foreground mb-4">
             There was an error retrieving the {selectedReport} data.
           </p>

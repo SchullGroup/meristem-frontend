@@ -70,7 +70,7 @@ export default function DocumentTypeParameters({
   const [docMode, setDocMode] = useState<"add" | "edit">("add");
   const [editDoc, setEditDoc] = useState<DocumentType | null>(null);
   const [docName, setDocName] = useState("");
-  const [docStatus, setDocStatus] = useState<DocumentTypeStatus>("ACTIVE")
+  const [docStatus, setDocStatus] = useState<DocumentTypeStatus>("ACTIVE");
   const [docReqFor, setDocReqFor] = useState<string[]>([]);
   const [docNote, setDocNote] = useState("");
 
@@ -82,7 +82,7 @@ export default function DocumentTypeParameters({
     setEditDoc(null);
     setDocName("");
     setDocReqFor([]);
-    setDocStatus("ACTIVE")
+    setDocStatus("ACTIVE");
     setDocNote("");
     setDocOpen(true);
   };
@@ -123,7 +123,7 @@ export default function DocumentTypeParameters({
           payload: {
             name: docName.trim(),
             requiredFor: docReqFor,
-            status: editDoc.status as DocumentTypeStatus,
+            status: docStatus as DocumentTypeStatus,
             reasonForChange: docNote || "Updated document type",
           },
         },
@@ -338,29 +338,24 @@ export default function DocumentTypeParameters({
 
             <div className="space-y-3">
               <RadioGroup
-                onValueChange={(value) => setDocStatus(value as DocumentTypeStatus)}
+                onValueChange={(value) =>
+                  setDocStatus(value as DocumentTypeStatus)
+                }
                 value={docStatus}
                 className="flex flex-row gap-8"
               >
                 <div className="flex items-center space-x-2.5 space-y-0">
-                  <RadioGroupItem
-                    value="ACTIVE"
-                    className="h-5 w-5"
-                  />
+                  <RadioGroupItem value="ACTIVE" className="h-5 w-5" />
                   <label className="font-medium text-sm text-green-700">
                     Active
                   </label>
                 </div>
                 <div className="flex items-center space-x-2.5 space-y-0">
-                  <RadioGroupItem
-                    value="INACTIVE"
-                    className="h-5 w-5"
-                  />
+                  <RadioGroupItem value="INACTIVE" className="h-5 w-5" />
                   <label className="font-medium text-sm text-muted-foreground">
                     Inactive
                   </label>
                 </div>
-
               </RadioGroup>
             </div>
           </div>

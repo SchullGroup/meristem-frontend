@@ -3,9 +3,28 @@
 import api from "@/services/api";
 import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
 
-export const GET_AGENTS = async () => {
+export interface Agent {
+  name: string;
+  type: string;
+  code: string;
+  cscsMemberCode: string;
+  address: string;
+  status: string;
+  id: string;
+}
+
+export const GET_AGENTS = async (params?: {
+  type?: "BANK" | "STOCKBROKER" | "COLLECTING_AGENT";
+  page?: number;
+  size?: number;
+  search?: string;
+  status?: "ACTIVE" | "INACTIVE"
+  sortDirection?: "asc" | "desc"
+}) => {
   try {
-    const res = await api.get(`/agents`);
+    const res = await api.get(`/agents`, {
+      params
+    });
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

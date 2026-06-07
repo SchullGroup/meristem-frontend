@@ -22,6 +22,8 @@ import { DocUploadZone } from "@/components/custom/doc-upload-zone";
 import { getDocType } from "@/lib/mocks/doc-types";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { Agent, GET_AGENTS } from "@/actions/agentAction";
 
 export const CaptureDematerialization = ({
   tab,
@@ -33,6 +35,11 @@ export const CaptureDematerialization = ({
   const { data: activeRegisters } = useGetRegisters({
     size: 100,
     status: "ACTIVE",
+  });
+
+  const { data: agents } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => GET_AGENTS({ type: "STOCKBROKER", size: 100 }),
   });
 
   const [editingRejectedId, setEditingRejectedId] = useState<string | null>(
@@ -60,6 +67,10 @@ export const CaptureDematerialization = ({
   const foundHolder = holders?.content?.[0] || null;
   const holderNotFound = !!searchQuery && !isSearchingHolder && !foundHolder;
 
+  const stockBrokerList = agents?.data?.content || [];
+
+
+  // rejected items
   const { data: rejectedData } = useGetAllCertificateDemat(
     {
       status: "REJECTED",
@@ -242,7 +253,11 @@ export const CaptureDematerialization = ({
                     <SelectValue placeholder="Select Stockbroker" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CSCS">CSCS PLC</SelectItem>
+                    {stockBrokerList?.map((s: Agent) => (
+                      <SelectItem key={s.id} value={s.name}>
+                        {s.name} · {s.code}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 // import { useStore } from "@/lib/store";
 import {
@@ -33,21 +33,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RegisterForm } from "@/components/custom/register-form";
-// import {
-//   Dialog,
-//   DialogContent,
-//   DialogDescription,
-//   DialogFooter,
-//   DialogHeader,
-//   DialogTitle,
-// } from "@/components/ui/dialog";
 import { Register } from "@/types/register";
 import { useGetRegisters, useGetRegisterStats } from "@/hooks/useRegisters";
 import { useDebounce } from "@/hooks/useDebounce";
 import { formatLargeNumber } from "@/lib/utils";
 import { useGetPrincipals } from "@/hooks/usePrincipal";
-import { Pagination } from "@/components/custom/pagination";
 import ToggleTransactionDialog from "@/components/custom/registers/toggle-transactions";
+import { usePagination } from "@/lib/use-pagination";
+import { PaginationBar } from "@/components/custom/pagination-bar";
 
 const PAGE_SIZE = 10;
 
@@ -58,11 +51,11 @@ export default function RegistersPage() {
 
   const principalIdParam = params.get("principalId");
   const [search, setSearch] = useState("");
-  const [principalFilter, setPrincipalFilter] = useState<string | null>(
-    principalIdParam || null,
+  const [principalFilter, setPrincipalFilter] = useState<string>(
+    principalIdParam || "",
   );
-  const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
 
   // Synchronize principalFilter with URL param
   useEffect(() => {
@@ -94,6 +87,7 @@ export default function RegistersPage() {
 
   const [confirmLockOpen, setConfirmLockOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -102,34 +96,20 @@ export default function RegistersPage() {
 
   const { data: registers, isLoading } = useGetRegisters({
     search: debouncedSearch !== "" ? debouncedSearch : undefined,
-    principalId: principalFilter !== null ? principalFilter : undefined,
-    registerType: typeFilter !== null ? typeFilter : undefined,
-    status: statusFilter !== null ? statusFilter : undefined,
+    principalId: principalFilter !== "" ? principalFilter : undefined,
+    registerType: typeFilter !== "" ? typeFilter : undefined,
+    status: statusFilter !== "" ? statusFilter : undefined,
     page: currentPage,
-    size: PAGE_SIZE,
+    size: pageSize,
   });
 
   const { data: principals } = useGetPrincipals({
-    size: 100,
+    size: 1000,
   });
 
-  const registerFStats = useMemo(() => {
-    const inactive = registers?.content?.filter(
-      (p) => p.status.toLowerCase() === "inactive",
-    );
-    const active = registers?.content?.filter(
-      (p) => p.status.toLowerCase() === "active",
-    );
-    const transactionDisabled = registers?.content?.filter(
-      (p) => p.status.toLowerCase() === "transaction_disabled",
-    );
-
-    return {
-      active: active?.length ?? 0,
-      inactive: inactive?.length ?? 0,
-      disabled: transactionDisabled?.length ?? 0,
-    };
-  }, [registers]);
+  const pagedRows = registers?.content || [];
+  const total = registers?.pagination.total || 0;
+  const paged = usePagination(pagedRows);
 
   const handleEdit = (r: Register) => {
     setSelectedRegister(r);
@@ -183,7 +163,7 @@ export default function RegistersPage() {
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-green-600">
               {/* {registerStats?.activeRegisters ?? 0} */}
-              {registerFStats.active ?? 0}
+              {registerStats?.activeRegisters ?? 0}
             </div>
           )}
         </Card>
@@ -196,7 +176,7 @@ export default function RegistersPage() {
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-amber-600">
               {/* {registerStats?.transactionDisabledRegisters ?? 0} */}
-              {registerFStats.disabled ?? 0}
+              {registerStats?.transactionDisabledRegisters ?? 0}
             </div>
           )}
         </Card>
@@ -207,7 +187,7 @@ export default function RegistersPage() {
           ) : (
             <div className="text-2xl font-bold font-mono mt-2 text-muted-foreground">
               {/* {registerStats?.inactiveRegisters ?? 0} */}
-              {registerFStats.inactive ?? 0}
+              {registerStats?.inactiveRegisters ?? 0}
             </div>
           )}
         </Card>
@@ -243,7 +223,7 @@ export default function RegistersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={null}>All Principals</SelectItem>
+              <SelectItem value="">All Principals</SelectItem>
               {principals?.content.map((p) => (
                 <SelectItem key={p.principalId} value={p.principalId}>
                   {p.principalName}
@@ -261,11 +241,12 @@ export default function RegistersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={null}>All Types</SelectItem>
+              <SelectItem value="">All Types</SelectItem>
               <SelectItem value="ORDINARY">Ordinary</SelectItem>
               <SelectItem value="PREFERENCE">Preference</SelectItem>
               <SelectItem value="BOND">Bond</SelectItem>
               <SelectItem value="FUND">Fund</SelectItem>
+              <SelectItem value="ETF">Etf</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -278,7 +259,7 @@ export default function RegistersPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value={null}>All Status</SelectItem>
+              <SelectItem value="">All Status</SelectItem>
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="INACTIVE">Inactive</SelectItem>
               <SelectItem value="TRANSACTION_DISABLED">
@@ -295,9 +276,9 @@ export default function RegistersPage() {
             variant="ghost"
             onClick={() => {
               setSearch("");
-              setPrincipalFilter(null);
-              setTypeFilter(null);
-              setStatusFilter(null);
+              setPrincipalFilter("");
+              setTypeFilter("");
+              setStatusFilter("");
             }}
           >
             Clear
@@ -355,7 +336,9 @@ export default function RegistersPage() {
                               ? "bg-violet-100 text-violet-800"
                               : r.registerType === "BOND"
                                 ? "bg-amber-100 text-amber-800"
-                                : "bg-emerald-100 text-emerald-800"
+                                : r.registerType === "ETF"
+                                  ? "bg-cyan-100 text-cyan-800"
+                                  : "bg-emerald-100 text-emerald-800"
                         }`}
                       >
                         {r.registerType
@@ -457,10 +440,13 @@ export default function RegistersPage() {
             </tbody>
           </table>
 
-          <Pagination
-            currentPage={currentPage}
-            totalPages={registers?.pagination.totalPages || 0}
+          <PaginationBar
+            page={currentPage}
+            pageSize={pageSize}
+            totalPages={paged.totalPages}
+            total={total}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         </div>
       </Card>
