@@ -63,10 +63,7 @@ export function ApproveRightsDialog({
       id,
       decision: "APPROVED",
       comment,
-      createdBy:
-        currentUser?.username ||
-        `${currentUser?.firstName} ${currentUser?.lastName}` ||
-        currentUser?.email,
+      createdBy: currentUser?.email,
     };
 
     if (type === "icu") {
@@ -162,10 +159,7 @@ export function RejectRightsDialog({
       id,
       decision: "REJECTED",
       comment,
-      createdBy:
-        currentUser?.username ||
-        `${currentUser?.firstName} ${currentUser?.lastName}` ||
-        currentUser?.email,
+      createdBy: currentUser?.email,
     };
 
     if (type === "icu") {
