@@ -128,7 +128,7 @@ export default function DeclarationPage() {
 
   const { data: declarationData } = useQuery({
     queryKey: ["all-declarations", 20, 1],
-    queryFn: GET_ALL_DIVIDEND_DECLARATIONS,
+    queryFn: () => GET_ALL_DIVIDEND_DECLARATIONS({ size: 20, page: 0 }),
   });
 
   const declarationList = declarationData?.data?.content || [];
