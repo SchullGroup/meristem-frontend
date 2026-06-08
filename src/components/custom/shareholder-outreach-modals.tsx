@@ -18,13 +18,14 @@ import {
   ArrowLeft,
   ArrowRight,
   ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useStore } from "@/lib/store";
 import { useReactToPrint } from "react-to-print";
 import Image from "next/image";
 import { emailShareholders } from "@/actions/rightsActions";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { GetImageUrl } from "@/lib/utils/get-image-url";
 
 /* ─── shared types ─────────────────────────────────────────────────────────── */
 
@@ -838,6 +839,7 @@ export function EmailPreviewModal({
   const [step, setStep] = useState<1 | 2>(1);
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
   const [circularLinkUrl, setCircularLinkUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
 
@@ -850,12 +852,22 @@ export function EmailPreviewModal({
     onOpenChange(v);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setHeaderImageUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
+
+    setUploading(true);
+
+    const urlResponse = await GetImageUrl(file, "emailHeaders");
+    if (urlResponse?.type === "success") {
+      setHeaderImageUrl(urlResponse.result);
+      setUploading(false);
+    } else {
+      toast.error(
+        urlResponse.result || "Failed to upload image. Please try again.",
+      );
+      setUploading(false);
+    }
   };
 
   const handleSend = async () => {
@@ -957,8 +969,15 @@ export function EmailPreviewModal({
                       Click to replace image
                     </p>
                   </div>
+                ) : uploading ? (
+                  <div className="space-y-3">
+                    <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+                    <p className="text-[13px] font-medium text-muted-foreground">
+                      Uploading...
+                    </p>
+                  </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground/50" />
                     <p className="text-[13px] font-medium">
                       Click to upload header image

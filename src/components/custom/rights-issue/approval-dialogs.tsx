@@ -263,6 +263,11 @@ export function LodgeRightsDialog({
   const handleProcessLodgment = () => {
     if (!rightsIssueDetails?.id) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again");
+      return;
+    }
+
     lodgeMutation.mutate(
       {
         id: rightsIssueDetails?.id,
@@ -270,11 +275,7 @@ export function LodgeRightsDialog({
           lodgmentDate: format(new Date(), "yyyy-MM-dd"),
           lodgmentRef: rightsIssueDetails?.ref,
           notes,
-          processedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          processedBy: currentUser?.email,
         },
       },
       {

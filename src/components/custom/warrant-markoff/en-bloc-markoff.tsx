@@ -161,15 +161,16 @@ export default function EnBlocMarkoff() {
   };
 
   const handleConfirmSubmit = (reason: string) => {
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     submitBulkMutation.mutate(
       {
         warrantIds: Array.from(selectedIds).map((id) => id.toString()) as any,
         reason: reason.trim(),
-        submittedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "System",
+        submittedBy: currentUser?.email,
       },
       {
         onSuccess: (res) => {

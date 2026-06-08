@@ -595,12 +595,17 @@ export function ApproveLodgmentDialog({
   const approveMutation = useApproveBatchLodgment();
 
   const handleApprove = () => {
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         batchRef: batchReference,
         payload: {
           comment: comment,
-          lodgedBy: currentUser?.email || currentUser?.username || "ADMIN",
+          lodgedBy: currentUser?.email,
         },
       },
       {

@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 const getXUserHeader = () => {
   const currentUser = useStore.getState().currentUser;
   return {
-    "X-User": currentUser?.username || `${currentUser?.email}` || "ADMIN",
+    "X-User": currentUser?.email,
   };
 };
 

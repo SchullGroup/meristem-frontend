@@ -141,14 +141,18 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     icuReviewMutation.mutate(
       {
         batchRef: reviewingBatch,
         payload: {
           approved,
           comment: reviewComment,
-          reviewedBy:
-            currentUser?.email || currentUser?.username || "ICU-ADMIN",
+          reviewedBy: currentUser?.email,
         },
       },
       {
