@@ -232,6 +232,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
                   <th className="px-4 py-3">ICU APPROVER</th>
                   <th className="px-4 py-3">ICU APPROVAL DATE</th>
                   <th className="px-4 py-3">STATUS</th>
+                  <th className="px-4 py-3">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
@@ -287,9 +288,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
                       <td className="px-4 py-3 text-[13px] text-muted-foreground">
                         {row.icuApprovedAt
                           ? format(
-                              new Date(row.icuApprovedAt),
-                              "dd MMM yyyy, HH:mm",
-                            )
+                            new Date(row.icuApprovedAt),
+                            "dd MMM yyyy, HH:mm",
+                          )
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -435,9 +436,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
             <div className="font-mono mt-0.5">
               {lodgmentReviewing?.icuApprovedAt
                 ? format(
-                    new Date(lodgmentReviewing.icuApprovedAt),
-                    "dd MMM yyyy, HH:mm",
-                  )
+                  new Date(lodgmentReviewing.icuApprovedAt),
+                  "dd MMM yyyy, HH:mm",
+                )
                 : "—"}
             </div>
           </div>
@@ -501,7 +502,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y">
                   {lodgmentDetail?.previewRows &&
-                  lodgmentDetail.previewRows.length > 0 ? (
+                    lodgmentDetail.previewRows.length > 0 ? (
                     lodgmentDetail.previewRows.map((row, i) => (
                       <tr key={i} className="hover:bg-muted/20">
                         <td className="p-2 font-mono">
@@ -595,12 +596,22 @@ export function ApproveLodgmentDialog({
   const approveMutation = useApproveBatchLodgment();
 
   const handleApprove = () => {
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
+    if (!comment || comment.trim() === "") {
+      toast.error("Please enter a comment.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         batchRef: batchReference,
         payload: {
           comment: comment,
-          lodgedBy: currentUser?.email || currentUser?.username || "ADMIN",
+          lodgedBy: currentUser?.email,
         },
       },
       {
@@ -634,12 +645,11 @@ export function ApproveLodgmentDialog({
             <span className="font-mono font-bold text-foreground">
               {batchReference}
             </span>
-            . Add an optional comment below.
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-6 space-y-4">
           <div className="space-y-1.5">
-            <label className="mrpsl-label">Comment (optional)</label>
+            <label className="mrpsl-label">Comment *</label>
             <Textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}

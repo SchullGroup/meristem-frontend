@@ -28,8 +28,8 @@ import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import { PaymentRun } from "@/actions/dividendPayments";
-import { TablePagination } from "../table-pagination";
-import { usePagination } from "@/lib/use-pagination";
+import { PaginationBar } from "../pagination-bar";
+
 
 
 export const PaymentHistory = ({ tab }: { tab: string }) => {
@@ -66,8 +66,8 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
 
     const historyData = data?.data?.content || [];
     const total = data?.data?.totalElements || 0;
+    const totalPages = data?.data?.totalPages || 0;
 
-    const paged = usePagination(historyData)
 
     const downloadMutation = useDownloadPaymentRunReceipt();
     const repushMutation = useRepushPaymentRun();
@@ -252,12 +252,10 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
                         </div>)}
 
 
-                <TablePagination
+                <PaginationBar
                     page={page}
                     pageSize={size}
-                    totalPages={paged.totalPages}
-                    from={paged.from}
-                    to={paged.to}
+                    totalPages={totalPages}
                     total={total}
                     onPageChange={setPage}
                     onPageSizeChange={setSize}

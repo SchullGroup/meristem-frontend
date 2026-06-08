@@ -168,7 +168,7 @@ export function PrincipalForm({
           onError: (err: any) => {
             toast.error(
               err.response?.data?.responseMessage ||
-              "Failed to update principal",
+                "Failed to update principal",
             );
           },
         },

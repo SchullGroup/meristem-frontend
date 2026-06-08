@@ -24,8 +24,7 @@ import { Eye, RotateCcw, AlertTriangle } from "lucide-react";
 import { useListRepushQueue, useRepushSingle } from "@/hooks/useDividendPayment";
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { formatNumber } from "@/lib/utils/format";
-import { usePagination } from "@/lib/use-pagination";
-import { TablePagination } from "../table-pagination";
+import { PaginationBar } from "../pagination-bar";
 
 
 
@@ -51,7 +50,6 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
     const filteredRepush = repushData?.data?.content || [];
     const totalPages = repushData?.data?.totalPages || 0;
     const total = repushData?.data?.totalElements || 0;
-    const pagedRows = usePagination(filteredRepush)
 
     function openRepushConfirm(row: any) {
         setRepushTarget(row);
@@ -191,13 +189,12 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
                         </table>
                     </div>
                 )}
-                <TablePagination
+                <PaginationBar
                     page={page}
                     pageSize={size}
                     totalPages={totalPages}
                     total={total}
-                    from={pagedRows.from}
-                    to={pagedRows.to}
+
                     onPageChange={setPage}
                     onPageSizeChange={setSize} />
             </Card>

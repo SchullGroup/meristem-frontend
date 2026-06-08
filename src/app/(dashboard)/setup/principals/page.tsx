@@ -282,9 +282,9 @@ export default function PrincipalsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">Status</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="Inactive">Inactive</SelectItem>
-            <SelectItem value="Suspended">Suspended</SelectItem>
+            <SelectItem value="ACTIVE">Active</SelectItem>
+            <SelectItem value="INACTIVE">Inactive</SelectItem>
+            <SelectItem value="SUSPENDED">Suspended</SelectItem>
           </SelectContent>
         </Select>
         {(search || billingFilter !== null || statusFilter !== null) && (

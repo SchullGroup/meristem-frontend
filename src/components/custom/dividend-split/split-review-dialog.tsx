@@ -41,16 +41,17 @@ export function SplitReviewDialog({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         id: selected?.splitId,
         data: {
           comment,
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -75,16 +76,17 @@ export function SplitReviewDialog({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     rejectMutation.mutate(
       {
         id: selected?.splitId,
         data: {
           comment,
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {

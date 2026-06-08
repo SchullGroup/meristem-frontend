@@ -63,15 +63,16 @@ export default function ManualMarkoff({
     const warrant = searchResponse?.data;
     if (!warrant) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     submitManualMutation.mutate(
       {
         warrantNumber: warrant.warrantNumber,
         reason: reason.trim(),
-        submittedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "System",
+        submittedBy: currentUser?.email,
       },
       {
         onSuccess: (res) => {

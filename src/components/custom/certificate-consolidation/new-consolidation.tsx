@@ -131,15 +131,17 @@ export default function NewConsolidation({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     submitMutation.mutate(
       {
         certIds: Array.from(selectedIds),
         newCertNumber,
         reason,
-        submittedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          "ADMIN",
+        submittedBy: currentUser?.email,
       },
       {
         onSuccess: () => {

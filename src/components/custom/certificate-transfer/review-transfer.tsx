@@ -48,16 +48,17 @@ export const ReviewTranser = ({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     rejectMutation.mutate(
       {
         approvalId: selected.id,
         data: {
           comment: comment,
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -86,16 +87,17 @@ export const ReviewTranser = ({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         approvalId: selected.id,
         data: {
           comment: comment,
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -170,44 +172,44 @@ export const ReviewTranser = ({
                   pending?: boolean;
                   time?: string | null;
                 }> => [
-                    {
-                      label: `Submitted by ${selected.submittedBy}`,
-                      done: true,
-                      time: selected.submittedAt + ", 09:14",
-                    },
-                    // {
-                    //     label: "Authorised by Ngozi Adeyemi (Operations Manager)",
-                    //     done: true,
-                    //     // time: selected.date + ", 11:30",
-                    //     time: "12-06-2026" + ", 11:30",
-                    // },
-                    // {
-                    //     label: "ICU Final Review — Approved",
-                    //     done: true,
-                    //     time: "12-06-2026" + ", 14:00",
-                    // },
-                  ])().map((step, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
-                      >
-                        {step.done && (
-                          <Check
-                            className="h-3 w-3 text-white"
-                            style={{ strokeWidth: 3 }}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-sm">{step.label}</div>
-                        {step.time && (
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                            {step.time}
-                          </div>
-                        )}
-                      </div>
+                  {
+                    label: `Submitted by ${selected.submittedBy}`,
+                    done: true,
+                    time: selected.submittedAt + ", 09:14",
+                  },
+                  // {
+                  //     label: "Authorised by Ngozi Adeyemi (Operations Manager)",
+                  //     done: true,
+                  //     // time: selected.date + ", 11:30",
+                  //     time: "12-06-2026" + ", 11:30",
+                  // },
+                  // {
+                  //     label: "ICU Final Review — Approved",
+                  //     done: true,
+                  //     time: "12-06-2026" + ", 14:00",
+                  // },
+                ])().map((step, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div
+                      className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                    >
+                      {step.done && (
+                        <Check
+                          className="h-3 w-3 text-white"
+                          style={{ strokeWidth: 3 }}
+                        />
+                      )}
                     </div>
-                  ))}
+                    <div>
+                      <div className="text-sm">{step.label}</div>
+                      {step.time && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {step.time}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -271,16 +273,17 @@ export const RejectTransfer = ({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     batchRejectMutation.mutate(
       {
         approveIds: [],
         rejectIds: selectedIds,
         rejectComment: batchComment,
-        authorisedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "ADMIN",
+        authorisedBy: currentUser?.email,
       },
       {
         onSuccess: () => {
