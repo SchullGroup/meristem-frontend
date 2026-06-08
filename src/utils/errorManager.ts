@@ -30,25 +30,34 @@ export type ErrorLike = {
  * Returns an appropriate error message based on the provided error object.
  */
 export const returnErrorMessage = (error: ErrorLike): string => {
+  if (!error) return "Something went wrong, please try again later...";
+
   const errorStatus = error?.response?.status;
 
   if (error?.message === "Network error") {
     return "It looks like you are offline..., please check your internet connection";
-  } else if (errorStatus && errorStatus >= 400) {
+  }
+
+  if (errorStatus && errorStatus >= 400) {
     const data = error?.response?.data;
 
     if (data && typeof data === "object") {
-      // Try to extract the main error message from common response structures
-      return (
-        (data as { message?: string }).message ??
-        (data as { error?: string }).error ??
-        (data as { responseMessage?: string }).responseMessage ??
-        "An error occurred"
-      );
+      const targetMessage =
+        (data as Record<string, unknown>).message ||
+        (data as Record<string, unknown>).error ||
+        (data as Record<string, unknown>).responseMessage;
+
+      if (Array.isArray(targetMessage)) {
+        return targetMessage.join(", ");
+      }
+
+      if (typeof targetMessage === "string") {
+        return targetMessage;
+      }
     }
 
     return String(data ?? "An error occurred");
-  } else {
-    return error?.message ?? "Something went wrong, please try again later...";
   }
+
+  return error?.message ?? "Something went wrong, please try again later...";
 };
