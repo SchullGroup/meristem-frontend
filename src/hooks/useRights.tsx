@@ -31,6 +31,7 @@ import {
   exportAllotmentReport,
   exportAcceptanceSummaryReport,
   lodgeRightsIssueDeclaration,
+  emailShareholders,
 } from "@/actions/rightsActions";
 import {
   CreateRightsIssue,
@@ -442,6 +443,13 @@ export const useGetStickyLabels = (
       };
     },
     ...options,
+  });
+};
+
+export const useEmailShareholders = () => {
+
+  return useMutation({
+    mutationFn: (id: string) => emailShareholders(id),
   });
 };
 

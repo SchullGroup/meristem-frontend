@@ -22,10 +22,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useReactToPrint } from "react-to-print";
-import Image from "next/image";
-import { emailShareholders } from "@/actions/rightsActions";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
+import { useEmailShareholders } from "@/hooks/useRights";
 
 /* ─── shared types ─────────────────────────────────────────────────────────── */
 
@@ -446,24 +445,24 @@ function EmailBody({
 
   const placeholderRows = isRights
     ? [
-        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-        ["Name", "[SHAREHOLDER NAME]"],
-        ["Units Held", "[UNITS HELD]"],
-        ["Rights Due", "[RIGHTS DUE]"],
-        ["Amount Payable", "[AMOUNT PAYABLE]"],
-      ]
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Rights Due", "[RIGHTS DUE]"],
+      ["Amount Payable", "[AMOUNT PAYABLE]"],
+    ]
     : [
-        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-        ["Name", "[SHAREHOLDER NAME]"],
-        ["Units Held", "[UNITS HELD]"],
-        ["Bonus Due", "[BONUS DUE]"],
-      ];
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Bonus Due", "[BONUS DUE]"],
+    ];
 
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>
       {/* ── Header: uploaded image or fallback dark green block ── */}
       {headerImageUrl ? (
-        <Image
+        <img
           src={headerImageUrl}
           alt="Email header"
           style={{
@@ -843,6 +842,8 @@ export function EmailPreviewModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
 
+  const { mutateAsync: emailShareholders, isPending } = useEmailShareholders();
+
   const resetAndClose = (v: boolean) => {
     if (!v) {
       setStep(1);
@@ -858,15 +859,23 @@ export function EmailPreviewModal({
 
     setUploading(true);
 
-    const urlResponse = await GetImageUrl(file, "emailHeaders");
-    if (urlResponse?.type === "success") {
-      setHeaderImageUrl(urlResponse.result);
+    try {
+      const urlResponse = await GetImageUrl(file, "emailHeaders");
+      if (urlResponse?.type === "success") {
+        setHeaderImageUrl(urlResponse.result);
+      } else {
+        toast.error(
+          urlResponse.result || "Failed to upload image. Please try again.",
+        );
+      }
+    } catch (error) {
+      const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(errorMessage?.message || "Failed to upload image. Please try again.");
+    } finally {
       setUploading(false);
-    } else {
-      toast.error(
-        urlResponse.result || "Failed to upload image. Please try again.",
-      );
-      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -876,10 +885,8 @@ export function EmailPreviewModal({
       return;
     }
     try {
-      const res = await emailShareholders(issueId);
-      if (res.data) {
-        toast.success("Emails sent to shareholders");
-      }
+      await emailShareholders(issueId);
+      toast.success("Emails sent to shareholders");
       resetAndClose(false);
     } catch (error) {
       const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
@@ -958,9 +965,9 @@ export function EmailPreviewModal({
                 className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-[#004023]/50 hover:bg-muted/30 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
               >
-                {headerImageUrl ? (
+                {typeof headerImageUrl === "string" ? (
                   <div className="space-y-3">
-                    <Image
+                    <img
                       src={headerImageUrl}
                       alt="Header preview"
                       className="max-h-24 mx-auto rounded object-cover"
@@ -971,7 +978,7 @@ export function EmailPreviewModal({
                   </div>
                 ) : uploading ? (
                   <div className="space-y-3">
-                    <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+                    <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mx-auto" />
                     <p className="text-[13px] font-medium text-muted-foreground">
                       Uploading...
                     </p>
@@ -1070,9 +1077,22 @@ export function EmailPreviewModal({
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
-              <Button onClick={handleSend}>
-                <Mail className="mr-2 h-4 w-4" />
-                Send to {totalCount.toLocaleString()} Shareholders
+              <Button
+                onClick={handleSend}
+                disabled={isPending}
+                className="flex items-center gap-2"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4" />
+                    Send to {totalCount.toLocaleString()} Shareholders
+                  </>
+                )}
               </Button>
             </>
           )}
