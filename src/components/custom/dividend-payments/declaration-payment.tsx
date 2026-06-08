@@ -15,7 +15,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Download, Play } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { usePagination } from "@/lib/use-pagination";
 import { useQuery } from "@tanstack/react-query";
 import { getDividendNumbers } from "@/actions/dividendReportActions";
 import { useGetRegisters } from "@/hooks/useRegisters";
@@ -25,9 +24,9 @@ import {
   useGetDeclarationPayment,
   useDownloadNibssFile,
 } from "@/hooks/useDividendPayment";
-import { TablePagination } from "@/components/custom/table-pagination";
 import { formatNumber } from "@/lib/utils/format";
 import { PaymentRowContent } from "@/actions/dividendPayments";
+import { PaginationBar } from "../pagination-bar";
 
 export default function DeclarationPayment({ tab }: { tab: string }) {
   const currentUser = useStore((state) => state.currentUser);
@@ -75,7 +74,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   const stats = declarationResponse?.data;
   const paymentRows = stats?.rows?.content || [];
   const total = stats?.rows?.totalElements || 0;
-  const paged = usePagination(paymentRows);
+  const totalPages = stats?.rows?.totalPages || 0;
 
   function initiatePaymentRun() {
     if (!selectedRegister || !selectedDiv) {
@@ -397,13 +396,11 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
           </table>
         </div>
       </Card>
-      <TablePagination
+      <PaginationBar
         page={page}
         pageSize={pageSize}
-        totalPages={paged.totalPages}
+        totalPages={totalPages}
         total={total}
-        from={paged.from}
-        to={paged.to}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
       />

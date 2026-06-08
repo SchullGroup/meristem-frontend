@@ -103,13 +103,13 @@ export default function RegistersPage() {
     size: pageSize,
   });
 
-  const { data: principals } = useGetPrincipals({
+  const { data: principals, isLoading: principalsLoading } = useGetPrincipals({
     size: 1000,
   });
 
   const pagedRows = registers?.content || [];
   const total = registers?.pagination.total || 0;
-  const paged = usePagination(pagedRows);
+  const totalPages = registers?.pagination?.totalPages || 0;
 
   const handleEdit = (r: Register) => {
     setSelectedRegister(r);
@@ -229,6 +229,9 @@ export default function RegistersPage() {
                   {p.principalName}
                 </SelectItem>
               ))}
+              {principalsLoading && (
+                <SelectItem disabled>Loading....</SelectItem>
+              )}
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -313,8 +316,8 @@ export default function RegistersPage() {
                     </td>
                   ))}
                 </tr>
-              ) : registers?.content && registers?.content?.length > 0 ? (
-                registers?.content?.map((r) => (
+              ) : pagedRows?.length > 0 ? (
+                pagedRows?.map((r) => (
                   <tr key={r.registerId} className="mrpsl-table-row">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-foreground truncate max-w-50">
@@ -443,7 +446,7 @@ export default function RegistersPage() {
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={paged.totalPages}
+            totalPages={totalPages}
             total={total}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
