@@ -346,7 +346,7 @@ export function Sidebar() {
                 {currentUser?.username}
               </p>
               <p className="text-[13px] text-muted-foreground truncate uppercase tracking-wide">
-                {currentUser.roles[0]?.replace(/_/g, " ")}
+                {currentUser?.roles?.[0]?.replace(/_/g, " ")}
               </p>
             </div>
           </div>
