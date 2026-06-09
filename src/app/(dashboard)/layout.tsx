@@ -130,35 +130,34 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { currentUser } = useStore();
-  const [isStoreReady, setIsStoreReady] = useState(false);
+  const currentUser = useStore((state) => state.currentUser);
+  const [isStoreHydrated, setIsStoreHydrated] = useState(false);
 
-  // 1. Sync and verify that the local storage session data is loaded
   useEffect(() => {
-    if (useStore.persist?.hasHydrated()) {
+    if (useStore.persist.hasHydrated()) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsStoreReady(true);
+      setIsStoreHydrated(true);
     } else {
-      const unsub = useStore.persist?.onFinishHydration(() => {
-        setIsStoreReady(true);
-        unsub();
+      const unsub = useStore.persist.onFinishHydration(() => {
+        setIsStoreHydrated(true);
       });
+      return () => unsub();
     }
   }, []);
 
-  // 2. Perform an explicit, hard native browser redirect if no user exists
   useEffect(() => {
-    if (isStoreReady && !currentUser) {
+    if (isStoreHydrated && !currentUser) {
       window.location.replace("/login");
     }
-  }, [isStoreReady, currentUser]);
+  }, [isStoreHydrated, currentUser]);
 
-  // Guard: Render an empty background wrapper while validating status
-  if (!isStoreReady || !currentUser) {
+  if (!isStoreHydrated) {
+    return null;
+  }
+  if (!currentUser) {
     return <div className="min-h-screen bg-background" />;
   }
 
-  // 3. Render the dashboard layout if authenticated
   return (
     <div className="min-h-screen bg-muted/20 flex">
       <Sidebar />
