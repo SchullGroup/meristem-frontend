@@ -408,7 +408,7 @@ export default function IPOReports() {
                             r.status === "Approved" || r.status === "APPROVED"
                               ? "bg-green-100 text-green-800"
                               : r.status === "Disapproved" ||
-                                r.status === "DISAPPROVED"
+                                  r.status === "DISAPPROVED"
                                 ? "bg-amber-100 text-amber-800"
                                 : "bg-red-100 text-red-700",
                           )}
@@ -425,7 +425,8 @@ export default function IPOReports() {
                       colSpan={6}
                       className="px-4 py-2.5 text-right text-muted-foreground"
                     >
-                      TOTALS ({formatNumber(applicationOfferData.totalSubscribers)}{" "}
+                      TOTALS (
+                      {formatNumber(applicationOfferData.totalSubscribers)}{" "}
                       applications)
                     </td>
                     <td className="px-4 py-2.5 text-right">
@@ -776,7 +777,7 @@ export default function IPOReports() {
                             r.status === "Lodged" || r.status === "LODGED"
                               ? "bg-green-100 text-green-800"
                               : r.status === "ICU Approved" ||
-                                r.status === "ICU_APPROVED"
+                                  r.status === "ICU_APPROVED"
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-amber-100 text-amber-800",
                           )}
