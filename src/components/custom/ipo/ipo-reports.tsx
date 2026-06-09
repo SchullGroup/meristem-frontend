@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
   BarChart3,
@@ -150,6 +150,12 @@ export default function IPOReports() {
     isLoadingRangeAnalysis ||
     isLoadingBatchSummary;
 
+  useEffect(() => {
+    if (reportRun && !isReportLoading) {
+      toast.success(`${selectedReport} generated.`);
+    }
+  }, [reportRun, selectedReport, isReportLoading]);
+
   // Check overall error state
   const isReportError =
     isErrorAppOffer ||
@@ -185,7 +191,6 @@ export default function IPOReports() {
   // Handle run report trigger
   const handleRunReport = () => {
     setReportRun(true);
-    toast.success(`${selectedReport} generated successfully.`);
   };
 
   // Handle export to CSV
