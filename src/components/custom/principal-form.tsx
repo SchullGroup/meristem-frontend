@@ -264,6 +264,12 @@ export function PrincipalForm({
                               <SelectItem value="A">Category A</SelectItem>
                               <SelectItem value="B">Category B</SelectItem>
                               <SelectItem value="C">Category C</SelectItem>
+                              <SelectItem value="MUTUAL_FUND">
+                                Mutual Fund
+                              </SelectItem>
+                              <SelectItem value="ETF">ETF</SelectItem>
+                              <SelectItem value="DEBT">DEBT</SelectItem>
+                              <SelectItem value="EQUITY">EQUITY</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage className="text-[10px] text-destructive mt-1" />

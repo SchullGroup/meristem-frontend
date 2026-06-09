@@ -130,12 +130,17 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   const handleApprove = () => {
     if (!reviewingBatch) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         batchRef: reviewingBatch,
         payload: {
           comment: reviewComment,
-          approvedBy: currentUser?.email || currentUser?.username || "ADMIN",
+          approvedBy: currentUser?.email,
         },
       },
       {
@@ -162,16 +167,17 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     rejectMutation.mutate(
       {
         batchRef: reviewingBatch,
         payload: {
           comment: reviewComment,
-          rejectedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          rejectedBy: currentUser?.email,
         },
       },
       {

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { BrandPanel } from "@/components/custom/auth/brand-panel";
 import { SiteLogo } from "@/components/custom/auth/site-logo";
-import { LOGIN, REQUEST_OTP, VERIFY_OTP } from "@/actions/authAction";
+import { LOGIN, REQUEST_OTP, REQUEST_PASSWORD_RESET, VERIFY_OTP } from "@/actions/authAction";
 import { useMutation } from "@tanstack/react-query";
 import { setUserSession } from "@/services/AuthServices";
 
@@ -34,7 +34,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [forgotEmail, setForgotEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [resendCountdown, setResendCountdown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
@@ -128,6 +127,20 @@ export default function LoginPage() {
     },
   });
 
+  const passwordResetRequestMutation = useMutation({
+    mutationFn: REQUEST_PASSWORD_RESET,
+    onSuccess: (data) => {
+      if (data?.isSuccessful && data?.data) {
+        setStep("forgot-sent");
+      } else {
+        setError(data?.responseMessage || "Password reset request failed.");
+      }
+    },
+    onError: (error) => {
+      setError(error?.message || "Failed to request password reset. Please try again.");
+    },
+  });
+
   const handleCredentials = () => {
     setError("");
     if (!email) {
@@ -176,11 +189,9 @@ export default function LoginPage() {
       setError("Please enter your email address.");
       return;
     }
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setStep("forgot-sent");
-    }, 1000);
+    passwordResetRequestMutation.mutate({
+      email: forgotEmail,
+    });
   };
 
   // ── OTP input handlers ────────────────────────────────────────
@@ -499,12 +510,12 @@ export default function LoginPage() {
                   className="w-full"
                   size="lg"
                   onClick={handleForgot}
-                  disabled={isLoading}
+                  disabled={passwordResetRequestMutation.isPending}
                 >
-                  {isLoading && (
+                  {passwordResetRequestMutation.isPending && (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   )}
-                  {isLoading ? "Sending…" : "Send Reset Link"}
+                  {passwordResetRequestMutation.isPending ? "Sending…" : "Send Reset Link"}
                 </Button>
               </div>
 

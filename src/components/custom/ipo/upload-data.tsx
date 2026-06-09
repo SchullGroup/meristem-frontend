@@ -46,7 +46,7 @@ export default function UploadIPOData({ tab }: { tab: string }) {
   const [processedBatch, setProcessedBatch] = useState<IPO | null>(null);
   const [showRejected, setShowRejected] = useState(false);
 
-  const { data: activeRegisters } = useGetRegisters({ size: 1000, status: "ACTIVE" }, {
+  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({ size: 1000, status: "ACTIVE" }, {
     enabled: tab === "upload",
   });
   const uploadIpoMutation = useUploadBatchIpo();
@@ -166,15 +166,16 @@ export default function UploadIPOData({ tab }: { tab: string }) {
             onValueChange={(v) => setSelectedRegister(v || "")}
           >
             <SelectTrigger className="mrpsl-input">
-              <SelectValue placeholder="Select Ordinary Register" />
+              <SelectValue placeholder="Select Register" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Select Register</SelectItem>
               {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.registerId}>
+                <SelectItem key={r.registerId} value={r.symbol}>
                   {r.registerName} ({r.symbol})
                 </SelectItem>
               ))}
+              {registersLoading && <SelectItem disabled>Loading...</SelectItem>}
             </SelectContent>
           </Select>
         </div>

@@ -133,14 +133,17 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const handleSingleApprove = (comment: string) => {
     if (!selected) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         id: selected.id,
         data: {
           comment: comment.trim(),
-          authorisedBy: currentUser?.email || currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            "System",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -163,16 +166,17 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const handleSingleReject = (comment: string) => {
     if (!selected) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     rejectMutation.mutate(
       {
         id: selected.id,
         data: {
           comment: comment.trim(),
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -195,21 +199,23 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const handleBatchApprove = () => {
     if (authSelIds.size === 0) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     batchApproveMutation.mutate(
       {
         ids: Array.from(authSelIds).map((id) => id.toString()) as any,
         comment: "Batch approved",
-        authorisedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "System",
+        authorisedBy: currentUser?.email,
       },
       {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.success(
-              `${authSelIds.size} warrant${authSelIds.size !== 1 ? "s" : ""
+              `${authSelIds.size} warrant${
+                authSelIds.size !== 1 ? "s" : ""
               } approved and advanced.`,
             );
             setAuthSelIds(new Set());
@@ -226,21 +232,23 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   };
 
   const handleBatchRejectConfirm = (comment: string) => {
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     batchRejectMutation.mutate(
       {
         ids: Array.from(authSelIds).map((id) => id.toString()) as any,
         comment: comment.trim(),
-        authorisedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "System",
+        authorisedBy: currentUser?.email,
       },
       {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.error(
-              `${authSelIds.size} warrant${authSelIds.size !== 1 ? "s" : ""
+              `${authSelIds.size} warrant${
+                authSelIds.size !== 1 ? "s" : ""
               } rejected.`,
             );
             setAuthSelIds(new Set());
@@ -337,8 +345,9 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
                 {pendingList.map((row) => (
                   <tr
                     key={row.id}
-                    className={`mrpsl-table-row ${authSelIds.has(row.id) ? "bg-primary/5" : ""
-                      }`}
+                    className={`mrpsl-table-row ${
+                      authSelIds.has(row.id) ? "bg-primary/5" : ""
+                    }`}
                   >
                     <td className="p-3">
                       <Checkbox

@@ -78,7 +78,6 @@ export default function RightsIssuePendingApproval({
     try {
       const allEntitlements = await getRightsIssueShareholders({
         id: authReviewingBatch.id.toString(),
-        page: 0,
         pageSize: shData.pagination.total || 100000,
       });
 
@@ -170,6 +169,7 @@ export default function RightsIssuePendingApproval({
     if (!pendingList?.content) return [];
     return pendingList?.content.filter((r) => {
       return r.status === "PENDING_AUTH" || r.status === "DRAFT";
+      // || r.status === "ICU_REJECTED" || r.status === "AUTH_REJECTED";
     });
   }, [pendingList?.content]);
 

@@ -182,16 +182,18 @@ export function SplitFormPanel() {
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     submitSplit(
       {
         registerId: lookUpData?.data?.registerId || splitRegister,
         sourceAccountNumber: splitAccount,
         dividendId: splitDividend,
         reason: splitReason,
-        submittedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          "ADMIN",
+        submittedBy: currentUser?.email,
         parts: partRows.slice(0, splitParts).map((p) => ({
           destinationAccountNumber: p.account,
           amount: Number(p.amount),
