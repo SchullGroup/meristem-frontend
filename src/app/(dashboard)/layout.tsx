@@ -124,108 +124,41 @@ import { useStore } from "@/lib/store";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Header } from "@/components/shell/header";
 import { Toaster } from "@/components/ui/sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { AlertCircle } from "lucide-react";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { currentUser, isSessionExpired, setIsSessionExpired } = useStore();
-  const [mounted, setMounted] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  const [showSessionDialog, setShowSessionDialog] = useState(false);
+  const { currentUser } = useStore();
+  const [isStoreReady, setIsStoreReady] = useState(false);
 
-  const handleRedirect = () => {
-    setIsSessionExpired(false);
-    setShowSessionDialog(false);
-    window.location.replace("/login");
-  };
-
-  // Effect 1: Handles Mounting & Hydration
+  // 1. Sync and verify that the local storage session data is loaded
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setMounted(true);
-
-      if (useStore.persist.hasHydrated()) {
-        setHydrated(true);
-      }
-    }, 0);
-
-    const unsub = useStore.persist.onFinishHydration(() => {
-      setHydrated(true);
-    });
-
-    return () => {
-      clearTimeout(timer);
-      unsub();
-    };
+    if (useStore.persist?.hasHydrated()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsStoreReady(true);
+    } else {
+      const unsub = useStore.persist?.onFinishHydration(() => {
+        setIsStoreReady(true);
+        unsub();
+      });
+    }
   }, []);
 
-  // Effect 2: Handles Redirects and Expiration Dialogs
+  // 2. Perform an explicit, hard native browser redirect if no user exists
   useEffect(() => {
-    let dialogTimer: NodeJS.Timeout;
-
-    if (hydrated && !currentUser) {
-      if (isSessionExpired) {
-        // Wrapped in setTimeout to prevent synchronous cascading renders linter error
-        dialogTimer = setTimeout(() => {
-          setShowSessionDialog(true);
-        }, 0);
-      } else {
-        // Fall back to a native browser redirect to bypass CloudFront client-side routing stalls
-        window.location.replace("/login");
-      }
+    if (isStoreReady && !currentUser) {
+      window.location.replace("/login");
     }
+  }, [isStoreReady, currentUser]);
 
-    return () => {
-      if (dialogTimer) clearTimeout(dialogTimer);
-    };
-  }, [hydrated, currentUser, isSessionExpired]);
-
-  if (!mounted || !hydrated) return null;
-
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Dialog open={showSessionDialog} onOpenChange={handleRedirect}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <div className="flex items-center gap-3 text-destructive mb-2">
-                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <AlertCircle className="h-6 w-6" />
-                </div>
-                <DialogTitle className="text-xl">Session Expired</DialogTitle>
-              </div>
-              <DialogDescription className="text-base text-muted-foreground">
-                Your session has timed out or you are not authorized to view
-                this page. Please log in again to continue.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="mt-4 sm:justify-end">
-              <Button
-                type="button"
-                className="w-full sm:w-auto px-8 cursor-pointer"
-                onClick={handleRedirect}
-              >
-                Sign In
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
+  // Guard: Render an empty background wrapper while validating status
+  if (!isStoreReady || !currentUser) {
+    return <div className="min-h-screen bg-background" />;
   }
 
+  // 3. Render the dashboard layout if authenticated
   return (
     <div className="min-h-screen bg-muted/20 flex">
       <Sidebar />
