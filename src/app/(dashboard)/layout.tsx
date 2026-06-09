@@ -24,7 +24,7 @@
 // }) {
 //   const router = useRouter();
 //   const { currentUser, isSessionExpired, setIsSessionExpired } = useStore();
-//   // const [mounted, setMounted] = useState(false);
+//   const [mounted, setMounted] = useState(false);
 //   const [hydrated, setHydrated] = useState(false);
 //   const [showSessionDialog, setShowSessionDialog] = useState(false);
 
@@ -34,32 +34,44 @@
 //     router.replace("/login");
 //   };
 
-//   //  for hydration
 //   useEffect(() => {
-//     if (useStore.persist.hasHydrated()) {
-//       // eslint-disable-next-line
-//       setHydrated(true);
-//     } else {
-//       const unsub = useStore.persist.onFinishHydration(() => {
+//     const timer = setTimeout(() => {
+//       setMounted(true);
+
+//       if (useStore.persist.hasHydrated()) {
 //         setHydrated(true);
-//       });
-//       return () => unsub();
-//     }
+//       }
+//     }, 0);
+
+//     const unsub = useStore.persist.onFinishHydration(() => {
+//       setHydrated(true);
+//     });
+
+//     return () => {
+//       clearTimeout(timer);
+//       unsub();
+//     };
 //   }, []);
 
-//   // ✅ Handles both expired session and missing session
 //   useEffect(() => {
-//     if (hydrated) {
-//       if (!currentUser && isSessionExpired) {
-//         // eslint-disable-next-line
-//         setShowSessionDialog(true);
-//       } else if (!currentUser && !isSessionExpired) {
+//     let dialogTimer: NodeJS.Timeout;
+
+//     if (hydrated && !currentUser) {
+//       if (isSessionExpired) {
+//         dialogTimer = setTimeout(() => {
+//           setShowSessionDialog(true);
+//         }, 0);
+//       } else {
 //         router.replace("/login");
 //       }
 //     }
+
+//     return () => {
+//       if (dialogTimer) clearTimeout(dialogTimer);
+//     };
 //   }, [hydrated, currentUser, isSessionExpired, router]);
 
-//   if (!hydrated) return null;
+//   if (!mounted || !hydrated) return null;
 
 //   if (!currentUser) {
 //     return (
@@ -108,7 +120,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Header } from "@/components/shell/header";
@@ -129,7 +140,6 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const { currentUser, isSessionExpired, setIsSessionExpired } = useStore();
   const [mounted, setMounted] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -138,9 +148,10 @@ export default function DashboardLayout({
   const handleRedirect = () => {
     setIsSessionExpired(false);
     setShowSessionDialog(false);
-    router.replace("/login");
+    window.location.replace("/login");
   };
 
+  // Effect 1: Handles Mounting & Hydration
   useEffect(() => {
     const timer = setTimeout(() => {
       setMounted(true);
@@ -160,23 +171,26 @@ export default function DashboardLayout({
     };
   }, []);
 
+  // Effect 2: Handles Redirects and Expiration Dialogs
   useEffect(() => {
     let dialogTimer: NodeJS.Timeout;
 
     if (hydrated && !currentUser) {
       if (isSessionExpired) {
+        // Wrapped in setTimeout to prevent synchronous cascading renders linter error
         dialogTimer = setTimeout(() => {
           setShowSessionDialog(true);
         }, 0);
       } else {
-        router.replace("/login");
+        // Fall back to a native browser redirect to bypass CloudFront client-side routing stalls
+        window.location.replace("/login");
       }
     }
 
     return () => {
       if (dialogTimer) clearTimeout(dialogTimer);
     };
-  }, [hydrated, currentUser, isSessionExpired, router]);
+  }, [hydrated, currentUser, isSessionExpired]);
 
   if (!mounted || !hydrated) return null;
 
