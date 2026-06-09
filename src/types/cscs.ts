@@ -3,20 +3,18 @@ import { Principal } from "./principal";
 import { Register } from "./register";
 
 export interface FlaggedTransaction {
-  id: string;
-  chn: string;
-  register: string;
-  holderName: string;
-  transferNo: string;
-  type: string;
-  attemptedUnits: number;
-  currentHoldings: number;
-  shortfall: number;
-  transactionDate: string;
-  status: string;
-  resolvedBy: string;
-  resolvedAt: string;
-  resolutionNote: string;
+  id: string,
+  chn: string,
+  register: string,
+  holderName: string,
+  transferNo: string,
+  type: string,
+  attempted: number,
+  holdings: number,
+  shortfall: number,
+  status: string,
+  transactionDate: string,
+  buyChn: string
 }
 
 export interface ProcessedTransaction {
@@ -31,6 +29,17 @@ export interface ProcessedTransaction {
   units: number;
   balanceAfter: number;
   processedBy: string;
+}
+
+export interface TransactionBatch {
+  batchRef: string;
+  register: string;
+  transactionDate: string;
+  total: number;
+  buys: number;
+  sells: number;
+  flagged: number;
+  status: string;
 }
 
 export interface ProcessingQueue {
@@ -80,15 +89,6 @@ export interface ProcessedLogsResponse {
   totalBuyUnits: number;
   totalSellUnits: number;
   totalRecords: number;
-}
-
-export interface FlaggedTransactionsResponse {
-  content: Array<FlaggedTransaction>;
-  page: number;
-  size: number;
-  totalElements: number;
-  totalPages: number;
-  last: boolean;
 }
 
 export interface TransferRequest {
