@@ -49,7 +49,7 @@ export default function DividendReportsPage() {
 
   // Active registers for the Register filter
   const { data: activeRegisters } = useGetRegisters({
-    size: 100,
+    size: 1000,
     status: "ACTIVE",
   });
 

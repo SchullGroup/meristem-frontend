@@ -25,6 +25,8 @@ import { useReactToPrint } from "react-to-print";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
 import { useEmailShareholders } from "@/hooks/useRights";
+import { useMutation } from "@tanstack/react-query";
+import { EMAIL_SHAREHOLDERS } from "@/actions/bonusIssuesAction";
 
 /* ─── shared types ─────────────────────────────────────────────────────────── */
 
@@ -64,6 +66,7 @@ export interface EmailPreviewModalProps {
   shareholders: OutreachShareholder[];
   totalCount: number;
   issueId?: string;
+  mode: string;
 }
 
 /* ─── Sticky Label Preview Modal ────────────────────────────────────────────── */
@@ -445,18 +448,18 @@ function EmailBody({
 
   const placeholderRows = isRights
     ? [
-      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-      ["Name", "[SHAREHOLDER NAME]"],
-      ["Units Held", "[UNITS HELD]"],
-      ["Rights Due", "[RIGHTS DUE]"],
-      ["Amount Payable", "[AMOUNT PAYABLE]"],
-    ]
+        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+        ["Name", "[SHAREHOLDER NAME]"],
+        ["Units Held", "[UNITS HELD]"],
+        ["Rights Due", "[RIGHTS DUE]"],
+        ["Amount Payable", "[AMOUNT PAYABLE]"],
+      ]
     : [
-      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-      ["Name", "[SHAREHOLDER NAME]"],
-      ["Units Held", "[UNITS HELD]"],
-      ["Bonus Due", "[BONUS DUE]"],
-    ];
+        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+        ["Name", "[SHAREHOLDER NAME]"],
+        ["Units Held", "[UNITS HELD]"],
+        ["Bonus Due", "[BONUS DUE]"],
+      ];
 
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>
@@ -822,6 +825,7 @@ function EmailBody({
 }
 
 export function EmailPreviewModal({
+  mode,
   open,
   onOpenChange,
   offerType,
@@ -853,6 +857,22 @@ export function EmailPreviewModal({
     onOpenChange(v);
   };
 
+  const emailBonusShareholdersMutation = useMutation({
+    mutationFn: EMAIL_SHAREHOLDERS,
+    onSuccess: () => {
+      toast.success("Emails sent to shareholders successfully");
+      resetAndClose(false);
+    },
+    onError: (error) => {
+      const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(
+        errorMessage?.message || "Failed to send emails. Please try again.",
+      );
+    },
+  });
+
+  const isLoading = emailBonusShareholdersMutation.isPending || isPending;
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -870,7 +890,9 @@ export function EmailPreviewModal({
       }
     } catch (error) {
       const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
-      toast.error(errorMessage?.message || "Failed to upload image. Please try again.");
+      toast.error(
+        errorMessage?.message || "Failed to upload image. Please try again.",
+      );
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -880,17 +902,25 @@ export function EmailPreviewModal({
   };
 
   const handleSend = async () => {
-    if (!issueId) {
-      toast.error("No issue ID available to send emails.");
-      return;
-    }
-    try {
-      await emailShareholders(issueId);
-      toast.success("Emails sent to shareholders");
-      resetAndClose(false);
-    } catch (error) {
-      const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
-      toast.error(errorMessge?.message || "Failed to send emails");
+    if (mode === "bonus") {
+      if (!issueId) {
+        toast.error("No issue ID available to send emails.");
+        return;
+      }
+      emailBonusShareholdersMutation.mutate({ declarationId: issueId });
+    } else if (mode === "right") {
+      if (!issueId) {
+        toast.error("No issue ID available to send emails.");
+        return;
+      }
+      try {
+        await emailShareholders(issueId);
+        toast.success("Emails sent to shareholders");
+        resetAndClose(false);
+      } catch (error) {
+        const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
+        toast.error(errorMessge?.message || "Failed to send emails");
+      }
     }
   };
 
@@ -1079,10 +1109,10 @@ export function EmailPreviewModal({
               </Button>
               <Button
                 onClick={handleSend}
-                disabled={isPending}
+                disabled={isLoading}
                 className="flex items-center gap-2"
               >
-                {isPending ? (
+                {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Sending...

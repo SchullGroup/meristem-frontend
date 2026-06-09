@@ -17,15 +17,16 @@ import {
   UPDATE_HOLDER_STATES,
   GET_CSCS_RECONCILIATION_FLAGGED_TRANSACTIONS,
   GET_CSCS_RECONCILIATIONS,
+  GET_CSCS_TRANSACTION_LOG_BATCHES,
 } from "@/actions/cscsActions";
 import {
   ProcessedLogsResponse,
   FlaggedTransaction,
-  FlaggedTransactionsResponse,
   ProcessingQueueResponse,
   Holder,
   ReconciliationFlaggedTransaction,
   ReconciliationResponse,
+  TransactionBatch,
 } from "@/types/cscs";
 import { ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
@@ -47,6 +48,28 @@ export const useGetCscsProcessedLogs = (
   return useQuery({
     queryKey: ["cscs-processed-logs", params],
     queryFn: () => GET_CSCS_PROCESSED_LOGS(params),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+export const useGetCscsTransactionBatchLogs = (
+  params?: {
+    batchRef?: string;
+    register?: string;
+    status?: "COMPLETE" | "PARTIAL";
+    dateFilter?: "TODAY" | "THIS_WEEK" | "THIS_MONTH";
+    page?: number;
+    size?: number;
+  },
+  options?: Omit<
+    UseQueryOptions<PaginatedResponse<TransactionBatch>, Error, PaginatedResponse<TransactionBatch>>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["cscs-transaction-batch-logs", params],
+    queryFn: () => GET_CSCS_TRANSACTION_LOG_BATCHES(params),
     refetchOnWindowFocus: false,
     ...options,
   });
@@ -104,18 +127,17 @@ export const useGetCscsFlaggedTransactions = (
   params?: {
     search?: string;
     register?: string;
-    type?: "BUY" | "SELL";
-    status?: "PENDING" | "RESOLVED" | "FORCE_COMMITTED";
-    fromDate?: string;
-    toDate?: string;
+    status?: "PENDING" | "RESOLVED";
+    startDate?: string;
+    endDate?: string;
     page?: number;
     size?: number;
   },
   options?: Omit<
     UseQueryOptions<
-      FlaggedTransactionsResponse,
+      PaginatedResponse<FlaggedTransaction>,
       Error,
-      FlaggedTransactionsResponse
+      PaginatedResponse<FlaggedTransaction>
     >,
     "queryKey" | "queryFn"
   >,

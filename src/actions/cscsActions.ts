@@ -4,7 +4,6 @@ import api from "@/services/api";
 import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
 import {
   FlaggedTransaction,
-  FlaggedTransactionsResponse,
   Holder,
   ProcessedFile,
   ProcessedLogsResponse,
@@ -12,6 +11,7 @@ import {
   ReconciliationFlaggedTransaction,
   ReconciliationResponse,
   ProcessedTransaction,
+  TransactionBatch
 } from "@/types/cscs";
 import { ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
@@ -102,17 +102,38 @@ export const GET_CSCS_PROCESSING_QUEUE = async (params?: {
   }
 };
 
-export const GET_CSCS_FLAGGED_TRANSACTIONS = async (params?: {
-  search?: string;
+export const GET_CSCS_TRANSACTION_LOG_BATCHES = async (params?: {
+  batchRef?: string;
   register?: string;
-  type?: "BUY" | "SELL";
-  status?: "PENDING" | "RESOLVED" | "FORCE_COMMITTED";
+  status?: "COMPLETE" | "PARTIAL";
+  dateFilter?: "TODAY" | "THIS_WEEK" | "THIS_MONTH";
   page?: number;
   size?: number;
 }) => {
   try {
-    const res = await api.get<FlaggedTransactionsResponse>(
-      `/cscs/flagged-transactions`,
+    const res = await api.get<PaginatedResponse<TransactionBatch>>(
+      `/cscs/trans-log-batches`,
+      { params },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_CSCS_FLAGGED_TRANSACTIONS = async (params?: {
+  search?: string;
+  register?: string;
+  status?: "PENDING" | "RESOLVED";
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  size?: number;
+}) => {
+  try {
+    const res = await api.get<PaginatedResponse<FlaggedTransaction>>(
+      `/cscs/filter-search-flagged-transactions`,
       { params },
     );
     return res.data;

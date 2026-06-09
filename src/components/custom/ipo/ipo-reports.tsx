@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
   BarChart3,
@@ -36,6 +36,7 @@ import {
   useExportBatchSummaryReport,
 } from "@/hooks/useIPO";
 import { useGetRegisters } from "@/hooks/useRegisters";
+import { formatNumber } from "@/lib/utils/format";
 
 const REPORT_TYPES = [
   "Application Offer",
@@ -150,6 +151,12 @@ export default function IPOReports() {
     isLoadingRangeAnalysis ||
     isLoadingBatchSummary;
 
+  useEffect(() => {
+    if (reportRun && !isReportLoading) {
+      toast.success(`${selectedReport} generated.`);
+    }
+  }, [reportRun, selectedReport, isReportLoading]);
+
   // Check overall error state
   const isReportError =
     isErrorAppOffer ||
@@ -185,7 +192,6 @@ export default function IPOReports() {
   // Handle run report trigger
   const handleRunReport = () => {
     setReportRun(true);
-    toast.success(`${selectedReport} generated successfully.`);
   };
 
   // Handle export to CSV
@@ -390,10 +396,10 @@ export default function IPOReports() {
                         {r.accountNumber}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {r.units > 0 ? r.units.toLocaleString() : "—"}
+                        {r.units > 0 ? formatNumber(r.units) : "—"}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {r.amount.toLocaleString()}
+                        {formatNumber(r.amount)}
                       </td>
                       <td className="px-4 py-2.5">
                         <Badge
@@ -419,11 +425,12 @@ export default function IPOReports() {
                       colSpan={6}
                       className="px-4 py-2.5 text-right text-muted-foreground"
                     >
-                      TOTALS ({applicationOfferData.totalSubscribers}{" "}
+                      TOTALS (
+                      {formatNumber(applicationOfferData.totalSubscribers)}{" "}
                       applications)
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      {applicationOfferData.approvedCount.toLocaleString()}
+                      {formatNumber(applicationOfferData.approvedCount)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       ₦
@@ -463,22 +470,22 @@ export default function IPOReports() {
                           {r.stockbroker}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono">
-                          {r.applications.toLocaleString()}
+                          {formatNumber(r.applications)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono text-green-700 font-semibold">
-                          {r.approved.toLocaleString()}
+                          {formatNumber(r.approved)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono text-amber-600 font-semibold">
-                          {r.disapproved.toLocaleString()}
+                          {formatNumber(r.disapproved)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono text-red-600 font-semibold">
-                          {r.invalid.toLocaleString()}
+                          {formatNumber(r.invalid)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono">
-                          {r.totalUnits.toLocaleString()}
+                          {formatNumber(r.totalUnits)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                          {r.totalAmount.toLocaleString()}
+                          {formatNumber(r.totalAmount)}
                         </td>
                       </tr>
                     ))}
@@ -487,22 +494,22 @@ export default function IPOReports() {
                     <tr>
                       <td className="px-4 py-2.5">TOTAL</td>
                       <td className="px-4 py-2.5 text-right">
-                        {appOfferSummaryData.totalApplications.toLocaleString()}
+                        {formatNumber(appOfferSummaryData.totalApplications)}
                       </td>
                       <td className="px-4 py-2.5 text-right text-green-700">
-                        {appOfferSummaryData.totalApproved.toLocaleString()}
+                        {formatNumber(appOfferSummaryData.totalApproved)}
                       </td>
                       <td className="px-4 py-2.5 text-right text-amber-600">
-                        {appOfferSummaryData.totalDisapproved.toLocaleString()}
+                        {formatNumber(appOfferSummaryData.totalDisapproved)}
                       </td>
                       <td className="px-4 py-2.5 text-right text-red-600">
-                        {appOfferSummaryData.totalInvalid.toLocaleString()}
+                        {formatNumber(appOfferSummaryData.totalInvalid)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        {appOfferSummaryData.grandTotalUnits.toLocaleString()}
+                        {formatNumber(appOfferSummaryData.grandTotalUnits)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        ₦{appOfferSummaryData.grandTotalAmount.toLocaleString()}
+                        {formatNumber(appOfferSummaryData.grandTotalAmount)}
                       </td>
                     </tr>
                   </tfoot>
@@ -544,13 +551,13 @@ export default function IPOReports() {
                         {r.cscsAccountNo}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {r.unitsSubscribed.toLocaleString()}
+                        {formatNumber(r.unitsSubscribed)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold text-green-700">
-                        {r.unitsAllotted.toLocaleString()}
+                        {formatNumber(r.unitsAllotted)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {r.amount.toLocaleString()}
+                        {formatNumber(r.amount)}
                       </td>
                       <td className="px-4 py-2.5 font-mono text-muted-foreground">
                         {r.certNo}
@@ -608,7 +615,7 @@ export default function IPOReports() {
                     <tr key={i} className="mrpsl-table-row">
                       <td className="px-4 py-2.5 font-medium">{r.state}</td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {r.subscribers.toLocaleString()}
+                        {formatNumber(r.subscribers)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -624,10 +631,10 @@ export default function IPOReports() {
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {r.totalUnits.toLocaleString()}
+                        {formatNumber(r.totalUnits)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {r.totalAmount.toLocaleString()}
+                        {formatNumber(r.totalAmount)}
                       </td>
                     </tr>
                   ))}
@@ -636,7 +643,7 @@ export default function IPOReports() {
                   <tr>
                     <td className="px-4 py-2.5">TOTAL</td>
                     <td className="px-4 py-2.5 text-right">
-                      {stateSummaryData.totalSubscribers.toLocaleString()}
+                      {formatNumber(stateSummaryData.totalSubscribers)}
                     </td>
                     <td className="px-4 py-2.5 text-right">100%</td>
                     <td className="px-4 py-2.5 text-right">
@@ -676,7 +683,7 @@ export default function IPOReports() {
                         {r.rangeLabel}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {r.subscribers.toLocaleString()}
+                        {formatNumber(r.subscribers)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -692,10 +699,10 @@ export default function IPOReports() {
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {r.totalUnits.toLocaleString()}
+                        {formatNumber(r.totalUnits)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {r.totalAmount.toLocaleString()}
+                        {formatNumber(r.totalAmount)}
                       </td>
                     </tr>
                   ))}
@@ -704,14 +711,14 @@ export default function IPOReports() {
                   <tr>
                     <td className="px-4 py-2.5">TOTAL</td>
                     <td className="px-4 py-2.5 text-right">
-                      {rangeAnalysisData.totalSubscribers.toLocaleString()}
+                      {formatNumber(rangeAnalysisData.totalSubscribers)}
                     </td>
                     <td className="px-4 py-2.5 text-right">100%</td>
                     <td className="px-4 py-2.5 text-right">
-                      {rangeAnalysisData.grandTotalUnits.toLocaleString()}
+                      {formatNumber(rangeAnalysisData.grandTotalUnits)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      ₦{rangeAnalysisData.grandTotalAmount.toLocaleString()}
+                      ₦{formatNumber(rangeAnalysisData.grandTotalAmount)}
                     </td>
                   </tr>
                 </tfoot>
@@ -749,19 +756,19 @@ export default function IPOReports() {
                         {r.dateProcessed}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-green-700 font-semibold">
-                        {r.approved.toLocaleString()}
+                        {formatNumber(r.approved)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-amber-600 font-semibold">
-                        {r.disapproved.toLocaleString()}
+                        {formatNumber(r.disapproved)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-red-600 font-semibold">
-                        {r.invalid.toLocaleString()}
+                        {formatNumber(r.invalid)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {r.total.toLocaleString()}
+                        {formatNumber(r.total)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {r.totalAmount.toLocaleString()}
+                        {formatNumber(r.totalAmount)}
                       </td>
                       <td className="px-4 py-2.5">
                         <Badge
@@ -790,19 +797,19 @@ export default function IPOReports() {
                       TOTALS ({batchSummaryData.totalBatches} batches)
                     </td>
                     <td className="px-4 py-2.5 text-right text-green-700">
-                      {batchSummaryData.totalApproved.toLocaleString()}
+                      {formatNumber(batchSummaryData.totalApproved)}
                     </td>
                     <td className="px-4 py-2.5 text-right text-amber-600">
-                      {batchSummaryData.totalDisapproved.toLocaleString()}
+                      {formatNumber(batchSummaryData.totalDisapproved)}
                     </td>
                     <td className="px-4 py-2.5 text-right text-red-600">
-                      {batchSummaryData.totalInvalid.toLocaleString()}
+                      {formatNumber(batchSummaryData.totalInvalid)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      {batchSummaryData.grandTotal.toLocaleString()}
+                      {formatNumber(batchSummaryData.grandTotal)}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      ₦{batchSummaryData.grandTotalAmount.toLocaleString()}
+                      ₦{formatNumber(batchSummaryData.grandTotalAmount)}
                     </td>
                     <td />
                   </tr>

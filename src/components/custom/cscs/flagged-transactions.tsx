@@ -24,6 +24,9 @@ import { useGetCscsFlaggedTransactions } from "@/hooks/useCscs";
 import { useDebounce } from "@/hooks/useDebounce";
 import { formatNumber } from "@/lib/utils/format";
 import { PaginationBar } from "../pagination-bar";
+import { DateRangePicker } from "../date-range-picker";
+import { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 
 const PAGE_SIZE = 10
 
@@ -40,22 +43,30 @@ export const FlaggedTransactions = ({ tab }: {
 
 
     const [selectedTransaction, setSelectedTransaction] = useState<FlaggedTransaction | null>(null)
-    const [flaggedRegister, setFlaggedRegister] = useState("All");
-    const [flaggedType, setFlaggedType] = useState<"BUY" | "SELL" | "All">("All");
-    const [flaggedStatus, setFlaggedStatus] = useState<"PENDING" | "RESOLVED" | "FORCE_COMMITTED" | "All">("All");
+    const [flaggedRegister, setFlaggedRegister] = useState("");
+    const [flaggedStatus, setFlaggedStatus] = useState<"PENDING" | "RESOLVED" | "">("");
     const [flaggedSearch, setFlaggedSearch] = useState("");
     const [flagSheetOpen, setFlagSheetOpen] = useState(false);
+
+    const [flaggedDateRange, setFlaggedDateRange] = useState<DateRange | undefined>(
+        undefined,
+    );
 
     const [currentPage, setCurrentPage] = useState(0)
     const [pageSize, setPageSize] = useState(PAGE_SIZE)
 
     const debouncedSearch = useDebounce(flaggedSearch, 500)
 
-    const { data: flaggedTransactions, isLoading, isError, error, refetch } = useGetCscsFlaggedTransactions(
+    const { data, isLoading, isError, error, refetch } = useGetCscsFlaggedTransactions(
         {
-            register: flaggedRegister !== "ALL" ? flaggedRegister : undefined,
-            status: flaggedStatus !== "All" ? flaggedStatus : undefined,
-            type: flaggedType !== "All" ? flaggedType : undefined,
+            register: flaggedRegister !== "" ? flaggedRegister : undefined,
+            status: flaggedStatus !== "" ? flaggedStatus : undefined,
+            startDate: flaggedDateRange?.from
+                ? format(flaggedDateRange.from, "yyyy-MM-dd")
+                : undefined,
+            endDate: flaggedDateRange?.to
+                ? format(flaggedDateRange.to, "yyyy-MM-dd")
+                : undefined,
             search: debouncedSearch || undefined,
             page: currentPage,
             size: pageSize,
@@ -74,6 +85,9 @@ export const FlaggedTransactions = ({ tab }: {
         setCurrentPage(0)
     }
 
+    const flaggedTransactions = data?.data?.content || []
+    const totalPages = data?.data?.totalPages || 0;
+    const total = data?.data?.totalElements || 0;
 
     return (
         <>
@@ -89,13 +103,13 @@ export const FlaggedTransactions = ({ tab }: {
                 </div>
                 <Select
                     value={flaggedRegister}
-                    onValueChange={(v) => setFlaggedRegister(v || "All")}
+                    onValueChange={(v) => setFlaggedRegister(v || "")}
                 >
                     <SelectTrigger className="w-44 mrpsl-input">
                         <SelectValue placeholder="All Registers" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="ALL">All Registers</SelectItem>
+                        <SelectItem value="">All Registers</SelectItem>
                         {activeRegisters?.content?.map((r) => (
                             <SelectItem key={r.registerId} value={r.symbol}>
                                 {r.registerName} · {r.symbol}
@@ -103,35 +117,31 @@ export const FlaggedTransactions = ({ tab }: {
                         ))}
                     </SelectContent>
                 </Select>
-                <Select
-                    value={flaggedType}
-                    onValueChange={(v) => setFlaggedType(v || "All")}
-                >
-                    <SelectTrigger className="w-32 mrpsl-input">
-                        <SelectValue placeholder="All Types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="All">All Types</SelectItem>
-                        <SelectItem value="Sell">Sell</SelectItem>
-                        <SelectItem value="Buy">Buy</SelectItem>
-                    </SelectContent>
-                </Select>
+
                 <Select
                     value={flaggedStatus}
-                    onValueChange={(v) => setFlaggedStatus(v || "All")}
+                    onValueChange={(v) => setFlaggedStatus(v || "")}
                 >
                     <SelectTrigger className="w-40 mrpsl-input">
                         <SelectValue placeholder="All Status" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="All">All Status</SelectItem>
+                        <SelectItem value="">All Status</SelectItem>
                         <SelectItem value="PENDING">Pending</SelectItem>
                         <SelectItem value="RESOLVED">Resolved</SelectItem>
-                        <SelectItem value="FORCE_COMMITTED">
-                            Force Committed
-                        </SelectItem>
+
                     </SelectContent>
                 </Select>
+
+                {/* Date range */}
+                <div className="space-y-1.5">
+                    <DateRangePicker
+                        className="mt-0"
+                        date={flaggedDateRange}
+                        setDate={setFlaggedDateRange}
+                    />
+                </div>
+
             </div>
 
             <Card className="mrpsl-card overflow-hidden">
@@ -178,9 +188,9 @@ export const FlaggedTransactions = ({ tab }: {
                                     </thead>
                                     <tbody className="divide-y divide-border/60">
                                         {
-                                            Array.isArray(flaggedTransactions?.content) && flaggedTransactions?.content.length > 0 ?
-                                                flaggedTransactions?.content?.map((row) => (
-                                                    <tr key={row.chn} className="mrpsl-table-row">
+                                            flaggedTransactions?.length > 0 ?
+                                                flaggedTransactions?.map((row) => (
+                                                    <tr key={row.id} className="mrpsl-table-row">
                                                         <td className="px-4 py-3 text-[13px] text-muted-foreground tabular-nums">
                                                             {row.chn}
                                                         </td>
@@ -205,10 +215,10 @@ export const FlaggedTransactions = ({ tab }: {
                                                             </Badge>
                                                         </td>
                                                         <td className="px-4 py-3 text-right tabular-nums text-red-600 font-semibold">
-                                                            {formatNumber(row.attemptedUnits)}
+                                                            {formatNumber(row.attempted)}
                                                         </td>
                                                         <td className="px-4 py-3 text-right tabular-nums">
-                                                            {formatNumber(row.currentHoldings)}
+                                                            {formatNumber(row.holdings)}
                                                         </td>
                                                         <td className="px-4 py-3 text-right tabular-nums text-amber-600 font-semibold">
                                                             {formatNumber(row.shortfall)}
@@ -249,9 +259,10 @@ export const FlaggedTransactions = ({ tab }: {
                 {/* Pagination */}
                 <PaginationBar
                     page={currentPage}
-                    pageSize={PAGE_SIZE}
+                    pageSize={pageSize}
                     onPageSizeChange={handlePageSizeChange}
-                    total={flaggedTransactions?.totalPages || 0}
+                    total={total}
+                    totalPages={totalPages}
                     onPageChange={handlePageChange}
                 />  </Card>
 

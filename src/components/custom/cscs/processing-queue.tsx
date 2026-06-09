@@ -27,14 +27,14 @@ import {
 } from "@/components/ui/dialog";
 
 // import { GET_CSCS_PROCESSING_QUEUE } from "@/actions/cscsActions";
-import { useGetCscsProcessingQueue } from "@/hooks/useCscs";
+import { useGetCscsTransactionBatchLogs } from "@/hooks/useCscs";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useDebounce } from "@/hooks/useDebounce";
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import { PaginationBar } from "../pagination-bar";
-import { ProcessingQueue as SelectedProcess } from "@/types/cscs";
+import { TransactionBatch as SelectedProcess } from "@/types/cscs";
 
 const PAGE_SIZE = 10;
 
@@ -56,11 +56,12 @@ export const ProcessingQueue = ({
   );
 
   const [open, setOpen] = useState(false);
-  const [queueRegister, setQueueRegister] = useState("ALL");
+  const [queueRegister, setQueueRegister] = useState("");
   const [queueSearch, setQueueSearch] = useState("");
   const [queueStatus, setQueueStatus] = useState<
-    "ALL" | "PARTIAL" | "COMPLETE"
-  >("ALL");
+    "" | "PARTIAL" | "COMPLETE"
+  >("");
+  const [queueDateFilter, setQueueDateFilter] = useState<"TODAY" | "THIS_WEEK" | "THIS_MONTH" | "">("");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
@@ -70,16 +71,17 @@ export const ProcessingQueue = ({
     useState<SelectedProcess | null>(null);
 
   const {
-    data: processingQueue,
+    data,
     isLoading,
     isError,
     error,
     refetch,
-  } = useGetCscsProcessingQueue(
+  } = useGetCscsTransactionBatchLogs(
     {
-      search: debouncedSearch !== "" ? debouncedSearch : undefined,
-      register: queueRegister !== "ALL" ? queueRegister : undefined,
-      status: queueStatus !== "ALL" ? queueStatus : undefined,
+      batchRef: debouncedSearch !== "" ? debouncedSearch : undefined,
+      register: queueRegister !== "" ? queueRegister : undefined,
+      status: queueStatus !== "" ? queueStatus : undefined,
+      dateFilter: queueDateFilter !== "" ? queueDateFilter : undefined,
       page: currentPage,
       size: pageSize,
     },
@@ -87,6 +89,10 @@ export const ProcessingQueue = ({
       enabled: tab === "queue",
     },
   );
+
+  const processingQueue = data?.data?.content || [];
+  const totalPages = data?.data?.totalPages || 0;
+  const total = data?.data?.totalElements || 0;
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
@@ -96,6 +102,7 @@ export const ProcessingQueue = ({
     setPageSize(newPageSize);
     setCurrentPage(0);
   };
+
   return (
     <>
       <div className="flex gap-2 items-center">
@@ -109,16 +116,16 @@ export const ProcessingQueue = ({
           />
         </div>
 
-        <div className="">
+        <div >
           <Select
             value={queueRegister}
-            onValueChange={(v) => setQueueRegister(v || "ALL")}
+            onValueChange={(v) => setQueueRegister(v || "")}
           >
             <SelectTrigger className="mrpsl-input">
               <SelectValue placeholder="All Registers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Registers</SelectItem>
+              <SelectItem value="">All Registers</SelectItem>
               {activeRegisters?.content?.map((r) => (
                 <SelectItem key={r.registerId} value={r.registerId}>
                   {r.registerName} · {r.symbol}
@@ -127,37 +134,37 @@ export const ProcessingQueue = ({
             </SelectContent>
           </Select>
         </div>
-        <div className="">
+        <div >
           <Select
             value={queueStatus}
-            onValueChange={(v) => setQueueStatus(v || "ALL")}
+            onValueChange={(v) => setQueueStatus(v || "")}
           >
             <SelectTrigger className="mrpsl-input">
-              <SelectValue />
+              <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="">All Status</SelectItem>
               <SelectItem value="COMPLETE">Complete</SelectItem>
               <SelectItem value="PARTIAL">Partial</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        {/* <div className="">
+        <div >
           <Select
-            value={queueStatus}
-            onValueChange={(v) => setQueueStatus(v || "ALL")}
+            value={queueDateFilter}
+            onValueChange={(v) => setQueueDateFilter(v || "")}
           >
             <SelectTrigger className="w-40 mrpsl-input">
-              <SelectValue />
+              <SelectValue placeholder="All Dates" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Dates</SelectItem>
+              <SelectItem value="">All Dates</SelectItem>
               <SelectItem value="TODAY">Today</SelectItem>
               <SelectItem value="THIS_WEEK">This Week</SelectItem>
               <SelectItem value="THIS_MONTH">This Month</SelectItem>
             </SelectContent>
           </Select>
-          </div> */}
+        </div>
       </div>
 
       <Card className="mrpsl-card overflow-hidden">
@@ -191,79 +198,79 @@ export const ProcessingQueue = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {Array.isArray(processingQueue?.content) &&
-                  processingQueue?.content.length > 0 ? (
-                  processingQueue?.content?.map((row) => (
-                    <tr key={row.batchRef} className="mrpsl-table-row">
-                      <td className="px-4 py-3 tabular-nums text-[13px] text-muted-foreground">
-                        {row.batchRef}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">
-                          {row.register}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground text-[13px]">
-                        {row.batchDate ? formatDate(row.batchDate) : "N/A"}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold">
-                        {formatNumber(row?.totalTransactions)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-green-600">
-                        {formatNumber(row.buyCount)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums text-red-600">
-                        {formatNumber(row.sellCount)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
-                        {formatNumber(row.flaggedCount)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          className={`border-0 text-[13px] ${row.status === "COMPLETE" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-                        >
-                          {row.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedTransaction(row);
-                                setOpen(true);
-                              }}
-                            >
-                              <Eye className="mr-2 h-4 w-4" /> View Batch Detail
-                            </DropdownMenuItem>
-                            {row.flaggedCount > 0 && (
+                {
+                  processingQueue?.length > 0 ? (
+                    processingQueue?.map((row) => (
+                      <tr key={row.batchRef} className="mrpsl-table-row">
+                        <td className="px-4 py-3 tabular-nums text-[13px] text-muted-foreground">
+                          {row.batchRef}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">
+                            {row.register}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground text-[13px]">
+                          {row.transactionDate ? formatDate(row.transactionDate) : "N/A"}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums font-semibold">
+                          {formatNumber(row?.total)}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-green-600">
+                          {formatNumber(row.buys)}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums text-red-600">
+                          {formatNumber(row.sells)}
+                        </td>
+                        <td className="px-4 py-3 text-right tabular-nums">
+                          {formatNumber(row.flagged)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={`border-0 text-[13px] ${row.status === "COMPLETE" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                          >
+                            {row.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onClick={() => setActiveTab("flagged")}
+                                onClick={() => {
+                                  setSelectedTransaction(row);
+                                  setOpen(true);
+                                }}
                               >
-                                <AlertTriangle className="mr-2 h-4 w-4" /> View
-                                Flagged ({row.flaggedCount})
+                                <Eye className="mr-2 h-4 w-4" /> View Batch Detail
                               </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              {row?.flagged > 0 && (
+                                <DropdownMenuItem
+                                  onClick={() => setActiveTab("flagged")}
+                                >
+                                  <AlertTriangle className="mr-2 h-4 w-4" /> View
+                                  Flagged ({row.flagged})
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="text-center py-10 text-muted-foreground"
+                      >
+                        No records found
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="text-center py-10 text-muted-foreground"
-                    >
-                      No records found
-                    </td>
-                  </tr>
-                )}
+                  )}
               </tbody>
             </table>
           )}
@@ -272,9 +279,9 @@ export const ProcessingQueue = ({
         {/* Pagination */}
         <PaginationBar
           page={currentPage}
-          pageSize={PAGE_SIZE}
-          total={processingQueue?.totalPages || 0}
-          totalPages={processingQueue?.totalPages}
+          pageSize={pageSize}
+          total={total}
+          totalPages={totalPages}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}
         />
@@ -313,17 +320,17 @@ export const ProcessingQueue = ({
                   Batch date
                 </p>
                 <p className="mt-2 text-sm font-semibold">
-                  {selectedTransaction?.batchDate
-                    ? formatDate(selectedTransaction.batchDate)
+                  {selectedTransaction?.transactionDate
+                    ? formatDate(selectedTransaction.transactionDate)
                     : "N/A"}
                 </p>
               </div>
               <div className="rounded-2xl border border-border/60 bg-muted p-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Processed by
+                  Total Transactions
                 </p>
                 <p className="mt-2 text-sm font-semibold">
-                  {selectedTransaction?.processedBy ?? "N/A"}
+                  {formatNumber(selectedTransaction?.total)}
                 </p>
               </div>
             </div>
@@ -334,7 +341,7 @@ export const ProcessingQueue = ({
                   Buys
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-green-600 tabular-nums">
-                  +{formatNumber(selectedTransaction?.buyCount)}
+                  +{formatNumber(selectedTransaction?.buys)}
                 </p>
               </div>
               <div className="rounded-2xl border border-border/60 bg-background p-4 text-center">
@@ -342,7 +349,7 @@ export const ProcessingQueue = ({
                   Sells
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-red-600 tabular-nums">
-                  −{formatNumber(selectedTransaction?.sellCount)}
+                  −{formatNumber(selectedTransaction?.sells)}
                 </p>
               </div>
               <div className="rounded-2xl border border-border/60 bg-background p-4 text-center">
@@ -350,27 +357,12 @@ export const ProcessingQueue = ({
                   Flagged
                 </p>
                 <p className="mt-3 text-2xl font-semibold text-orange-600 tabular-nums">
-                  {formatNumber(selectedTransaction?.flaggedCount)}
+                  {formatNumber(selectedTransaction?.flagged)}
                 </p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border/60 bg-muted p-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <p className="text-[13px] text-muted-foreground">Total transactions</p>
-                  <p className="mt-2 text-sm font-semibold tabular-nums">
-                    {formatNumber(selectedTransaction?.totalTransactions)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[13px] text-muted-foreground">Batch reference</p>
-                  <p className="mt-2 text-sm font-semibold tabular-nums">
-                    {selectedTransaction?.batchRef ?? "N/A"}
-                  </p>
-                </div>
-              </div>
-            </div>
+
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>
