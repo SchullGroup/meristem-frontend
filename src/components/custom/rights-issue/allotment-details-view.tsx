@@ -172,8 +172,8 @@ export function AllotmentDetailsView({
             className={cn(
               "mrpsl-card p-3",
               "tab" in s &&
-              s.tab &&
-              "cursor-pointer hover:border-primary/40 transition-colors",
+                s.tab &&
+                "cursor-pointer hover:border-primary/40 transition-colors",
             )}
             onClick={() => "tab" in s && s.tab && setAllotTab(s.tab)}
           >
@@ -417,16 +417,14 @@ export function AllotmentDetailsView({
       />
 
       <EmailPreviewModal
+        mode="right"
         open={emailPreviewOpen}
         onOpenChange={setEmailPreviewOpen}
         offerType="rights"
-        companyName={
-          allotReviewing.registerName ||
-          "Neimeth International Pharmaceuticals Plc"
-        }
+        companyName={allotReviewing?.registerName ?? ""}
         issueId={allotReviewing?.id}
         offerName={allotReviewing.offerName || "Rights Issue"}
-        ratio={allotReviewing.ratio || "1 : 7"}
+        ratio={allotReviewing.ratio}
         closeDate={
           allotReviewing.closureDate
             ? format(new Date(allotReviewing.closureDate), "dd MMM yyyy")

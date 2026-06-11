@@ -63,6 +63,9 @@ import {
   UPDATE_AGENT,
   DELETE_AGENT,
 } from "@/actions/agentAction";
+import { PaginationBar } from "@/components/custom/pagination-bar";
+
+const PAGE_SIZE = 10;
 
 const agentSchema = z.object({
   name: z.string().min(2, "Name required"),
@@ -82,6 +85,8 @@ export default function AgentsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [agentToDelete, setAgentToDelete] = useState<{
     id: string;
     name: string;
@@ -92,10 +97,13 @@ export default function AgentsPage() {
   });
 
   const { data: agents, isLoading: isAgentsLoading } = useQuery({
-    queryKey: ["agents"],
-    queryFn: () => GET_AGENTS(),
+    queryKey: ["agents", currentPage, pageSize],
+    queryFn: () => GET_AGENTS({ page: currentPage, size: pageSize }),
   });
-  const agentList = agents?.data?.content;
+
+  const agentList = agents?.data?.content ?? [];
+  const total = agents?.data?.totalElements ?? 0;
+  const totalPages = agents?.data?.totalPages ?? 0;
 
   const { data: agentStats, isLoading: isStatsLoading } = useQuery({
     queryKey: ["agents-stats"],
@@ -274,156 +282,136 @@ export default function AgentsPage() {
         </Card>
       </div>
       <Card className="mrpsl-card overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="mrpsl-table-header">
-            <tr>
-              <th className="px-4 py-3">AGENT</th>
-              <th className="px-4 py-3">TYPE</th>
-              <th className="px-4 py-3">CODE</th>
-              <th className="px-4 py-3">CSCS MEMBER CODE</th>
-              <th className="px-4 py-3">ADDRESS</th>
-              <th className="px-4 py-3">STATUS</th>
-              <th className="px-4 py-3">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isAgentsLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr
-                  key={i}
-                  className="mrpsl-table-row border-b border-border/40"
-                >
-                  <td className="px-4 py-4">
-                    <Skeleton className="h-5 w-32" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <Skeleton className="h-5 w-24" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <Skeleton className="h-5 w-16" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <Skeleton className="h-5 w-16" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <Skeleton className="h-5 w-48" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <Skeleton className="h-5 w-16" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <Skeleton className="h-8 w-8 rounded-full ml-auto" />
-                  </td>
-                </tr>
-              ))
-            ) : agentList?.length === 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="mrpsl-table-header">
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-10 text-center text-muted-foreground"
-                >
-                  No agents found.
-                </td>
+                <th className="px-4 py-3">AGENT</th>
+                <th className="px-4 py-3">TYPE</th>
+                <th className="px-4 py-3">CODE</th>
+                <th className="px-4 py-3">CSCS MEMBER CODE</th>
+                <th className="px-4 py-3">ADDRESS</th>
+                <th className="px-4 py-3">STATUS</th>
+                <th className="px-4 py-3">ACTIONS</th>
               </tr>
-            ) : (
-              agentList?.map(
-                (a: {
-                  name: string;
-                  type: string;
-                  code: string;
-                  cscsMemberCode: string;
-                  address: string;
-                  status: string;
-                  id: string;
-                }) => (
-                  <tr key={a.id} className="mrpsl-table-row">
-                    <td className="px-4 py-3 font-semibold">{a.name}</td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        className={`border-0 text-xs ${a.type === "BANK" ? "bg-blue-100 text-blue-800" : a.type === "STOCKBROKER" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-                      >
-                        {a.type
-                          .replace(/_/g, " ")
-                          .toLowerCase()
-                          .replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                      </Badge>
+            </thead>
+            <tbody>
+              {isAgentsLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr
+                    key={i}
+                    className="mrpsl-table-row border-b border-border/40"
+                  >
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-5 w-32" />
                     </td>
-                    <td className="px-4 py-3 font-mono">{a.code}</td>
-                    <td className="px-4 py-3 font-mono">
-                      {a.cscsMemberCode || "N/A"}
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-5 w-24" />
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {a.address}
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-5 w-16" />
                     </td>
-                    <td className="px-4 py-3">
-                      <Badge className="bg-green-100 text-green-800 border-0 text-xs">
-                        {a.status
-                          .toLowerCase()
-                          .replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </Badge>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-5 w-16" />
                     </td>
-                    <td className="px-4 py-3">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="center"
-                          className="mrpsl-card w-fit"
-                        >
-                          <DropdownMenuItem onClick={() => handleEdit(a)}>
-                            <Pencil className="mr-2 h-4 w-4" /> Edit Agent
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              toast.info("Signatories panel coming soon")
-                            }
-                          >
-                            <PenLine className="mr-2 h-4 w-4" /> Manage
-                            Signatories
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              toast.info("Mandates panel coming soon")
-                            }
-                          >
-                            <FileText className="mr-2 h-4 w-4" /> View Mandates
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setAgentToDelete({ id: a.id, name: a.name });
-                              setDeleteOpen(true);
-                            }}
-                          >
-                            <Trash className="mr-2 h-4 w-4" /> Delete Agent
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() =>
-                              toast.success(
-                                `${a.name} has been ${a.status === "Active" ? "deactivated" : "activated"}`,
-                              )
-                            }
-                          >
-                            <Power className="mr-2 h-4 w-4" />{" "}
-                            {a.status === "Active" ? "Deactivate" : "Activate"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => toast.info("Audit log coming soon")}
-                          >
-                            <History className="mr-2 h-4 w-4" /> View Audit Log
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-5 w-48" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-5 w-16" />
+                    </td>
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-8 w-8 rounded-full ml-auto" />
                     </td>
                   </tr>
-                ),
-              )
-            )}
-          </tbody>
-        </table>
+                ))
+              ) : agentList?.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-10 text-center text-muted-foreground"
+                  >
+                    No agents found.
+                  </td>
+                </tr>
+              ) : (
+                agentList?.map(
+                  (a: {
+                    name: string;
+                    type: string;
+                    code: string;
+                    cscsMemberCode: string;
+                    address: string;
+                    status: string;
+                    id: string;
+                  }) => (
+                    <tr key={a.id} className="mrpsl-table-row">
+                      <td className="px-4 py-3 font-semibold">{a.name}</td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          className={`border-0 text-xs ${a.type === "BANK" ? "bg-blue-100 text-blue-800" : a.type === "STOCKBROKER" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                        >
+                          {a.type
+                            .replace(/_/g, " ")
+                            .toLowerCase()
+                            .replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 font-mono">{a.code}</td>
+                      <td className="px-4 py-3 font-mono">
+                        {a.cscsMemberCode || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {a.address}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+                          {a.status
+                            .toLowerCase()
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="center"
+                            className="mrpsl-card w-fit"
+                          >
+                            <DropdownMenuItem onClick={() => handleEdit(a)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit Agent
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setAgentToDelete({ id: a.id, name: a.name });
+                                setDeleteOpen(true);
+                              }}
+                            >
+                              <Trash className="mr-2 h-4 w-4" /> Delete Agent
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ),
+                )
+              )}
+            </tbody>
+          </table>
+
+          <PaginationBar
+            page={currentPage}
+            pageSize={pageSize}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -636,8 +624,8 @@ export default function AgentsPage() {
                   {isEditing ? "Update Agent" : "Save Agent"}
                   {(createAgentMutation.isPending ||
                     updateAgentMutation.isPending) && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
                 </Button>
               </DialogFooter>
             </form>

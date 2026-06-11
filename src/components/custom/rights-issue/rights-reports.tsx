@@ -1,6 +1,14 @@
 "use client";
 
-import { FileSpreadsheet, Download, Printer, Loader2, AlertCircle, RefreshCcw, BarChart3 } from "lucide-react";
+import {
+  FileSpreadsheet,
+  Download,
+  Printer,
+  Loader2,
+  AlertCircle,
+  RefreshCcw,
+  BarChart3,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -14,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { RIGHTS_REPORT_TYPES } from "@/lib/utils/constants";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   ShholderRows,
@@ -95,7 +103,7 @@ export default function RightsIssueReports() {
   const registerParam = reportRegister || undefined;
   const isReportSelected = (type: string) => {
     return reportGenerated && selectedReport === type;
-  }
+  };
 
   // 1. Rights Entitlement List
   const {
@@ -106,7 +114,9 @@ export default function RightsIssueReports() {
   } = useGetRightsEntitlementReport(registerParam, "json", {
     enabled: isReportSelected("Rights Entitlement List"),
   });
-  const entitlementData = rawEntitlementData as ApiResponse<RightsEntitlementResponse> | undefined;
+  const entitlementData = rawEntitlementData as
+    | ApiResponse<RightsEntitlementResponse>
+    | undefined;
 
   // 2. Acceptance Summary
   const {
@@ -117,7 +127,9 @@ export default function RightsIssueReports() {
   } = useGetAcceptanceSummaryReport(registerParam, "json", {
     enabled: isReportSelected("Acceptance Summary"),
   });
-  const acceptanceSummaryData = rawAcceptanceSummaryData as ApiResponse<RightsAcceptanceSummaryResponse> | undefined;
+  const acceptanceSummaryData = rawAcceptanceSummaryData as
+    | ApiResponse<RightsAcceptanceSummaryResponse>
+    | undefined;
 
   // 3. Non-Acceptance List
   const {
@@ -128,7 +140,9 @@ export default function RightsIssueReports() {
   } = useGetNonAcceptanceReport(registerParam, "json", {
     enabled: isReportSelected("Non-Acceptance List"),
   });
-  const nonAcceptanceData = rawNonAcceptanceData as ApiResponse<NonAcceptanceResponse> | undefined;
+  const nonAcceptanceData = rawNonAcceptanceData as
+    | ApiResponse<NonAcceptanceResponse>
+    | undefined;
 
   // 4. Traded Rights Report
   const {
@@ -139,7 +153,9 @@ export default function RightsIssueReports() {
   } = useGetTradedRightsReport(registerParam, "json", {
     enabled: isReportSelected("Traded Rights Report"),
   });
-  const tradedRightsData = rawTradedRightsData as ApiResponse<TradedRightsResponse> | undefined;
+  const tradedRightsData = rawTradedRightsData as
+    | ApiResponse<TradedRightsResponse>
+    | undefined;
 
   // 5. Allotment Report
   const {
@@ -150,7 +166,9 @@ export default function RightsIssueReports() {
   } = useGetAllotmentReport(registerParam, "json", {
     enabled: isReportSelected("Allotment Report"),
   });
-  const allotmentData = rawAllotmentData as ApiResponse<RightsAllotmentResponse> | undefined;
+  const allotmentData = rawAllotmentData as
+    | ApiResponse<RightsAllotmentResponse>
+    | undefined;
 
   // 6. State Analysis
   const {
@@ -161,7 +179,9 @@ export default function RightsIssueReports() {
   } = useGetStateAnalysisReport(registerParam, "json", {
     enabled: isReportSelected("State Analysis"),
   });
-  const stateAnalysisData = rawStateAnalysisData as ApiResponse<StateAnalysisResponse> | undefined;
+  const stateAnalysisData = rawStateAnalysisData as
+    | ApiResponse<StateAnalysisResponse>
+    | undefined;
 
   // 7. Range Analysis
   const {
@@ -172,7 +192,9 @@ export default function RightsIssueReports() {
   } = useGetRangeAnalysisReport(registerParam, "json", {
     enabled: isReportSelected("Range Analysis"),
   });
-  const rangeAnalysisData = rawRangeAnalysisData as ApiResponse<RangeAnalysisResponse> | undefined;
+  const rangeAnalysisData = rawRangeAnalysisData as
+    | ApiResponse<RangeAnalysisResponse>
+    | undefined;
 
   // Combined loading and error states
   const isReportLoading =
@@ -224,7 +246,7 @@ export default function RightsIssueReports() {
   const handleRunReport = () => {
     setReportGenerated(true);
     setReportPage(0);
-    toast.success(`${selectedReport} generated successfully.`);
+    // toast.success(`${selectedReport} generated successfully.`);
   };
 
   const handlePageSizeChange = (s: number) => {
@@ -232,8 +254,13 @@ export default function RightsIssueReports() {
     setReportPage(0);
   };
 
-  const handleExportExcel = async () => {
+  useEffect(() => {
+    if (reportGenerated && !isReportLoading) {
+      toast.success(`${selectedReport} generated successfully.`);
+    }
+  }, [reportGenerated, selectedReport, isReportLoading]);
 
+  const handleExportExcel = async () => {
     setIsExportingExcel(true);
     const filename = `${selectedReport.toLowerCase().replace(/\s+/g, "-")}-report.xlsx`;
     toast.info("Preparing Excel download...");
@@ -286,10 +313,12 @@ export default function RightsIssueReports() {
     }
   };
 
-
   // Resolve all rows for pagination
   const getRowsForPagination = () => {
-    if (selectedReport === "Rights Entitlement List" && entitlementData?.data?.rows) {
+    if (
+      selectedReport === "Rights Entitlement List" &&
+      entitlementData?.data?.rows
+    ) {
       return entitlementData?.data?.rows.map((row) => ({
         shareholderId: String(row.accountNumber),
         accountNumber: row.accountNumber,
@@ -305,7 +334,10 @@ export default function RightsIssueReports() {
         amountPayable: row.amountPayable,
       }));
     }
-    if (selectedReport === "Non-Acceptance List" && nonAcceptanceData?.data?.rows) {
+    if (
+      selectedReport === "Non-Acceptance List" &&
+      nonAcceptanceData?.data?.rows
+    ) {
       return nonAcceptanceData?.data?.rows.map((row) => ({
         shareholderId: String(row.accountNumber),
         accountNumber: row.accountNumber,
@@ -321,7 +353,10 @@ export default function RightsIssueReports() {
         amountPayable: row.amountDue,
       }));
     }
-    if (selectedReport === "Traded Rights Report" && tradedRightsData?.data?.rows) {
+    if (
+      selectedReport === "Traded Rights Report" &&
+      tradedRightsData?.data?.rows
+    ) {
       return tradedRightsData?.data?.rows;
     }
     if (selectedReport === "Allotment Report" && allotmentData?.data?.rows) {
@@ -349,7 +384,7 @@ export default function RightsIssueReports() {
   };
 
   const selectedRegisterDetails = activeRegisters?.content?.find(
-    (r) => r.registerId === reportRegister
+    (r) => r.registerId === reportRegister,
   );
 
   return (
@@ -397,9 +432,7 @@ export default function RightsIssueReports() {
               <SelectValue placeholder="Select Register" />
             </SelectTrigger>
             <SelectContent className="w-max">
-              <SelectItem value="">
-                All Registers
-              </SelectItem>
+              <SelectItem value="">All Registers</SelectItem>
               {activeRegisters?.content?.map((r) => (
                 <SelectItem key={r.registerId} value={r.registerId}>
                   {r.registerName} · {r.symbol}
@@ -442,7 +475,9 @@ export default function RightsIssueReports() {
       ) : isReportError ? (
         <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-red-500/80 min-h-[280px]">
           <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">Failed to load report data</p>
+          <p className="text-sm font-medium text-red-600 dark:text-red-400">
+            Failed to load report data
+          </p>
           <p className="text-sm mt-1 text-muted-foreground mb-4">
             There was an error retrieving the {selectedReport} data.
           </p>
@@ -471,18 +506,10 @@ export default function RightsIssueReports() {
                 )}
                 Excel
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrintTrigger}
-              >
+              <Button variant="outline" size="sm" onClick={handlePrintTrigger}>
                 <Download className="mr-1.5 h-4 w-4" /> PDF
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePrintTrigger}
-              >
+              <Button variant="outline" size="sm" onClick={handlePrintTrigger}>
                 <Printer className="mr-1.5 h-4 w-4" /> Print
               </Button>
             </div>
@@ -493,8 +520,12 @@ export default function RightsIssueReports() {
             <div className="hidden print:block mb-6 border-b pb-4">
               <h2 className="text-xl font-bold uppercase">{selectedReport}</h2>
               <div className="text-sm text-muted-foreground mt-1 flex justify-between">
-                <span>Register: {selectedRegisterDetails?.registerName || "—"}</span>
-                <span>Generated: {format(new Date(), "dd MMM yyyy, HH:mm")}</span>
+                <span>
+                  Register: {selectedRegisterDetails?.registerName || "—"}
+                </span>
+                <span>
+                  Generated: {format(new Date(), "dd MMM yyyy, HH:mm")}
+                </span>
               </div>
             </div>
 
@@ -525,70 +556,183 @@ export default function RightsIssueReports() {
               )}
 
             {/* ── Acceptance Summary ── */}
-            {selectedReport === "Acceptance Summary" && acceptanceSummaryData && (
-              <Card className="mrpsl-card overflow-hidden">
-                <div className="grid grid-cols-2 gap-4 p-4 border-b bg-muted/10 print:grid-cols-2 print:gap-4 print:p-4">
-                  <div className="p-4 bg-background rounded-lg border flex flex-col justify-center">
-                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Acceptance Rate</span>
-                    <span className="text-2xl font-bold text-green-600 mt-1">{acceptanceSummaryData?.data?.acceptanceRate?.toFixed(2)}%</span>
+            {selectedReport === "Acceptance Summary" &&
+              acceptanceSummaryData && (
+                <Card className="mrpsl-card overflow-hidden">
+                  <div className="grid grid-cols-2 gap-4 p-4 border-b bg-muted/10 print:grid-cols-2 print:gap-4 print:p-4">
+                    <div className="p-4 bg-background rounded-lg border flex flex-col justify-center">
+                      <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
+                        Acceptance Rate
+                      </span>
+                      <span className="text-2xl font-bold text-green-600 mt-1">
+                        {acceptanceSummaryData?.data?.acceptanceRate?.toFixed(
+                          2,
+                        )}
+                        %
+                      </span>
+                    </div>
+                    <div className="p-4 bg-background rounded-lg border flex flex-col justify-center">
+                      <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
+                        Non-Acceptance Rate
+                      </span>
+                      <span className="text-2xl font-bold text-amber-600 mt-1">
+                        {acceptanceSummaryData?.data?.nonAcceptanceRate?.toFixed(
+                          2,
+                        )}
+                        %
+                      </span>
+                    </div>
                   </div>
-                  <div className="p-4 bg-background rounded-lg border flex flex-col justify-center">
-                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Non-Acceptance Rate</span>
-                    <span className="text-2xl font-bold text-amber-600 mt-1">{acceptanceSummaryData?.data?.nonAcceptanceRate?.toFixed(2)}%</span>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-[13px]">
+                      <thead className="mrpsl-table-header">
+                        <tr>
+                          <th className="px-4 py-2.5">CATEGORY</th>
+                          <th className="px-4 py-2.5 text-right">
+                            SHAREHOLDERS
+                          </th>
+                          <th className="px-4 py-2.5 text-right">UNITS HELD</th>
+                          <th className="px-4 py-2.5 text-right">RIGHTS</th>
+                          <th className="px-4 py-2.5 text-right">AMOUNT (₦)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y font-mono">
+                        <tr className="mrpsl-table-row">
+                          <td className="px-4 py-2.5 font-sans font-medium text-foreground">
+                            Eligible Entitlements
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalEntitled,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalUnitsHeld,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalRightsDue,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatCurrency(
+                              acceptanceSummaryData?.data?.totalAmountDue,
+                            )}
+                          </td>
+                        </tr>
+                        <tr className="mrpsl-table-row">
+                          <td className="px-4 py-2.5 font-sans font-medium text-green-700">
+                            Accepted Rights
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalAccepted,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalUnitsAccepted,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-green-700 font-semibold">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalRightsAccepted,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatCurrency(
+                              acceptanceSummaryData?.data?.totalAmountAccepted,
+                            )}
+                          </td>
+                        </tr>
+                        <tr className="mrpsl-table-row">
+                          <td className="px-4 py-2.5 font-sans font-medium text-red-700">
+                            Disapproved Rights
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalDisapproved,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data
+                                ?.totalUnitsDisapproved,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-red-700">
+                            {formatNumber(
+                              acceptanceSummaryData?.data
+                                ?.totalRightsDisapproved,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatCurrency(
+                              acceptanceSummaryData?.data
+                                ?.totalAmountDisapproved,
+                            )}
+                          </td>
+                        </tr>
+                        <tr className="mrpsl-table-row">
+                          <td className="px-4 py-2.5 font-sans font-medium text-amber-700">
+                            Invalid Rights
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalInvalid,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalUnitsInvalid,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-amber-700">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalRightsInvalid,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatCurrency(
+                              acceptanceSummaryData?.data?.totalAmountInvalid,
+                            )}
+                          </td>
+                        </tr>
+                        <tr className="mrpsl-table-row">
+                          <td className="px-4 py-2.5 font-sans font-medium text-muted-foreground">
+                            Non-Acceptance (Forfeited)
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data?.totalNotAccepted,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(
+                              acceptanceSummaryData?.data
+                                ?.totalUnitsNotAccepted,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-muted-foreground">
+                            {formatNumber(
+                              acceptanceSummaryData?.data
+                                ?.totalRightsNotAccepted,
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatCurrency(
+                              acceptanceSummaryData?.data
+                                ?.totalAmountNotAccepted,
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-[13px]">
-                    <thead className="mrpsl-table-header">
-                      <tr>
-                        <th className="px-4 py-2.5">CATEGORY</th>
-                        <th className="px-4 py-2.5 text-right">SHAREHOLDERS</th>
-                        <th className="px-4 py-2.5 text-right">UNITS HELD</th>
-                        <th className="px-4 py-2.5 text-right">RIGHTS</th>
-                        <th className="px-4 py-2.5 text-right">AMOUNT (₦)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y font-mono">
-                      <tr className="mrpsl-table-row">
-                        <td className="px-4 py-2.5 font-sans font-medium text-foreground">Eligible Entitlements</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalEntitled)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalUnitsHeld)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalRightsDue)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatCurrency(acceptanceSummaryData?.data?.totalAmountDue)}</td>
-                      </tr>
-                      <tr className="mrpsl-table-row">
-                        <td className="px-4 py-2.5 font-sans font-medium text-green-700">Accepted Rights</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalAccepted)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalUnitsAccepted)}</td>
-                        <td className="px-4 py-2.5 text-right text-green-700 font-semibold">{formatNumber(acceptanceSummaryData?.data?.totalRightsAccepted)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatCurrency(acceptanceSummaryData?.data?.totalAmountAccepted)}</td>
-                      </tr>
-                      <tr className="mrpsl-table-row">
-                        <td className="px-4 py-2.5 font-sans font-medium text-red-700">Disapproved Rights</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalDisapproved)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalUnitsDisapproved)}</td>
-                        <td className="px-4 py-2.5 text-right text-red-700">{formatNumber(acceptanceSummaryData?.data?.totalRightsDisapproved)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatCurrency(acceptanceSummaryData?.data?.totalAmountDisapproved)}</td>
-                      </tr>
-                      <tr className="mrpsl-table-row">
-                        <td className="px-4 py-2.5 font-sans font-medium text-amber-700">Invalid Rights</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalInvalid)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalUnitsInvalid)}</td>
-                        <td className="px-4 py-2.5 text-right text-amber-700">{formatNumber(acceptanceSummaryData?.data?.totalRightsInvalid)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatCurrency(acceptanceSummaryData?.data?.totalAmountInvalid)}</td>
-                      </tr>
-                      <tr className="mrpsl-table-row">
-                        <td className="px-4 py-2.5 font-sans font-medium text-muted-foreground">Non-Acceptance (Forfeited)</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalNotAccepted)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatNumber(acceptanceSummaryData?.data?.totalUnitsNotAccepted)}</td>
-                        <td className="px-4 py-2.5 text-right text-muted-foreground">{formatNumber(acceptanceSummaryData?.data?.totalRightsNotAccepted)}</td>
-                        <td className="px-4 py-2.5 text-right">{formatCurrency(acceptanceSummaryData?.data?.totalAmountNotAccepted)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            )}
+                </Card>
+              )}
 
             {/* ── Traded Rights Report ── */}
             {selectedReport === "Traded Rights Report" && tradedRightsData && (
@@ -603,31 +747,46 @@ export default function RightsIssueReports() {
                         <th className="px-4 py-2.5">CHN</th>
                         <th className="px-4 py-2.5">BROKER CODE</th>
                         <th className="px-4 py-2.5">MEMBER CODE</th>
-                        <th className="px-4 py-2.5 text-right">VOLUME TRADED</th>
+                        <th className="px-4 py-2.5 text-right">
+                          VOLUME TRADED
+                        </th>
                         <th className="px-4 py-2.5">LODGED DATE</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-[13px] font-mono">
                       {(paginatedRows as TradedRightsRow[]).map((r, i) => (
                         <tr key={i} className="mrpsl-table-row">
-                          <td className="px-4 py-2.5 text-muted-foreground font-sans">{reportStart + i + 1}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground font-sans">
+                            {reportStart + i + 1}
+                          </td>
                           <td className="px-4 py-2.5">{r.registrarsAccount}</td>
-                          <td className="px-4 py-2.5 font-sans font-medium text-foreground">{r.shareholderName}</td>
+                          <td className="px-4 py-2.5 font-sans font-medium text-foreground">
+                            {r.shareholderName}
+                          </td>
                           <td className="px-4 py-2.5">{r.chn}</td>
                           <td className="px-4 py-2.5">{r.brokerCode}</td>
                           <td className="px-4 py-2.5">{r.memberCode}</td>
-                          <td className="px-4 py-2.5 text-right text-blue-600 font-semibold">{formatNumber(r.volume)}</td>
-                          <td className="px-4 py-2.5 font-sans">{formatDate(r.lodgedAt)}</td>
+                          <td className="px-4 py-2.5 text-right text-blue-600 font-semibold">
+                            {formatNumber(r.volume)}
+                          </td>
+                          <td className="px-4 py-2.5 font-sans">
+                            {formatDate(r.lodgedAt)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
                       <tr>
-                        <td colSpan={6} className="px-4 py-2.5 text-right text-muted-foreground font-sans">
+                        <td
+                          colSpan={6}
+                          className="px-4 py-2.5 text-right text-muted-foreground font-sans"
+                        >
                           TOTAL VOLUME TRADED
                         </td>
                         <td className="px-4 py-2.5 text-right text-blue-600">
-                          {formatNumber(tradedRightsData?.data?.totalVolumeTraded)}
+                          {formatNumber(
+                            tradedRightsData?.data?.totalVolumeTraded,
+                          )}
                         </td>
                         <td />
                       </tr>
@@ -658,32 +817,60 @@ export default function RightsIssueReports() {
                         <th className="px-3 py-2.5">BANK ACCOUNT</th>
                         <th className="px-3 py-2.5 text-right">UNITS HELD</th>
                         <th className="px-3 py-2.5 text-right">RIGHTS DUE</th>
-                        <th className="px-3 py-2.5 text-right">SHARES ALLOTTED</th>
-                        <th className="px-3 py-2.5 text-right">AMOUNT PAYABLE (₦)</th>
+                        <th className="px-3 py-2.5 text-right">
+                          SHARES ALLOTTED
+                        </th>
+                        <th className="px-3 py-2.5 text-right">
+                          AMOUNT PAYABLE (₦)
+                        </th>
                         <th className="px-3 py-2.5 text-center">STATUS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-[13px] font-mono">
                       {(paginatedRows as RightsAllotmentRow[]).map((r, i) => (
                         <tr key={i} className="mrpsl-table-row">
-                          <td className="px-3 py-2.5 text-muted-foreground font-sans">{reportStart + i + 1}</td>
-                          <td className="px-3 py-2.5 font-sans font-medium text-foreground">{r.shareholderName}</td>
+                          <td className="px-3 py-2.5 text-muted-foreground font-sans">
+                            {reportStart + i + 1}
+                          </td>
+                          <td className="px-3 py-2.5 font-sans font-medium text-foreground">
+                            {r.shareholderName}
+                          </td>
                           <td className="px-3 py-2.5">{r.chn}</td>
                           <td className="px-3 py-2.5">{r.brokerCode}</td>
-                          <td className="px-3 py-2.5 truncate max-w-[150px] font-sans" title={r.bankName ? `${r.bankName} - ${r.accountNo}` : undefined}>
-                            {r.bankName ? `${r.bankName} (A/C: ${r.accountNo})` : "—"}
+                          <td
+                            className="px-3 py-2.5 truncate max-w-[150px] font-sans"
+                            title={
+                              r.bankName
+                                ? `${r.bankName} - ${r.accountNo}`
+                                : undefined
+                            }
+                          >
+                            {r.bankName
+                              ? `${r.bankName} (A/C: ${r.accountNo})`
+                              : "—"}
                           </td>
-                          <td className="px-3 py-2.5 text-right">{formatNumber(r.unitsHeld)}</td>
-                          <td className="px-3 py-2.5 text-right text-blue-600">{formatNumber(r.rightsDue)}</td>
-                          <td className="px-3 py-2.5 text-right text-green-700 font-semibold">{formatNumber(r.certShares)}</td>
-                          <td className="px-3 py-2.5 text-right">{formatCurrency(r.amountPayable)}</td>
+                          <td className="px-3 py-2.5 text-right">
+                            {formatNumber(r.unitsHeld)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-blue-600">
+                            {formatNumber(r.rightsDue)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-green-700 font-semibold">
+                            {formatNumber(r.certShares)}
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            {formatCurrency(r.amountPayable)}
+                          </td>
                           <td className="px-3 py-2.5 text-center font-sans">
                             <Badge
                               className={cn(
                                 "border-0 text-[12px] font-normal",
-                                r.status === "Approved" || r.status === "APPROVED" || r.status === "Allotted"
+                                r.status === "Approved" ||
+                                  r.status === "APPROVED" ||
+                                  r.status === "Allotted"
                                   ? "bg-green-100 text-green-800"
-                                  : r.status === "Waived" || r.status === "WAIVED"
+                                  : r.status === "Waived" ||
+                                    r.status === "WAIVED"
                                     ? "bg-amber-100 text-amber-800"
                                     : "bg-red-100 text-red-800",
                               )}
@@ -697,20 +884,47 @@ export default function RightsIssueReports() {
                     </tbody>
                     <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
                       <tr>
-                        <td colSpan={5} className="px-3 py-2.5 text-right text-muted-foreground font-sans">
+                        <td
+                          colSpan={5}
+                          className="px-3 py-2.5 text-right text-muted-foreground font-sans"
+                        >
                           PAGE TOTALS
                         </td>
                         <td className="px-3 py-2.5 text-right">
-                          {formatNumber((paginatedRows as RightsAllotmentRow[]).reduce((a: number, r: RightsAllotmentRow) => a + (r.unitsHeld || 0), 0))}
+                          {formatNumber(
+                            (paginatedRows as RightsAllotmentRow[]).reduce(
+                              (a: number, r: RightsAllotmentRow) =>
+                                a + (r.unitsHeld || 0),
+                              0,
+                            ),
+                          )}
                         </td>
                         <td className="px-3 py-2.5 text-right text-blue-600">
-                          {formatNumber((paginatedRows as RightsAllotmentRow[]).reduce((a: number, r: RightsAllotmentRow) => a + (r.rightsDue || 0), 0))}
+                          {formatNumber(
+                            (paginatedRows as RightsAllotmentRow[]).reduce(
+                              (a: number, r: RightsAllotmentRow) =>
+                                a + (r.rightsDue || 0),
+                              0,
+                            ),
+                          )}
                         </td>
                         <td className="px-3 py-2.5 text-right text-green-700">
-                          {formatNumber((paginatedRows as RightsAllotmentRow[]).reduce((a: number, r: RightsAllotmentRow) => a + (r.certShares || 0), 0))}
+                          {formatNumber(
+                            (paginatedRows as RightsAllotmentRow[]).reduce(
+                              (a: number, r: RightsAllotmentRow) =>
+                                a + (r.certShares || 0),
+                              0,
+                            ),
+                          )}
                         </td>
                         <td className="px-3 py-2.5 text-right">
-                          {formatCurrency((paginatedRows as RightsAllotmentRow[]).reduce((a: number, r: RightsAllotmentRow) => a + (r.amountPayable || 0), 0))}
+                          {formatCurrency(
+                            (paginatedRows as RightsAllotmentRow[]).reduce(
+                              (a: number, r: RightsAllotmentRow) =>
+                                a + (r.amountPayable || 0),
+                              0,
+                            ),
+                          )}
                         </td>
                         <td />
                       </tr>
@@ -723,7 +937,6 @@ export default function RightsIssueReports() {
                   onPageChange={setReportPage}
                   pageSize={pageSize}
                   onPageSizeChange={handlePageSizeChange}
-
                 />
               </Card>
             )}
@@ -740,28 +953,44 @@ export default function RightsIssueReports() {
                         <th className="px-4 py-3 text-right">% OF SHs</th>
                         <th className="px-4 py-3 text-right">TOTAL UNITS</th>
                         <th className="px-4 py-3 text-right">RIGHTS DUE</th>
-                        <th className="px-4 py-3 text-right">TOTAL AMOUNT (₦)</th>
+                        <th className="px-4 py-3 text-right">
+                          TOTAL AMOUNT (₦)
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-[13px] font-mono">
                       {(paginatedRows as StateAnalysisRow[]).map((r, i) => (
                         <tr key={i} className="mrpsl-table-row">
-                          <td className="px-4 py-2.5 font-sans font-medium text-foreground">{r.state}</td>
-                          <td className="px-4 py-2.5 text-right">{formatNumber(r.shareholders)}</td>
+                          <td className="px-4 py-2.5 font-sans font-medium text-foreground">
+                            {r.state}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(r.shareholders)}
+                          </td>
                           <td className="px-4 py-2.5 text-right">
                             <div className="flex items-center justify-end gap-2 font-mono">
                               <div className="h-1.5 w-12 bg-muted rounded-full overflow-hidden print:hidden">
                                 <div
                                   className="h-full bg-primary rounded-full"
-                                  style={{ width: `${r.percentageShareholders || 0}%` }}
+                                  style={{
+                                    width: `${r.percentageShareholders || 0}%`,
+                                  }}
                                 />
                               </div>
-                              <span>{(r.percentageShareholders || 0).toFixed(1)}%</span>
+                              <span>
+                                {(r.percentageShareholders || 0).toFixed(1)}%
+                              </span>
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-right">{formatNumber(r.unitsHeld)}</td>
-                          <td className="px-4 py-2.5 text-right text-blue-600">{formatNumber(r.rightsDue)}</td>
-                          <td className="px-4 py-2.5 text-right font-semibold">{formatCurrency(r.amountDue)}</td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(r.unitsHeld)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-blue-600">
+                            {formatNumber(r.rightsDue)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-semibold">
+                            {formatCurrency(r.amountDue)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -769,17 +998,27 @@ export default function RightsIssueReports() {
                       <tr>
                         <td className="px-4 py-2.5 font-sans">TOTALS</td>
                         <td className="px-4 py-2.5 text-right">
-                          {formatNumber(stateAnalysisData?.data?.totalShareholders)}
+                          {formatNumber(
+                            stateAnalysisData?.data?.totalShareholders,
+                          )}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-sans">100%</td>
+                        <td className="px-4 py-2.5 text-right font-sans">
+                          100%
+                        </td>
                         <td className="px-4 py-2.5 text-right">
-                          {formatNumber(stateAnalysisData?.data?.totalUnitsHeld)}
+                          {formatNumber(
+                            stateAnalysisData?.data?.totalUnitsHeld,
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-right text-blue-600">
-                          {formatNumber(stateAnalysisData?.data?.totalRightsDue)}
+                          {formatNumber(
+                            stateAnalysisData?.data?.totalRightsDue,
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-right">
-                          {formatCurrency(stateAnalysisData?.data?.totalAmountDue)}
+                          {formatCurrency(
+                            stateAnalysisData?.data?.totalAmountDue,
+                          )}
                         </td>
                       </tr>
                     </tfoot>
@@ -791,7 +1030,6 @@ export default function RightsIssueReports() {
                   onPageChange={setReportPage}
                   pageSize={pageSize}
                   onPageSizeChange={handlePageSizeChange}
-
                 />
               </Card>
             )}
@@ -806,7 +1044,9 @@ export default function RightsIssueReports() {
                         <th className="px-4 py-3">UNITS RANGE</th>
                         <th className="px-4 py-3 text-right">SHAREHOLDERS</th>
                         <th className="px-4 py-3 text-right">% OF SHs</th>
-                        <th className="px-4 py-3 text-right">TOTAL UNITS HELD</th>
+                        <th className="px-4 py-3 text-right">
+                          TOTAL UNITS HELD
+                        </th>
                         <th className="px-4 py-3 text-right">RIGHTS DUE</th>
                         <th className="px-4 py-3 text-right">AMOUNT DUE (₦)</th>
                       </tr>
@@ -814,8 +1054,12 @@ export default function RightsIssueReports() {
                     <tbody className="divide-y text-[13px] font-mono">
                       {(paginatedRows as RangeAnalysisRow[]).map((r, i) => (
                         <tr key={i} className="mrpsl-table-row">
-                          <td className="px-4 py-2.5 font-sans font-medium text-foreground">{r.rangeLabel}</td>
-                          <td className="px-4 py-2.5 text-right">{formatNumber(r.shareholders)}</td>
+                          <td className="px-4 py-2.5 font-sans font-medium text-foreground">
+                            {r.rangeLabel}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(r.shareholders)}
+                          </td>
                           <td className="px-4 py-2.5 text-right">
                             <div className="flex items-center justify-end gap-2 font-mono">
                               <div className="h-1.5 w-12 bg-muted rounded-full overflow-hidden print:hidden">
@@ -827,9 +1071,15 @@ export default function RightsIssueReports() {
                               <span>{(r.percentage || 0).toFixed(1)}%</span>
                             </div>
                           </td>
-                          <td className="px-4 py-2.5 text-right">{formatNumber(r.unitsHeld)}</td>
-                          <td className="px-4 py-2.5 text-right text-blue-600">{formatNumber(r.rightsDue)}</td>
-                          <td className="px-4 py-2.5 text-right font-semibold">{formatCurrency(r.amountDue)}</td>
+                          <td className="px-4 py-2.5 text-right">
+                            {formatNumber(r.unitsHeld)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-blue-600">
+                            {formatNumber(r.rightsDue)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-semibold">
+                            {formatCurrency(r.amountDue)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -837,17 +1087,27 @@ export default function RightsIssueReports() {
                       <tr>
                         <td className="px-4 py-2.5 font-sans">TOTALS</td>
                         <td className="px-4 py-2.5 text-right">
-                          {formatNumber(rangeAnalysisData?.data?.totalShareholders)}
+                          {formatNumber(
+                            rangeAnalysisData?.data?.totalShareholders,
+                          )}
                         </td>
-                        <td className="px-4 py-2.5 text-right font-sans">100%</td>
+                        <td className="px-4 py-2.5 text-right font-sans">
+                          100%
+                        </td>
                         <td className="px-4 py-2.5 text-right">
-                          {formatNumber(rangeAnalysisData?.data?.totalUnitsHeld)}
+                          {formatNumber(
+                            rangeAnalysisData?.data?.totalUnitsHeld,
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-right text-blue-600">
-                          {formatNumber(rangeAnalysisData?.data?.totalRightsDue)}
+                          {formatNumber(
+                            rangeAnalysisData?.data?.totalRightsDue,
+                          )}
                         </td>
                         <td className="px-4 py-2.5 text-right">
-                          {formatCurrency(rangeAnalysisData?.data?.totalAmountDue)}
+                          {formatCurrency(
+                            rangeAnalysisData?.data?.totalAmountDue,
+                          )}
                         </td>
                       </tr>
                     </tfoot>
@@ -859,7 +1119,6 @@ export default function RightsIssueReports() {
                   onPageChange={setReportPage}
                   pageSize={pageSize}
                   onPageSizeChange={handlePageSizeChange}
-
                 />
               </Card>
             )}

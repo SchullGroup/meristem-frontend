@@ -212,6 +212,22 @@ export const RETURN_DECLARATION_TO_OPS = async ({
   }
 };
 
+export const EMAIL_SHAREHOLDERS = async ({
+  declarationId,
+}: {
+  declarationId: string | number | null;
+}) => {
+  try {
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/${declarationId}/email-shareholders`,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const GENERATE_BONUS_REPORT = async (
   reportTypePath: string,
   params?: {

@@ -146,7 +146,7 @@ export default function DeclarationPage() {
 
   const registerlist = registersData?.content;
   const register = registerlist?.find((r) => r.registerId === selectedRegister);
-  const stockToday = register?.currentShareholdersSize || 0;
+  const stockToday = register?.currentStockInIssue || 0;
   const rateNum = typeof rate === "number" ? rate : 0;
   const grossLiability = rateNum * stockToday;
   const wht = grossLiability * 0.1;
