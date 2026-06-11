@@ -132,7 +132,7 @@ export default function DeclarationPage() {
   });
 
   const declarationList = declarationData?.data?.content || [];
-
+  console.log(declarationList);
   const {
     data: dividendLiabilityPreview,
     isFetching: liabilityPreviewFetching,
@@ -1484,7 +1484,8 @@ export default function DeclarationPage() {
                       {declarationList
                         ?.filter(
                           (d: { status: string }) =>
-                            d.status === "PENDING_TIER3",
+                            d.status === "PENDING_TIER3" ||
+                            d.status === "PENDING_TIER4",
                         )
                         ?.map(
                           (d: {
@@ -1562,7 +1563,9 @@ export default function DeclarationPage() {
                           },
                         )}
                       {declarationList?.filter(
-                        (d: { status: string }) => d.status === "PENDING_TIER3",
+                        (d: { status: string }) =>
+                          d.status === "PENDING_TIER3" ||
+                          d.status === "PENDING_TIER4",
                       )?.length === 0 && (
                         <tr>
                           <td

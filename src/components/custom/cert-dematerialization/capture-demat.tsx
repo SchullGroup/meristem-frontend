@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { AlertCircle, Plus, Pencil, X } from "lucide-react";
+import { AlertCircle, Plus, Pencil, X, Loader2 } from "lucide-react";
 import { useGetHolders } from "@/hooks/useCscs";
 import {
   useGetAllCertificateDemat,
@@ -56,7 +56,11 @@ export const CaptureDematerialization = ({
   const [dematFormUrl, setDematFormUrl] = useState("");
   const [scannedCertsUrl, setScannedCertsUrl] = useState("");
 
-  const { data: holders, isFetching: isSearchingHolder } = useGetHolders(
+  const {
+    data: holders,
+    isFetching: isSearchingHolder,
+    isLoading: isLoadingHolders,
+  } = useGetHolders(
     {
       chn: searchQuery || undefined,
     },
@@ -68,7 +72,6 @@ export const CaptureDematerialization = ({
   const holderNotFound = !!searchQuery && !isSearchingHolder && !foundHolder;
 
   const stockBrokerList = agents?.data?.content || [];
-
 
   // rejected items
   const { data: rejectedData } = useGetAllCertificateDemat(
@@ -276,10 +279,18 @@ export const CaptureDematerialization = ({
                   />
                   <Button
                     variant="outline"
-                    className="h-11 px-6 font-bold"
+                    className="h-11 px-6 font-bold cursor-pointer"
                     onClick={handleHolderLookup}
+                    disabled={isLoadingHolders}
                   >
-                    Lookup
+                    {isLoadingHolders ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Checking...</span>
+                      </div>
+                    ) : (
+                      "Lookup"
+                    )}
                   </Button>
                 </div>
                 {foundHolder && (
