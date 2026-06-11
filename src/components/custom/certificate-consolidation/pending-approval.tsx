@@ -11,13 +11,15 @@ import { PaginationBar } from "../pagination-bar";
 import { useBatchApproveOrRejectConsolidationRequest, useGetAllCertConsolidations } from "@/hooks/useCertConsolidation";
 import { CertificateConsolidation } from "@/types/cscs";
 import { formatDate } from "@/lib/utils/format";
+import { useStore } from "@/lib/store";
 
 const PAGE_SIZE = 10
 
 export default function PendingConsolidationApprovals() {
+    const { currentUser } = useStore();
     const [reviewOpen, setReviewOpen] = useState(false);
     const [selected, setSelected] = useState<CertificateConsolidation | null>(null);
-    // const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
+
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [batchRejectOpen, setBatchRejectOpen] = useState(false);
@@ -41,23 +43,34 @@ export default function PendingConsolidationApprovals() {
     function toggleSelect(id: string) {
         setSelectedIds((prev) => {
             const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
+            if (next.has(id)) {
+                next.delete(id)
+            } else {
+                next.add(id)
+            }
             return next;
         });
     }
+
     function toggleSelectAll(ids: string[]) {
         setSelectedIds((prev) =>
             prev.size === ids.length ? new Set() : new Set(ids),
         );
     }
+
     function handleBatchApprove() {
         if (selectedIds.size === 0) return;
+
+        if (!currentUser) {
+            toast.error("Your session has expired. Please login again.");
+            return;
+        }
 
         batchApproveMutation.mutate({
             approveIds: Array.from(selectedIds),
             rejectIds: [],
             rejectComment: "",
-            authorisedBy: "ADMIN"
+            authorisedBy: currentUser?.email
         }, {
             onSuccess: () => {
                 toast.success(`${selectedIds.size} record${selectedIds.size !== 1 ? "s" : ""} approved.`);

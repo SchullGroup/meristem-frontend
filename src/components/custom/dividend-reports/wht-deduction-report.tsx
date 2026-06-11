@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Loader2,
   AlertCircle,
@@ -12,23 +12,22 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { TablePagination } from "@/components/custom/table-pagination";
-import { usePagination } from "@/lib/use-pagination";
 import { useGetWhtDeductionReport } from "@/hooks/useDividendReport";
-import { ReportFilters as DividendReportFilters } from "@/actions/dividendReportActions";
+import { PaginatedReportFilters } from "@/actions/dividendReportActions";
 import { useExportDividendReport } from "@/hooks/useDividendReport";
-
 import { formatCurrency, formatNaira, formatNumber } from "@/lib/utils/format";
 import { printWhtDeductionReport } from "@/lib/utils/printDividendReport";
 
 interface WhtReportProps {
-  filters: DividendReportFilters;
+  filters: PaginatedReportFilters;
   generated: boolean;
+  onTotalChange?: (total: number) => void;
 }
 
 export default function WhtDeductionReport({
   filters,
   generated,
+  onTotalChange,
 }: WhtReportProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -41,20 +40,14 @@ export default function WhtDeductionReport({
 
   const report = data?.data;
   const rows = report?.whtRows ?? [];
+  const total = report?.totalElements ?? 0;
+
+  // Surface total to parent for PaginationBar
+  useEffect(() => {
+    if (total > 0) onTotalChange?.(total);
+  }, [total, onTotalChange]);
 
   const { mutateAsync: exportDividendReport } = useExportDividendReport();
-
-  const {
-    page,
-    pageSize,
-    totalPages,
-    paged,
-    from,
-    to,
-    total,
-    setPage,
-    setPageSize,
-  } = usePagination(rows);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -113,6 +106,10 @@ export default function WhtDeductionReport({
       </Card>
     );
   }
+
+  const pageSize = filters.size ?? 10;
+  const page = filters.page ?? 0;
+  const from = total === 0 ? 0 : page * pageSize + 1;
 
   return (
     <div className="space-y-4 animate-in fade-in">
@@ -209,7 +206,7 @@ export default function WhtDeductionReport({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {paged.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={9}
@@ -219,7 +216,7 @@ export default function WhtDeductionReport({
                   </td>
                 </tr>
               ) : (
-                paged.map((entry, i) => (
+                rows.map((entry, i) => (
                   <tr key={i} className="mrpsl-table-row">
                     <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
                       {from + i}
@@ -272,18 +269,6 @@ export default function WhtDeductionReport({
               </tr>
             </tfoot>
           </table>
-        </div>
-        <div className="px-4 py-3 border-t">
-          <TablePagination
-            page={page}
-            pageSize={pageSize}
-            totalPages={totalPages}
-            from={from}
-            to={to}
-            total={total}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
         </div>
       </Card>
     </div>

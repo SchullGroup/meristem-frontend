@@ -664,11 +664,10 @@ export default function ReportsPage() {
                       setSelectedGroup(group.title);
                       setIsGenerated(false);
                     }}
-                    className={`w-full text-left px-4 py-2 flex items-center text-sm transition-colors ${
-                      selectedReport === item
+                    className={`w-full text-left px-4 py-2 flex items-center text-sm transition-colors ${selectedReport === item
                         ? "bg-primary/10 text-primary font-semibold border-r-2 border-primary"
                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    }`}
+                      }`}
                   >
                     <span className="truncate pr-2">{item}</span>
                   </button>
@@ -730,7 +729,7 @@ export default function ReportsPage() {
                           (p) => p.id === r.principalId,
                         );
                         return (
-                          <SelectItem key={r.id} value={r.id}>
+                          <SelectItem key={r.registerId} value={r.id}>
                             {r.name} · {r.symbol}
                             {principal ? ` — ${principal.name}` : ""}
                           </SelectItem>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   CheckCircle,
   AlertTriangle,
@@ -34,6 +34,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { PaginationBar } from "../pagination-bar";
 import { PendingListSkeleton } from "../ipo/loaders";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { useStore } from "@/lib/store";
 
 const REGISTER_COLORS: Record<string, string> = {
   DANGCEM: "bg-blue-100 text-blue-800",
@@ -47,6 +48,10 @@ interface CscsUploadProps {
 }
 
 export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
+  // ── Persisted batch ref (survives page reloads until user submits) ─
+  const persistedBatchRef = useStore((s) => s.cscsInjectBatchRef);
+  const setCscsInjectBatchRef = useStore((s) => s.setCscsInjectBatchRef);
+
   // ── Page stage state ───────────────────────────────────────────
   const [stage, setStage] = useState<"idle" | "processing" | "review">("idle");
   const [progress, setProgress] = useState(0);
@@ -54,14 +59,15 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
 
+
   // ── Local confirmation states ──────────────────────────────────
   const [confirmedStates, setConfirmedStates] = useState<
     Record<string, string>
   >({});
 
   // ── Review filters & pagination ───────────────────────────────
-  const [registerFilter, setRegisterFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [registerFilter, setRegisterFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
@@ -72,6 +78,18 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
   const { mutateAsync: injectFile } = useInjectCscsFile();
   const { mutateAsync: updateHolderStates, isPending: isCommitting } =
     useUpdateHolderStates();
+
+  // ── Resume from persisted batchRef on mount ────────────────────
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (persistedBatchRef && stage === "idle") {
+        //eslint-disable-next-line
+        setStage("review");
+      }
+    }
+  }, [persistedBatchRef, stage]);
 
   const { data: activeRegisters } = useGetRegisters({
     size: 100,
@@ -93,13 +111,14 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
 
   const { data: holdersData, isLoading: isLoadingHolders } = useGetHolders(
     {
-      registerId: registerFilter !== "All" ? registerFilter : undefined,
+      batchRef: persistedBatchRef ?? undefined,
+      registerId: registerFilter !== "" ? registerFilter : undefined,
       page: currentPage,
       size: pageSize,
       ...getSearchParams(debouncedSearch),
     },
     {
-      enabled: stage === "review",
+      enabled: stage === "review" && !!persistedBatchRef,
     },
   );
 
@@ -108,8 +127,11 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
     if (!holdersData?.content) return [];
     return holdersData.content.filter((h) => {
       const isConfirmed = confirmedStates[h.id] !== undefined;
+      const isUnknownState = !h.state || h.state.toUpperCase() === "UNKNOWN";
+
       if (statusFilter === "Confirmed") return isConfirmed;
       if (statusFilter === "Unconfirmed") return !isConfirmed;
+      if (statusFilter === "Unknown") return isUnknownState;
       return true;
     });
   }, [holdersData, confirmedStates, statusFilter]);
@@ -148,24 +170,44 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
     setZipFileName(file.name);
     setStage("processing");
     setProgress(20);
-    setProgressLabel("Uploading ZIP file...");
+    setProgressLabel("Uploading ZIP file…");
 
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      setProgress(60);
-      setProgressLabel("Ingesting and processing CSCS data...");
+      setProgress(50);
+      setProgressLabel("Ingesting and processing CSCS data…");
 
-      await injectFile(formData);
+      const job = await injectFile(formData);
+
+      if (job?.status === "FAILED") {
+        setStage("idle");
+        toast.error(job.message || "CSCS ingestion failed. Please try again.");
+        return;
+      }
+
+      // Extract batchRef from message:
+      // e.g. "Processing Zip record with BatchRef: BATCH-CSCS-20260610_123038"
+      const match = job?.message?.match(/BatchRef:\s*(\S+)/);
+      const ref = match?.[1] ?? null;
+
+      if (!ref) {
+        setStage("idle");
+        toast.error("Upload accepted but no batch reference was returned. Please contact support.");
+        return;
+      }
+
+      // Persist immediately — survives page reloads until the user submits
+      setCscsInjectBatchRef(ref);
 
       setProgress(100);
       setProgressLabel("Ready for review");
-
       toast.success("CSCS ZIP uploaded and ingested successfully!");
       setStage("review");
     } catch (err) {
       setStage("idle");
+      setCscsInjectBatchRef(null);
       const errorMessage = returnErrorMessage(err as ErrorLike);
       toast.error(errorMessage || "Failed to upload ZIP file");
     }
@@ -185,18 +227,42 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
   };
 
   const handleCommit = async () => {
-    if (!holdersData?.content) return;
+    if (!holdersData?.content || holdersData.content.length === 0) {
+      toast.error("No records found on this page to commit.");
+      return;
+    }
 
+    // Map only the records visible on the current paginated view
     const updates = holdersData.content.map((h) => ({
       id: h.id,
+      // Fallback order: Explicitly selected state -> Current unconfirmed state -> Default
       state: confirmedStates[h.id] || h.state || "Lagos",
     }));
 
     try {
       await updateHolderStates({ updates });
-      toast.success("Holder states successfully committed.");
-      // Move to Processing Queue tab
-      setActiveTab("queue");
+      // Display human-readable Page Number (currentPage + 1)
+      toast.success(`Successfully committed updates for Page ${currentPage + 1}.`);
+
+      // Clean up local tracking references just for this page's items
+      setConfirmedStates((prev) => {
+        const remaining = { ...prev };
+        holdersData.content.forEach((h) => delete remaining[h.id]);
+        return remaining;
+      });
+
+      // Calculate total pages safely
+      const totalPages = holdersData.totalPages || 1;
+
+      // Since currentPage is 0-based, the last page index is (totalPages - 1)
+      if (currentPage < totalPages - 1) {
+        setCurrentPage((prev) => prev + 1);
+      } else {
+        // If we just committed the absolute final page (e.g., page index 9 out of 10 total pages)
+        setCscsInjectBatchRef(null);
+        toast.success("All pages successfully verified and committed!");
+        setActiveTab("queue");
+      }
     } catch (err) {
       const errorMessage = returnErrorMessage(err as ErrorLike);
       toast.error(errorMessage || "Failed to commit updates");
@@ -219,11 +285,10 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
         <div className="space-y-6">
           <label
             htmlFor="zip-input"
-            className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl p-16 cursor-pointer transition-colors ${
-              isDraggingOver
-                ? "border-primary bg-primary/5"
-                : "border-border hover:border-primary/50 hover:bg-muted/30"
-            }`}
+            className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl p-16 cursor-pointer transition-colors ${isDraggingOver
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50 hover:bg-muted/30"
+              }`}
             onDragOver={(e) => {
               e.preventDefault();
               setIsDraggingOver(true);
@@ -239,9 +304,8 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
               onChange={handleFileInput}
             />
             <FileArchive
-              className={`h-14 w-14 mb-5 transition-colors ${
-                isDraggingOver ? "text-primary" : "text-muted-foreground/30"
-              }`}
+              className={`h-14 w-14 mb-5 transition-colors ${isDraggingOver ? "text-primary" : "text-muted-foreground/30"
+                }`}
             />
             <p className="font-semibold text-base">
               Upload Master Data ZIP (All Registers)
@@ -305,17 +369,17 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
               size="sm"
               onClick={handleCommit}
               disabled={isCommitting}
-              className="shrink-0 ml-4 bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isCommitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  Committing...
+                  Saving Page {currentPage + 1}...
                 </>
               ) : (
                 <>
                   <Check className="h-4 w-4 mr-1.5" />
-                  Commit Updates
+                  Save &amp; Commit Page {currentPage + 1}
                 </>
               )}
             </Button>
@@ -353,15 +417,16 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
             </Select>
             <Select
               value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v || "All")}
+              onValueChange={(v) => setStatusFilter(v || "")}
             >
               <SelectTrigger className="w-40 mrpsl-input">
-                <SelectValue placeholder="All Status" />
+                <SelectValue placeholder="GIS State Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="All">All Records</SelectItem>
+                <SelectItem value="">GIS State Status</SelectItem>
                 <SelectItem value="Unconfirmed">Unconfirmed</SelectItem>
                 <SelectItem value="Confirmed">Confirmed</SelectItem>
+                <SelectItem value="Unknown">Unknown</SelectItem>
               </SelectContent>
             </Select>
             <div className="ml-auto flex items-center gap-2">
@@ -374,15 +439,26 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
               {filteredHolders.some(
                 (h) => confirmedStates[h.id] === undefined,
               ) && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-9 text-[13px]"
-                  onClick={confirmAllVisible}
-                >
-                  Accept all GIS suggestions (visible)
-                </Button>
-              )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 text-[13px]"
+                    onClick={confirmAllVisible}
+                  >
+                    Accept all GIS suggestions (visible)
+                  </Button>
+                )}
+            </div>
+          </div>
+
+          {/* PRO-TIP WORKFLOW CALLOUT */}
+          <div className="bg-muted/60 border border-border rounded-xl px-4 py-3 text-[13px] text-muted-foreground flex items-start gap-2.5">
+            <span className="text-base leading-none">💡</span>
+            <div>
+              <span className="font-semibold text-foreground">Pro-Tip for Fast Processing:</span> Change the
+              <strong className="text-foreground"> Page Size</strong> to the highest value, set the status filter to
+              <strong className="text-foreground"> &ldquo;Unknown State&rdquo;</strong>, click
+              <strong className="text-foreground"> &ldquo;Accept all GIS suggestions&rdquo;</strong>, and hit commit. You can batch-process hundreds of records simultaneously this way!
             </div>
           </div>
 
@@ -419,10 +495,9 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
                                 h.registers.map((reg) => (
                                   <Badge
                                     key={reg.id}
-                                    className={`border-0 text-[13px] ${
-                                      REGISTER_COLORS[reg.symbol] ??
+                                    className={`border-0 text-[13px] ${REGISTER_COLORS[reg.symbol] ??
                                       "bg-gray-100 text-gray-800"
-                                    }`}
+                                      }`}
                                   >
                                     {reg.symbol}
                                   </Badge>
@@ -475,11 +550,10 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
                                   }}
                                 >
                                   <SelectTrigger
-                                    className={`h-9 text-[13px] flex-1 min-w-0 ${
-                                      !confirmedState
-                                        ? "border-amber-300 bg-amber-50 text-amber-900"
-                                        : "border-green-300 bg-green-50 text-green-900"
-                                    }`}
+                                    className={`h-9 text-[13px] flex-1 min-w-0 ${!confirmedState
+                                      ? "border-amber-300 bg-amber-50 text-amber-900"
+                                      : "border-green-300 bg-green-50 text-green-900"
+                                      }`}
                                   >
                                     <SelectValue placeholder="Select State" />
                                   </SelectTrigger>

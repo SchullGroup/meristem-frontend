@@ -61,7 +61,7 @@ export default function RightsIssuePendingApproval({
     useState<RightsIssue | null>(null);
 
   // Review mode pagination
-  const [authPage, setAuthPage] = useState(0);
+  const [authPage, setAuthPage] = useState(1);
   const [authPageSize, setAuthPageSize] = useState(10);
 
   // Store & Download state
@@ -456,7 +456,6 @@ export default function RightsIssuePendingApproval({
               <tbody className="divide-y">
                 <ShholderRows
                   rows={shData?.content || []}
-                  pageStart={authPage * authPageSize}
                 />
               </tbody>
               <ShholderTfoot

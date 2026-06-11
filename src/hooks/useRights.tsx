@@ -59,7 +59,6 @@ export interface RightsIssueShareholders {
   content: Shareholder[];
   pagination: {
     total: number;
-    page: number;
     totalPages: number;
   };
 }
@@ -225,6 +224,7 @@ export const useApproveRightsIssue = () => {
         queryKey: ["rightsIssues", variables.id],
       });
       queryClient.invalidateQueries({ queryKey: ["rightsIssues"] });
+      queryClient.invalidateQueries({ queryKey: ["rightsIssues"] });
     },
   });
 };
@@ -240,7 +240,7 @@ export const useGetRightsIssueShareholders = ({
   >;
 }) => {
   return useQuery<EntitlementResponse, Error, RightsIssueShareholders>({
-    queryKey: ["rights-issue", params, "shareholders"],
+    queryKey: ["rightsIssues", params, "shareholders"],
     queryFn: () => getRightsIssueShareholders(params),
     select: (data) => {
       return {
@@ -252,15 +252,16 @@ export const useGetRightsIssueShareholders = ({
         },
         content: data?.data?.entitlements?.content,
         pagination: {
-          total: data?.data?.entitlements?.numberOfElements,
-          page: data?.data?.entitlements?.pageable?.pageNumber,
+          total: data?.data?.entitlements?.totalElements,
           totalPages: data?.data?.entitlements?.totalPages,
         },
       };
     },
+    refetchOnMount: "always",
     ...options,
   });
 };
+
 export const useUploadAllotment = () => {
   const queryClient = useQueryClient();
 
@@ -286,7 +287,7 @@ export const useProcessAllotment = () => {
         queryKey: ["rightsIssues", variables.id],
       });
       queryClient.invalidateQueries({
-        queryKey: ["rights-issue", variables.id, "allotment"],
+        queryKey: ["rightsIssues", variables.id, "allotment"],
       });
     },
   });
@@ -313,7 +314,7 @@ export const useGetAllotment = (
 ) => {
   return useQuery({
     queryKey: [
-      "rights-issue",
+      "rightsIssues",
       params.id,
       "allotment",
       params.status,
@@ -337,7 +338,7 @@ export const useGetAllotment = (
 
 export const useGetTradedRights = (params: RightsIssueParams) => {
   return useQuery({
-    queryKey: ["rights-issue", params.id, "traded-rights", params],
+    queryKey: ["rightsIssues", params.id, "traded-rights", params],
     queryFn: () => getTradedRights(params),
     enabled: !!params.id,
     select: (data) => {
@@ -370,7 +371,7 @@ export const useCreateTradedRights = () => {
     }) => createTradedRights({ id, data }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["rights-issue", variables.id, "traded-rights"],
+        queryKey: ["rightsIssues", variables.id, "traded-rights"],
       });
     },
   });
@@ -384,7 +385,7 @@ export const useDeleteTradedRights = () => {
       deleteTradedRights(params),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["rights-issue", variables.id, "traded-rights"],
+        queryKey: ["rightsIssues", variables.id, "traded-rights"],
       });
     },
   });
@@ -405,7 +406,7 @@ export const useLodgeRightsIssueDeclaration = () => {
     }) => lodgeRightsIssueDeclaration(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["rights-issue", variables.id, "traded-rights"],
+        queryKey: ["rightsIssues", variables.id, "traded-rights"],
       });
     },
   });
@@ -430,7 +431,7 @@ export const useGetStickyLabels = (
   >,
 ) => {
   return useQuery({
-    queryKey: ["rights-issue", params.id, "sticky-label", params],
+    queryKey: ["rightsIssues", params.id, "sticky-label", params],
     queryFn: () => getStickyLabels(params),
     select: (data) => {
       return {

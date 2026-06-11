@@ -21,6 +21,9 @@ import { PaginationBar } from "../pagination-bar";
 import { formatNumber } from "@/lib/utils/format";
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { DateRangePicker } from "../date-range-picker";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
 
 export default function GeneralCertificateReconciliation() {
   const { data: activeRegisters } = useGetRegisters({
@@ -32,6 +35,10 @@ export default function GeneralCertificateReconciliation() {
   const [scopeMode, setScopeMode] = useState("all");
   const [specificChn, setSpecificChn] = useState("");
   const [reconciled, setReconciled] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(
+    undefined,
+  );
+
   // ✅ Shared pagination state
   const [page, setPage] = useState(0);        // 0‑based
   const [pageSize, setPageSize] = useState(10);
@@ -41,6 +48,8 @@ export default function GeneralCertificateReconciliation() {
       {
         register: selectedReg,
         chn: scopeMode === "spec" ? specificChn : undefined,
+        startDate: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
+        endDate: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
         page: page,
         size: pageSize,
       },
@@ -130,6 +139,12 @@ export default function GeneralCertificateReconciliation() {
               ))}
             </SelectContent>
           </Select>
+
+          <DateRangePicker
+            className="mt-0"
+            date={dateRange}
+            setDate={setDateRange}
+          />
 
           <RadioGroup
             value={scopeMode}

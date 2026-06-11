@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, X, CheckCircle2, Loader2 } from "lucide-react";
+import { FileText, X, CheckCircle2, Loader2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_ACCEPT, FILE_TYPE_COLORS } from "@/lib/mocks/doc-types";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
@@ -15,6 +15,8 @@ interface DocUploadZoneProps {
   className?: string;
   onUploadSuccess?: (url: string) => void;
   folderName?: string;
+  /** Pre-populate the preview with an already-uploaded URL (e.g. when editing an existing record). */
+  initialUrl?: string;
 }
 
 export function DocUploadZone({
@@ -26,10 +28,12 @@ export function DocUploadZone({
   className,
   onUploadSuccess,
   folderName = "dematerialization",
+  initialUrl,
 }: DocUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile]   = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [file, setFile]         = useState<File | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(initialUrl ?? null);
+  const [error, setError]       = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -50,6 +54,7 @@ export function DocUploadZone({
     try {
       const response = await GetPDFUrl(f, folderName);
       if (response?.type === "success") {
+        setUploadedUrl(response.result);
         if (onUploadSuccess) {
           onUploadSuccess(response.result);
         }
@@ -67,6 +72,7 @@ export function DocUploadZone({
 
   const clear = () => {
     setFile(null);
+    setUploadedUrl(null);
     setError(null);
     if (onUploadSuccess) onUploadSuccess("");
     if (inputRef.current) inputRef.current.value = "";
@@ -121,6 +127,18 @@ export function DocUploadZone({
             <p className="text-xs font-medium text-green-800 truncate">{file.name}</p>
             <p className="text-[10px] text-green-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
           </div>
+          {uploadedUrl && (
+            <a
+              href={uploadedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100"
+              aria-label="Preview uploaded file"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Preview
+            </a>
+          )}
           <button
             type="button"
             onClick={clear}

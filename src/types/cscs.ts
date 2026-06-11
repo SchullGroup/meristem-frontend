@@ -30,7 +30,6 @@ export interface ProcessedTransaction {
   balanceAfter: number;
   processedBy: string;
 }
-
 export interface TransactionBatch {
   batchRef: string;
   register: string;
@@ -233,6 +232,22 @@ export interface CertificateParams {
   toDate?: string;
 }
 
+/**
+ * Response returned by the CSCS inject endpoint.
+ * The batchRef is embedded inside `message` as:
+ *   "Processing Zip record with BatchRef: BATCH-CSCS-XXXXXXXX_XXXXXX"
+ * and must be extracted with a regex.
+ *
+ * Example:
+ *   { message: "Processing Zip record with BatchRef: BATCH-CSCS-20260610_123038", status: "ACCEPTED" }
+ */
+export interface CscsInjectJob {
+  /** Human-readable message — contains the batchRef */
+  message: string;
+  /** ACCEPTED = queued for background processing, FAILED = error */
+  status: "ACCEPTED" | "FAILED" | string;
+}
+
 export interface Holder {
   id: string;
   name: string;
@@ -242,9 +257,11 @@ export interface Holder {
   state: string;
   bank: string;
   bvnAccount: string;
+  accountNumber: string | null;
   phone: string;
   altPhone: string;
   nextOfKin: string;
+  units: number | null;
   dateOfBirth: string | null;
   registers: Array<{
     id: number;
@@ -274,7 +291,7 @@ export interface ReconciliationResponse {
   cscsTotalUnits: number; // int64
 }
 
-interface MrpslPosition {
+export interface MrpslPosition {
   createdAt: string;
   updatedAt: string;
   id: string;
@@ -295,7 +312,7 @@ interface MrpslPosition {
   status: string;
 }
 
-interface CscsPosition {
+export interface CscsPosition {
   createdAt: string;
   updatedAt: string;
   id: string;
