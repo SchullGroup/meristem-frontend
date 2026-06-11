@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Loader2,
   AlertCircle,
@@ -12,23 +12,23 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { TablePagination } from "@/components/custom/table-pagination";
-import { usePagination } from "@/lib/use-pagination";
 import { useGetMandatePaymentsReport } from "@/hooks/useDividendReport";
 import { formatNaira } from "@/lib/utils/format";
-import { ReportFilters as DividendReportFilters } from "@/actions/dividendReportActions";
+import { PaginatedReportFilters } from "@/actions/dividendReportActions";
 import { useExportDividendReport } from "@/hooks/useDividendReport";
 import { Badge } from "@/components/ui/badge";
 import { printMandatePaymentReport } from "@/lib/utils/printDividendReport";
 
 interface MandatePaymentReportProps {
-  filters: DividendReportFilters;
+  filters: PaginatedReportFilters;
   generated: boolean;
+  onTotalChange?: (total: number) => void;
 }
 
 export default function MandatePaymentReport({
   filters,
   generated,
+  onTotalChange,
 }: MandatePaymentReportProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -41,20 +41,14 @@ export default function MandatePaymentReport({
 
   const report = data?.data;
   const rows = report?.mandatePaymentRows ?? [];
+  const total = report?.totalElements ?? 0;
+
+  // Surface total to parent for PaginationBar
+  useEffect(() => {
+    if (total > 0) onTotalChange?.(total);
+  }, [total, onTotalChange]);
 
   const { mutateAsync: exportDividendReport } = useExportDividendReport();
-
-  const {
-    page,
-    pageSize,
-    totalPages,
-    paged,
-    from,
-    to,
-    total,
-    setPage,
-    setPageSize,
-  } = usePagination(rows);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -113,6 +107,10 @@ export default function MandatePaymentReport({
       </Card>
     );
   }
+
+  const pageSize = filters.size ?? 10;
+  const page = filters.page ?? 0;
+  const from = total === 0 ? 0 : page * pageSize + 1;
 
   return (
     <div className="space-y-4 animate-in fade-in">
@@ -183,7 +181,7 @@ export default function MandatePaymentReport({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {paged.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={9}
@@ -193,7 +191,7 @@ export default function MandatePaymentReport({
                   </td>
                 </tr>
               ) : (
-                paged.map((entry, i) => (
+                rows.map((entry, i) => (
                   <tr key={i} className="mrpsl-table-row">
                     <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
                       {from + i}
@@ -217,24 +215,12 @@ export default function MandatePaymentReport({
                       <Badge className="border-0 text-[12px] bg-amber-100 text-amber-800">
                         {entry?.status}
                       </Badge>
-                    </td>{" "}
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
-        </div>
-        <div className="px-4 py-3 border-t">
-          <TablePagination
-            page={page}
-            pageSize={pageSize}
-            totalPages={totalPages}
-            from={from}
-            to={to}
-            total={total}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
         </div>
       </Card>
     </div>

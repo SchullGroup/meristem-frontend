@@ -11,7 +11,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Demat, DematStatus } from "@/actions/certDematActions";
-import { TablePagination } from "../table-pagination";
 import { formatDate } from "@/lib/utils/format";
 import { PaginationBar } from "../pagination-bar";
 

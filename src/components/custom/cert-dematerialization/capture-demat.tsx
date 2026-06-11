@@ -33,7 +33,7 @@ export const CaptureDematerialization = ({
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
 }) => {
   const { data: activeRegisters } = useGetRegisters({
-    size: 100,
+    size: 1000,
     status: "ACTIVE",
   });
 

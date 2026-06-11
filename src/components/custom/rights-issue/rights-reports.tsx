@@ -506,7 +506,7 @@ export default function RightsIssueReports() {
                     <table className="w-full text-left text-[13px]">
                       <ShholderTableHead />
                       <tbody className="divide-y">
-                        <ShholderRows rows={paginatedRows as Shareholder[]} pageStart={reportStart} />
+                        <ShholderRows rows={paginatedRows as Shareholder[]} />
                       </tbody>
                       <ShholderTfoot
                         rows={paginatedRows as Shareholder[]}

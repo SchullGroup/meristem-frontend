@@ -11,9 +11,11 @@ import {
   ReconciliationFlaggedTransaction,
   ReconciliationResponse,
   ProcessedTransaction,
-  TransactionBatch
+  TransactionBatch,
+  CscsInjectJob,
+  CscsPosition,
 } from "@/types/cscs";
-import { ContentPaginatedResponse, PaginatedResponse } from "@/types";
+import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
 export const GET_CSCS_PROCESSED_LOGS = async (params?: {
   search?: string;
@@ -36,13 +38,23 @@ export const GET_CSCS_PROCESSED_LOGS = async (params?: {
   }
 };
 
-export const INJECT_CSCS_ZIP_FILE = async (data: FormData) => {
+export const INJECT_CSCS_ZIP_FILE = async (data: FormData): Promise<CscsInjectJob> => {
   try {
-    const res = await api.post<string>(`/cscs-ingestion/upload`, data, {
+    const res = await api.post<CscsInjectJob>(`/cscs-ingestion/upload`, data, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_CSCS_INJECT_JOB = async (batchRef: string): Promise<CscsInjectJob> => {
+  try {
+    const res = await api.get<CscsInjectJob>(`/cscs-ingestion/job/${batchRef}`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
@@ -226,8 +238,8 @@ export const LOOKUP_HOLDER_STATES = async (
 
 export const GET_CSCS_RECONCILIATIONS = async (params: {
   register: string;
-  from?: string;
-  to?: string;
+  startDate?: string;
+  endDate?: string;
   chn?: string;
   page?: number; // 0 indexed
   size?: number;
@@ -257,6 +269,41 @@ export const GET_CSCS_RECONCILIATION_FLAGGED_TRANSACTIONS = async (params?: {
       PaginatedResponse<ReconciliationFlaggedTransaction>
     >(`/cscs-reconciliation/reconcile-flagged-transactions`, {
       params,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+
+export const GET_CSCS_SHAREHOLDER_TRANSACTIONS = async (params?: {
+  chn?: string;
+  register?: string;
+}) => {
+  try {
+    const res = await api.get<
+      ApiResponse<unknown>
+    >(`/cscs/shareholder-transaction`, {
+      params,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const UPLOAD_CSCS_HISTORY = async (register: string, data: FormData) => {
+  try {
+    const res = await api.post<ApiResponse<CscsPosition[]>>(`/cscs/cscs-transaction-history`, data, {
+      params: {
+        register
+      },
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
     return res.data;
   } catch (error) {

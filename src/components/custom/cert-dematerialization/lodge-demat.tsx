@@ -12,12 +12,12 @@ import {
   DataErrorState,
 } from "@/components/custom/ipo/loaders";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { TablePagination } from "../table-pagination";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, UploadCloud } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PaginationBar } from "../pagination-bar";
 
 export default function LodgeDemat({ tab }: { tab: string }) {
   const [page, setPage] = useState(0);
@@ -298,15 +298,14 @@ export default function LodgeDemat({ tab }: { tab: string }) {
             </table>
           </Card>
 
-          <TablePagination
+          <PaginationBar
             page={page}
             pageSize={pageSize}
             total={data?.totalElements || 0}
             totalPages={data?.totalPages || 0}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
-            from={(page - 1) * pageSize + 1}
-            to={Math.min(page * pageSize, data?.totalElements || 0)}
+
           />
         </div>
       )}

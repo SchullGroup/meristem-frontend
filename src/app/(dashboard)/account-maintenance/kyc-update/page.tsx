@@ -14,122 +14,211 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import {
-  CheckCircle2,
   AlertTriangle,
-  FileText,
-  Info,
-  AlertCircle,
-  Pencil,
+  Search,
+  Loader2,
 } from "lucide-react";
 import { DocUploadZone } from "@/components/custom/doc-upload-zone";
-import { usePagination } from "@/lib/use-pagination";
-import { TablePagination } from "@/components/custom/table-pagination";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import {
+  ShareholderAccount,
+} from "@/types/account-maintenance";
+import {
+  useGetAccounts,
+  useCreateKycChange,
+} from "@/hooks/useAccountMaintenance";
+import { Agent, GET_AGENTS } from "@/actions/agentAction";
+import { useQuery } from "@tanstack/react-query";
+import { KYCBulkUpload } from "@/components/custom/account-maintenance/kyc-bulk-upload";
+import KYCHistory from "@/components/custom/account-maintenance/kyc-update-history";
+import PendingKYC from "@/components/custom/account-maintenance/kyc-pending";
+import { useDebounce } from "@/hooks/useDebounce";
+import StatusBadge from "@/components/custom/status-badge";
 
-type KYCChange = {
-  id: string;
-  date: string;
-  field: string;
-  oldValue: string;
-  newValue: string;
-  submittedBy: string;
-};
-type KYCHistory = {
-  id: string;
-  date: string;
-  field: string;
-  oldValue: string;
-  newValue: string;
-  changedBy: string;
-  authorisedBy: string;
-};
 
-const PENDING_KYC: KYCChange[] = [
-  {
-    id: "KC1",
-    date: "05 May 2026",
-    field: "Bank Account Number",
-    oldValue: "0123456789 (Zenith Bank)",
-    newValue: "0045612378 (GTBank)",
-    submittedBy: "Chidi Okafor",
-  },
-  {
-    id: "KC2",
-    date: "04 May 2026",
-    field: "Email Address",
-    oldValue: "adaeze@example.com",
-    newValue: "adaeze.okonkwo@gmail.com",
-    submittedBy: "Ngozi Eze",
-  },
-  {
-    id: "KC3",
-    date: "04 May 2026",
-    field: "Registered Address",
-    oldValue: "10 Broad Street, Lagos",
-    newValue: "22 Allen Avenue, Ikeja",
-    submittedBy: "Aisha Musa",
-  },
-];
+function getInitials(account: ShareholderAccount) {
+  const first = account?.firstName?.[0] ?? "";
+  const last = account?.lastName?.[0] ?? "";
+  return (first + last).toUpperCase() || "--";
+}
 
-const KYC_HISTORY: KYCHistory[] = [
-  {
-    id: "H1",
-    date: "28 Apr 2026",
-    field: "Phone Number",
-    oldValue: "08012345678",
-    newValue: "08098765432",
-    changedBy: "Chidi Okafor",
-    authorisedBy: "Aisha Musa",
-  },
-  {
-    id: "H2",
-    date: "22 Apr 2026",
-    field: "Bank Account Number",
-    oldValue: "1234567890 (GTBank)",
-    newValue: "0123456789 (Zenith Bank)",
-    changedBy: "Ngozi Eze",
-    authorisedBy: "Chidi Okafor",
-  },
-  {
-    id: "H3",
-    date: "15 Apr 2026",
-    field: "Shareholder Name",
-    oldValue: "Adaeze Okonkwo",
-    newValue: "Adaeze Okonkwo-Nwosu",
-    changedBy: "Aisha Musa",
-    authorisedBy: "Ngozi Eze",
-  },
-  {
-    id: "H4",
-    date: "08 Apr 2026",
-    field: "Registered Address",
-    oldValue: "5 Marina Street",
-    newValue: "10 Broad Street, Lagos",
-    changedBy: "Chidi Okafor",
-    authorisedBy: "Aisha Musa",
-  },
-];
-
-function fieldToTab(field: string): string {
-  if (["Bank Account Number", "Bank Name"].some((f) => field.includes(f)))
-    return "bank";
-  if (["Email", "Phone", "Address"].some((f) => field.includes(f)))
-    return "contact";
-  return "personal";
+function fullName(account: ShareholderAccount) {
+  return [account?.firstName, account?.otherNames, account?.lastName]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export default function KYCUpdatePage() {
-  const { registers, shareholders } = useStore();
-  const [mode, setMode] = useState("single");
-  const [accountLoaded, setAccountLoaded] = useState(false);
-  const [innerTab, setInnerTab] = useState("personal");
-  const [rejectedChangeIds, setRejectedChangeIds] = useState<string[]>([]);
+  const currentUser = useStore((s) => s.currentUser);
 
-  const kycPg = usePagination(PENDING_KYC);
-  const kycHistoryPg = usePagination(KYC_HISTORY);
+  // ── Registers ──
+  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({
+    size: 100,
+    status: "ACTIVE",
+  });
+
+  // ── UI state ──
+  const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [innerTab, setInnerTab] = useState("personal");
+  const [selectedRegister, setSelectedRegister] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedShareholder, setSelectedShareholder] =
+    useState<ShareholderAccount | null>(null);
+  const [supportingDocUrl, setSupportingDocUrl] = useState("");
+
+
+
+  // ── Form field state ──
+  const [newName, setNewName] = useState("");
+  const [nameChangeType, setNameChangeType] = useState("");
+  const [newHolderType, setNewHolderType] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newAddress, setNewAddress] = useState("");
+  const [newBank, setNewBank] = useState("");
+  const [newAccountNumber, setNewAccountNumber] = useState("");
+
+  // ── Account search ──
+  const debouncedSearch = useDebounce(searchTerm, 500);
+  const {
+    data: accountsResponse,
+    isFetching: isSearchingAccounts,
+  } = useGetAccounts(
+    { q: debouncedSearch, registerId: selectedRegister !== "" ? selectedRegister : undefined },
+    { enabled: debouncedSearch.length > 2 }
+  );
+  const searchResults = accountsResponse?.data?.data ?? [];
+
+  // ── Banks ──
+  const { data: agents, isLoading: isLoadingBanks } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => GET_AGENTS({ type: "BANK", size: 100 }),
+  });
+
+  const bankList = agents?.data?.content || [];
+
+
+  // ── KYC submit mutation ──
+  const createKycMutation = useCreateKycChange({
+    onSuccess: () => {
+      toast.success("KYC change submitted for approval");
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleSubmitPersonal = () => {
+    if (!selectedShareholder || !currentUser) return;
+    const changes: { field: string; newValue: string }[] = [];
+    if (newName) changes.push({ field: "holderName", newValue: newName });
+    if (newHolderType) changes.push({ field: "holderType", newValue: newHolderType });
+    if (!changes.length) { toast.error("No changes entered"); return; }
+    createKycMutation.mutate(
+      {
+        accountNumber: selectedShareholder.accountNumber,
+        data: {
+          changeType: "PERSONAL",
+          changes,
+          supportingDocUrl,
+          initiatedBy: currentUser.email,
+        },
+      },
+      {
+        onSuccess: () => {
+          // Optimistic update — reflect submitted values immediately
+          setSelectedShareholder((prev) =>
+            prev
+              ? {
+                ...prev,
+                ...(newName ? { firstName: newName, lastName: "", holderName: newName } : {}),
+                ...(newHolderType ? { holderType: newHolderType } : {}),
+              }
+              : prev,
+          );
+          setNewName("");
+          setNewHolderType("");
+        },
+      },
+    );
+  };
+
+  const handleSubmitContact = () => {
+    if (!selectedShareholder || !currentUser) return;
+    const changes: { field: string; newValue: string }[] = [];
+    if (newEmail) changes.push({ field: "email", newValue: newEmail });
+    if (newPhone) changes.push({ field: "phone", newValue: newPhone });
+    if (newAddress) changes.push({ field: "address", newValue: newAddress });
+    if (!changes.length) { toast.error("No changes entered"); return; }
+    createKycMutation.mutate(
+      {
+        accountNumber: selectedShareholder.accountNumber,
+        data: {
+          changeType: "CONTACT",
+          changes,
+          supportingDocUrl,
+          initiatedBy: currentUser.email,
+        },
+      },
+      {
+        onSuccess: () => {
+          // Optimistic update — reflect submitted values immediately
+          setSelectedShareholder((prev) =>
+            prev
+              ? {
+                ...prev,
+                ...(newEmail ? { email: newEmail } : {}),
+                ...(newPhone ? { phone: newPhone } : {}),
+                ...(newAddress ? { address: newAddress } : {}),
+              }
+              : prev,
+          );
+          setNewEmail("");
+          setNewPhone("");
+          setNewAddress("");
+        },
+      },
+    );
+  };
+
+  const handleSubmitBank = () => {
+    if (!selectedShareholder || !currentUser) return;
+    const changes: { field: string; newValue: string }[] = [];
+    if (newBank) changes.push({ field: "bankName", newValue: newBank });
+    if (newAccountNumber) changes.push({ field: "bankAccountNumber", newValue: newAccountNumber });
+    if (!changes.length) { toast.error("No changes entered"); return; }
+    createKycMutation.mutate(
+      {
+        accountNumber: selectedShareholder.accountNumber,
+        data: {
+          changeType: "BANK",
+          changes,
+          supportingDocUrl,
+          initiatedBy: currentUser.email,
+        },
+      },
+      {
+        onSuccess: () => {
+          // Optimistic update — reflect submitted values immediately
+          setSelectedShareholder((prev) =>
+            prev
+              ? {
+                ...prev,
+                ...(newBank ? { bankName: newBank } : {}),
+                ...(newAccountNumber ? { bankAccountNumber: newAccountNumber } : {}),
+              }
+              : prev,
+          );
+          setNewBank("");
+          setNewAccountNumber("");
+        },
+      },
+    );
+  };
+
+
+
 
   return (
     <div className="space-y-6">
@@ -143,19 +232,32 @@ export default function KYCUpdatePage() {
         </div>
       </div>
 
-      <div className="flex gap-4 mb-4">
-        <Select>
+      {/* ── Top bar ── */}
+      <div className="flex gap-4 mb-4 flex-wrap">
+        <Select
+          value={selectedRegister}
+          onValueChange={(v) => setSelectedRegister(v || "")}
+        >
           <SelectTrigger className="w-64 mrpsl-input">
             <SelectValue placeholder="All Registers" />
           </SelectTrigger>
           <SelectContent>
-            {registers.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.symbol}
+            <SelectItem value={""}>
+              All Registers
+            </SelectItem>
+            {activeRegisters?.content.map((r) => (
+              <SelectItem key={r.registerId} value={r.symbol}>
+                {r.registerName} {r.symbol}
               </SelectItem>
             ))}
+            {registersLoading && (
+              <SelectItem value="_loading" disabled>
+                Loading registers…
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
+
         <div className="border rounded-md flex p-1 bg-muted/20">
           <Button
             variant={mode === "single" ? "secondary" : "ghost"}
@@ -172,113 +274,150 @@ export default function KYCUpdatePage() {
             Bulk Upload
           </Button>
         </div>
+
         {mode === "single" && (
-          <div className="flex gap-2 flex-1">
-            <Input placeholder="Account No or CHN" className="mrpsl-input" />
-            <Button onClick={() => setAccountLoaded(true)}>Find Account</Button>
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              type="search"
+              className="mrpsl-input pl-9"
+              placeholder="Search by account no, name or CHN…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {/* Search dropdown */}
+            {debouncedSearch.length > 0 && (
+              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-xl shadow-lg overflow-hidden">
+                {isSearchingAccounts ? (
+                  <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-muted-foreground">
+                    No accounts found
+                  </div>
+                ) : (
+                  <div className="max-h-[250px] overflow-y-auto">
+                    {searchResults.map((acc) => (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        className="w-full text-left px-4 py-2.5 hover:bg-muted/40 transition-colors border-b last:border-0"
+                        onClick={() => {
+                          setSelectedShareholder(acc);
+                          setSearchTerm("");
+                          setInnerTab("personal");
+                        }}
+                      >
+                        <p className="text-sm font-medium">{fullName(acc)}</p>
+                        <p className="text-[12px] text-muted-foreground font-mono">
+                          {acc.accountNumber} · {acc.registerSymbol}
+                        </p>
+                      </button>
+                    ))
+                    }
+                  </div>)}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {mode === "single" && accountLoaded && (
+      {/* ── Single mode: account card + tabs ── */}
+      {mode === "single" && selectedShareholder && (
         <div className="space-y-6 animate-in fade-in">
-          <Card className="mrpsl-card p-4 flex items-center gap-6">
-            <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
-              <span className="text-primary font-bold text-2xl font-mono">
-                AO
-              </span>
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold">Adaeze Okonkwo</h2>
-                <Badge variant="outline" className="font-mono text-[13px]">
-                  DANGCEM-10029
-                </Badge>
-                <Badge className="bg-green-100 text-green-800">ACTIVE</Badge>
+          {/* Account card */}
+          {selectedShareholder ? (
+            <Card className="mrpsl-card p-4 flex items-center gap-6">
+              <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
+                <span className="text-primary font-bold text-2xl font-mono">
+                  {getInitials(selectedShareholder)}
+                </span>
               </div>
-              <div className="flex gap-4 mt-3">
-                <div className="text-[13px]">
-                  <span className="text-muted-foreground">Holdings:</span>{" "}
-                  <span className="font-mono font-bold text-sm">450,000</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-xl font-bold">{fullName(selectedShareholder)}</h2>
+                  <Badge variant="outline" className="font-mono text-[13px]">
+                    {selectedShareholder.accountNumber}
+                  </Badge>
+                  <StatusBadge status={selectedShareholder?.status} />
                 </div>
-                <div className="text-[13px]">
-                  <span className="text-muted-foreground">Bank:</span>{" "}
-                  <span className="font-medium">Zenith Bank</span>
-                </div>
-                <div className="text-[13px]">
-                  <span className="text-muted-foreground">CHN:</span>{" "}
-                  <span className="font-mono">C00001029EL</span>
-                </div>
-                <div className="text-[13px]">
-                  <span className="text-muted-foreground">BVN:</span>{" "}
-                  <span className="font-mono">***1234</span>
+                <div className="flex gap-4 mt-3 flex-wrap">
+                  <div className="text-[13px]">
+                    <span className="text-muted-foreground">Holdings:</span>{" "}
+                    <span className="font-mono font-bold text-sm">
+                      {selectedShareholder.holdings?.toLocaleString()}
+                    </span>
+                  </div>
+                  {selectedShareholder.bankName && (
+                    <div className="text-[13px]">
+                      <span className="text-muted-foreground">Bank:</span>{" "}
+                      <span className="font-medium">{selectedShareholder.bankName}</span>
+                    </div>
+                  )}
+                  {selectedShareholder.chn && (
+                    <div className="text-[13px]">
+                      <span className="text-muted-foreground">CHN:</span>{" "}
+                      <span className="font-mono">{selectedShareholder.chn}</span>
+                    </div>
+                  )}
+                  {selectedShareholder.bvn && (
+                    <div className="text-[13px]">
+                      <span className="text-muted-foreground">BVN:</span>{" "}
+                      <span className="font-mono">
+                        ***{selectedShareholder.bvn.slice(-4)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          ) : null}
 
+          {/* Tabs */}
           <Tabs
             value={innerTab}
             onValueChange={(v) => setInnerTab(v || "personal")}
             className="w-full"
           >
             <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
-              <TabsTrigger
-                value="personal"
-                className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-              >
-                Personal Info
-              </TabsTrigger>
-              <TabsTrigger
-                value="contact"
-                className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-              >
-                Contact Info
-              </TabsTrigger>
-              <TabsTrigger
-                value="bank"
-                className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-              >
-                Bank Details
-              </TabsTrigger>
-              <TabsTrigger
-                value="pending"
-                className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-              >
-                Pending Changes
-              </TabsTrigger>
-              <TabsTrigger
-                value="history"
-                className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-              >
-                Audit History
-              </TabsTrigger>
+              {[
+                { value: "personal", label: "Personal Info" },
+                { value: "contact", label: "Contact Info" },
+                { value: "bank", label: "Bank Details" },
+                { value: "pending", label: "Pending Changes" },
+                { value: "history", label: "Audit History" },
+              ].map((t) => (
+                <TabsTrigger
+                  key={t.value}
+                  value={t.value}
+                  className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+                >
+                  {t.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
 
             <div className="mt-6">
+              {/* ── Personal ── */}
               <TabsContent value="personal">
                 <Card className="mrpsl-card p-6 space-y-6">
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 font-semibold text-sm border-b pb-2">
-                    <div className="text-muted-foreground uppercase text-[13px]">
-                      Field
-                    </div>
-                    <div className="text-muted-foreground uppercase text-[13px]">
-                      Current Value
-                    </div>
-                    <div className="text-primary uppercase text-[13px]">
-                      New Value
-                    </div>
+                    <div className="text-muted-foreground uppercase text-[13px]">Field</div>
+                    <div className="text-muted-foreground uppercase text-[13px]">Current Value</div>
+                    <div className="text-primary uppercase text-[13px]">New Value</div>
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
-                    <span className="text-sm font-medium">
-                      Shareholder Name
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      Adaeze Okonkwo
-                    </span>
+                    <span className="text-sm font-medium">Shareholder Name</span>
+                    <span className="text-sm text-muted-foreground">{fullName(selectedShareholder)}</span>
                     <div className="flex gap-2">
-                      <Input className="mrpsl-input" placeholder="New name" />
-                      <Select>
+                      <Input
+                        className="mrpsl-input"
+                        placeholder="New name"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                      />
+                      <Select value={nameChangeType} onValueChange={(value) => setNameChangeType(value || "")}>
                         <SelectTrigger className="w-32">
                           <SelectValue placeholder="Type" />
                         </SelectTrigger>
@@ -291,15 +430,15 @@ export default function KYCUpdatePage() {
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Holder Type</span>
-                    <span className="text-sm text-muted-foreground">
-                      INDIVIDUAL
-                    </span>
-                    <Select>
+                    <span className="text-sm text-muted-foreground">{selectedShareholder?.holderType}</span>
+                    <Select value={newHolderType} onValueChange={(value) => setNewHolderType(value || "")}>
                       <SelectTrigger className="mrpsl-input">
-                        <SelectValue placeholder="INDIVIDUAL" />
+                        <SelectValue placeholder={selectedShareholder?.holderType ?? "Select"} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="INDIVIDUAL">INDIVIDUAL</SelectItem>
+                        <SelectItem value="CORPORATE">CORPORATE</SelectItem>
+                        <SelectItem value="JOINT">JOINT</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -308,116 +447,121 @@ export default function KYCUpdatePage() {
                       label="Supporting Document"
                       fileTypes={["PDF", "JPG", "PNG"]}
                       maxSizeMB={10}
+                      onUploadSuccess={(url) => setSupportingDocUrl(url)}
                     />
                   </div>
                   <div className="flex justify-end pt-4">
                     <Button
-                      onClick={() => toast.success("Submitted for approval")}
+                      onClick={handleSubmitPersonal}
+                      disabled={createKycMutation.isPending}
                     >
+                      {createKycMutation.isPending && (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      )}
                       Submit Changes for Approval
                     </Button>
                   </div>
                 </Card>
               </TabsContent>
 
+              {/* ── Contact ── */}
               <TabsContent value="contact">
                 <Card className="mrpsl-card p-6 space-y-6">
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 font-semibold text-sm border-b pb-2">
-                    <div className="text-muted-foreground uppercase text-[13px]">
-                      Field
-                    </div>
-                    <div className="text-muted-foreground uppercase text-[13px]">
-                      Current Value
-                    </div>
-                    <div className="text-primary uppercase text-[13px]">
-                      New Value
-                    </div>
+                    <div className="text-muted-foreground uppercase text-[13px]">Field</div>
+                    <div className="text-muted-foreground uppercase text-[13px]">Current Value</div>
+                    <div className="text-primary uppercase text-[13px]">New Value</div>
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Email Address</span>
-                    <span className="text-sm text-muted-foreground">
-                      adaeze@example.com
-                    </span>
+                    <span className="text-sm text-muted-foreground">{selectedShareholder?.email}</span>
                     <Input
                       className="mrpsl-input"
-                      placeholder="adaeze@example.com"
+                      placeholder="New email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
                     />
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Phone Number</span>
-                    <span className="text-sm text-muted-foreground">
-                      08012345678
-                    </span>
-                    <Input className="mrpsl-input" placeholder="08012345678" />
+                    <span className="text-sm text-muted-foreground">{selectedShareholder?.phone}</span>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="New phone"
+                      value={newPhone}
+                      onChange={(e) => setNewPhone(e.target.value)}
+                    />
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-start">
-                    <span className="text-sm font-medium mt-2">
-                      Registered Address *
-                    </span>
-                    <span className="text-sm text-muted-foreground mt-2">
-                      10 Broad Street, Lagos
-                    </span>
+                    <span className="text-sm font-medium mt-2">Registered Address *</span>
+                    <span className="text-sm text-muted-foreground mt-2">{selectedShareholder?.address}</span>
                     <Textarea
                       className="mrpsl-input"
-                      placeholder="10 Broad Street, Lagos"
+                      placeholder="New address"
+                      value={newAddress}
+                      onChange={(e) => setNewAddress(e.target.value)}
                     />
                   </div>
                   <div className="flex justify-end pt-4">
                     <Button
-                      onClick={() => toast.success("Submitted for approval")}
+                      onClick={handleSubmitContact}
+                      disabled={createKycMutation.isPending}
                     >
+                      {createKycMutation.isPending && (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      )}
                       Submit Changes for Approval
                     </Button>
                   </div>
                 </Card>
               </TabsContent>
 
+              {/* ── Bank ── */}
               <TabsContent value="bank">
                 <div className="border-l-4 border-amber-400 bg-amber-50 p-4 rounded-r-md flex gap-3 mb-6">
                   <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-800">
-                    Updating bank details will automatically queue all
-                    outstanding dividend warrants for this account in New
-                    Mandate Payment Processing.
+                    Updating bank details will automatically queue all outstanding
+                    dividend warrants for this account in New Mandate Payment
+                    Processing.
                   </p>
                 </div>
                 <Card className="mrpsl-card p-6 space-y-6">
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 font-semibold text-sm border-b pb-2">
-                    <div className="text-muted-foreground uppercase text-[13px]">
-                      Field
-                    </div>
-                    <div className="text-muted-foreground uppercase text-[13px]">
-                      Current Value
-                    </div>
-                    <div className="text-primary uppercase text-[13px]">
-                      New Value
-                    </div>
+                    <div className="text-muted-foreground uppercase text-[13px]">Field</div>
+                    <div className="text-muted-foreground uppercase text-[13px]">Current Value</div>
+                    <div className="text-primary uppercase text-[13px]">New Value</div>
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Bank Name</span>
-                    <span className="text-sm text-muted-foreground">
-                      Zenith Bank
-                    </span>
-                    <Select>
+                    <span className="text-sm text-muted-foreground">{selectedShareholder?.bankName}</span>
+                    <Select value={newBank} onValueChange={(value) => setNewBank(value || "")}>
                       <SelectTrigger className="mrpsl-input">
                         <SelectValue placeholder="Select Bank" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="GTB">GTBank</SelectItem>
+                        {isLoadingBanks && (
+                          <SelectItem value="_loading" disabled>Loading banks…</SelectItem>
+                        )}
+                        {bankList.map((b: Agent) => (
+                          <SelectItem key={b.id} value={b.name}>
+                            {b.name} · {b.code}
+                          </SelectItem>))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Account Number</span>
                     <span className="text-sm text-muted-foreground font-mono">
-                      0123456789
+                      {selectedShareholder?.bankAccountNumber}
                     </span>
-                    <div className="flex gap-2">
-                      <Input
-                        className="mrpsl-input font-mono"
-                        placeholder="10 digits"
-                      />
-                      <Button
+                    <Input
+                      className="mrpsl-input font-mono"
+                      placeholder="10 digits"
+                      value={newAccountNumber}
+                      onChange={(e) => setNewAccountNumber(e.target.value)}
+                    />
+                    {/* <Button
                         variant="outline"
                         onClick={() =>
                           toast.success(
@@ -426,239 +570,51 @@ export default function KYCUpdatePage() {
                         }
                       >
                         Validate
-                      </Button>
-                    </div>
+                      </Button> */}
                   </div>
                   <div className="flex justify-end pt-4">
                     <Button
-                      onClick={() => toast.success("Submitted for approval")}
+                      onClick={handleSubmitBank}
+                      disabled={createKycMutation.isPending}
                     >
+                      {createKycMutation.isPending && (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      )}
                       Submit Changes for Approval
                     </Button>
                   </div>
                 </Card>
               </TabsContent>
 
+              {/* ── Pending Changes ── */}
               <TabsContent value="pending" className="space-y-4">
-                {rejectedChangeIds.length > 0 && (
-                  <Card className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                      <div className="flex-1 space-y-2">
-                        <p className="text-sm font-semibold text-red-800">
-                          {rejectedChangeIds.length === 1
-                            ? "Change Rejected"
-                            : `${rejectedChangeIds.length} Changes Rejected`}
-                        </p>
-                        <p className="text-[13px] text-red-700">
-                          The following changes have been rejected. Edit and
-                          resubmit each one.
-                        </p>
-                        <div className="space-y-1.5">
-                          {PENDING_KYC.filter((r) =>
-                            rejectedChangeIds.includes(r.id),
-                          ).map((rec) => (
-                            <div
-                              key={rec.id}
-                              className="flex items-center gap-3 text-[13px]"
-                            >
-                              <span className="font-medium text-red-800">
-                                {rec.field}
-                              </span>
-                              <span className="text-red-600 font-mono">
-                                {rec.oldValue} → {rec.newValue}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="ml-auto border-red-300 text-red-700 hover:bg-red-100 gap-1.5 h-7 text-[12px]"
-                                onClick={() => {
-                                  setInnerTab(fieldToTab(rec.field));
-                                  setRejectedChangeIds((ids) =>
-                                    ids.filter((id) => id !== rec.id),
-                                  );
-                                }}
-                              >
-                                <Pencil className="h-3 w-3" /> Edit &amp;
-                                Resubmit
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                )}
-                <Card className="mrpsl-card overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="mrpsl-table-header">
-                      <tr>
-                        <th className="p-3">DATE</th>
-                        <th className="p-3">FIELD CHANGED</th>
-                        <th className="p-3">CURRENT VALUE</th>
-                        <th className="p-3">PROPOSED VALUE</th>
-                        <th className="p-3">SUBMITTED BY</th>
-                        <th className="p-3">STATUS</th>
-                        <th className="p-3">ACTIONS</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-[13px]">
-                      {kycPg.paged.map((row) => {
-                        const isRejected = rejectedChangeIds.includes(row.id);
-                        return (
-                          <tr key={row.id} className="mrpsl-table-row">
-                            <td className="p-3 text-muted-foreground">
-                              {row.date}
-                            </td>
-                            <td className="p-3 font-medium">{row.field}</td>
-                            <td className="p-3 text-muted-foreground font-mono">
-                              {row.oldValue}
-                            </td>
-                            <td className="p-3 font-mono text-primary font-semibold">
-                              {row.newValue}
-                            </td>
-                            <td className="p-3 text-muted-foreground">
-                              {row.submittedBy}
-                            </td>
-                            <td className="p-3">
-                              {isRejected ? (
-                                <Badge className="bg-red-100 text-red-700 border-0 text-[12px]">
-                                  Rejected
-                                </Badge>
-                              ) : (
-                                <Badge className="bg-amber-100 text-amber-800 border-0 text-[12px]">
-                                  Pending
-                                </Badge>
-                              )}
-                            </td>
-                            <td className="p-3 text-right space-x-2">
-                              {!isRejected && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-red-600"
-                                    onClick={() => {
-                                      setRejectedChangeIds((ids) => [
-                                        ...ids,
-                                        row.id,
-                                      ]);
-                                      toast.error("Change rejected.");
-                                    }}
-                                  >
-                                    Reject
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() =>
-                                      toast.success("Change approved.")
-                                    }
-                                  >
-                                    Approve
-                                  </Button>
-                                </>
-                              )}
-                              {isRejected && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-red-700 border-red-300"
-                                  onClick={() => {
-                                    setInnerTab(fieldToTab(row.field));
-                                    setRejectedChangeIds((ids) =>
-                                      ids.filter((id) => id !== row.id),
-                                    );
-                                  }}
-                                >
-                                  <Pencil className="h-3 w-3" /> Edit
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </Card>
-                <TablePagination
-                  page={kycPg.page}
-                  pageSize={kycPg.pageSize}
-                  totalPages={kycPg.totalPages}
-                  from={kycPg.from}
-                  to={kycPg.to}
-                  total={kycPg.total}
-                  onPageChange={kycPg.setPage}
-                  onPageSizeChange={kycPg.setPageSize}
-                />
+                <PendingKYC tab="pending" setTab={setInnerTab} selectedShareholder={selectedShareholder} />
               </TabsContent>
 
-              <TabsContent value="history">
-                <Card className="mrpsl-card overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="mrpsl-table-header">
-                      <tr>
-                        <th className="p-3">DATE</th>
-                        <th className="p-3">FIELD CHANGED</th>
-                        <th className="p-3">OLD VALUE</th>
-                        <th className="p-3">NEW VALUE</th>
-                        <th className="p-3">CHANGED BY</th>
-                        <th className="p-3">AUTHORISED BY</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-[13px]">
-                      {kycHistoryPg.paged.map((row) => (
-                        <tr key={row.id} className="mrpsl-table-row">
-                          <td className="p-3 text-muted-foreground">
-                            {row.date}
-                          </td>
-                          <td className="p-3 font-medium">{row.field}</td>
-                          <td className="p-3 text-muted-foreground font-mono">
-                            {row.oldValue}
-                          </td>
-                          <td className="p-3 font-mono text-primary">
-                            {row.newValue}
-                          </td>
-                          <td className="p-3 text-muted-foreground">
-                            {row.changedBy}
-                          </td>
-                          <td className="p-3 text-muted-foreground">
-                            {row.authorisedBy}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Card>
-                <TablePagination
-                  page={kycHistoryPg.page}
-                  pageSize={kycHistoryPg.pageSize}
-                  totalPages={kycHistoryPg.totalPages}
-                  from={kycHistoryPg.from}
-                  to={kycHistoryPg.to}
-                  total={kycHistoryPg.total}
-                  onPageChange={kycHistoryPg.setPage}
-                  onPageSizeChange={kycHistoryPg.setPageSize}
-                />
+              {/* ── Audit History ── */}
+              <TabsContent value="history" className="space-y-4">
+                <KYCHistory tab="history" selectedShareholder={selectedShareholder} />
               </TabsContent>
             </div>
           </Tabs>
         </div>
       )}
 
-      {mode === "bulk" && (
-        <Card className="mrpsl-card p-12 text-center">
-          <Button variant="outline" className="mb-6">
-            <FileText className="mr-2 h-4 w-4" /> Download Template
-          </Button>
-          <div className="max-w-xl mx-auto">
-            <DocUploadZone
-              label="Bulk KYC Changes"
-              fileTypes={["CSV"]}
-              maxSizeMB={20}
-            />
-          </div>
+      {/* ── Placeholder when no account selected yet ── */}
+      {mode === "single" && !selectedShareholder && (
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center gap-3">
+          <Search className="h-10 w-10 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">
+            Search for a shareholder above to load their account details
+          </p>
         </Card>
       )}
+
+      {/* ── Bulk upload ── */}
+      {mode === "bulk" && (
+        <KYCBulkUpload registerId={selectedRegister} />
+      )}
+
     </div>
   );
 }

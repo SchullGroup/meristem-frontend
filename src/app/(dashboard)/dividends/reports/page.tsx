@@ -26,6 +26,7 @@ import { DateRangePicker } from "@/components/custom/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { getDividendNumbers } from "@/actions/dividendReportActions";
+import { PaginationBar } from "@/components/custom/pagination-bar";
 const REPORT_TYPES = [
   "Dividend Liability Register",
   "WHT Deduction Report",
@@ -46,6 +47,9 @@ export default function DividendReportsPage() {
     undefined,
   );
   const [reportGenerated, setReportGenerated] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   // Active registers for the Register filter
   const { data: activeRegisters } = useGetRegisters({
@@ -68,9 +72,13 @@ export default function DividendReportsPage() {
     dateTo: reportDateRange?.to
       ? format(reportDateRange.to, "yyyy-MM-dd")
       : undefined,
+    size: pageSize,
+    page: page
   };
 
   function handleRunReport() {
+    setPage(0);
+    setTotal(0);
     setReportGenerated(true);
     toast.success(`${selectedReport} generated.`);
   }
@@ -78,7 +86,11 @@ export default function DividendReportsPage() {
   function handleReportTypeChange(r: ReportType) {
     setSelectedReport(r);
     setReportGenerated(false);
+    setPage(0);
+    setTotal(0);
   }
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
     <div className="space-y-6">
       <div>
@@ -124,6 +136,8 @@ export default function DividendReportsPage() {
               onValueChange={(v) => {
                 setReportRegister(v ?? "");
                 setReportGenerated(false);
+                setPage(0);
+                setTotal(0);
               }}
             >
               <SelectTrigger className="mrpsl-input">
@@ -148,6 +162,8 @@ export default function DividendReportsPage() {
               onValueChange={(v) => {
                 setReportDividend(v ?? "");
                 setReportGenerated(false);
+                setPage(0);
+                setTotal(0);
               }}
             >
               <SelectTrigger className="mrpsl-input">
@@ -203,40 +219,56 @@ export default function DividendReportsPage() {
         <LiabilityRegisterReport
           filters={sharedFilters}
           generated={reportGenerated}
+          onTotalChange={setTotal}
         />
       )}
       {reportGenerated && selectedReport === "WHT Deduction Report" && (
         <WhtDeductionReport
           filters={sharedFilters}
           generated={reportGenerated}
+          onTotalChange={setTotal}
         />
       )}
       {reportGenerated && selectedReport === "Payment Status Report" && (
         <PaymentStatusReport
           filters={sharedFilters}
           generated={reportGenerated}
+          onTotalChange={setTotal}
         />
       )}
       {reportGenerated && selectedReport === "Unclaimed Dividends Report" && (
         <UnclaimedDividendsReport
           filters={sharedFilters}
           generated={reportGenerated}
+          onTotalChange={setTotal}
         />
       )}
       {reportGenerated && selectedReport === "Declaration Summary" && (
         <DeclarationSummaryReport
-          filters={{
-            registerId: sharedFilters.registerId,
-            dateFrom: sharedFilters.dateFrom,
-            dateTo: sharedFilters.dateTo,
-          }}
+          filters={sharedFilters}
           generated={reportGenerated}
+          onTotalChange={setTotal}
         />
       )}
       {reportGenerated && selectedReport === "Mandate Payment Report" && (
         <MandatePaymentReport
           filters={sharedFilters}
           generated={reportGenerated}
+          onTotalChange={setTotal}
+        />
+      )}
+
+      {reportGenerated && (
+        <PaginationBar
+          page={page}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          total={total}
+          onPageChange={(p) => setPage(p)}
+          onPageSizeChange={(ps) => {
+            setPageSize(ps);
+            setPage(0);
+          }}
         />
       )}
     </div>

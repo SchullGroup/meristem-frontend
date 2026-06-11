@@ -22,8 +22,8 @@ import {
   BatchRejectSplits,
   DividendSplit,
 } from "@/actions/dividendSplitActions";
-import { TablePagination } from "../table-pagination";
 import { SplitReviewDialog } from "./split-review-dialog";
+import { PaginationBar } from "../pagination-bar";
 
 export function PendingSplitsTable() {
   const { currentUser } = useStore();
@@ -98,8 +98,7 @@ export function PendingSplitsTable() {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.success(
-              `${selectedIds.size} split${
-                selectedIds.size !== 1 ? "s" : ""
+              `${selectedIds.size} split${selectedIds.size !== 1 ? "s" : ""
               } approved successfully.`,
             );
             setSelectedIds(new Set());
@@ -137,8 +136,7 @@ export function PendingSplitsTable() {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.error(
-              `${selectedIds.size} split${
-                selectedIds.size !== 1 ? "s" : ""
+              `${selectedIds.size} split${selectedIds.size !== 1 ? "s" : ""
               } rejected.`,
             );
             setSelectedIds(new Set());
@@ -157,9 +155,6 @@ export function PendingSplitsTable() {
       },
     );
   }
-
-  const from = totalElements === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, totalElements);
 
   return (
     <>
@@ -277,18 +272,13 @@ export function PendingSplitsTable() {
           </tbody>
         </table>
       </Card>
-      <TablePagination
+      <PaginationBar
         page={page}
         pageSize={pageSize}
         totalPages={totalPages}
-        from={from}
-        to={to}
         total={totalElements}
         onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-        }}
+        onPageSizeChange={setPageSize}
       />
 
       <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
