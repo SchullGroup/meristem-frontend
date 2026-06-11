@@ -3,6 +3,7 @@ import {
   useMutation,
   useQueryClient,
   UseQueryOptions,
+  UseMutationOptions,
 } from "@tanstack/react-query";
 
 import {
@@ -18,6 +19,9 @@ import {
   GET_CSCS_RECONCILIATION_FLAGGED_TRANSACTIONS,
   GET_CSCS_RECONCILIATIONS,
   GET_CSCS_TRANSACTION_LOG_BATCHES,
+  GET_CSCS_INJECT_JOB,
+  GET_CSCS_SHAREHOLDER_TRANSACTIONS,
+  UPLOAD_CSCS_HISTORY,
 } from "@/actions/cscsActions";
 import {
   ProcessedLogsResponse,
@@ -27,8 +31,10 @@ import {
   ReconciliationFlaggedTransaction,
   ReconciliationResponse,
   TransactionBatch,
+  CscsInjectJob,
+  CscsPosition,
 } from "@/types/cscs";
-import { ContentPaginatedResponse, PaginatedResponse } from "@/types";
+import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
 export const useGetCscsProcessedLogs = (
   params?: {
@@ -177,12 +183,34 @@ export const useInjectCscsFile = () => {
   });
 };
 
+/**
+ * Poll the CSCS inject background job status.
+ * Enable only when a batchRef is available and the job is not yet done.
+ * The caller controls polling interval via `refetchInterval` in options.
+ */
+export const useGetCscsInjectJob = (
+  batchRef: string | null,
+  options?: Omit<
+    UseQueryOptions<CscsInjectJob, Error, CscsInjectJob>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["cscs-inject-job", batchRef],
+    queryFn: () => GET_CSCS_INJECT_JOB(batchRef!),
+    enabled: !!batchRef,
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
 export const useGetHolders = (
   params?: {
     name?: string;
     email?: string;
     chn?: string;
     registerId?: string;
+    batchRef?: string;
     page?: number;
     size?: number;
   },
@@ -218,8 +246,8 @@ export const useUpdateHolderStates = () => {
 export const useGetReconciliations = (
   params: {
     register: string;
-    from?: string;
-    to?: string;
+    startDate?: string;
+    endDate?: string;
     chn?: string;
     page?: number; // 0 indexed
     size?: number;
@@ -261,5 +289,47 @@ export const useReconciliationFlaggedTransactions = (
     queryFn: () => GET_CSCS_RECONCILIATION_FLAGGED_TRANSACTIONS(params),
     refetchOnWindowFocus: false,
     ...options,
+  });
+};
+
+export const useGetCscsShareholderTransactions = (
+  params?: {
+    chn?: string;
+    register?: string;
+  },
+  options?: Omit<
+    UseQueryOptions<
+      ApiResponse<unknown>,
+      Error,
+      ApiResponse<unknown>["data"]
+    >,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["shareholder-transactions", params],
+    queryFn: () => GET_CSCS_SHAREHOLDER_TRANSACTIONS(params),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+
+export const useUploadCscsHistory = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<CscsPosition[]>,
+      Error,
+      { register: string, data: FormData }
+    >,
+    "mutationFn"
+  >,
+) => {
+
+  return useMutation({
+    mutationFn: ({ register, data }: { register: string, data: FormData }) =>
+      UPLOAD_CSCS_HISTORY(register, data),
+
+    ...options
   });
 };

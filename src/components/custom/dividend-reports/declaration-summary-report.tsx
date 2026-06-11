@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Loader2,
   AlertCircle,
@@ -12,22 +12,24 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { TablePagination } from "@/components/custom/table-pagination";
-import { usePagination } from "@/lib/use-pagination";
-import { useGetDeclarationSummaryReport } from "@/hooks/useDividendReport";
-import { ReportFilters as DividendReportFilters } from "@/actions/dividendReportActions";
+import {
+  useGetDeclarationSummaryReport,
+  DeclarationSummaryFilters,
+} from "@/hooks/useDividendReport";
 import { useExportDividendReport } from "@/hooks/useDividendReport";
 import { formatCurrency } from "@/lib/utils/format";
 import { printDeclarationSummaryReport } from "@/lib/utils/printDividendReport";
 
 interface DeclarationSummaryReportProps {
-  filters: DividendReportFilters;
+  filters: DeclarationSummaryFilters;
   generated: boolean;
+  onTotalChange?: (total: number) => void;
 }
 
 export default function DeclarationSummaryReport({
   filters,
   generated,
+  onTotalChange,
 }: DeclarationSummaryReportProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -40,20 +42,14 @@ export default function DeclarationSummaryReport({
 
   const report = data?.data;
   const rows = report?.byRegister ?? [];
+  const total = report?.totalElements ?? 0;
+
+  // Surface total to parent for PaginationBar
+  useEffect(() => {
+    if (total > 0) onTotalChange?.(total);
+  }, [total, onTotalChange]);
 
   const { mutateAsync: exportDividendReport } = useExportDividendReport();
-
-  const {
-    page,
-    pageSize,
-    totalPages,
-    paged,
-    from,
-    to,
-    total,
-    setPage,
-    setPageSize,
-  } = usePagination(rows);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -218,7 +214,7 @@ export default function DeclarationSummaryReport({
                   </td>
                 </tr>
               ) : (
-                paged.map((reg, i) => (
+                rows.map((reg, i) => (
                   <tr key={i} className="mrpsl-table-row">
                     <td className="px-4 py-2.5 font-semibold">
                       {reg.registerSymbol}
@@ -268,18 +264,6 @@ export default function DeclarationSummaryReport({
               </tfoot>
             )}
           </table>
-        </div>
-        <div className="px-4 py-3 border-t">
-          <TablePagination
-            page={page}
-            pageSize={pageSize}
-            totalPages={totalPages}
-            from={from}
-            to={to}
-            total={total}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
         </div>
       </Card>
     </div>

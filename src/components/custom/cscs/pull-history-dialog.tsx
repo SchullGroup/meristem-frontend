@@ -101,8 +101,8 @@ export const PullHistory = ({ open, setOpen, selectedTransaction }: PullHistoryP
                         <div className="border border-border/60 rounded-xl overflow-hidden">
                             <div className="px-3 py-2.5 bg-amber-50 text-amber-800 text-[13px] font-semibold flex items-center gap-2 border-b border-amber-200">
                                 <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                                Flagged Sell: {formatNumber(selectedTransaction?.attemptedUnits)} units on {selectedTransaction?.transactionDate}. Current balance:
-                                {formatNumber(selectedTransaction?.currentHoldings)}. Shortfall: {formatNumber(selectedTransaction?.shortfall)}.
+                                Flagged Sell: {formatNumber(selectedTransaction?.attempted)} units on {selectedTransaction?.transactionDate}. Current balance:
+                                {formatNumber(selectedTransaction?.holdings)}. Shortfall: {formatNumber(selectedTransaction?.shortfall)}.
                             </div>
                             <table className="w-full text-[13px] text-left">
                                 <thead className="mrpsl-table-header">

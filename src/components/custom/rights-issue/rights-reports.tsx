@@ -532,31 +532,28 @@ export default function RightsIssueReports() {
             {/* ── Rights Entitlement List or Non-Acceptance List ── */}
             {(selectedReport === "Rights Entitlement List" ||
               selectedReport === "Non-Acceptance List") && (
-              <Card className="mrpsl-card overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-[13px]">
-                    <ShholderTableHead />
-                    <tbody className="divide-y">
-                      <ShholderRows
+                <Card className="mrpsl-card overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-[13px]">
+                      <ShholderTableHead />
+                      <tbody className="divide-y">
+                        <ShholderRows rows={paginatedRows as Shareholder[]} />
+                      </tbody>
+                      <ShholderTfoot
                         rows={paginatedRows as Shareholder[]}
-                        pageStart={reportStart}
+                        total={totalRecords}
                       />
-                    </tbody>
-                    <ShholderTfoot
-                      rows={paginatedRows as Shareholder[]}
-                      total={totalRecords}
-                    />
-                  </table>
-                </div>
-                <PaginationBar
-                  page={reportPage}
-                  total={totalRecords}
-                  onPageChange={setReportPage}
-                  pageSize={pageSize}
-                  onPageSizeChange={handlePageSizeChange}
-                />
-              </Card>
-            )}
+                    </table>
+                  </div>
+                  <PaginationBar
+                    page={reportPage}
+                    total={totalRecords}
+                    onPageChange={setReportPage}
+                    pageSize={pageSize}
+                    onPageSizeChange={handlePageSizeChange}
+                  />
+                </Card>
+              )}
 
             {/* ── Acceptance Summary ── */}
             {selectedReport === "Acceptance Summary" &&
@@ -873,7 +870,7 @@ export default function RightsIssueReports() {
                                   r.status === "Allotted"
                                   ? "bg-green-100 text-green-800"
                                   : r.status === "Waived" ||
-                                      r.status === "WAIVED"
+                                    r.status === "WAIVED"
                                     ? "bg-amber-100 text-amber-800"
                                     : "bg-red-100 text-red-800",
                               )}

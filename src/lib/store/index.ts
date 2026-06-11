@@ -80,6 +80,12 @@ export interface AppState {
   rejectedRightsIssue: { ref: string; comment: string } | null;
   rejectedBatches: RejectedBatch[];
   rejectedTransfers: TransferRequest[];
+  consolidationJobId: string | null;
+  setConsolidationJobId: (jobId: string | null) => void;
+  kycUploadJobId: string | null;
+  setKycUploadJobId: (jobId: string | null) => void;
+  cscsInjectBatchRef: string | null;
+  setCscsInjectBatchRef: (batchRef: string | null) => void;
 
   // CRUD actions
   addPrincipal: (p: Principal) => void;
@@ -148,6 +154,12 @@ export const useStore = create<AppState>()(
       rejectedRightsIssue: null,
       rejectedBatches: [],
       rejectedTransfers: [],
+      consolidationJobId: null,
+      setConsolidationJobId: (jobId) => set({ consolidationJobId: jobId }),
+      kycUploadJobId: null,
+      setKycUploadJobId: (jobId) => set({ kycUploadJobId: jobId }),
+      cscsInjectBatchRef: null,
+      setCscsInjectBatchRef: (batchRef) => set({ cscsInjectBatchRef: batchRef }),
 
       addPrincipal: (p) =>
         set((state) => ({ principals: [...state.principals, p] })),
