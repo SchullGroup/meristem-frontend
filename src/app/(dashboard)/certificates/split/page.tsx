@@ -108,7 +108,7 @@ export default function SplitPage() {
     queryFn: () => GET_CSCS_SHAREHOLDER_LOOKUP(activeSearchTerm),
     enabled: !!activeSearchTerm,
   });
-
+  console.log(activeCert);
   const handleSearch = () => {
     if (!searchTerm.trim()) {
       toast.error("Search term is required");
@@ -269,7 +269,7 @@ export default function SplitPage() {
   }
 
   const handleSubmit = () => {
-    if (!activeCert?.id) {
+    if (!activeCert?.certificateId) {
       toast.error("Please select a certificate");
       return;
     }
@@ -290,7 +290,6 @@ export default function SplitPage() {
       reason: splitReason,
       submittedBy: user?.email,
     };
-
     sumbitForApprovalMutation.mutate({ payload });
   };
 
@@ -356,8 +355,9 @@ export default function SplitPage() {
     setBatchRejectOpen(false);
   }
 
-  const pendingSplits = mappedSplits
-    .filter((row) => row.status === "PENDING" && !rejectedIds.has(row.id));
+  const pendingSplits = mappedSplits.filter(
+    (row) => row.status === "PENDING" && !rejectedIds.has(row.id),
+  );
   const approvedSplits = mappedSplits.filter(
     (row) => row.status === "APPROVED",
   );
@@ -567,7 +567,7 @@ export default function SplitPage() {
                 <h3 className="font-semibold text-sm text-muted-foreground">
                   Configure Split
                 </h3>
-                {activeCert?.id ? (
+                {activeCert?.certificateId ? (
                   <Card className="mrpsl-card p-6 space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
