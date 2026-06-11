@@ -70,6 +70,8 @@ export const ProcessedLogs = ({ tab }: {
         enabled: tab === "logs"
     })
 
+    console.log(processedLogs)
+
     return (
         <>
             <div className="flex gap-2 items-center flex-wrap">
@@ -220,9 +222,10 @@ export const ProcessedLogs = ({ tab }: {
 
             </Card>
             <PaginationBar
-                page={processedLogs?.transactions?.page || 0}
+                page={currentPage}
                 pageSize={pageSize}
-                total={processedLogs?.transactions?.totalPages || 0}
+                total={processedLogs?.transactions?.totalElements || 0}
+                totalPages={processedLogs?.transactions?.totalPages || 0}
                 onPageChange={(page) => setCurrentPage(page)}
                 onPageSizeChange={(pageSize) => setPageSize(pageSize)}
             />

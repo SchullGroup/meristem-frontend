@@ -132,10 +132,6 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
                 toast.error(err?.message || "Failed to approve kyc changes");
             }
         });
-
-
-
-
     };
 
     const handleBatchReject = () => {
@@ -214,8 +210,8 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
                             >
                                 Reject Selected
                             </Button>
-                            <Button size="sm" onClick={handleBatchApprove}>
-                                Approve Selected
+                            <Button size="sm" onClick={handleBatchApprove} disabled={authoriseMutation.isPending}>
+                                {authoriseMutation.isPending ? "Authorising..." : "Approve Selected"}
                             </Button>
                         </div>
                     </div>
@@ -348,8 +344,8 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
                         <Button variant="outline" onClick={() => setBatchRejectOpen(false)}>
                             Cancel
                         </Button>
-                        <Button variant="destructive" onClick={handleBatchReject}>
-                            Reject Selected
+                        <Button variant="destructive" onClick={handleBatchReject} disabled={rejectMutation.isPending}>
+                            {rejectMutation.isPending ? "Rejecting..." : "Reject Selected"}
                         </Button>
                     </div>
                 </div>

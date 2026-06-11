@@ -44,6 +44,8 @@ export const KYCReviewDialog: React.FC<KYCReviewDialogProps> = ({
             onSuccess: () => {
                 toast.success("KYC adjustment updated successfully");
                 setReviewOpen(false);
+            }, onError: (err: any) => {
+                toast.error(err.message || "Failed to update account changes")
             }
         });
     };
@@ -71,6 +73,8 @@ export const KYCReviewDialog: React.FC<KYCReviewDialogProps> = ({
                 toast.success("KYC adjustments rejected successfully.");
                 setReviewOpen(false);
                 setComment("");
+            }, onError: (err: any) => {
+                toast.error(err.message || "Failed to update account changes")
             }
         });
     };
@@ -136,14 +140,14 @@ export const KYCReviewDialog: React.FC<KYCReviewDialogProps> = ({
                                 onClick={handleReject}
                                 disabled={rejectMutation.isPending || authorizeMutation.isPending}
                             >
-                                Reject Request
+                                {rejectMutation.isPending ? "Rejecting..." : "Reject Request"}
                             </Button>
                             <Button
                                 className="flex-1"
                                 onClick={handleApprove}
                                 disabled={rejectMutation.isPending || authorizeMutation.isPending}
                             >
-                                Authorise KYC Changes
+                                {authorizeMutation.isPending ? "Authorising..." : "Authorise KYC Changes"}
                             </Button>
                         </div>
                     </div>

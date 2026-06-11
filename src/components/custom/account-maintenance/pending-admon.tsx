@@ -212,8 +212,8 @@ export default function PendingAdmon({ tab }: { tab: string }) {
                         >
                             Reject Selected
                         </Button>
-                        <Button size="sm" onClick={handleBatchApprove}>
-                            Approve Selected
+                        <Button size="sm" disabled={batchApproveMutation.isPending} onClick={handleBatchApprove}>
+                            {batchApproveMutation.isPending ? "Approving..." : "Approve Selected"}
                         </Button>
                     </div>
                 </div>
@@ -313,8 +313,8 @@ export default function PendingAdmon({ tab }: { tab: string }) {
                             <Button variant="outline" onClick={() => setBatchRejectOpen(false)}>
                                 Cancel
                             </Button>
-                            <Button variant="destructive" onClick={handleBatchReject}>
-                                Reject Selected
+                            <Button variant="destructive" onClick={handleBatchReject} disabled={batchRejectMutation.isPending}>
+                                {batchRejectMutation.isPending ? "Rejecting..." : "Reject Selected"}
                             </Button>
                         </div>
                     </div>

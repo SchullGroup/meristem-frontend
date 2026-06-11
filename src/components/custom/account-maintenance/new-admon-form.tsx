@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
     Select,
@@ -25,7 +25,8 @@ import { DocUploadZone } from "@/components/custom/doc-upload-zone";
 import { getDocType } from "@/lib/mocks/doc-types";
 import DateInput from "@/components/ui/date-input";
 import { useGetRegisters } from "@/hooks/useRegisters";
-import { useGetAccount, useCreateAdmon } from "@/hooks/useAccountMaintenance";
+import { useCreateAdmon, useGetAccounts } from "@/hooks/useAccountMaintenance";
+import { ShareholderAccount } from "@/types/account-maintenance";
 
 export default function NewAdmonForm() {
     const { data: activeRegisters } = useGetRegisters({
@@ -38,7 +39,6 @@ export default function NewAdmonForm() {
     const [registerId, setRegisterId] = useState("");
     const [search, setSearch] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
-    const [accountLoaded, setAccountLoaded] = useState(false);
 
     // Form states
     const [isExecutor, setIsExecutor] = useState(false);
@@ -56,10 +56,31 @@ export default function NewAdmonForm() {
     const [changeNameToEstate, setChangeNameToEstate] = useState(true);
     const [probateDocUrl, setProbateDocUrl] = useState("");
 
-    const { data: accountRes, isLoading: isLoadingAccount } = useGetAccount(searchQuery, {
-        enabled: !!searchQuery,
-    });
-    const account = accountRes?.data;
+    const { data: accountsRes, isLoading: isLoadingAccount } = useGetAccounts(
+        { q: searchQuery, registerId: registerId || undefined },
+        { enabled: !!searchQuery }
+    );
+
+    const [selectedAccounts, setSelectedAccounts] = useState<Map<string, ShareholderAccount>>(new Map());
+    const [allDiscoveredAccounts, setAllDiscoveredAccounts] = useState<ShareholderAccount[]>([]);
+
+    useEffect(() => {
+        const newItems = accountsRes?.data?.data || [];
+        if (newItems.length > 0) {
+
+            //eslint-disable-next-line
+            setAllDiscoveredAccounts((prev) => {
+                // Filter out any accounts we have already pulled into the table view
+                const uniqueNewItems = newItems.filter(
+                    (newItem) => !prev.some((oldItem) => oldItem.id === newItem.id)
+                );
+                return [...prev, ...uniqueNewItems];
+            });
+        }
+    }, [accountsRes]);
+
+
+    const accountLoaded = selectedAccounts.size > 0 || allDiscoveredAccounts.length > 0;
 
     const createAdmonMutation = useCreateAdmon();
 
@@ -69,12 +90,11 @@ export default function NewAdmonForm() {
             return;
         }
         setSearchQuery(search);
-        setAccountLoaded(true);
     };
 
     const handleSubmit = () => {
-        if (!account) {
-            toast.error("Please load a deceased account first");
+        if (selectedAccounts.size === 0) {
+            toast.error("Please select at least one deceased account from the list below.");
             return;
         }
         if (!adminName.trim()) {
@@ -91,6 +111,10 @@ export default function NewAdmonForm() {
         }
         if (!probatePage.trim()) {
             toast.error("Please enter probate page");
+            return;
+        }
+        if (!probateDocUrl.trim()) {
+            toast.error("Please attach a probate letter of administration");
             return;
         }
         if (!adminAddress.trim()) {
@@ -110,9 +134,11 @@ export default function NewAdmonForm() {
             return;
         }
 
+        const deceasedAccountIds = Array.from(selectedAccounts.keys());
+
         createAdmonMutation.mutate({
-            registerId: registerId || account.registerId,
-            deceasedAccountIds: [account.id],
+            registerId: registerId,
+            deceasedAccountIds,
             admonType: isExecutor ? "EXECUTOR" : "ADMINISTRATOR",
             adminName,
             probateCourt,
@@ -132,7 +158,6 @@ export default function NewAdmonForm() {
             onSuccess: () => {
                 toast.success("Administration request submitted. Approver has been notified.");
                 // Reset form
-                setAccountLoaded(false);
                 setSearchQuery("");
                 setSearch("");
                 setAdminName("");
@@ -144,12 +169,19 @@ export default function NewAdmonForm() {
                 setAdminState("");
                 setMemo("");
                 setProbateDocUrl("");
+                setSelectedAccounts(new Map());
+                setAllDiscoveredAccounts([])
+                setSearchQuery("");
+                setSearch("");
             },
             onError: (err) => {
                 toast.error(err.message || "Failed to submit request");
             }
         });
     };
+
+    const allChecked = allDiscoveredAccounts.length > 0 &&
+        allDiscoveredAccounts.every((a) => selectedAccounts.has(a.id));
 
     return (
         <>
@@ -189,12 +221,29 @@ export default function NewAdmonForm() {
                         </Button>
                     </div>
                 </div>
+
+
                 {accountLoaded && (
                     <table className="w-full text-left text-sm mt-4">
                         <thead className="mrpsl-table-header">
                             <tr>
                                 <th className="p-2 w-12">
-                                    <Checkbox checked={!!account} disabled />
+                                    <Checkbox
+                                        checked={allChecked}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedAccounts((prev) => {
+                                                const next = new Map(prev);
+                                                if (checked) {
+                                                    // Select all items currently visible in the accumulated table
+                                                    allDiscoveredAccounts.forEach((acc) => next.set(acc.id, acc));
+                                                } else {
+                                                    // Deselect all items currently visible in the accumulated table
+                                                    allDiscoveredAccounts.forEach((acc) => next.delete(acc.id));
+                                                }
+                                                return next;
+                                            });
+                                        }}
+                                    />
                                 </th>
                                 <th className="p-2">ACCT NO</th>
                                 <th className="p-2">HOLDER NAME</th>
@@ -203,29 +252,45 @@ export default function NewAdmonForm() {
                             </tr>
                         </thead>
                         <tbody className="divide-y font-mono text-[13px] border-b">
-                            {isLoadingAccount ? (
+                            {isLoadingAccount && allDiscoveredAccounts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-4 text-center text-muted-foreground">
-                                        Loading account details...
-                                    </td>
+                                    <td colSpan={5} className="p-4 text-center text-muted-foreground">Loading...</td>
                                 </tr>
-                            ) : account ? (
-                                <tr className="hover:bg-accent/5">
-                                    <td className="p-2">
-                                        <Checkbox checked defaultChecked disabled />
-                                    </td>
-                                    <td className="p-2">{account.accountNumber}</td>
-                                    <td className="p-2 font-sans font-medium text-destructive">
-                                        {account.firstName} {account.lastName} (DECEASED)
-                                    </td>
-                                    <td className="p-2">{account.chn || "-"}</td>
-                                    <td className="p-2 text-right">{account.holdings?.toLocaleString()}</td>
-                                </tr>
+                            ) : allDiscoveredAccounts.length > 0 ? (
+                                // 2. Loop over the combined results state here 
+                                allDiscoveredAccounts.map((account) => {
+                                    const isChecked = selectedAccounts.has(account.id);
+
+                                    return (
+                                        <tr key={account.id} className="hover:bg-accent/5">
+                                            <td className="p-2">
+                                                <Checkbox
+                                                    checked={isChecked}
+                                                    onCheckedChange={(checked) => {
+                                                        setSelectedAccounts((prev) => {
+                                                            const next = new Map(prev);
+                                                            if (checked) {
+                                                                next.set(account.id, account);
+                                                            } else {
+                                                                next.delete(account.id);
+                                                            }
+                                                            return next;
+                                                        });
+                                                    }}
+                                                />
+                                            </td>
+                                            <td className="p-2">{account.accountNumber}</td>
+                                            <td className="p-2 font-sans font-medium text-destructive">
+                                                {account.firstName} {account.lastName} (DECEASED)
+                                            </td>
+                                            <td className="p-2">{account.chn || "-"}</td>
+                                            <td className="p-2 text-right">{account.holdings?.toLocaleString()}</td>
+                                        </tr>
+                                    );
+                                })
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="p-4 text-center text-muted-foreground">
-                                        No account found with this account number.
-                                    </td>
+                                    <td colSpan={5} className="p-4 text-center text-muted-foreground">No accounts found. Search to add rows.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -233,7 +298,7 @@ export default function NewAdmonForm() {
                 )}
             </Card>
 
-            {accountLoaded && account && (
+            {accountLoaded && selectedAccounts.size > 0 && (
                 <Card className="mrpsl-card p-6 space-y-6 animate-in fade-in">
                     <h3 className="font-semibold text-sm border-b pb-2">
                         2. Administrator Details
@@ -380,14 +445,18 @@ export default function NewAdmonForm() {
                                 onCheckedChange={setChangeNameToEstate}
                             />
                         </div>
-                        <div className="bg-background border p-3 rounded text-sm text-center font-mono">
-                            <span className="text-muted-foreground line-through mr-2">
-                                {account.firstName} {account.lastName}
-                            </span>{" "}
-                            →{" "}
-                            <span className="font-bold text-primary">
-                                Estate of {account.firstName} {account.lastName}
-                            </span>
+                        <div className="bg-background border p-3 rounded text-sm text-center font-mono space-y-1">
+                            {Array.from(selectedAccounts.values()).map((acc) => (
+                                <div key={acc.id}>
+                                    <span className="text-muted-foreground line-through mr-2">
+                                        {acc.firstName} {acc.lastName}
+                                    </span>{" "}
+                                    →{" "}
+                                    <span className="font-bold text-primary">
+                                        Estate of {acc.firstName} {acc.lastName}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
