@@ -1,4 +1,4 @@
-import { ContentPaginatedResponse } from ".";
+import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from ".";
 import { Principal } from "./principal";
 import { Register } from "./register";
 
@@ -284,12 +284,34 @@ export interface ReconciliationTransaction {
   transactionDate: string;
 }
 
-export interface ReconciliationResponse {
-  mrpslPositions: ContentPaginatedResponse<MrpslPosition>;
-  mrpslTotalUnits: number;
-  cscsPositions: ContentPaginatedResponse<CscsPosition>;
-  cscsTotalUnits: number; // int64
+export interface CscsReconciliationRecord {
+  id: string;
+  batchRef: string;
+  transactionDate: string;
+  chn: string;
+  register: string;
+  holderName: string;
+  transferNo: string;
+  type: string;
+  transStatus: string;
+  entryMode?: string; // Optional since it only appears in mrpsl blocks
+  units: number;
+  balanceAfter: number | null; // Can be null on CSCS entries
+  processedBy: string | null;
+  status?: string; // Optional since it only appears in mrpsl blocks
+  createdAt: string;
+  updatedAt: string;
 }
+
+// Map the data object inside the API envelope
+export interface CscsReconciliationData {
+  mrpsl: PaginatedResponse<CscsReconciliationRecord>["data"];
+  cscs: PaginatedResponse<CscsReconciliationRecord>["data"];
+  missingData: CscsReconciliationRecord[];
+}
+
+// Complete endpoint response wrapping layout
+export type ReconciliationResponse = ApiResponse<CscsReconciliationData>;
 
 export interface MrpslPosition {
   createdAt: string;

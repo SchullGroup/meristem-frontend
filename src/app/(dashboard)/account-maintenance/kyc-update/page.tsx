@@ -102,12 +102,7 @@ export default function KYCUpdatePage() {
 
 
   // ── KYC submit mutation ──
-  const createKycMutation = useCreateKycChange({
-    onSuccess: () => {
-      toast.success("KYC change submitted for approval");
-    },
-    onError: (err) => toast.error(err.message),
-  });
+  const createKycMutation = useCreateKycChange();
 
   const handleSubmitPersonal = () => {
     if (!selectedShareholder || !currentUser) return;
@@ -127,6 +122,7 @@ export default function KYCUpdatePage() {
       },
       {
         onSuccess: () => {
+          toast.success("Account changes submitted successfully!");
           // Optimistic update — reflect submitted values immediately
           setSelectedShareholder((prev) =>
             prev
@@ -140,6 +136,9 @@ export default function KYCUpdatePage() {
           setNewName("");
           setNewHolderType("");
         },
+        onError: (err: any) => {
+          toast.error(err.message || "Failed to update account changes")
+        }
       },
     );
   };
@@ -163,6 +162,7 @@ export default function KYCUpdatePage() {
       },
       {
         onSuccess: () => {
+          toast.success("Account changes submitted successfully!")
           // Optimistic update — reflect submitted values immediately
           setSelectedShareholder((prev) =>
             prev
@@ -178,6 +178,9 @@ export default function KYCUpdatePage() {
           setNewPhone("");
           setNewAddress("");
         },
+        onError: (err: any) => {
+          toast.error(err.message || "Failed to update account changes")
+        }
       },
     );
   };
@@ -200,6 +203,7 @@ export default function KYCUpdatePage() {
       },
       {
         onSuccess: () => {
+          toast.success("Account changes submitted successfully!")
           // Optimistic update — reflect submitted values immediately
           setSelectedShareholder((prev) =>
             prev
@@ -213,6 +217,9 @@ export default function KYCUpdatePage() {
           setNewBank("");
           setNewAccountNumber("");
         },
+        onError: (err: any) => {
+          toast.error(err.message || "Failed to update account changes")
+        }
       },
     );
   };
@@ -311,7 +318,7 @@ export default function KYCUpdatePage() {
                       >
                         <p className="text-sm font-medium">{fullName(acc)}</p>
                         <p className="text-[12px] text-muted-foreground font-mono">
-                          {acc.accountNumber} · {acc.registerSymbol}
+                          {acc.accountNumber || acc.bankAccountNumber} · {acc.registerSymbol}
                         </p>
                       </button>
                     ))
@@ -555,22 +562,24 @@ export default function KYCUpdatePage() {
                     <span className="text-sm text-muted-foreground font-mono">
                       {selectedShareholder?.bankAccountNumber}
                     </span>
-                    <Input
-                      className="mrpsl-input font-mono"
-                      placeholder="10 digits"
-                      value={newAccountNumber}
-                      onChange={(e) => setNewAccountNumber(e.target.value)}
-                    />
-                    {/* <Button
+                    <div className="flex gap-2">
+                      <Input
+                        className="mrpsl-input font-mono"
+                        placeholder="10 digits"
+                        value={newAccountNumber}
+                        onChange={(e) => setNewAccountNumber(e.target.value)}
+                      />
+                      <Button
                         variant="outline"
                         onClick={() =>
                           toast.success(
-                            "Account validated: Adaeze Okonkwo at GTBank",
+                            "Account validated"
                           )
                         }
                       >
                         Validate
-                      </Button> */}
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex justify-end pt-4">
                     <Button

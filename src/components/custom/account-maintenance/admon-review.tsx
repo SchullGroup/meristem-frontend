@@ -192,14 +192,14 @@ export function AdmonReviewDialog({
                                 disabled={isPending}
                                 onClick={handleReject}
                             >
-                                Reject
+                                {rejectMutation.isPending ? "Rejecting..." : "Reject"}
                             </Button>
                             <Button
                                 className="flex-1"
                                 disabled={isPending}
                                 onClick={handleAuthorise}
                             >
-                                Authorise Administration
+                                {authoriseMutation.isPending ? "Authorising..." : "Authorise Administration"}
                             </Button>
                         </div>
                     </div>
@@ -373,14 +373,14 @@ export function AdmonReversalDialog({
                                 disabled={isPending}
                                 onClick={handleReject}
                             >
-                                Reject
+                                {rejectMutation.isPending ? "Rejecting..." : "Reject"}
                             </Button>
                             <Button
                                 className="flex-1"
                                 disabled={isPending}
                                 onClick={handleAuthorise}
                             >
-                                Authorise Reversal
+                                {authoriseMutation.isPending ? "Authorising..." : "Authorise Reversal"}
                             </Button>
                         </div>
                     </div>

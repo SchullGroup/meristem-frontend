@@ -76,24 +76,6 @@ export const UPLOAD_CSCS_FILE = async (data: FormData) => {
   }
 };
 
-export const RESOLVE_CSCS_FLAGGED_TRANSACTION = async (
-  id: string,
-  data: {
-    resolvedBy: string;
-    resolutionNote: string;
-  },
-) => {
-  try {
-    const res = await api.patch<FlaggedTransaction>(
-      `/cscs/flagged-transactions/${id}/resolve`,
-      data,
-    );
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
 
 export const GET_CSCS_PROCESSING_QUEUE = async (params?: {
   search?: string;
@@ -169,7 +151,7 @@ export const GET_CSCS_FLAGGED_TRANSACTIONS_HISTORY = async (chn: string) => {
 
 export const UPDATE_CSCS_TRANSACTION = async (
   id: string,
-  data: Omit<ProcessedTransaction, "id">,
+  data: Partial<ProcessedTransaction>,
 ) => {
   try {
     const res = await api.patch<ProcessedTransaction>(`/cscs/${id}`, data);
@@ -248,7 +230,7 @@ export const GET_CSCS_RECONCILIATIONS = async (params: {
     const res = await api.get<ReconciliationResponse>(`/cscs-reconciliation`, {
       params,
     });
-    return res.data;
+    return res.data?.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
