@@ -15,6 +15,7 @@ import { CscsShareholder, TransferRequest } from "@/types/cscs";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
 import { useGetShareholdersCertificate } from "@/hooks/useCertificates";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { useStore } from "@/lib/store";
 
 export const Transfer = ({
   setTab,
@@ -32,6 +33,7 @@ export const Transfer = ({
   const rejectedTransfers = allRejectedTransfers.filter(
     (c) => !hiddenRejectedIds.has(c.id),
   );
+  const { currentUser } = useStore();
   const [autoLoad, setAutoLoad] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
 
@@ -47,7 +49,7 @@ export const Transfer = ({
 
   const [srcLoaded, setSrcLoaded] = useState<CscsShareholder | null>(null);
   const [destLoaded, setDestLoaded] = useState<CscsShareholder | null>(null);
-
+  console.log(destLoaded);
   const [editingRejected, setEditingRejected] =
     useState<TransferRequest | null>(null);
 
@@ -61,14 +63,10 @@ export const Transfer = ({
   const [uploadingIot, setUploadingIot] = useState(false);
 
   // Setup queries
-  const { refetch: fetchSrc, isFetching: srcFetching } = useGetShareholdersCertificate(
-    { search: srcSearch },
-    { enabled: false },
-  );
-  const { refetch: fetchDest, isFetching: destFetching } = useGetShareholdersCertificate(
-    { search: destSearch },
-    { enabled: false },
-  );
+  const { refetch: fetchSrc, isFetching: srcFetching } =
+    useGetShareholdersCertificate({ search: srcSearch }, { enabled: false });
+  const { refetch: fetchDest, isFetching: destFetching } =
+    useGetShareholdersCertificate({ search: destSearch }, { enabled: false });
 
   const submitMutation = useSubmitTransferRequest();
 
@@ -144,7 +142,7 @@ export const Transfer = ({
         stampDuty: Number(formData.stampDuty),
         iotDocumentUrl: formData.iotUrl,
         reason: formData.comment,
-        submittedBy: "user@meristem.com",
+        submittedBy: currentUser?.email ?? "",
       });
 
       toast.success(

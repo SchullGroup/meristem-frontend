@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -108,7 +108,16 @@ export default function SplitPage() {
     queryFn: () => GET_CSCS_SHAREHOLDER_LOOKUP(activeSearchTerm),
     enabled: !!activeSearchTerm,
   });
-  console.log(activeCert);
+
+  const [lookUpDataState, setLookUpDataState] = useState<any>(null);
+
+  useEffect(() => {
+    if (lookUpData?.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLookUpDataState(lookUpData?.data);
+    }
+  }, [lookUpData]);
+
   const handleSearch = () => {
     if (!searchTerm.trim()) {
       toast.error("Search term is required");
@@ -205,6 +214,10 @@ export default function SplitPage() {
       setPartUnits([""]);
       setNumParts("1");
       setSplitReason("");
+      setActiveCert(null);
+      setLookUpDataState(null);
+      setActiveSearchTerm("");
+      setSearchTerm("");
     },
     onError: (error) => {
       toast.error(error.message || "Failed to submit split request");
@@ -512,9 +525,9 @@ export default function SplitPage() {
                     <div className="mt-4 pt-4 border-t text-center py-6">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </div>
-                  ) : lookUpData?.data?.length > 0 ? (
+                  ) : lookUpDataState?.length > 0 ? (
                     <div className="mt-4 pt-4 border-t animate-in fade-in space-y-4 max-h-[400px] overflow-y-auto">
-                      {lookUpData?.data?.map((item: any) => (
+                      {lookUpDataState?.map((item: any) => (
                         <div
                           key={item.id}
                           onClick={() => setActiveCert(item)}
@@ -528,7 +541,7 @@ export default function SplitPage() {
                             <div className="font-mono text-lg font-bold">
                               {item?.registerName}
                             </div>
-                            {item.status === "APPROVED" && (
+                            {item.status === "ACTIVE" && (
                               <Badge className="bg-green-100 text-green-700 border-0 text-[12px]">
                                 ACTIVE
                               </Badge>

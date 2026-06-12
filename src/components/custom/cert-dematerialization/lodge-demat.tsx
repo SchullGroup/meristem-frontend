@@ -14,7 +14,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, UploadCloud } from "lucide-react";
+import { FileText, Loader2, UploadCloud } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PaginationBar } from "../pagination-bar";
@@ -38,7 +38,8 @@ export default function LodgeDemat({ tab }: { tab: string }) {
     },
   );
 
-  const { mutate: lodgetDemat } = useLodgetDematRequest();
+  const { mutate: lodgetDemat, isPending: lodgetPending } =
+    useLodgetDematRequest();
 
   if (isLoading) return <PendingListSkeleton />;
 
@@ -279,6 +280,9 @@ export default function LodgeDemat({ tab }: { tab: string }) {
                           }}
                         >
                           <UploadCloud className="h-3 w-3" /> Push
+                          {lodgetPending && (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
                         </Button>
                       </div>
                     </td>
@@ -305,7 +309,6 @@ export default function LodgeDemat({ tab }: { tab: string }) {
             totalPages={data?.totalPages || 0}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
-
           />
         </div>
       )}

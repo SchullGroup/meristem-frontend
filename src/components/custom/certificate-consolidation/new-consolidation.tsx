@@ -36,10 +36,11 @@ export default function NewConsolidation({
 }: {
   setTab: (tab: string) => void;
 }) {
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: isRegisterLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   const [selectedRegister, setSelectedRegister] = useState("All");
   const [certsLoaded, setCertsLoaded] = useState(false);
@@ -248,13 +249,18 @@ export default function NewConsolidation({
               <SelectTrigger className="w-52 mrpsl-input">
                 <SelectValue placeholder="Select register" />
               </SelectTrigger>
-              <SelectContent className="w-max">
-                <SelectItem value="All">All Registers</SelectItem>
-                {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.registerId}>
-                    {r.registerName} · {r.symbol}
-                  </SelectItem>
-                ))}
+              <SelectContent>
+                {isRegisterLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : (
+                  activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.registerId}>
+                      {r.registerName} · {r.symbol}
+                    </SelectItem>
+                  ))
+                )}{" "}
               </SelectContent>
             </Select>
           </div>
@@ -411,7 +417,7 @@ export default function NewConsolidation({
       )}
 
       <Dialog open={consolOpen} onOpenChange={setConsolOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Submit Consolidation Request</DialogTitle>
           </DialogHeader>
