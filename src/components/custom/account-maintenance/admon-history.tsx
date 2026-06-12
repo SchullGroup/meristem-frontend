@@ -106,7 +106,7 @@ export default function AdmonHistory({ tab }: { tab: string }) {
                         <tbody className="divide-y text-[13px]">
                             {admonHistory?.length > 0 ? admonHistory?.map((row) => (
                                 <tr key={row.id} className="mrpsl-table-row">
-                                    <td className="p-3 text-muted-foreground">{formatDate(row.decidedAt)}</td>
+                                    <td className="p-3 text-muted-foreground">{formatDate(row.createdAt)}</td>
                                     <td className="p-3 font-mono">{row.deceasedAccountNumbers?.join(', ') || "-"}</td>
                                     <td className="p-3 font-medium">{row.deceasedHolderName}</td>
                                     <td className="p-3">{row.adminName}</td>

@@ -27,12 +27,14 @@ import { PaginationBar } from "../pagination-bar";
 import { DateRangePicker } from "../date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 const PAGE_SIZE = 10
 
 export const FlaggedTransactions = ({ tab }: {
     tab: string
 }) => {
+    const router = useRouter();
 
     const { data: activeRegisters } = useGetRegisters({
         size: 100,
@@ -271,6 +273,7 @@ export const FlaggedTransactions = ({ tab }: {
                 open={flagSheetOpen}
                 setOpen={setFlagSheetOpen}
                 selectedTransaction={selectedTransaction}
+                onComplete={() => router.replace("/certificates/reconciliation")}
             />
         </>
     )

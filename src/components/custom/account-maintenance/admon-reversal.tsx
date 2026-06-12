@@ -173,8 +173,8 @@ export default function AdmonReversal({ tab }: { tab: string }) {
                         >
                             Reject Selected
                         </Button>
-                        <Button size="sm" onClick={handleBatchApprove}>
-                            Approve Selected
+                        <Button size="sm" disabled={authoriseMutation.isPending} onClick={handleBatchApprove}>
+                            {authoriseMutation.isPending ? "Approving..." : "Approve Selected"}
                         </Button>
                     </div>
                 </div>
@@ -280,8 +280,8 @@ export default function AdmonReversal({ tab }: { tab: string }) {
                             <Button variant="outline" onClick={() => setBatchRejectOpen(false)}>
                                 Cancel
                             </Button>
-                            <Button variant="destructive" onClick={handleBatchReject}>
-                                Reject Selected
+                            <Button variant="destructive" onClick={handleBatchReject} disabled={rejectMutation.isPending}>
+                                {rejectMutation.isPending ? "Rejecting..." : "Reject Selected"}
                             </Button>
                         </div>
                     </div>

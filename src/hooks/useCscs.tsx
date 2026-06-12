@@ -11,7 +11,6 @@ import {
   GET_CSCS_FLAGGED_TRANSACTIONS_HISTORY,
   GET_CSCS_PROCESSED_LOGS,
   GET_CSCS_PROCESSING_QUEUE,
-  RESOLVE_CSCS_FLAGGED_TRANSACTION,
   UPLOAD_CSCS_FILE,
   INJECT_CSCS_ZIP_FILE,
   GET_HOLDERS,
@@ -22,6 +21,7 @@ import {
   GET_CSCS_INJECT_JOB,
   GET_CSCS_SHAREHOLDER_TRANSACTIONS,
   UPLOAD_CSCS_HISTORY,
+  UPDATE_CSCS_TRANSACTION,
 } from "@/actions/cscsActions";
 import {
   ProcessedLogsResponse,
@@ -33,6 +33,7 @@ import {
   TransactionBatch,
   CscsInjectJob,
   CscsPosition,
+  ProcessedTransaction,
 } from "@/types/cscs";
 import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
@@ -114,20 +115,6 @@ export const useUploadCscsFile = () => {
   });
 };
 
-export const useResolveCscsFlaggedTransaction = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: {
-      id: string;
-      data: { resolvedBy: string; resolutionNote: string };
-    }) => RESOLVE_CSCS_FLAGGED_TRANSACTION(data.id, data.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cscs-processed-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["cscs-processing-queue"] });
-    },
-  });
-};
 
 export const useGetCscsFlaggedTransactions = (
   params?: {
@@ -253,7 +240,7 @@ export const useGetReconciliations = (
     size?: number;
   },
   options?: Omit<
-    UseQueryOptions<ReconciliationResponse, Error, ReconciliationResponse>,
+    UseQueryOptions<ReconciliationResponse["data"], Error, ReconciliationResponse["data"]>,
     "queryKey" | "queryFn"
   >,
 ) => {
@@ -325,11 +312,35 @@ export const useUploadCscsHistory = (
     "mutationFn"
   >,
 ) => {
-
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ register, data }: { register: string, data: FormData }) =>
       UPLOAD_CSCS_HISTORY(register, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-flagged-transactions"], exact: false });
+    },
+    ...options
+  });
+};
 
+export const useUpdateCscsTransaction = (
+  options?: Omit<
+    UseMutationOptions<
+      ProcessedTransaction,
+      Error,
+      { id: string, data: Partial<ProcessedTransaction> }>,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string, data: Partial<ProcessedTransaction> }) =>
+      UPDATE_CSCS_TRANSACTION(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-flagged-transactions"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["reconciliations"], exact: false });
+    },
     ...options
   });
 };
