@@ -32,16 +32,9 @@ import {
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useDebounce } from "@/hooks/useDebounce";
 import { PaginationBar } from "../pagination-bar";
-import { PendingListSkeleton } from "../ipo/loaders";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { useStore } from "@/lib/store";
 
-const REGISTER_COLORS: Record<string, string> = {
-  DANGCEM: "bg-blue-100 text-blue-800",
-  ZENITHBANK: "bg-purple-100 text-purple-800",
-  ACCESSCORP: "bg-amber-100 text-amber-800",
-  GTCO: "bg-teal-100 text-teal-800",
-};
 
 interface CscsUploadProps {
   setActiveTab: (tab: string) => void;
@@ -109,7 +102,7 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
     return { name: trimmed };
   };
 
-  const { data: holdersData, isLoading: isLoadingHolders } = useGetHolders(
+  const { data: holdersData, isFetching: isLoadingHolders } = useGetHolders(
     {
       batchRef: persistedBatchRef ?? undefined,
       registerId: registerFilter !== "" ? registerFilter : undefined,
@@ -119,6 +112,17 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
     },
     {
       enabled: stage === "review" && !!persistedBatchRef,
+      // Keep polling every 2 seconds ONLY while the array database table remains empty
+      refetchInterval: (query) => {
+        const records = query?.state?.data?.content;
+
+        // Stop polling completely the split second data rows arrive!
+        if (records && records.length > 0) return false;
+
+        // Otherwise, keep pinging the endpoint while the backend finishes database writes
+        return 2000;
+      },
+      refetchOnWindowFocus: false,
     },
   );
 
@@ -479,7 +483,7 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
                   {isLoadingHolders ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-12 text-center">
-                        <PendingListSkeleton />
+                        Processing records from CSCS... Please hold. <span className="animate-spin animate-duration-500 animate-ease-linear">⏳</span>
                       </td>
                     </tr>
                   ) : filteredHolders.length > 0 ? (
@@ -493,19 +497,10 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
                             <div className="flex flex-wrap gap-1">
                               {h.registers && h.registers.length > 0 ? (
                                 h.registers.map((reg) => (
-                                  <Badge
-                                    key={reg.id}
-                                    className={`border-0 text-[13px] ${REGISTER_COLORS[reg.symbol] ??
-                                      "bg-gray-100 text-gray-800"
-                                      }`}
-                                  >
-                                    {reg.symbol}
-                                  </Badge>
+                                  <Badge key={reg.id} className="border-0 text-[13px] bg-gray-100 text-gray-800">{reg.symbol}</Badge>
                                 ))
                               ) : (
-                                <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">
-                                  N/A
-                                </Badge>
+                                <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">N/A</Badge>
                               )}
                             </div>
                           </td>
