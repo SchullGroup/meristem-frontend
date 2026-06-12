@@ -18,10 +18,11 @@ import { useStore } from "@/lib/store";
 import { Loader2, Search, X } from "lucide-react";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useGetHolders } from "@/hooks/useCscs";
-import { useCreateConsolidation } from "@/hooks/useAccountMaintenance";
+import { useCreateConsolidation, useGetAccounts } from "@/hooks/useAccountMaintenance";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Holder } from "@/types/cscs";
 import BulkAccountConsolidation from "./bulk-account-consolidation";
+import { ShareholderAccount } from "@/types/account-maintenance";
 
 /** A source account added to the table */
 interface SourceAccount {
@@ -56,15 +57,13 @@ export default function Consolidate({ tab }: { tab: string }) {
 
     const searchValue = debouncedSearch.trim();
 
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(searchValue);
 
     /* search is only triggered when register is chosen and input has ≥1 char */
-    const { data: holderResults, isFetching: searchingHolders } = useGetHolders(
+    const { data: holderResults, isFetching: searchingHolders } = useGetAccounts(
         {
             registerId: register !== "" ? register : undefined,
-            name: !isEmail ? encodeURIComponent(searchValue) : undefined,
-            email: isEmail ? searchValue : undefined,
-            size: 20,
+            q: searchValue,
+            pageSize: 20,
         },
         {
             enabled: !!register && debouncedSearch.length > 2,
@@ -75,16 +74,16 @@ export default function Consolidate({ tab }: { tab: string }) {
 
     const createConsolidation = useCreateConsolidation();
 
-    function addHolderToTable(holder: Holder) {
+    function addHolderToTable(holder: ShareholderAccount) {
         if (sourceAccounts.some((a) => a.holderId === holder.id)) {
             toast.info("Holder already added.");
             return;
         }
         const account: SourceAccount = {
             holderId: holder.id,
-            name: holder.name,
+            name: `${holder.firstName} ${holder.lastName}`,
             chn: holder.chn,
-            units: holder.units ?? 0
+            units: holder.holdings ?? 0
         };
         setSourceAccounts((prev) => [...prev, account]);
         setSelectedSourceIds((prev) => new Set([...prev, holder.id]));
@@ -167,7 +166,7 @@ export default function Consolidate({ tab }: { tab: string }) {
                             </SelectItem>
                         )}
                         {activeRegisters?.content.map((r) => (
-                            <SelectItem key={r.registerId} value={r.registerId}>
+                            <SelectItem key={r.registerId} value={r.symbol}>
                                 {r.registerName} — {r.symbol}
                             </SelectItem>
                         ))}
@@ -229,22 +228,22 @@ export default function Consolidate({ tab }: { tab: string }) {
                             </div>
 
                             {/* search results */}
-                            {holderResults?.content && holderResults.content.length > 0 && searchInput.length > 0 && (
+                            {holderResults?.data && holderResults.data?.data?.length > 0 && searchInput.length > 0 && (
                                 <div className="border rounded-md divide-y text-sm shadow-sm max-h-48 overflow-y-auto">
-                                    {holderResults.content.map((holder) => (
+                                    {holderResults.data?.data?.map((holder) => (
                                         <button
                                             key={holder.id}
                                             onClick={() => addHolderToTable(holder)}
                                             className="w-full text-left px-3 py-2 hover:bg-muted/40 transition-colors flex items-center justify-between gap-2"
                                         >
-                                            <span className="font-medium">{holder.name}</span>
+                                            <span className="font-medium">{holder.firstName} {holder.lastName}</span>
                                             <span className="text-muted-foreground font-mono text-xs">{holder.chn}</span>
                                         </button>
                                     ))}
                                 </div>
                             )}
 
-                            {debouncedSearch.length > 0 && !searchingHolders && holderResults?.content?.length === 0 && (
+                            {debouncedSearch.length > 0 && !searchingHolders && holderResults?.data?.data?.length === 0 && (
                                 <p className="text-sm text-muted-foreground text-center py-2">No holders found.</p>
                             )}
 

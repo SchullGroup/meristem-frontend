@@ -318,7 +318,7 @@ export default function KYCUpdatePage() {
                       >
                         <p className="text-sm font-medium">{fullName(acc)}</p>
                         <p className="text-[12px] text-muted-foreground font-mono">
-                          {acc.accountNumber || acc.bankAccountNumber} · {acc.registerSymbol}
+                          {acc.accountNumber} · {acc.registerSymbol}
                         </p>
                       </button>
                     ))
@@ -560,7 +560,7 @@ export default function KYCUpdatePage() {
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Account Number</span>
                     <span className="text-sm text-muted-foreground font-mono">
-                      {selectedShareholder?.bankAccountNumber}
+                      {selectedShareholder?.accountNumber}
                     </span>
                     <div className="flex gap-2">
                       <Input
