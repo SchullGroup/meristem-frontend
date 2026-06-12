@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   CheckCircle,
   AlertTriangle,
@@ -32,16 +32,11 @@ import {
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useDebounce } from "@/hooks/useDebounce";
 import { PaginationBar } from "../pagination-bar";
-import { PendingListSkeleton } from "../ipo/loaders";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { useStore } from "@/lib/store";
+import { PendingListSkeleton } from "../ipo/loaders";
+import { keepPreviousData } from "@tanstack/react-query";
 
-const REGISTER_COLORS: Record<string, string> = {
-  DANGCEM: "bg-blue-100 text-blue-800",
-  ZENITHBANK: "bg-purple-100 text-purple-800",
-  ACCESSCORP: "bg-amber-100 text-amber-800",
-  GTCO: "bg-teal-100 text-teal-800",
-};
 
 interface CscsUploadProps {
   setActiveTab: (tab: string) => void;
@@ -59,6 +54,9 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
 
+  // ── Timeout Safety Window Tracking States ────────────────────────
+  const [pollStartTime, setPollStartTime] = useState<number | null>(null);
+  const [isPollingTimedOut, setIsPollingTimedOut] = useState(false);
 
   // ── Local confirmation states ──────────────────────────────────
   const [confirmedStates, setConfirmedStates] = useState<
@@ -79,23 +77,12 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
   const { mutateAsync: updateHolderStates, isPending: isCommitting } =
     useUpdateHolderStates();
 
-  // ── Resume from persisted batchRef on mount ────────────────────
-  const isInitialMount = useRef(true);
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      if (persistedBatchRef && stage === "idle") {
-        //eslint-disable-next-line
-        setStage("review");
-      }
-    }
-  }, [persistedBatchRef, stage]);
-
   const { data: activeRegisters } = useGetRegisters({
     size: 100,
     status: "ACTIVE",
   });
 
+  // determin whether search params is an email, chn or name
   const getSearchParams = (searchStr: string) => {
     if (!searchStr) return {};
     const trimmed = searchStr.trim();
@@ -109,7 +96,7 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
     return { name: trimmed };
   };
 
-  const { data: holdersData, isLoading: isLoadingHolders } = useGetHolders(
+  const { data: holdersData, isFetching, isLoading, isPlaceholderData } = useGetHolders(
     {
       batchRef: persistedBatchRef ?? undefined,
       registerId: registerFilter !== "" ? registerFilter : undefined,
@@ -118,10 +105,61 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
       ...getSearchParams(debouncedSearch),
     },
     {
-      enabled: stage === "review" && !!persistedBatchRef,
+      enabled: !!persistedBatchRef && stage === "review" && !isPollingTimedOut,      // Keep polling every 5 seconds ONLY while the array database table remains empty
+      refetchInterval: (query) => {
+        const records = query?.state?.data?.content;
+
+        // Stop polling completely the split second data rows arrive!
+        if (records && records.length > 0) return false;
+
+        // Stop on safety timeout
+        if (isPollingTimedOut) return false;
+
+        // Otherwise, keep pinging the endpoint while the backend finishes database writes
+        return 5000;
+      },
+      refetchOnWindowFocus: false,
+      placeholderData: keepPreviousData
     },
   );
 
+  // ── Unified Lifecycle & Session Hydration Manager ────────────────
+  useEffect(() => {
+    // Case 1: No active batch tracking reference found
+    if (!persistedBatchRef) {
+      //eslint-disable-next-line
+      setStage("idle");
+      setPollStartTime(null);
+      setIsPollingTimedOut(false);
+      return;
+    }
+
+    // Case 2: Session Hydration / Recovery on page reload
+    if (persistedBatchRef && stage === "idle") {
+      setStage("review"); // If we have a ref on mount, go straight to review
+    }
+
+    // Case 3: Initialize start time if missing
+    if (persistedBatchRef && !pollStartTime) {
+      setPollStartTime(Date.now());
+      return;
+    }
+
+    // Case 4: Timeout Safety Monitor (Never changes stage back to processing)
+    if (pollStartTime && stage === "review") {
+      const elapsedMs = Date.now() - pollStartTime;
+      const MAX_POLL_TIME = 15 * 60 * 1000; // 15 Minutes
+
+      if (elapsedMs >= MAX_POLL_TIME) {
+        setIsPollingTimedOut(true);
+        setStage("idle");
+        setCscsInjectBatchRef(null);
+        toast.error("Ingestion safety timeout reached (15 mins). Please verify database records or try again.", {
+          duration: 8000
+        });
+      }
+    }
+  }, [persistedBatchRef, pollStartTime, isPollingTimedOut, stage, setCscsInjectBatchRef]);
   // ── Derived Data ───────────────────────────────────────────────
   const filteredHolders = useMemo(() => {
     if (!holdersData?.content) return [];
@@ -202,8 +240,8 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
       setCscsInjectBatchRef(ref);
 
       setProgress(100);
-      setProgressLabel("Ready for review");
-      toast.success("CSCS ZIP uploaded and ingested successfully!");
+      setPollStartTime(Date.now());
+      toast.success("Unzipping archive contents & applying GIS analytical layers...");
       setStage("review");
     } catch (err) {
       setStage("idle");
@@ -260,7 +298,7 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
       } else {
         // If we just committed the absolute final page (e.g., page index 9 out of 10 total pages)
         setCscsInjectBatchRef(null);
-        toast.success("All pages successfully verified and committed!");
+        toast.success("All data successfully verified and committed!");
         setActiveTab("queue");
       }
     } catch (err) {
@@ -353,294 +391,297 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
       {/* STATE CONFIRMATION REVIEW */}
       {stage === "review" && (
         <div className="space-y-4">
-          {/* Action bar */}
-          <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2 text-sm text-blue-900">
-              <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
-              <span>
-                <strong>
-                  {totalUnconfirmed} record{totalUnconfirmed !== 1 ? "s" : ""}
-                </strong>{" "}
-                need state confirmation for tax jurisdiction. GIS has pre-filled
-                detected states — review and confirm or override each one.
-              </span>
-            </div>
-            <Button
-              size="sm"
-              onClick={handleCommit}
-              disabled={isCommitting}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              {isCommitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  Saving Page {currentPage + 1}...
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4 mr-1.5" />
-                  Save &amp; Commit Page {currentPage + 1}
-                </>
-              )}
-            </Button>
-          </div>
+          {isLoading && !holdersData ? (
+            <Card>      <div className="px-4 py-4 text-center">
+              <p> Processing records from CSCS... Please hold. <span className="animate-spin animate-duration-500 animate-ease-linear">⏳</span></p>
 
-          {/* Filters */}
-          <div className="flex gap-2 items-center flex-wrap">
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search holder, CHN, account…"
-                className="pl-9 mrpsl-input"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <Select
-              value={registerFilter}
-              onValueChange={(v) => {
-                setRegisterFilter(v || "All");
-                setCurrentPage(0);
-              }}
-            >
-              <SelectTrigger className="w-44 mrpsl-input">
-                <SelectValue placeholder="All Registers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All Registers</SelectItem>
-                {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.registerId}>
-                    {r.registerName} · {r.symbol}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v || "")}
-            >
-              <SelectTrigger className="w-40 mrpsl-input">
-                <SelectValue placeholder="GIS State Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">GIS State Status</SelectItem>
-                <SelectItem value="Unconfirmed">Unconfirmed</SelectItem>
-                <SelectItem value="Confirmed">Confirmed</SelectItem>
-                <SelectItem value="Unknown">Unknown</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-[13px] text-muted-foreground">
-                <span className="text-primary font-semibold">
-                  {totalConfirmed}
-                </span>{" "}
-                / {holdersData?.content?.length || 0} confirmed
-              </span>
-              {filteredHolders.some(
-                (h) => confirmedStates[h.id] === undefined,
-              ) && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-9 text-[13px]"
-                    onClick={confirmAllVisible}
-                  >
-                    Accept all GIS suggestions (visible)
-                  </Button>
+            </div></Card>
+          ) : <>
+            {/* Action bar */}
+            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 text-sm text-blue-900">
+                <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
+                <span>
+                  <strong>
+                    {totalUnconfirmed} record{totalUnconfirmed !== 1 ? "s" : ""}
+                  </strong>{" "}
+                  need state confirmation for tax jurisdiction. GIS has pre-filled
+                  detected states — review and confirm or override each one.
+                </span>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleCommit}
+                disabled={isCommitting}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {isCommitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    Saving Page {currentPage + 1}...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-1.5" />
+                    Save &amp; Commit Page {currentPage + 1}
+                  </>
                 )}
+              </Button>
             </div>
-          </div>
 
-          {/* PRO-TIP WORKFLOW CALLOUT */}
-          <div className="bg-muted/60 border border-border rounded-xl px-4 py-3 text-[13px] text-muted-foreground flex items-start gap-2.5">
-            <span className="text-base leading-none">💡</span>
-            <div>
-              <span className="font-semibold text-foreground">Pro-Tip for Fast Processing:</span> Change the
-              <strong className="text-foreground"> Page Size</strong> to the highest value, set the status filter to
-              <strong className="text-foreground"> &ldquo;Unknown State&rdquo;</strong>, click
-              <strong className="text-foreground"> &ldquo;Accept all GIS suggestions&rdquo;</strong>, and hit commit. You can batch-process hundreds of records simultaneously this way!
+            {/* Filters */}
+            <div className="flex gap-2 items-center flex-wrap">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search holder, CHN, account…"
+                  className="pl-9 mrpsl-input"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Select
+                value={registerFilter}
+                onValueChange={(v) => {
+                  setRegisterFilter(v || "All");
+                  setCurrentPage(0);
+                }}
+              >
+                <SelectTrigger className="w-44 mrpsl-input">
+                  <SelectValue placeholder="All Registers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Registers</SelectItem>
+                  {activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.registerId}>
+                      {r.registerName} · {r.symbol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => setStatusFilter(v || "")}
+              >
+                <SelectTrigger className="w-40 mrpsl-input">
+                  <SelectValue placeholder="GIS State Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">GIS State Status</SelectItem>
+                  <SelectItem value="Unconfirmed">Unconfirmed</SelectItem>
+                  <SelectItem value="Confirmed">Confirmed</SelectItem>
+                  <SelectItem value="Unknown">Unknown</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-[13px] text-muted-foreground">
+                  <span className="text-primary font-semibold">
+                    {totalConfirmed}
+                  </span>{" "}
+                  / {holdersData?.content?.length || 0} confirmed
+                </span>
+                {filteredHolders.some(
+                  (h) => confirmedStates[h.id] === undefined,
+                ) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 text-[13px]"
+                      onClick={confirmAllVisible}
+                    >
+                      Accept all GIS suggestions (visible)
+                    </Button>
+                  )}
+              </div>
             </div>
-          </div>
 
-          {/* Records table */}
-          <Card className="mrpsl-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="px-4 py-3">REGISTER</th>
-                    <th className="px-4 py-3">HOLDER</th>
-                    <th className="px-4 py-3">NEW ADDRESS (CSCS)</th>
-                    <th className="px-4 py-3 min-w-55">GIS-DETECTED STATE</th>
-                    <th className="px-4 py-3">STATUS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {isLoadingHolders ? (
+            {/* PRO-TIP WORKFLOW CALLOUT */}
+            <div className="bg-muted/60 border border-border rounded-xl px-4 py-3 text-[13px] text-muted-foreground flex items-start gap-2.5">
+              <span className="text-base leading-none">💡</span>
+              <div>
+                <span className="font-semibold text-foreground">Pro-Tip for Fast Processing:</span> Change the
+                <strong className="text-foreground"> Page Size</strong> to the highest value, set the status filter to
+                <strong className="text-foreground"> &ldquo;Unknown State&rdquo;</strong>, click
+                <strong className="text-foreground"> &ldquo;Accept all GIS suggestions&rdquo;</strong>, and hit commit. You can batch-process hundreds of records simultaneously this way!
+              </div>
+            </div>
+
+            {/* Records table */}
+            <Card className="mrpsl-card overflow-hidden">
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center">
-                        <PendingListSkeleton />
-                      </td>
+                      <th className="px-4 py-3">REGISTER</th>
+                      <th className="px-4 py-3">HOLDER</th>
+                      <th className="px-4 py-3">NEW ADDRESS (CSCS)</th>
+                      <th className="px-4 py-3 min-w-55">GIS-DETECTED STATE</th>
+                      <th className="px-4 py-3">STATUS</th>
                     </tr>
-                  ) : filteredHolders.length > 0 ? (
-                    filteredHolders.map((h) => {
-                      const confirmedState =
-                        confirmedStates[h.id] !== undefined;
-                      return (
-                        <tr key={h.id} className="hover:bg-accent/5 align-top">
-                          {/* Register */}
-                          <td className="px-4 py-4">
-                            <div className="flex flex-wrap gap-1">
-                              {h.registers && h.registers.length > 0 ? (
-                                h.registers.map((reg) => (
-                                  <Badge
-                                    key={reg.id}
-                                    className={`border-0 text-[13px] ${REGISTER_COLORS[reg.symbol] ??
-                                      "bg-gray-100 text-gray-800"
-                                      }`}
-                                  >
-                                    {reg.symbol}
-                                  </Badge>
-                                ))
-                              ) : (
-                                <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">
-                                  N/A
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* Holder details */}
-                          <td className="px-4 py-4 text-[13px] space-y-0.5 min-w-45">
-                            <div className="font-semibold text-sm text-foreground">
-                              {h.name}
-                            </div>
-                            <div className="text-muted-foreground font-mono">
-                              {h.chn}
-                            </div>
-                            {h.phone && (
-                              <div className="text-muted-foreground">
-                                {h.phone}
-                              </div>
-                            )}
-                            {h.email && (
-                              <div className="text-muted-foreground truncate max-w-45">
-                                {h.email}
-                              </div>
-                            )}
-                          </td>
-
-                          {/* New address */}
-                          <td className="px-4 py-4 text-[13px] text-muted-foreground leading-relaxed max-w-55">
-                            {h.address || "No address provided"}
-                          </td>
-
-                          {/* State Jurisdiction Dropdown */}
-                          <td className="px-4 py-4">
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-1.5">
-                                <Select
-                                  value={confirmedStates[h.id] ?? h.state ?? ""}
-                                  onValueChange={(state) => {
-                                    if (!state) return;
-                                    confirmState(h.id, state);
-                                    toast.success(
-                                      `${h.name} state set to ${state}`,
-                                    );
-                                  }}
-                                >
-                                  <SelectTrigger
-                                    className={`h-9 text-[13px] flex-1 min-w-0 ${!confirmedState
-                                      ? "border-amber-300 bg-amber-50 text-amber-900"
-                                      : "border-green-300 bg-green-50 text-green-900"
-                                      }`}
-                                  >
-                                    <SelectValue placeholder="Select State" />
-                                  </SelectTrigger>
-                                  <SelectContent
-                                    align="start"
-                                    alignItemWithTrigger={false}
-                                    className="max-h-60"
-                                  >
-                                    {NIGERIA_STATE_NAMES.map((s) => (
-                                      <SelectItem key={s} value={s}>
-                                        {s}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                {!confirmedState ? (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-9 px-3 shrink-0 border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800"
-                                    onClick={() => {
-                                      confirmState(h.id, h.state || "Lagos");
-                                      toast.success(
-                                        `${h.name} state confirmed`,
-                                      );
-                                    }}
-                                  >
-                                    <Check className="h-3.5 w-3.5" />
-                                  </Button>
-                                ) : (
-                                  <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
-                                )}
-                              </div>
-                              {confirmedState &&
-                                h.state &&
-                                confirmedStates[h.id] !== h.state && (
-                                  <div className="text-[13px] text-muted-foreground">
-                                    Original:{" "}
-                                    <span className="font-medium">
-                                      {h.state}
-                                    </span>
-                                  </div>
-                                )}
-                            </div>
-                          </td>
-
-                          {/* Status */}
-                          <td className="px-4 py-4">
-                            {confirmedState ? (
-                              <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
-                                Confirmed
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-                                Pending
-                              </Badge>
-                            )}
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {
+                      (isFetching || isPlaceholderData) && holdersData ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-12 text-center">
+                            <PendingListSkeleton />
                           </td>
                         </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-12 text-center text-muted-foreground text-sm"
-                      >
-                        No records match your filters.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      ) :
+                        filteredHolders.length > 0 ? (
+                          filteredHolders.map((h) => {
+                            const confirmedState =
+                              confirmedStates[h.id] !== undefined;
+                            return (
+                              <tr key={h.id} className="hover:bg-accent/5 align-top">
+                                {/* Register */}
+                                <td className="px-4 py-4">
+                                  <div className="flex flex-wrap gap-1">
+                                    {h.registers && h.registers.length > 0 ? (
+                                      h.registers.map((reg) => (
+                                        <Badge key={reg.id} className="border-0 text-[13px] bg-gray-100 text-gray-800">{reg.symbol}</Badge>
+                                      ))
+                                    ) : (
+                                      <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">N/A</Badge>
+                                    )}
+                                  </div>
+                                </td>
 
-            {/* Pagination controls using PaginationBar */}
-            {holdersData && (
-              <PaginationBar
-                page={currentPage}
-                pageSize={pageSize}
-                total={holdersData.totalElements || 0}
-                totalPages={holdersData.totalPages || 0}
-                onPageChange={handlePageChange}
-                onPageSizeChange={handlePageSizeChange}
-              />
-            )}
-          </Card>
+                                {/* Holder details */}
+                                <td className="px-4 py-4 text-[13px] space-y-0.5 min-w-45">
+                                  <div className="font-semibold text-sm text-foreground">
+                                    {h.name}
+                                  </div>
+                                  <div className="text-muted-foreground font-mono">
+                                    {h.chn}
+                                  </div>
+                                  {h.phone && (
+                                    <div className="text-muted-foreground">
+                                      {h.phone}
+                                    </div>
+                                  )}
+                                  {h.email && (
+                                    <div className="text-muted-foreground truncate max-w-45">
+                                      {h.email}
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* New address */}
+                                <td className="px-4 py-4 text-[13px] text-muted-foreground leading-relaxed max-w-55">
+                                  {h.address || "No address provided"}
+                                </td>
+
+                                {/* State Jurisdiction Dropdown */}
+                                <td className="px-4 py-4">
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <Select
+                                        value={confirmedStates[h.id] ?? h.state ?? ""}
+                                        onValueChange={(state) => {
+                                          if (!state) return;
+                                          confirmState(h.id, state);
+                                          toast.success(
+                                            `${h.name} state set to ${state}`,
+                                          );
+                                        }}
+                                      >
+                                        <SelectTrigger
+                                          className={`h-9 text-[13px] flex-1 min-w-0 ${!confirmedState
+                                            ? "border-amber-300 bg-amber-50 text-amber-900"
+                                            : "border-green-300 bg-green-50 text-green-900"
+                                            }`}
+                                        >
+                                          <SelectValue placeholder="Select State" />
+                                        </SelectTrigger>
+                                        <SelectContent
+                                          align="start"
+                                          alignItemWithTrigger={false}
+                                          className="max-h-60"
+                                        >
+                                          {NIGERIA_STATE_NAMES.map((s) => (
+                                            <SelectItem key={s} value={s}>
+                                              {s}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      {!confirmedState ? (
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-9 px-3 shrink-0 border-green-300 text-green-700 hover:bg-green-50 hover:text-green-800"
+                                          onClick={() => {
+                                            confirmState(h.id, h.state || "Lagos");
+                                            toast.success(
+                                              `${h.name} state confirmed`,
+                                            );
+                                          }}
+                                        >
+                                          <Check className="h-3.5 w-3.5" />
+                                        </Button>
+                                      ) : (
+                                        <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                                      )}
+                                    </div>
+                                    {confirmedState &&
+                                      h.state &&
+                                      confirmedStates[h.id] !== h.state && (
+                                        <div className="text-[13px] text-muted-foreground">
+                                          Original:{" "}
+                                          <span className="font-medium">
+                                            {h.state}
+                                          </span>
+                                        </div>
+                                      )}
+                                  </div>
+                                </td>
+
+                                {/* Status */}
+                                <td className="px-4 py-4">
+                                  {confirmedState ? (
+                                    <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
+                                      Confirmed
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
+                                      Pending
+                                    </Badge>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        ) : (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="px-4 py-12 text-center text-muted-foreground text-sm"
+                            >
+                              No records match your filters.
+                            </td>
+                          </tr>
+                        )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination controls using PaginationBar */}
+              {holdersData && (
+                <PaginationBar
+                  page={currentPage}
+                  pageSize={pageSize}
+                  total={holdersData.totalElements || 0}
+                  totalPages={holdersData.totalPages || 0}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              )}
+
+            </Card>
+
+          </>}
         </div>
       )}
     </div>
