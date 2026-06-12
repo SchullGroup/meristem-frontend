@@ -9,6 +9,7 @@ import {
   Check,
   Search,
   MapPin,
+  XCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
@@ -316,6 +317,19 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
     setCurrentPage(0);
   };
 
+  const handleCancelPolling = () => {
+    setCscsInjectBatchRef(null);
+    setStage("idle");
+    setPollStartTime(null);
+    setIsPollingTimedOut(false);
+    setConfirmedStates({});
+    setCurrentPage(0);
+    setSearch("");
+    setRegisterFilter("");
+    setStatusFilter("");
+    toast.info("Process Cancelled.");
+  };
+
   return (
     <div>
       {/* IDLE */}
@@ -409,24 +423,36 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
                   detected states — review and confirm or override each one.
                 </span>
               </div>
-              <Button
-                size="sm"
-                onClick={handleCommit}
-                disabled={isCommitting}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                {isCommitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                    Saving Page {currentPage + 1}...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 mr-1.5" />
-                    Save &amp; Commit Page {currentPage + 1}
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancelPolling}
+                  disabled={isCommitting}
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <XCircle className="h-4 w-4 mr-1.5" />
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleCommit}
+                  disabled={isCommitting}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  {isCommitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      Saving Page {currentPage + 1}...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 mr-1.5" />
+                      Save &amp; Commit Page {currentPage + 1}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
             {/* Filters */}
