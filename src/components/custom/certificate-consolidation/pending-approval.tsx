@@ -39,8 +39,6 @@ export default function PendingConsolidationApprovals() {
       status: "PENDING",
     });
 
-  console.log(data);
-
   const batchApproveMutation = useBatchApproveOrRejectConsolidationRequest();
 
   const openReview = (row: CertificateConsolidation) => {

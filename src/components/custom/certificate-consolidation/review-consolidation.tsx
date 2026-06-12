@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { CertificateConsolidation } from "@/types/cscs";
 import { useStore } from "@/lib/store";
 import {
@@ -67,7 +67,7 @@ export const ReviewConsolidation = ({
           setReviewOpen(false);
           onSuccess?.();
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error.message || "Consolidation rejection failed.");
         },
       },
@@ -100,7 +100,7 @@ export const ReviewConsolidation = ({
           setReviewOpen(false);
           onSuccess?.();
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error.message || "Consolidation approval failed.");
         },
       },
@@ -320,7 +320,7 @@ export const RejectConsolidation = ({
           setBatchComment("");
           toast.success("Consolidations rejected successfully");
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error?.message || "Failed to reject consolidations");
         },
       },
@@ -367,6 +367,9 @@ export const RejectConsolidation = ({
               onClick={handleBatchReject}
             >
               Confirm Rejection
+              {batchRejectMutation.isPending && (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              )}
             </Button>
           </div>
         </div>
