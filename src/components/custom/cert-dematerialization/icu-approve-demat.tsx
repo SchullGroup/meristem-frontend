@@ -32,8 +32,19 @@ export default function IcuApproveDemat({ tab }: { tab: string }) {
     },
   );
 
-  const { mutate: icuApproveDemat } = useIcuApproveDematRequest();
-  const { mutate: rejectDemat } = useRejectDematRequest();
+  const {
+    mutate: icuApproveDemat,
+    isPending: icuPending,
+    isSuccess: icuSuccess,
+  } = useIcuApproveDematRequest();
+  const {
+    mutate: rejectDemat,
+    isPending: rejectPending,
+    isSuccess: rejectSuccess,
+  } = useRejectDematRequest();
+
+  const isPending = icuPending || rejectPending;
+  const success = icuSuccess || rejectSuccess;
 
   if (isLoading) return <PendingListSkeleton />;
   if (isError)
@@ -93,6 +104,8 @@ export default function IcuApproveDemat({ tab }: { tab: string }) {
       />
 
       <ViewDematRecord
+        success={success}
+        isPending={isPending}
         selected={selected}
         open={reviewOpen}
         onOpenChange={setReviewOpen}

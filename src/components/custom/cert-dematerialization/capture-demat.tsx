@@ -32,7 +32,7 @@ export const CaptureDematerialization = ({
   tab: string;
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
 }) => {
-  const { data: activeRegisters } = useGetRegisters({
+  const { data: activeRegisters, isLoading } = useGetRegisters({
     size: 1000,
     status: "ACTIVE",
   });
@@ -236,11 +236,17 @@ export const CaptureDematerialization = ({
                     <SelectValue placeholder="Select Register" />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeRegisters?.content?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.registerId}>
-                        {r.registerName} · {r.symbol}
-                      </SelectItem>
-                    ))}{" "}
+                    {isLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      </div>
+                    ) : (
+                      activeRegisters?.content?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.registerId}>
+                          {r.registerName} · {r.symbol}
+                        </SelectItem>
+                      ))
+                    )}{" "}
                   </SelectContent>
                 </Select>
               </div>

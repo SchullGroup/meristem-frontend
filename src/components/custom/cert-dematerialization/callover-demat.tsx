@@ -32,8 +32,19 @@ export default function CalloverDemat({ tab }: { tab: string }) {
     },
   );
 
-  const { mutate: submitForCallover } = useSubmitForCalloverDematRequest();
-  const { mutate: rejectDemat } = useRejectDematRequest();
+  const {
+    mutate: submitForCallover,
+    isSuccess: submitSuccess,
+    isPending: submitPending,
+  } = useSubmitForCalloverDematRequest();
+  const {
+    mutate: rejectDemat,
+    isSuccess: rejectSuccess,
+    isPending: rejectPending,
+  } = useRejectDematRequest();
+
+  const isPending = submitPending || rejectPending;
+  const success = submitSuccess || rejectSuccess;
 
   if (isLoading) return <PendingListSkeleton />;
   if (isError)
@@ -94,6 +105,8 @@ export default function CalloverDemat({ tab }: { tab: string }) {
       />
 
       <ViewDematRecord
+        isPending={isPending}
+        success={success}
         selected={selected}
         open={reviewOpen}
         onOpenChange={setReviewOpen}

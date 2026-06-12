@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, FileText, Download, ExternalLink } from "lucide-react";
+import { Check, FileText, Download, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Demat } from "@/actions/certDematActions";
 
@@ -30,6 +30,8 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function ViewDematRecord({
+  isPending,
+  success,
   selected,
   open,
   onOpenChange,
@@ -38,6 +40,8 @@ export function ViewDematRecord({
   approveLabel = "Approve",
   readOnly,
 }: {
+  isPending: boolean;
+  success: boolean;
   selected: Demat | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -47,6 +51,13 @@ export function ViewDematRecord({
   readOnly?: boolean;
 }) {
   const [rejectComment, setRejectComment] = useState("");
+
+  useEffect(() => {
+    if (success && !isPending) {
+      onOpenChange(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [success, isPending]);
 
   if (!selected) return null;
 
@@ -130,7 +141,9 @@ export function ViewDematRecord({
       // Fallback: open the file in a new tab so the user can save it manually
       try {
         window.open(url, "_blank", "noopener,noreferrer");
-        toast.info("Opened file in new tab (fallback) — please save from the browser.");
+        toast.info(
+          "Opened file in new tab (fallback) — please save from the browser.",
+        );
       } catch {
         toast.error("Failed to download document.");
       }
@@ -163,8 +176,9 @@ export function ViewDematRecord({
               <div>
                 <div className="mrpsl-section-title mb-1">Certificate(s)</div>
                 <div className="font-mono text-sm font-semibold">
-                  {selected.certificates?.map((c) => c.certNo).join(", ") ||
-                    "-"}
+                  {selected?.certificates
+                    ?.map((c) => c?.certNumber)
+                    .join(", ") || "-"}
                 </div>
               </div>
               <StatusBadge status={selected.status} />
@@ -308,10 +322,12 @@ export function ViewDematRecord({
                   onClick={() => {
                     if (onApprove) onApprove(selected.id);
                     setRejectComment("");
-                    onOpenChange(false);
                   }}
                 >
                   {approveLabel}
+                  {isPending && (
+                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  )}
                 </Button>
               </div>
             </>

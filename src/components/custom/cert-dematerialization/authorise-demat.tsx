@@ -32,8 +32,19 @@ export default function AuthoriseDemat({ tab }: { tab: string }) {
     },
   );
 
-  const { mutate: authorizeDemat } = useAuthorizeDematRequest();
-  const { mutate: rejectDemat } = useRejectDematRequest();
+  const {
+    mutate: authorizeDemat,
+    isSuccess: submitSuccess,
+    isPending: submitPending,
+  } = useAuthorizeDematRequest();
+  const {
+    mutate: rejectDemat,
+    isSuccess: rejectSuccess,
+    isPending: rejectPending,
+  } = useRejectDematRequest();
+
+  const isPending = submitPending || rejectPending;
+  const success = submitSuccess || rejectSuccess;
 
   if (isLoading) return <PendingListSkeleton />;
   if (isError)
@@ -92,6 +103,8 @@ export default function AuthoriseDemat({ tab }: { tab: string }) {
       />
 
       <ViewDematRecord
+        isPending={isPending}
+        success={success}
         selected={selected}
         open={reviewOpen}
         onOpenChange={setReviewOpen}
