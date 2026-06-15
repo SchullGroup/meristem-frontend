@@ -729,7 +729,7 @@ export default function ReportsPage() {
                           (p) => p.id === r.principalId,
                         );
                         return (
-                          <SelectItem key={r.registerId} value={r.id}>
+                          <SelectItem key={r.id} value={r.id}>
                             {r.name} · {r.symbol}
                             {principal ? ` — ${principal.name}` : ""}
                           </SelectItem>

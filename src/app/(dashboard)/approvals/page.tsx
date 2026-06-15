@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ClipboardCheck,
   ShieldX,
@@ -16,6 +18,7 @@ import {
   Image,
   Download,
   ExternalLink,
+  ArrowUpRight,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
@@ -46,7 +49,42 @@ import { ApprovalItem } from "@/lib/types";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 
+function moduleUrl(module: string, transactionType: string): string {
+  if (module === "SETUP") {
+    if (transactionType.includes("Principal")) return "/setup/principals";
+    if (transactionType.includes("User")) return "/setup/users";
+    if (transactionType.includes("Register")) return "/setup/registers";
+    return "/setup/parameters";
+  }
+  if (module === "DIVIDENDS") {
+    if (transactionType.toLowerCase().includes("declaration"))
+      return "/dividends/declaration";
+    if (transactionType.toLowerCase().includes("payment"))
+      return "/dividends/payment";
+    if (
+      transactionType.toLowerCase().includes("mark-off") ||
+      transactionType.toLowerCase().includes("markoff")
+    )
+      return "/dividends/warrant-markoff";
+    if (transactionType.toLowerCase().includes("split"))
+      return "/dividends/split";
+    return "/dividends/declaration";
+  }
+  if (module === "CERTIFICATES") return "/certificates/transfer";
+  if (module === "ACCOUNT MAINTENANCE") {
+    if (transactionType.toLowerCase().includes("kyc"))
+      return "/account-maintenance/kyc-update";
+    if (transactionType.toLowerCase().includes("consolidation"))
+      return "/account-maintenance/consolidation";
+    if (transactionType.toLowerCase().includes("admon"))
+      return "/account-maintenance/admon";
+    return "/account-maintenance/kyc-update";
+  }
+  return "/";
+}
+
 export default function ApprovalsPage() {
+  const router = useRouter();
   const {
     pendingApprovals,
     currentUser,
@@ -57,6 +95,7 @@ export default function ApprovalsPage() {
     addUser,
     updateUser,
   } = useStore();
+  const currentUserRole = currentUser?.roles?.[0];
   const [search, setSearch] = useState("");
   const [moduleFilter, setModuleFilter] = useState("All");
   const [tierFilter, setTierFilter] = useState("All");
@@ -71,6 +110,10 @@ export default function ApprovalsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchComment, setBatchComment] = useState("");
+
+  // Queue tab & review mode
+  const [queueTab, setQueueTab] = useState("my-desk");
+  const [reviewReadOnly, setReviewReadOnly] = useState(false);
 
   // Edit & Resubmit dialog (initiator)
   const [editOpen, setEditOpen] = useState(false);
@@ -88,20 +131,20 @@ export default function ApprovalsPage() {
   }
 
   function handleBatchApprove() {
-    if (!currentUser) return;
+    if (!currentUser || !currentUserRole) return;
     [...selectedIds].forEach((id) => {
       const item = pendingApprovals.find((a) => a.id === id);
       if (!item) return;
       const updatedSteps = item.approvalSteps.map((s) =>
-        s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
+        s.roles?.[0] === currentUserRole && !s.decision
           ? {
-            ...s,
-            decision: "APPROVED" as const,
-            comment: batchComment,
-            decidedAt: new Date().toISOString(),
-            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-            approverId: currentUser.id,
-          }
+              ...s,
+              decision: "APPROVED" as const,
+              comment: batchComment,
+              decidedAt: new Date().toISOString(),
+              approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+              approverId: currentUser.id,
+            }
           : s,
       );
       const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
@@ -117,7 +160,7 @@ export default function ApprovalsPage() {
   }
 
   function handleBatchReject() {
-    if (!currentUser) return;
+    if (!currentUser || !currentUserRole) return;
     if (!batchComment.trim()) {
       toast.error("Comment required for rejection.");
       return;
@@ -126,15 +169,15 @@ export default function ApprovalsPage() {
       const item = pendingApprovals.find((a) => a.id === id);
       if (!item) return;
       const updatedSteps = item.approvalSteps.map((s) =>
-        s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
+        s.roles?.[0] === currentUserRole && !s.decision
           ? {
-            ...s,
-            decision: "REJECTED" as const,
-            comment: batchComment,
-            decidedAt: new Date().toISOString(),
-            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-            approverId: currentUser.id,
-          }
+              ...s,
+              decision: "REJECTED" as const,
+              comment: batchComment,
+              decidedAt: new Date().toISOString(),
+              approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+              approverId: currentUser.id,
+            }
           : s,
       );
       updateApprovalItem(id, {
@@ -162,11 +205,20 @@ export default function ApprovalsPage() {
   });
   const pg = usePagination(filtered);
 
+  const globalFiltered = pendingApprovals.filter((a) => {
+    const matchesSearch =
+      a.description.toLowerCase().includes(search.toLowerCase()) ||
+      a.id.toLowerCase().includes(search.toLowerCase());
+    const matchesModule = moduleFilter === "All" || a.module === moduleFilter;
+    return a.status === "PENDING" && matchesSearch && matchesModule;
+  });
+  const globalPg = usePagination(globalFiltered);
+
   const myPendingCount = pendingApprovals.filter(
     (a) =>
       a.status === "PENDING" &&
       a.approvalSteps.some(
-        (s) => s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision,
+        (s) => currentUserRole && s.roles?.[0] === currentUserRole && !s.decision,
       ),
   ).length;
   const overdueCount = pendingApprovals.filter(
@@ -186,24 +238,25 @@ export default function ApprovalsPage() {
     (a) => a.status === "REJECTED" && a.initiatorId === currentUser?.id,
   );
 
-  const handleReview = (item: ApprovalItem) => {
+  const handleReview = (item: ApprovalItem, readOnly = false) => {
     setReviewItem(item);
     setReviewComment("");
+    setReviewReadOnly(readOnly);
     setReviewOpen(true);
   };
 
   const handleApprove = () => {
-    if (!reviewItem || !currentUser) return;
+    if (!reviewItem || !currentUser || !currentUserRole) return;
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
-      s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
+      s.roles?.[0] === currentUserRole && !s.decision
         ? {
-          ...s,
-          decision: "APPROVED" as const,
-          comment: reviewComment,
-          decidedAt: new Date().toISOString(),
-          approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-          approverId: currentUser.id,
-        }
+            ...s,
+            decision: "APPROVED" as const,
+            comment: reviewComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
         : s,
     );
     const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
@@ -214,7 +267,7 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser.roles[0],
+      role: currentUserRole,
       action: "APPROVE",
       entityType: "APPROVAL",
       entityId: reviewItem.id,
@@ -228,12 +281,12 @@ export default function ApprovalsPage() {
       const tt = reviewItem.transactionType;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (tt === "Create Principal") addPrincipal(p as any);
-       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       else if (tt === "Update Principal")
         updatePrincipal(p.id as string, (p.updates ?? p) as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       else if (tt === "Create User") addUser(p as any);
-       
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       else if (tt === "Update User")
         updateUser(p.id as string, (p.updates ?? p) as any);
       toast.success(
@@ -246,21 +299,21 @@ export default function ApprovalsPage() {
   };
 
   const handleReject = () => {
-    if (!reviewItem || !currentUser) return;
+    if (!reviewItem || !currentUser || !currentUserRole) return;
     if (!reviewComment.trim()) {
       toast.error("A rejection comment is required.");
       return;
     }
     const updatedSteps = reviewItem.approvalSteps.map((s) =>
-      s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision
+      s.roles?.[0] === currentUserRole && !s.decision
         ? {
-          ...s,
-          decision: "REJECTED" as const,
-          comment: reviewComment,
-          decidedAt: new Date().toISOString(),
-          approverName: `${currentUser.firstName} ${currentUser.lastName}`,
-          approverId: currentUser.id,
-        }
+            ...s,
+            decision: "REJECTED" as const,
+            comment: reviewComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
         : s,
     );
     updateApprovalItem(reviewItem.id, {
@@ -270,7 +323,7 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser.roles[0],
+      role: currentUserRole,
       action: "REJECT",
       entityType: "APPROVAL",
       entityId: reviewItem.id,
@@ -295,7 +348,10 @@ export default function ApprovalsPage() {
       toast.error("Please describe the changes you made before resubmitting.");
       return;
     }
-    const resetSteps = editItem.approvalSteps.map((s) => ({ roles: s.roles }));
+    const resetSteps = editItem.approvalSteps.map((s) => ({
+      roles: s.roles,
+      role: s.roles?.[0] || "",
+    }));
     const parsedAmount = editAmount.replace(/,/g, "").trim();
     updateApprovalItem(editItem.id, {
       status: "PENDING",
@@ -307,7 +363,7 @@ export default function ApprovalsPage() {
     logAudit({
       actor: `${currentUser.firstName} ${currentUser.lastName}`,
       actorId: currentUser.id,
-      role: currentUser?.roles?.[0] || "",
+      role: currentUser.roles?.[0] || "",
       action: "RESUBMIT",
       entityType: "APPROVAL",
       entityId: editItem.id,
@@ -415,253 +471,439 @@ export default function ApprovalsPage() {
         </Card>
       </div>
 
-      <div className="flex gap-2 items-center">
-        <Input
-          placeholder="Search ref or description..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-64 mrpsl-input"
-        />
-        <Select
-          value={moduleFilter}
-          onValueChange={(v) => setModuleFilter(v || "")}
-        >
-          <SelectTrigger className="w-48 mrpsl-input">
-            <SelectValue placeholder="Module" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Modules</SelectItem>
-            <SelectItem value="SETUP">Setup</SelectItem>
-            <SelectItem value="DIVIDENDS">Dividends</SelectItem>
-            <SelectItem value="CERTIFICATES">Certificates</SelectItem>
-            <SelectItem value="ACCOUNT MAINTENANCE">
-              Account Maintenance
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={tierFilter}
-          onValueChange={(v) => setTierFilter(v || "")}
-        >
-          <SelectTrigger className="w-32 mrpsl-input">
-            <SelectValue placeholder="Tier" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Tiers</SelectItem>
-            <SelectItem value="1">Tier 1</SelectItem>
-            <SelectItem value="2">Tier 2</SelectItem>
-            <SelectItem value="3">Tier 3</SelectItem>
-            <SelectItem value="4">Tier 4</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v || "")}
-        >
-          <SelectTrigger className="w-36 mrpsl-input">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Status</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
-          <span className="text-sm font-semibold text-primary">
-            {selectedIds.size} selected
-          </span>
-          <div className="flex gap-2 ml-auto">
-            <Button
-              size="sm"
+      <Tabs value={queueTab} onValueChange={setQueueTab} className="space-y-4">
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
+          <TabsTrigger
+            value="my-desk"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            On My Desk
+            {myPendingCount > 0 && (
+              <Badge className="ml-2 h-5 min-w-5 px-1.5 text-[11px] bg-amber-500 text-white border-0">
+                {myPendingCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="global"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            Global Queue
+            <Badge
               variant="outline"
-              className="border-red-300 text-red-700 hover:bg-red-50"
-              onClick={() => setBatchRejectOpen(true)}
+              className="ml-2 h-5 min-w-5 px-1.5 text-[11px]"
             >
-              Reject Selected
-            </Button>
-            <Button size="sm" onClick={handleBatchApprove}>
-              Approve Selected
-            </Button>
+              {allPendingCount}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── ON MY DESK ────────────────────────────────────────────────── */}
+        <TabsContent value="my-desk" className="space-y-4 mt-0">
+          <div className="flex gap-2 items-center">
+            <Input
+              placeholder="Search ref or description..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-64 mrpsl-input"
+            />
+            <Select
+              value={moduleFilter}
+              onValueChange={(v) => setModuleFilter(v || "")}
+            >
+              <SelectTrigger className="w-48 mrpsl-input">
+                <SelectValue placeholder="Module" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Modules</SelectItem>
+                <SelectItem value="SETUP">Setup</SelectItem>
+                <SelectItem value="DIVIDENDS">Dividends</SelectItem>
+                <SelectItem value="CERTIFICATES">Certificates</SelectItem>
+                <SelectItem value="ACCOUNT MAINTENANCE">
+                  Account Maintenance
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={tierFilter}
+              onValueChange={(v) => setTierFilter(v || "")}
+            >
+              <SelectTrigger className="w-32 mrpsl-input">
+                <SelectValue placeholder="Tier" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Tiers</SelectItem>
+                <SelectItem value="1">Tier 1</SelectItem>
+                <SelectItem value="2">Tier 2</SelectItem>
+                <SelectItem value="3">Tier 3</SelectItem>
+                <SelectItem value="4">Tier 4</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v || "")}
+            >
+              <SelectTrigger className="w-36 mrpsl-input">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Status</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      )}
 
-      <Card className="mrpsl-card overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="mrpsl-table-header">
-            <tr>
-              <th className="p-3 w-10"></th>
-              <th className="p-3">REFERENCE</th>
-              <th className="p-3">MODULE</th>
-              <th className="p-3">TYPE</th>
-              <th className="p-3">DESCRIPTION</th>
-              <th className="p-3">AMOUNT</th>
-              <th className="p-3">TIER</th>
-              <th className="p-3">SUBMITTED BY</th>
-              <th className="p-3">AGING</th>
-              <th className="p-3">STATUS</th>
-              <th className="p-3">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-[13px]">
-            {pg.paged.map((a) => {
-              const aging = getAging(a.submittedAt);
-              const isMine = a.initiatorId === currentUser.id;
-              const canAction =
-                a.status === "PENDING" &&
-                a.approvalSteps.some(
-                  (s) => s?.roles?.[0] === currentUser?.roles?.[0] && !s.decision,
-                );
-
-              return (
-                <tr
-                  key={a.id}
-                  className={`hover:bg-accent/5 ${a.status === "REJECTED" && isMine ? "bg-red-50/40" : ""}`}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
+              <span className="text-sm font-semibold text-primary">
+                {selectedIds.size} selected
+              </span>
+              <div className="flex gap-2 ml-auto">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                  onClick={() => setBatchRejectOpen(true)}
                 >
-                  <td className="p-3">
-                    {canAction ? (
-                      <Checkbox
-                        checked={selectedIds.has(a.id)}
-                        onCheckedChange={() => toggleSelect(a.id)}
-                      />
-                    ) : (
-                      <span className="w-4 inline-block" />
-                    )}
-                  </td>
-                  <td className="p-3 font-mono text-[13px] text-muted-foreground">
-                    {a.id}
-                  </td>
-                  <td className="p-3">
-                    <Badge className="bg-gray-100 text-gray-800 border-0 text-[13px]">
-                      {a.module
-                        .toLowerCase()
-                        .replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </Badge>
-                  </td>
-                  <td className="p-3 font-medium text-sm">
-                    {a.transactionType}
-                  </td>
-                  <td
-                    className="p-3 truncate max-w-[200px]"
-                    title={a.description}
-                  >
-                    {a.description}
-                  </td>
-                  <td className="p-3 text-right font-mono font-bold">
-                    {a.amount ? `₦${a.amount.toLocaleString()}` : "—"}
-                  </td>
-                  <td className="p-3">
-                    {a.tier ? (
-                      <Badge
-                        className={`border-0 text-[13px] ${a.tier === 1 ? "bg-green-100 text-green-800" : a.tier === 2 ? "bg-blue-100 text-blue-800" : a.tier === 3 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"}`}
-                      >
-                        T{a.tier}
-                      </Badge>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <span className="text-[13px] font-bold text-primary">
-                          {getInitials(a.initiatorName)}
-                        </span>
-                      </div>
-                      <span>{a.initiatorName}</span>
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2 w-24">
-                      <Progress value={aging.pct} className="h-1.5" />
-                      <span
-                        className={`text-[13px] whitespace-nowrap ${aging.overdue ? "text-red-600 font-bold" : "text-muted-foreground"}`}
-                      >
-                        {aging.text}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <Badge
-                      className={`border-0 text-[13px] ${a.status === "PENDING" ? "bg-amber-100 text-amber-800" : a.status === "APPROVED" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
+                  Reject Selected
+                </Button>
+                <Button size="sm" onClick={handleBatchApprove}>
+                  Approve Selected
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <Card className="mrpsl-card overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="mrpsl-table-header">
+                <tr>
+                  <th className="p-3 w-10"></th>
+                  <th className="p-3">REFERENCE</th>
+                  <th className="p-3">MODULE</th>
+                  <th className="p-3">TYPE</th>
+                  <th className="p-3">DESCRIPTION</th>
+                  <th className="p-3">AMOUNT</th>
+                  <th className="p-3">TIER</th>
+                  <th className="p-3">SUBMITTED BY</th>
+                  <th className="p-3">AGING</th>
+                  <th className="p-3">STATUS</th>
+                  <th className="p-3">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-[13px]">
+                {pg.paged.map((a) => {
+                  const aging = getAging(a.submittedAt);
+                  const isMine = a.initiatorId === currentUser.id;
+                  const canAction =
+                    a.status === "PENDING" &&
+                    currentUserRole &&
+                    a.approvalSteps.some(
+                      (s) => s.roles?.[0] === currentUserRole && !s.decision,
+                    );
+
+                  return (
+                    <tr
+                      key={a.id}
+                      className={`hover:bg-accent/5 ${a.status === "REJECTED" && isMine ? "bg-red-50/40" : ""}`}
                     >
-                      {a.status
-                        .toLowerCase()
-                        .replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </Badge>
-                  </td>
-                  <td className="p-3 text-right">
-                    {a.status === "PENDING" ? (
-                      canAction ? (
-                        <Button size="sm" onClick={() => handleReview(a)}>
-                          Review
-                        </Button>
-                      ) : isMine ? (
+                      <td className="p-3">
+                        {canAction ? (
+                          <Checkbox
+                            checked={selectedIds.has(a.id)}
+                            onCheckedChange={() => toggleSelect(a.id)}
+                          />
+                        ) : (
+                          <span className="w-4 inline-block" />
+                        )}
+                      </td>
+                      <td className="p-3 font-mono text-[13px] text-muted-foreground">
+                        {a.id}
+                      </td>
+                      <td className="p-3">
+                        <Badge className="bg-gray-100 text-gray-800 border-0 text-[13px]">
+                          {a.module
+                            .toLowerCase()
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </Badge>
+                      </td>
+                      <td className="p-3 font-medium text-sm">
+                        {a.transactionType}
+                      </td>
+                      <td
+                        className="p-3 truncate max-w-[200px]"
+                        title={a.description}
+                      >
+                        {a.description}
+                      </td>
+                      <td className="p-3 text-right font-mono font-bold">
+                        {a.amount ? `₦${a.amount.toLocaleString()}` : "—"}
+                      </td>
+                      <td className="p-3">
+                        {a.tier ? (
+                          <Badge
+                            className={`border-0 text-[13px] ${a.tier === 1 ? "bg-green-100 text-green-800" : a.tier === 2 ? "bg-blue-100 text-blue-800" : a.tier === 3 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"}`}
+                          >
+                            T{a.tier}
+                          </Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-[13px] font-bold text-primary">
+                              {getInitials(a.initiatorName)}
+                            </span>
+                          </div>
+                          <span>{a.initiatorName}</span>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2 w-24">
+                          <Progress value={aging.pct} className="h-1.5" />
+                          <span
+                            className={`text-[13px] whitespace-nowrap ${aging.overdue ? "text-red-600 font-bold" : "text-muted-foreground"}`}
+                          >
+                            {aging.text}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <Badge
+                          className={`text-[13px] ${a.status === "PENDING" ? "badge-pending" : a.status === "APPROVED" ? "badge-approved" : "badge-rejected"}`}
+                        >
+                          {a.status
+                            .toLowerCase()
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-right">
+                        {a.status === "PENDING" ? (
+                          canAction ? (
+                            <Button size="sm" onClick={() => handleReview(a)}>
+                              Review
+                            </Button>
+                          ) : isMine ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-600"
+                              onClick={() =>
+                                toast.success("Recalled successfully")
+                              }
+                            >
+                              Recall
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-[13px]">
+                              Locked
+                            </span>
+                          )
+                        ) : a.status === "REJECTED" && isMine ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-amber-300 text-amber-800 hover:bg-amber-50 hover:text-amber-900"
+                            onClick={() => handleEditResubmit(a)}
+                          >
+                            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                            Edit &amp; Resubmit
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleReview(a)}
+                          >
+                            <Eye className="mr-1.5 h-3.5 w-3.5" /> View
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {pg.paged.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={11}
+                      className="p-12 text-center text-muted-foreground"
+                    >
+                      No approvals match your filters.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </Card>
+
+          <TablePagination
+            page={pg.page}
+            pageSize={pg.pageSize}
+            totalPages={pg.totalPages}
+            from={pg.from}
+            to={pg.to}
+            total={pg.total}
+            onPageChange={pg.setPage}
+            onPageSizeChange={pg.setPageSize}
+          />
+        </TabsContent>
+
+        {/* ── GLOBAL QUEUE ──────────────────────────────────────────────── */}
+        <TabsContent value="global" className="space-y-4 mt-0">
+          <div className="flex gap-2 items-center">
+            <Input
+              placeholder="Search ref or description..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-64 mrpsl-input"
+            />
+            <Select
+              value={moduleFilter}
+              onValueChange={(v) => setModuleFilter(v || "")}
+            >
+              <SelectTrigger className="w-48 mrpsl-input">
+                <SelectValue placeholder="Module" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Modules</SelectItem>
+                <SelectItem value="SETUP">Setup</SelectItem>
+                <SelectItem value="DIVIDENDS">Dividends</SelectItem>
+                <SelectItem value="CERTIFICATES">Certificates</SelectItem>
+                <SelectItem value="ACCOUNT MAINTENANCE">
+                  Account Maintenance
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Badge
+              variant="outline"
+              className="ml-auto text-[13px] text-muted-foreground"
+            >
+              View only — all pending items across all roles
+            </Badge>
+          </div>
+          <Card className="mrpsl-card overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="mrpsl-table-header">
+                <tr>
+                  <th className="p-3">REFERENCE</th>
+                  <th className="p-3">MODULE</th>
+                  <th className="p-3">TYPE</th>
+                  <th className="p-3">DESCRIPTION</th>
+                  <th className="p-3">AMOUNT</th>
+                  <th className="p-3">TIER</th>
+                  <th className="p-3">SUBMITTED BY</th>
+                  <th className="p-3">AWAITING ROLE</th>
+                  <th className="p-3">AGING</th>
+                  <th className="p-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-[13px]">
+                {globalPg.paged.map((a) => {
+                  const aging = getAging(a.submittedAt);
+                  const awaitingStep = a.approvalSteps.find((s) => !s.decision);
+                  return (
+                    <tr key={a.id} className="hover:bg-accent/5">
+                      <td className="p-3 font-mono text-[13px] text-muted-foreground">
+                        {a.id}
+                      </td>
+                      <td className="p-3">
+                        <Badge className="bg-gray-100 text-gray-800 border-0 text-[13px]">
+                          {a.module
+                            .toLowerCase()
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </Badge>
+                      </td>
+                      <td className="p-3 font-medium text-sm">
+                        {a.transactionType}
+                      </td>
+                      <td
+                        className="p-3 truncate max-w-[200px]"
+                        title={a.description}
+                      >
+                        {a.description}
+                      </td>
+                      <td className="p-3 text-right font-mono font-bold">
+                        {a.amount ? `₦${a.amount.toLocaleString()}` : "—"}
+                      </td>
+                      <td className="p-3">
+                        {a.tier ? (
+                          <Badge
+                            className={`border-0 text-[13px] ${a.tier === 1 ? "bg-green-100 text-green-800" : a.tier === 2 ? "bg-blue-100 text-blue-800" : a.tier === 3 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"}`}
+                          >
+                            T{a.tier}
+                          </Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-[13px] font-bold text-primary">
+                              {getInitials(a.initiatorName)}
+                            </span>
+                          </div>
+                          <span>{a.initiatorName}</span>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <Badge
+                          variant="outline"
+                          className="text-[12px] font-medium text-muted-foreground"
+                        >
+                          {awaitingStep?.roles?.[0]?.replace(/_/g, " ") ?? "—"}
+                        </Badge>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2 w-24">
+                          <Progress value={aging.pct} className="h-1.5" />
+                          <span
+                            className={`text-[13px] whitespace-nowrap ${aging.overdue ? "text-red-600 font-bold" : "text-muted-foreground"}`}
+                          >
+                            {aging.text}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-3 text-right">
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="text-red-600"
-                          onClick={() => toast.success("Recalled successfully")}
+                          onClick={() => handleReview(a, true)}
                         >
-                          Recall
+                          <Eye className="mr-1.5 h-3.5 w-3.5" /> View
                         </Button>
-                      ) : (
-                        <span className="text-muted-foreground text-[13px]">
-                          Locked
-                        </span>
-                      )
-                    ) : a.status === "REJECTED" && isMine ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-amber-300 text-amber-800 hover:bg-amber-50 hover:text-amber-900"
-                        onClick={() => handleEditResubmit(a)}
-                      >
-                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                        Edit &amp; Resubmit
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleReview(a)}
-                      >
-                        <Eye className="mr-1.5 h-3.5 w-3.5" /> View
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-            {pg.paged.length === 0 && (
-              <tr>
-                <td
-                  colSpan={11}
-                  className="p-12 text-center text-muted-foreground"
-                >
-                  No approvals match your filters.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </Card>
-
-      <TablePagination
-        page={pg.page}
-        pageSize={pg.pageSize}
-        totalPages={pg.totalPages}
-        from={pg.from}
-        to={pg.to}
-        total={pg.total}
-        onPageChange={pg.setPage}
-        onPageSizeChange={pg.setPageSize}
-      />
+                      </td>
+                    </tr>
+                  );
+                })}
+                {globalPg.paged.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="p-12 text-center">
+                      <p className="text-muted-foreground text-sm">
+                        No records found
+                      </p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </Card>
+          <TablePagination
+            page={globalPg.page}
+            pageSize={globalPg.pageSize}
+            totalPages={globalPg.totalPages}
+            from={globalPg.from}
+            to={globalPg.to}
+            total={globalPg.total}
+            onPageChange={globalPg.setPage}
+            onPageSizeChange={globalPg.setPageSize}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* ── Review Dialog (Approver / View) ──────────────────────────── */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
@@ -669,13 +911,31 @@ export default function ApprovalsPage() {
           {reviewItem && (
             <>
               <DialogHeader>
-                <DialogTitle>{reviewItem.transactionType} Review</DialogTitle>
+                <div className="flex items-center justify-between">
+                  <DialogTitle>{reviewItem.transactionType} Review</DialogTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 shrink-0"
+                    onClick={() => {
+                      setReviewOpen(false);
+                      router.push(
+                        moduleUrl(
+                          reviewItem.module,
+                          reviewItem.transactionType,
+                        ),
+                      );
+                    }}
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" /> Open in Module
+                  </Button>
+                </div>
                 <div className="font-mono text-sm text-muted-foreground">
                   {reviewItem.id}
                 </div>
               </DialogHeader>
 
-              <div className="space-y-5 pt-2">
+              <div className="space-y-5 px-8 pb-8">
                 <div className="grid grid-cols-4 gap-4 p-4 bg-muted/20 border rounded-xl">
                   <div>
                     <div className="text-[13px] uppercase font-bold text-muted-foreground">
@@ -838,7 +1098,7 @@ export default function ApprovalsPage() {
                         )}
                         <div className="text-sm">
                           <span className="font-semibold">
-                            {s?.roles?.[0]?.replace(/_/g, " ") ?? ""}
+                            {s.roles?.[0]?.replace(/_/g, " ") ?? "Unknown Role"}
                           </span>
                           {s.decision ? (
                             <span
@@ -901,7 +1161,8 @@ export default function ApprovalsPage() {
                 ) : null}
 
                 {reviewItem.status === "PENDING" &&
-                  currentUser.id !== reviewItem.initiatorId && (
+                  currentUser.id !== reviewItem.initiatorId &&
+                  !reviewReadOnly && (
                     <>
                       <div className="space-y-2">
                         <label className="mrpsl-label">Comment</label>
@@ -909,6 +1170,8 @@ export default function ApprovalsPage() {
                           placeholder="Required for rejection, optional for approval"
                           value={reviewComment}
                           onChange={(e) => setReviewComment(e.target.value)}
+                          className="resize-none"
+                          rows={3}
                         />
                       </div>
 
@@ -953,7 +1216,7 @@ export default function ApprovalsPage() {
               {selectedIds.size !== 1 ? "s" : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 px-6 pb-6">
+          <div className="space-y-4 px-8 pb-8">
             <p className="text-sm text-muted-foreground">
               This comment will be applied to all selected records and sent to
               the initiator.
