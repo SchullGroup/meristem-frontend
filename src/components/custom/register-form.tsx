@@ -49,7 +49,7 @@ export function RegisterForm({
   mode,
   initialData,
 }: RegisterFormProps) {
-  const { data } = useGetPrincipals({ size: 100 });
+  const { data, isLoading } = useGetPrincipals({ size: 100 });
 
   const createRegister = useCreateRegister();
   const updateRegister = useUpdateRegister();
@@ -285,14 +285,20 @@ export function RegisterForm({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {data?.content.map((p) => (
-                                <SelectItem
-                                  key={p.principalId}
-                                  value={p.principalId}
-                                >
-                                  {p.principalName}
-                                </SelectItem>
-                              ))}
+                              {isLoading ? (
+                                <div className="flex items-center justify-center py-10">
+                                  <Loader2 className="animate-spin text-muted-foreground" />
+                                </div>
+                              ) : (
+                                data?.content.map((p) => (
+                                  <SelectItem
+                                    key={p.principalId}
+                                    value={p.principalId}
+                                  >
+                                    {p.principalName}
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage className="text-[10px] text-destructive mt-1" />

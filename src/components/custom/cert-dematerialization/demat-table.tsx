@@ -206,9 +206,9 @@ export function DematTable({
                 </td>
                 <td
                   className="p-3 font-mono truncate max-w-40"
-                  title={row.certificates?.map((c) => c.certNo).join(", ")}
+                  title={row.certificates?.map((c) => c.certNumber).join(", ")}
                 >
-                  {row.certificates?.map((c) => c.certNo).join(", ") || "-"}
+                  {row.certificates?.map((c) => c.certNumber).join(", ") || "-"}
                 </td>
                 <td className="p-3 font-medium">{row.holderName}</td>
                 <td className="p-3 font-mono text-muted-foreground">

@@ -24,15 +24,17 @@ export function ShholderTableHead() {
 
 export function ShholderRows({
   rows,
+  pageStart = 0,
 }: {
   rows: Shareholder[];
+  pageStart?: number;
 }) {
   return (
     <>
       {rows.map((s, i) => {
         return (
           <tr key={s.shareholderId} className="mrpsl-table-row">
-            <td className="px-3 py-2.5 text-muted-foreground">{i + 1}</td>
+            <td className="px-3 py-2.5 text-muted-foreground">{pageStart + i + 1}</td>
             <td className="px-3 py-2.5 font-medium">{s.name}</td>
             <td className="px-3 py-2.5 font-mono text-xs">{s.chn}</td>
             <td className="px-3 py-2.5 font-mono">{s.brokerCode}</td>

@@ -68,37 +68,37 @@ export function PrincipalForm({
     resolver: zodResolver(principalSchema),
     defaultValues: initialData
       ? {
-        principalName: initialData.principalName,
-        billingCategory: initialData.billingCategory,
-        industrySector: initialData.industrySector,
-        dateListedOnNgx: new Date(initialData.dateListedOnNgx),
-        registeredAddress: initialData.registeredAddress || "",
-        officialEmail: initialData.officialEmail || "",
-        phoneNumber: initialData.phoneNumber || "",
-        companySecretary: initialData.companySecretary || "",
-        companySecretaryPhone: initialData.companySecretaryPhone || "",
-        tin: initialData.tin || "",
-        rcNumber: initialData.rcNumber || "",
-        // shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
-        sector: initialData.sector || "",
-        status: initialData.status || "ACTIVE",
-      }
+          principalName: initialData.principalName,
+          billingCategory: initialData.billingCategory,
+          industrySector: initialData.industrySector,
+          dateListedOnNgx: new Date(initialData.dateListedOnNgx),
+          registeredAddress: initialData.registeredAddress || "",
+          officialEmail: initialData.officialEmail || "",
+          phoneNumber: initialData.phoneNumber || "",
+          companySecretary: initialData.companySecretary || "",
+          companySecretaryPhone: initialData.companySecretaryPhone || "",
+          tin: initialData.tin || "",
+          rcNumber: initialData.rcNumber || "",
+          // shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
+          sector: initialData.sector || "",
+          status: initialData.status || "ACTIVE",
+        }
       : {
-        principalName: "",
-        billingCategory: "",
-        industrySector: "",
-        dateListedOnNgx: new Date(),
-        registeredAddress: "",
-        officialEmail: "",
-        phoneNumber: "",
-        tin: "",
-        rcNumber: "",
-        companySecretary: "",
-        companySecretaryPhone: "",
-        // shareHoldersAtSetUp: 0,
-        sector: "",
-        status: "ACTIVE",
-      },
+          principalName: "",
+          billingCategory: "",
+          industrySector: "",
+          dateListedOnNgx: new Date(),
+          registeredAddress: "",
+          officialEmail: "",
+          phoneNumber: "",
+          tin: "",
+          rcNumber: "",
+          companySecretary: "",
+          companySecretaryPhone: "",
+          // shareHoldersAtSetUp: 0,
+          sector: "",
+          status: "ACTIVE",
+        },
   });
 
   const onSubmit = (values: PrincipalFormValues) => {
@@ -147,53 +147,6 @@ export function PrincipalForm({
       );
     }
   };
-
-  // const handleConfirm = () => {
-  //   if (!values) return;
-
-  //   const payload = {
-  //     ...pendingValues,
-  //     dateListedOnNgx: pendingValues.dateListedOnNgx.toISOString(),
-  //     shareHoldersAtSetUp: Number(pendingValues.shareHoldersAtSetUp),
-  //   };
-
-  //   if (mode === "create") {
-  //     createPrincipal.mutate(payload, {
-  //       onSuccess: () => {
-  //         toast.success(
-  //           `Principal ${payload.principalName} has been created successfully.`,
-  //         );
-
-  //       },
-  //       onError: (error) => {
-  //         toast.error(error.message);
-  //       },
-  //     });
-  //   } else if (mode === "edit" && initialData) {
-  //     updatePrincipal.mutate(
-  //       {
-  //         principalId: initialData.principalId,
-  //         payload,
-  //       },
-  //       {
-  //         onSuccess: () => {
-  //           toast.success(
-  //             `Principal ${pendingValues.principalName} has been updated successfully.`,
-  //           );
-
-  //         },
-  //         onError: (error) => {
-  //           toast.error(error.message);
-  //         },
-  //       },
-  //     );
-  //   }
-
-  //   setConfirmOpen(false);
-  //   onOpenChange(false);
-  //   form.reset();
-
-  // };
 
   return (
     <>

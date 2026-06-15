@@ -260,6 +260,7 @@ export interface ApprovalItem {
   attachments?: ApprovalAttachment[];
   payload?: Record<string, unknown>;
   rejectComment?: string;
+  roles?: string;
 }
 
 export interface ApprovalStep {

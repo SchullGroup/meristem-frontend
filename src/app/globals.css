@@ -90,15 +90,28 @@
 }
 
 .mrpsl-table-row {
-  @apply h-12 border-b border-border/60 transition-colors cursor-default hover:bg-muted/30;
+  @apply h-12 border-b border-border/60 transition-colors hover:bg-muted/30;
 }
 
 .mrpsl-label {
-  @apply text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block;
+  @apply text-[13px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 block whitespace-nowrap;
 }
 
 .mrpsl-input {
   @apply h-10;
+}
+
+/* ── Form-row pattern ─────────────────────────────────────────────────────
+   Use on any filter bar / inline form row.
+   Each labeled field goes in a child <div class="space-y-1.5">.
+   A bare Button child auto-aligns to the input baseline via items-end.
+   Never add extra padding (pb-X / pt-X) to a button wrapper inside here.
+───────────────────────────────────────────────────────────────────────── */
+.mrpsl-form-row {
+  @apply flex gap-4 items-end flex-nowrap;
+}
+.mrpsl-form-row > * {
+  @apply shrink-0;
 }
 
 .mrpsl-card {
@@ -162,4 +175,40 @@
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* ─── Badge colour tokens ─────────────────────────────────────── */
+
+.badge-draft {
+  @apply bg-gray-100   text-gray-700   border-0;
+}
+.badge-pending {
+  @apply bg-amber-100  text-amber-800  border-0;
+}
+.badge-active {
+  @apply bg-green-100  text-green-800  border-0;
+}
+.badge-approved {
+  @apply bg-green-100  text-green-800  border-0;
+}
+.badge-paid {
+  @apply bg-green-100  text-green-800  border-0;
+}
+.badge-rejected {
+  @apply bg-red-100    text-red-700    border-0;
+}
+.badge-inactive {
+  @apply bg-gray-100   text-gray-600   border-0;
+}
+.badge-cautioned {
+  @apply bg-amber-100  text-amber-800  border-0;
+}
+.badge-disabled {
+  @apply bg-orange-100 text-orange-800 border-0;
+}
+
+/* ─── Empty-state utility ─────────────────────────────────────── */
+
+.mrpsl-empty {
+  @apply text-center py-12 text-muted-foreground text-sm;
 }

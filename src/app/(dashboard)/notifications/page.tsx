@@ -3,8 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CheckCircle2, XCircle, Clock, Mail, FileText, AlertTriangle,
-  RefreshCw, Bell, Check
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Mail,
+  FileText,
+  AlertTriangle,
+  RefreshCw,
+  Bell,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +48,8 @@ const DUMMY_NOTIFICATIONS: Notification[] = [
     timestamp: "2026-05-15T08:14:00Z",
     read: false,
     actionHref: "/approvals",
-    comment: "Certificate number could not be verified against CSCS records. Please re-submit with a valid CSCS reference.",
+    comment:
+      "Certificate number could not be verified against CSCS records. Please re-submit with a valid CSCS reference.",
   },
   {
     id: "n2",
@@ -101,7 +109,8 @@ const DUMMY_NOTIFICATIONS: Notification[] = [
     timestamp: "2026-05-13T15:44:00Z",
     read: true,
     actionHref: "/approvals",
-    comment: "Uploaded NIN slip is illegible. Please provide a clear scan of the document.",
+    comment:
+      "Uploaded NIN slip is illegible. Please provide a clear scan of the document.",
   },
   {
     id: "n8",
@@ -152,14 +161,45 @@ const DUMMY_NOTIFICATIONS: Notification[] = [
   },
 ];
 
-const TYPE_CONFIG: Record<NotifType, { icon: React.ElementType; iconClass: string; dotClass: string }> = {
-  approval_pending:  { icon: Clock,         iconClass: "text-amber-500",  dotClass: "bg-amber-500"  },
-  approval_approved: { icon: CheckCircle2,  iconClass: "text-green-600",  dotClass: "bg-green-500"  },
-  approval_rejected: { icon: XCircle,       iconClass: "text-red-500",    dotClass: "bg-red-500"    },
-  cscs_batch:        { icon: RefreshCw,     iconClass: "text-blue-500",   dotClass: "bg-blue-500"   },
-  email_dispatch:    { icon: Mail,          iconClass: "text-primary",    dotClass: "bg-primary"    },
-  transfer_complete: { icon: FileText,      iconClass: "text-primary",    dotClass: "bg-primary"    },
-  system_alert:      { icon: AlertTriangle, iconClass: "text-orange-500", dotClass: "bg-orange-500" },
+const TYPE_CONFIG: Record<
+  NotifType,
+  { icon: React.ElementType; iconClass: string; dotClass: string }
+> = {
+  approval_pending: {
+    icon: Clock,
+    iconClass: "text-amber-500",
+    dotClass: "bg-amber-500",
+  },
+  approval_approved: {
+    icon: CheckCircle2,
+    iconClass: "text-green-600",
+    dotClass: "bg-green-500",
+  },
+  approval_rejected: {
+    icon: XCircle,
+    iconClass: "text-red-500",
+    dotClass: "bg-red-500",
+  },
+  cscs_batch: {
+    icon: RefreshCw,
+    iconClass: "text-blue-500",
+    dotClass: "bg-blue-500",
+  },
+  email_dispatch: {
+    icon: Mail,
+    iconClass: "text-primary",
+    dotClass: "bg-primary",
+  },
+  transfer_complete: {
+    icon: FileText,
+    iconClass: "text-primary",
+    dotClass: "bg-primary",
+  },
+  system_alert: {
+    icon: AlertTriangle,
+    iconClass: "text-orange-500",
+    dotClass: "bg-orange-500",
+  },
 };
 
 function formatTime(iso: string): string {
@@ -172,35 +212,47 @@ function formatTime(iso: string): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 type FilterTab = "all" | "unread" | "approvals" | "email" | "system";
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>(DUMMY_NOTIFICATIONS);
+  const [notifications, setNotifications] =
+    useState<Notification[]>(DUMMY_NOTIFICATIONS);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  const markRead = (id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const markAllRead = () =>
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markRead = (id: string) =>
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
 
-  const filtered = notifications.filter(n => {
-    if (activeTab === "unread")    return !n.read;
+  const filtered = notifications.filter((n) => {
+    if (activeTab === "unread") return !n.read;
     if (activeTab === "approvals") return n.type.startsWith("approval");
-    if (activeTab === "email")     return n.type === "email_dispatch";
-    if (activeTab === "system")    return n.type === "system_alert" || n.type === "cscs_batch";
+    if (activeTab === "email") return n.type === "email_dispatch";
+    if (activeTab === "system")
+      return n.type === "system_alert" || n.type === "cscs_batch";
     return true;
   });
 
   const tabs: { key: FilterTab; label: string }[] = [
-    { key: "all",       label: "All" },
-    { key: "unread",    label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` },
+    { key: "all", label: "All" },
+    {
+      key: "unread",
+      label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}`,
+    },
     { key: "approvals", label: "Approvals" },
-    { key: "email",     label: "Email" },
-    { key: "system",    label: "System" },
+    { key: "email", label: "Email" },
+    { key: "system", label: "System" },
   ];
 
   return (
@@ -210,11 +262,18 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-xl font-bold">Notifications</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}` : "All caught up"}
+            {unreadCount > 0
+              ? `${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}`
+              : "All caught up"}
           </p>
         </div>
         {unreadCount > 0 && (
-          <Button variant="outline" size="sm" className="gap-2 text-sm" onClick={markAllRead}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-sm"
+            onClick={markAllRead}
+          >
             <Check className="h-3.5 w-3.5" />
             Mark all as read
           </Button>
@@ -223,7 +282,7 @@ export default function NotificationsPage() {
 
       {/* Tab filter */}
       <div className="flex gap-1 border-b">
-        {tabs.map(tab => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -231,7 +290,7 @@ export default function NotificationsPage() {
               "px-4 py-2 text-[13px] font-medium transition-colors border-b-2 -mb-px",
               activeTab === tab.key
                 ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {tab.label}
@@ -243,12 +302,16 @@ export default function NotificationsPage() {
       {filtered.length === 0 ? (
         <div className="py-16 text-center">
           <Bell className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">No notifications</p>
-          <p className="text-[13px] text-muted-foreground/60 mt-1">Nothing here yet for this filter</p>
+          <p className="text-sm font-medium text-muted-foreground">
+            No notifications
+          </p>
+          <p className="text-[13px] text-muted-foreground/60 mt-1">
+            Nothing here yet for this filter
+          </p>
         </div>
       ) : (
         <div className="space-y-1">
-          {filtered.map(notif => {
+          {filtered.map((notif) => {
             const cfg = TYPE_CONFIG[notif.type];
             const Icon = cfg.icon;
 
@@ -263,14 +326,16 @@ export default function NotificationsPage() {
                   "flex gap-4 px-4 py-4 rounded-xl border transition-colors cursor-pointer group",
                   notif.read
                     ? "bg-background border-border/50 hover:bg-muted/30"
-                    : "bg-primary/[0.02] border-primary/15 hover:bg-primary/[0.04]"
+                    : "bg-primary/[0.02] border-primary/15 hover:bg-primary/[0.04]",
                 )}
               >
                 {/* Icon */}
-                <div className={cn(
-                  "h-9 w-9 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                  notif.read ? "bg-muted" : "bg-muted/60"
-                )}>
+                <div
+                  className={cn(
+                    "h-9 w-9 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                    notif.read ? "bg-muted" : "bg-muted/60",
+                  )}
+                >
                   <Icon className={cn("h-4 w-4", cfg.iconClass)} />
                 </div>
 
@@ -279,12 +344,21 @@ export default function NotificationsPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
                       {!notif.read && (
-                        <span className={cn("h-2 w-2 rounded-full shrink-0", cfg.dotClass)} />
+                        <span
+                          className={cn(
+                            "h-2 w-2 rounded-full shrink-0",
+                            cfg.dotClass,
+                          )}
+                        />
                       )}
-                      <p className={cn(
-                        "text-[13px] leading-snug truncate",
-                        notif.read ? "font-medium text-foreground" : "font-semibold text-foreground"
-                      )}>
+                      <p
+                        className={cn(
+                          "text-[13px] leading-snug truncate",
+                          notif.read
+                            ? "font-medium text-foreground"
+                            : "font-semibold text-foreground",
+                        )}
+                      >
                         {notif.title}
                       </p>
                     </div>
@@ -304,7 +378,10 @@ export default function NotificationsPage() {
                   )}
 
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="secondary" className="text-[11px] h-5 px-2 rounded-md font-normal">
+                    <Badge
+                      variant="secondary"
+                      className="text-[11px] h-5 px-2 rounded-md font-normal"
+                    >
                       {notif.module}
                     </Badge>
                     {notif.actionHref && (

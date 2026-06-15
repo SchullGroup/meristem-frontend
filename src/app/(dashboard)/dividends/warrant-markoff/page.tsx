@@ -6,6 +6,7 @@ import ManualMarkoff from "@/components/custom/warrant-markoff/manual-markoff";
 import EnBlocMarkoff from "@/components/custom/warrant-markoff/en-bloc-markoff";
 import PendingApprovals from "@/components/custom/warrant-markoff/pending-approvals";
 import History from "@/components/custom/warrant-markoff/history";
+import UploadMarkoff from "@/components/custom/warrant-markoff/upload";
 
 export default function MarkOffPage() {
   const [activeTab, setActiveTab] = useState("manual");
@@ -51,6 +52,12 @@ export default function MarkOffPage() {
             En Bloc Mark-Off
           </TabsTrigger>
           <TabsTrigger
+            value="upload"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            Bulk Upload
+          </TabsTrigger>
+          <TabsTrigger
             value="auth"
             className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
           >
@@ -75,6 +82,10 @@ export default function MarkOffPage() {
 
           <TabsContent value="bulk" className="space-y-4">
             <EnBlocMarkoff />
+          </TabsContent>
+
+          <TabsContent value="upload" className="space-y-4">
+            <UploadMarkoff />
           </TabsContent>
 
           <TabsContent value="auth">

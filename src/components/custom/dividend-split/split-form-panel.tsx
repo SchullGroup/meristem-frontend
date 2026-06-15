@@ -47,10 +47,11 @@ export function SplitFormPanel() {
   const [splitReason, setSplitReason] = useState("");
   const [reasonError, setReasonError] = useState(false);
 
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: isRegisterLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   const {
     data: lookUpData,
@@ -235,12 +236,17 @@ export function SplitFormPanel() {
               <SelectValue placeholder="Register" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Select Register</SelectItem>
-              {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.registerId}>
-                  {r.symbol}
-                </SelectItem>
-              ))}
+              {isRegisterLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              ) : (
+                activeRegisters?.content?.map((r) => (
+                  <SelectItem key={r.registerId} value={r.registerId}>
+                    {r.symbol}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 
