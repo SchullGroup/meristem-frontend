@@ -64,7 +64,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   // Queries
   const { data: activeRegisters } = useGetRegisters(
     {
-      size: 1000,
+      size: 100,
       status: "ACTIVE",
     },
     {
@@ -524,9 +524,9 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
             className={cn(
               "mrpsl-card p-3",
               s.tab &&
-                "cursor-pointer hover:border-primary/40 transition-colors",
+              "cursor-pointer hover:border-primary/40 transition-colors",
               s.tab === reviewTab &&
-                "border-primary ring-1 ring-primary/20 bg-primary/5",
+              "border-primary ring-1 ring-primary/20 bg-primary/5",
             )}
             onClick={() => {
               if (s.tab) {
@@ -632,7 +632,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {subscribersData?.content &&
-                  subscribersData.content.length > 0 ? (
+                    subscribersData.content.length > 0 ? (
                     subscribersData.content.map((r, i) => (
                       <tr key={i} className="mrpsl-table-row">
                         <td className="px-4 py-2.5 text-muted-foreground">

@@ -279,6 +279,7 @@ export function PendingSplitsTable() {
         total={totalElements}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
+        pageBase={1}
       />
 
       <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>

@@ -123,16 +123,6 @@ export default function KYCUpdatePage() {
       {
         onSuccess: () => {
           toast.success("Account changes submitted successfully!");
-          // Optimistic update — reflect submitted values immediately
-          setSelectedShareholder((prev) =>
-            prev
-              ? {
-                ...prev,
-                ...(newName ? { firstName: newName, lastName: "", holderName: newName } : {}),
-                ...(newHolderType ? { holderType: newHolderType } : {}),
-              }
-              : prev,
-          );
           setNewName("");
           setNewHolderType("");
         },
@@ -163,17 +153,6 @@ export default function KYCUpdatePage() {
       {
         onSuccess: () => {
           toast.success("Account changes submitted successfully!")
-          // Optimistic update — reflect submitted values immediately
-          setSelectedShareholder((prev) =>
-            prev
-              ? {
-                ...prev,
-                ...(newEmail ? { email: newEmail } : {}),
-                ...(newPhone ? { phone: newPhone } : {}),
-                ...(newAddress ? { address: newAddress } : {}),
-              }
-              : prev,
-          );
           setNewEmail("");
           setNewPhone("");
           setNewAddress("");
@@ -204,16 +183,6 @@ export default function KYCUpdatePage() {
       {
         onSuccess: () => {
           toast.success("Account changes submitted successfully!")
-          // Optimistic update — reflect submitted values immediately
-          setSelectedShareholder((prev) =>
-            prev
-              ? {
-                ...prev,
-                ...(newBank ? { bankName: newBank } : {}),
-                ...(newAccountNumber ? { bankAccountNumber: newAccountNumber } : {}),
-              }
-              : prev,
-          );
           setNewBank("");
           setNewAccountNumber("");
         },

@@ -32,12 +32,12 @@ export const CaptureDematerialization = ({
   tab: string;
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
 }) => {
-  const { data: activeRegisters, isLoading } = useGetRegisters({
-    size: 1000,
+  const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters({
+    size: 100,
     status: "ACTIVE",
   });
 
-  const { data: agents } = useQuery({
+  const { data: agents, isLoading: loadingAgents } = useQuery({
     queryKey: ["agents"],
     queryFn: () => GET_AGENTS({ type: "STOCKBROKER", size: 100 }),
   });
@@ -236,17 +236,16 @@ export const CaptureDematerialization = ({
                     <SelectValue placeholder="Select Register" />
                   </SelectTrigger>
                   <SelectContent>
-                    {isLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      </div>
-                    ) : (
-                      activeRegisters?.content?.map((r) => (
-                        <SelectItem key={r.registerId} value={r.registerId}>
-                          {r.registerName} · {r.symbol}
-                        </SelectItem>
-                      ))
-                    )}{" "}
+                    {
+                      loadingRegisters ? (<SelectItem value="_loading" disabled>
+                        Loading Registers...
+                      </SelectItem>) : (
+                        activeRegisters?.content?.map((r) => (
+                          <SelectItem key={r.registerId} value={r.registerId}>
+                            {r.registerName} · {r.symbol}
+                          </SelectItem>
+                        ))
+                      )}{" "}
                   </SelectContent>
                 </Select>
               </div>
@@ -262,11 +261,15 @@ export const CaptureDematerialization = ({
                     <SelectValue placeholder="Select Stockbroker" />
                   </SelectTrigger>
                   <SelectContent>
-                    {stockBrokerList?.map((s: Agent) => (
-                      <SelectItem key={s.id} value={s.name}>
-                        {s.name} · {s.code}
-                      </SelectItem>
-                    ))}
+                    {
+                      loadingAgents ? (<SelectItem value="_loading" disabled>
+                        Loading Stockbrokers...
+                      </SelectItem>) :
+                        stockBrokerList?.map((s: Agent) => (
+                          <SelectItem key={s.id} value={s.name}>
+                            {s.name} · {s.code}
+                          </SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
               </div>

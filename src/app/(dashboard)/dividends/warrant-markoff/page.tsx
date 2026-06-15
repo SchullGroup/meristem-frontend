@@ -82,7 +82,7 @@ export default function MarkOffPage() {
           </TabsContent>
 
           <TabsContent value="history">
-            <History tab={activeTab} />
+            <History tab="history" />
           </TabsContent>
         </div>
       </Tabs>
