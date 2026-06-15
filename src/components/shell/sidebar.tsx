@@ -68,6 +68,7 @@ const OPERATIONS_GROUPS = [
       { label: "IPO / Public Offer", href: "/offers/ipo" },
       { label: "Rights Issue", href: "/offers/rights-issue" },
       { label: "Bonus Issue", href: "/offers/bonus-issue" },
+      { label: "Return Money", href: "/offers/return-money" },
     ],
   },
   {

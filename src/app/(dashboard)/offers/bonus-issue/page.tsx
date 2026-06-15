@@ -485,7 +485,7 @@ export default function BonusIssuePage() {
 
   const { data: declarationsData } = useQuery({
     queryKey: ["bonus-declarations"],
-    queryFn: GET_DECLARATIONS,
+    queryFn: () => GET_DECLARATIONS(),
   });
 
   const declarationList = declarationsData?.data?.content;
@@ -1438,10 +1438,10 @@ export default function BonusIssuePage() {
                   </thead>
                   <tbody className="divide-y">
                     {!declarationList ||
-                    declarationList.filter(
-                      (d: { status: string }) =>
-                        d.status === "DRAFT" || d.status === "PENDING_AUTH",
-                    ).length === 0 ? (
+                      declarationList.filter(
+                        (d: { status: string }) =>
+                          d.status === "DRAFT" || d.status === "PENDING_AUTH",
+                      ).length === 0 ? (
                       <tr>
                         <td
                           colSpan={11}
@@ -1660,8 +1660,8 @@ export default function BonusIssuePage() {
                     Submit for Approval
                     {(computeMutation.isPending ||
                       submitForApprovalMutation.isPending) && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
                   </Button>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
@@ -1712,9 +1712,9 @@ export default function BonusIssuePage() {
                   </thead>
                   <tbody className="divide-y">
                     {!declarationList ||
-                    declarationList.filter(
-                      (d: { status: string }) => d.status === "PENDING_ICU",
-                    ).length === 0 ? (
+                      declarationList.filter(
+                        (d: { status: string }) => d.status === "PENDING_ICU",
+                      ).length === 0 ? (
                       <tr>
                         <td
                           colSpan={11}
@@ -2063,7 +2063,7 @@ export default function BonusIssuePage() {
                 );
                 const isDone = row
                   ? row.status !== "ICU_APPROVED" ||
-                    (allotmentProcessedMap[row.id] ?? false)
+                  (allotmentProcessedMap[row.id] ?? false)
                   : false;
                 return (
                   <div className="space-y-4">
@@ -2872,39 +2872,39 @@ export default function BonusIssuePage() {
         shareholders={
           allotReviewing && allotmentsList?.length
             ? allotmentsList
-                .slice(0, 5)
-                .map(
-                  (s: {
-                    name: string;
-                    shareholderId: string;
-                    id: string;
-                    accountNumber: string;
-                    address: string;
-                    state: string;
-                    unitsAtQualDate: number;
-                    holdings: number;
-                  }) => {
-                    const nameParts = (s.name || "").trim().split(/\s+/);
-                    return {
-                      id: s.shareholderId || s.id || "",
-                      accountNumber: s.accountNumber || "",
-                      firstName: nameParts[0] || "",
-                      lastName: nameParts.slice(1).join(" ") || "",
-                      address: s.address || "No Address Provided",
-                      state: s.state || "",
-                      holdings: s.unitsAtQualDate || s.holdings || 0,
-                    };
-                  },
-                )
+              .slice(0, 5)
+              .map(
+                (s: {
+                  name: string;
+                  shareholderId: string;
+                  id: string;
+                  accountNumber: string;
+                  address: string;
+                  state: string;
+                  unitsAtQualDate: number;
+                  holdings: number;
+                }) => {
+                  const nameParts = (s.name || "").trim().split(/\s+/);
+                  return {
+                    id: s.shareholderId || s.id || "",
+                    accountNumber: s.accountNumber || "",
+                    firstName: nameParts[0] || "",
+                    lastName: nameParts.slice(1).join(" ") || "",
+                    address: s.address || "No Address Provided",
+                    state: s.state || "",
+                    holdings: s.unitsAtQualDate || s.holdings || 0,
+                  };
+                },
+              )
             : shareholders.slice(0, 5).map((s) => ({
-                id: s.id,
-                accountNumber: s.accountNumber,
-                firstName: s.firstName,
-                lastName: s.lastName,
-                address: s.address,
-                state: s.state,
-                holdings: s.holdings,
-              }))
+              id: s.id,
+              accountNumber: s.accountNumber,
+              firstName: s.firstName,
+              lastName: s.lastName,
+              address: s.address,
+              state: s.state,
+              holdings: s.holdings,
+            }))
         }
         totalCount={
           allotReviewing
@@ -2979,8 +2979,8 @@ export default function BonusIssuePage() {
                   approveDeclarationByIcuMutation.isPending ||
                   rejectDeclarationMutation.isPending ||
                   icuReturnMutation.isPending) && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
               </Button>
             </div>
           </div>

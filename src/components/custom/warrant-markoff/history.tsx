@@ -7,6 +7,7 @@ import { useGetMarkOffHistory } from "@/hooks/useWarrantMarkoff";
 import { DataErrorState } from "../ipo/loaders";
 import { EntitlementTableSkeleton } from "../rights-issue/loaders";
 import { PaginationBar } from "../pagination-bar";
+import { formatDate, formatNumber } from "@/lib/utils/format";
 
 function getTierNumber(tier: string | number | undefined): 1 | 2 | 3 {
   if (!tier) return 1;
@@ -87,12 +88,12 @@ export default function History({ tab }: { tab: string }) {
 
                   historyList.map((row) => (
                     <tr key={row.id} className="mrpsl-table-row">
-                      <td className="p-3 text-muted-foreground">{row.submittedDate}</td>
+                      <td className="p-3 text-muted-foreground">{formatDate(row.submittedDate)}</td>
                       <td className="p-3 font-mono">{row.warrantNumber}</td>
                       <td className="p-3 font-mono">{row.accountNumber}</td>
                       <td className="p-3 font-medium">{row.holderName}</td>
                       <td className="p-3 text-right font-mono font-semibold">
-                        {row.amount.toLocaleString()}.00
+                        {formatNumber(row.amount)}
                       </td>
                       <td className="p-3 text-muted-foreground">{row.submittedBy}</td>
                       <td className="p-3">
@@ -120,9 +121,10 @@ export default function History({ tab }: { tab: string }) {
                       </td>
                     </tr>
                   )) : (
-                    <td colSpan={7} className="text-center p-8 text-muted-foreground">
-                      No warrant mark-off history records found.
-                    </td>
+                    <tr>
+                      <td colSpan={7} className="text-center p-8 text-muted-foreground">
+                        No warrant mark-off history records found.
+                      </td></tr>
                   )}
               </tbody>
             </table>

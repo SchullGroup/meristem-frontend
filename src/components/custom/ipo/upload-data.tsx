@@ -46,7 +46,7 @@ export default function UploadIPOData({ tab }: { tab: string }) {
   const [processedBatch, setProcessedBatch] = useState<IPO | null>(null);
   const [showRejected, setShowRejected] = useState(false);
 
-  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({ size: 1000, status: "ACTIVE" }, {
+  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({ size: 100, status: "ACTIVE" }, {
     enabled: tab === "upload",
   });
   const uploadIpoMutation = useUploadBatchIpo();

@@ -33,11 +33,10 @@ import { EMAIL_SHAREHOLDERS } from "@/actions/bonusIssuesAction";
 export interface OutreachShareholder {
   id: string;
   accountNumber: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   address: string;
-  state: string;
-  holdings: number;
+  state?: string;
+  holdings?: number;
 }
 
 export interface StickyLabelModalProps {
@@ -72,15 +71,15 @@ export interface EmailPreviewModalProps {
 /* ─── Sticky Label Preview Modal ────────────────────────────────────────────── */
 
 function StickyLabel({
-  s,
+  holder,
   companyName,
 }: {
-  s: OutreachShareholder;
+  holder: OutreachShareholder;
   companyName: string;
 }) {
   /* Break address into lines at commas or natural splits to match PDF */
-  const addrLines = s.address.split(/,\s*/).filter(Boolean);
-  const stateCity = s.state.toUpperCase();
+  const addrLines = holder?.address.split(/,\s*/).filter(Boolean);
+  const stateCity = holder?.state?.toUpperCase();
 
   return (
     <div
@@ -107,7 +106,6 @@ function StickyLabel({
             alignItems: "flex-start",
             gap: "6px",
             marginBottom: "5px",
-            overflow: "hidden",
           }}
         >
           <span
@@ -140,7 +138,7 @@ function StickyLabel({
               textOverflow: "ellipsis",
             }}
           >
-            A/C.: {s.accountNumber}
+            A/C.: {holder?.accountNumber}
           </span>
         </div>
 
@@ -158,7 +156,7 @@ function StickyLabel({
             marginBottom: "4px",
           }}
         >
-          {s.lastName} {s.firstName}
+          {holder?.name}
         </div>
 
         {/* Address lines */}
@@ -168,10 +166,14 @@ function StickyLabel({
             textTransform: "uppercase",
             color: "#2c2c2c",
             lineHeight: 1.4,
+            WebkitLineClamp: 3,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
           }}
         >
-          {addrLines.map((line, i) => (
-            <div key={i}>{line.trim()}</div>
+          {addrLines?.map((line, i) => (
+            <div key={i}>{line?.trim()}</div>
           ))}
         </div>
       </div>
@@ -349,8 +351,8 @@ export function StickyLabelModal({
                       className="bg-gray-200 animate-pulse h-20 rounded"
                     />
                   ))}
-                {shareholders.map((s, i) => (
-                  <StickyLabel key={i} s={s} companyName={companyName} />
+                {shareholders.map((holder, i) => (
+                  <StickyLabel key={i} holder={holder} companyName={companyName} />
                 ))}
               </div>
 
@@ -448,18 +450,18 @@ function EmailBody({
 
   const placeholderRows = isRights
     ? [
-        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-        ["Name", "[SHAREHOLDER NAME]"],
-        ["Units Held", "[UNITS HELD]"],
-        ["Rights Due", "[RIGHTS DUE]"],
-        ["Amount Payable", "[AMOUNT PAYABLE]"],
-      ]
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Rights Due", "[RIGHTS DUE]"],
+      ["Amount Payable", "[AMOUNT PAYABLE]"],
+    ]
     : [
-        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-        ["Name", "[SHAREHOLDER NAME]"],
-        ["Units Held", "[UNITS HELD]"],
-        ["Bonus Due", "[BONUS DUE]"],
-      ];
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Bonus Due", "[BONUS DUE]"],
+    ];
 
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>

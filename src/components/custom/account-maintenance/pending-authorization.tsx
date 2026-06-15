@@ -35,7 +35,7 @@ import { formatDate } from "@/lib/utils/format";
 export default function PendingAuth({ tab }: { tab: string }) {
     const { currentUser } = useStore();
     const { data: activeRegisters } = useGetRegisters({
-        size: 1000,
+        size: 100,
         status: "ACTIVE"
     })
     const [currentPage, setCurrentPage] = useState(0)

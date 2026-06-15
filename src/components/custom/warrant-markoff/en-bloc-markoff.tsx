@@ -96,7 +96,7 @@ export default function EnBlocMarkoff() {
     setPage(newPage);
     setQueryParams({
       ...loadedFilters,
-      page: newPage - 1,
+      page: newPage,
       size: pageSize,
     });
   };
