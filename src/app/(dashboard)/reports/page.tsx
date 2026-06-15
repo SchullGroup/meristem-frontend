@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   BarChart3,
   CalendarRange,
   ChevronRight,
   FileSpreadsheet,
   Printer,
+  Search,
   X,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -266,6 +268,16 @@ export default function ReportsPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [calOpen, setCalOpen] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
+  const [reportSearch, setReportSearch] = useState("");
+
+  const filteredGroups = useMemo(() => {
+    if (!reportSearch.trim()) return REPORT_GROUPS;
+    const term = reportSearch.toLowerCase();
+    return REPORT_GROUPS.map((g) => ({
+      ...g,
+      items: g.items.filter((item) => item.toLowerCase().includes(term)),
+    })).filter((g) => g.items.length > 0);
+  }, [reportSearch]);
 
   const clearDateRange = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -646,11 +658,22 @@ export default function ReportsPage() {
     <div className="flex h-[calc(100vh-3.5rem-1px)] -m-6">
       {/* LEFT PANEL */}
       <div className="w-64 border-r bg-background overflow-y-auto flex flex-col shrink-0">
-        <div className="px-4 py-4 border-b sticky top-0 bg-background/95 backdrop-blur z-10 font-bold tracking-tight text-sm">
-          Report Categories
+        <div className="px-4 py-3 border-b sticky top-0 bg-background/95 backdrop-blur z-10 space-y-2">
+          <div className="font-bold tracking-tight text-sm">
+            Report Categories
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={reportSearch}
+              onChange={(e) => setReportSearch(e.target.value)}
+              placeholder="Search reports…"
+              className="pl-8 h-8 text-sm"
+            />
+          </div>
         </div>
         <div className="flex-1 py-2">
-          {REPORT_GROUPS.map((group) => (
+          {filteredGroups.map((group) => (
             <div key={group.title} className="mb-3">
               <div className="px-4 py-1.5 text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
                 {group.title}
@@ -663,11 +686,13 @@ export default function ReportsPage() {
                       setSelectedReport(item);
                       setSelectedGroup(group.title);
                       setIsGenerated(false);
+                      setReportSearch("");
                     }}
-                    className={`w-full text-left px-4 py-2 flex items-center text-sm transition-colors ${selectedReport === item
+                    className={`w-full text-left px-4 py-2 flex items-center text-sm transition-colors ${
+                      selectedReport === item
                         ? "bg-primary/10 text-primary font-semibold border-r-2 border-primary"
                         : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      }`}
+                    }`}
                   >
                     <span className="truncate pr-2">{item}</span>
                   </button>
@@ -724,17 +749,11 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Registers</SelectItem>
-                      {registers.map((r) => {
-                        const principal = principals.find(
-                          (p) => p.id === r.principalId,
-                        );
-                        return (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.name} · {r.symbol}
-                            {principal ? ` — ${principal.name}` : ""}
-                          </SelectItem>
-                        );
-                      })}
+                      {registers.map((r) => (
+                        <SelectItem key={r.id} value={r.id}>
+                          {r.symbol}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

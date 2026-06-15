@@ -122,9 +122,11 @@ export default function DeclarationPage() {
   const { data: currenciesData } = useGetCurrencies();
   const currencies = currenciesData?.content || [];
 
-  const { data: registersData } = useGetRegisters({
-    size: 100,
-  });
+  const { data: registersData, isLoading: isRegisterLoading } = useGetRegisters(
+    {
+      size: 100,
+    },
+  );
 
   const { data: declarationData } = useQuery({
     queryKey: ["all-declarations", 20, 1],
@@ -467,7 +469,7 @@ export default function DeclarationPage() {
     } catch (error) {
       toast.error(
         (error as { message: string }).message ||
-        "Failed to download Excel report.",
+          "Failed to download Excel report.",
       );
     } finally {
       setIsExportingExcel(false);
@@ -742,16 +744,22 @@ export default function DeclarationPage() {
                           <SelectValue placeholder="Select Active Register" />
                         </SelectTrigger>
                         <SelectContent>
-                          {registerlist
-                            ?.filter((r) => r?.status === "ACTIVE")
-                            .map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r?.registerId}
-                              >
-                                {r?.registerId} - {r?.symbol}
-                              </SelectItem>
-                            ))}
+                          {isRegisterLoading ? (
+                            <div className="flex items-center justify-center py-10">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            </div>
+                          ) : (
+                            registerlist
+                              ?.filter((r) => r?.status === "ACTIVE")
+                              .map((r) => (
+                                <SelectItem
+                                  key={r.registerId}
+                                  value={r?.registerId}
+                                >
+                                  {r?.registerId} - {r?.symbol}
+                                </SelectItem>
+                              ))
+                          )}
                         </SelectContent>
                       </Select>
                       {register && (
@@ -927,6 +935,34 @@ export default function DeclarationPage() {
                       value={narrative}
                       onChange={(e) => setNarrative(e.target.value)}
                     />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="mrpsl-label">Warehouse Bank</label>
+                      <Select>
+                        <SelectTrigger className="mrpsl-input">
+                          <SelectValue placeholder="Select bank" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gtb">GTBank</SelectItem>
+                          <SelectItem value="zenith">Zenith Bank</SelectItem>
+                          <SelectItem value="access">Access Bank</SelectItem>
+                          <SelectItem value="first">First Bank</SelectItem>
+                          <SelectItem value="uba">UBA</SelectItem>
+                          <SelectItem value="stanbic">Stanbic IBTC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="mrpsl-label">
+                        Warehouse Account No
+                      </label>
+                      <Input
+                        className="mrpsl-input font-mono"
+                        placeholder="Enter account number"
+                      />
+                    </div>
                   </div>
 
                   {/* Rules */}
@@ -1567,15 +1603,15 @@ export default function DeclarationPage() {
                           d.status === "PENDING_TIER3" ||
                           d.status === "PENDING_TIER4",
                       )?.length === 0 && (
-                          <tr>
-                            <td
-                              colSpan={9}
-                              className="px-4 py-12 text-center text-muted-foreground"
-                            >
-                              No declarations pending ICU approval.
-                            </td>
-                          </tr>
-                        )}
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="px-4 py-12 text-center text-muted-foreground"
+                          >
+                            No declarations pending ICU approval.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1635,9 +1671,9 @@ export default function DeclarationPage() {
                             <td className="px-4 py-3 text-muted-foreground text-[13px]">
                               {d.qualificationDate
                                 ? format(
-                                  new Date(d.qualificationDate),
-                                  "dd MMM yyyy",
-                                )
+                                    new Date(d.qualificationDate),
+                                    "dd MMM yyyy",
+                                  )
                                 : "—"}
                             </td>
                             <td className="px-4 py-3 text-center tabular-nums">
@@ -1723,15 +1759,15 @@ export default function DeclarationPage() {
                     {declarationList?.filter((d: { status: string }) => {
                       return d.status === "AUTHORIZED";
                     })?.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={9}
-                            className="px-4 py-12 text-center text-muted-foreground"
-                          >
-                            No declaration history found.
-                          </td>
-                        </tr>
-                      )}
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-4 py-12 text-center text-muted-foreground"
+                        >
+                          No declaration history found.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
