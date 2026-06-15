@@ -68,37 +68,37 @@ export function PrincipalForm({
     resolver: zodResolver(principalSchema),
     defaultValues: initialData
       ? {
-          principalName: initialData.principalName,
-          billingCategory: initialData.billingCategory,
-          industrySector: initialData.industrySector,
-          dateListedOnNgx: new Date(initialData.dateListedOnNgx),
-          registeredAddress: initialData.registeredAddress || "",
-          officialEmail: initialData.officialEmail || "",
-          phoneNumber: initialData.phoneNumber || "",
-          companySecretary: initialData.companySecretary || "",
-          companySecretaryPhone: initialData.companySecretaryPhone || "",
-          tin: initialData.tin || "",
-          rcNumber: initialData.rcNumber || "",
-          shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
-          sector: initialData.sector || "",
-          status: initialData.status || "ACTIVE",
-        }
+        principalName: initialData.principalName,
+        billingCategory: initialData.billingCategory,
+        industrySector: initialData.industrySector,
+        dateListedOnNgx: new Date(initialData.dateListedOnNgx),
+        registeredAddress: initialData.registeredAddress || "",
+        officialEmail: initialData.officialEmail || "",
+        phoneNumber: initialData.phoneNumber || "",
+        companySecretary: initialData.companySecretary || "",
+        companySecretaryPhone: initialData.companySecretaryPhone || "",
+        tin: initialData.tin || "",
+        rcNumber: initialData.rcNumber || "",
+        // shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
+        sector: initialData.sector || "",
+        status: initialData.status || "ACTIVE",
+      }
       : {
-          principalName: "",
-          billingCategory: "",
-          industrySector: "",
-          dateListedOnNgx: new Date(),
-          registeredAddress: "",
-          officialEmail: "",
-          phoneNumber: "",
-          tin: "",
-          rcNumber: "",
-          companySecretary: "",
-          companySecretaryPhone: "",
-          shareHoldersAtSetUp: 0,
-          sector: "",
-          status: "ACTIVE",
-        },
+        principalName: "",
+        billingCategory: "",
+        industrySector: "",
+        dateListedOnNgx: new Date(),
+        registeredAddress: "",
+        officialEmail: "",
+        phoneNumber: "",
+        tin: "",
+        rcNumber: "",
+        companySecretary: "",
+        companySecretaryPhone: "",
+        // shareHoldersAtSetUp: 0,
+        sector: "",
+        status: "ACTIVE",
+      },
   });
 
   const onSubmit = (values: PrincipalFormValues) => {
@@ -110,7 +110,7 @@ export function PrincipalForm({
     const payload = {
       ...values,
       dateListedOnNgx: values.dateListedOnNgx.toISOString(),
-      shareHoldersAtSetUp: Number(values.shareHoldersAtSetUp),
+      // shareHoldersAtSetUp: Number(values.shareHoldersAtSetUp),
     };
 
     if (mode === "create") {
@@ -525,7 +525,7 @@ export function PrincipalForm({
                       )}
                     />
 
-                    <FormField
+                    {/* <FormField
                       control={form.control}
                       name="shareHoldersAtSetUp"
                       render={({ field }) => (
@@ -544,7 +544,7 @@ export function PrincipalForm({
                           <FormMessage className="text-[10px] text-destructive mt-1" />
                         </FormItem>
                       )}
-                    />
+                    /> */}
                   </div>
                 </div>
 

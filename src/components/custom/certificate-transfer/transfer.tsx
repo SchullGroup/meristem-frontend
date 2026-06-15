@@ -15,6 +15,14 @@ import { CscsShareholder, TransferRequest } from "@/types/cscs";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
 import { useGetShareholdersCertificate } from "@/hooks/useCertificates";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 
 export const Transfer = ({
@@ -22,9 +30,12 @@ export const Transfer = ({
 }: {
   setTab: React.Dispatch<React.SetStateAction<string>>;
 }) => {
+  const { currentUser } = useStore();
+
   const { data: rejectedData } = useGetAllTransferRequests({
     status: "REJECTED",
   });
+
   const allRejectedTransfers: TransferRequest[] =
     rejectedData?.data?.content || [];
   const [hiddenRejectedIds, setHiddenRejectedIds] = useState<Set<string>>(
@@ -33,7 +44,7 @@ export const Transfer = ({
   const rejectedTransfers = allRejectedTransfers.filter(
     (c) => !hiddenRejectedIds.has(c.id),
   );
-  const { currentUser } = useStore();
+
   const [autoLoad, setAutoLoad] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
 
@@ -49,9 +60,11 @@ export const Transfer = ({
 
   const [srcLoaded, setSrcLoaded] = useState<CscsShareholder | null>(null);
   const [destLoaded, setDestLoaded] = useState<CscsShareholder | null>(null);
-  console.log(destLoaded);
+
   const [editingRejected, setEditingRejected] =
     useState<TransferRequest | null>(null);
+
+  const [selectedRegister, setSelectedRegister] = useState("");
 
   const [formData, setFormData] = useState({
     units: "",
@@ -62,16 +75,29 @@ export const Transfer = ({
   });
   const [uploadingIot, setUploadingIot] = useState(false);
 
+  // ── Registers ──
+  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({
+    size: 100,
+    status: "ACTIVE",
+  });
+
+
   // Setup queries
-  const { refetch: fetchSrc, isFetching: srcFetching } =
-    useGetShareholdersCertificate({ search: srcSearch }, { enabled: false });
-  const { refetch: fetchDest, isFetching: destFetching } =
-    useGetShareholdersCertificate({ search: destSearch }, { enabled: false });
+  const { refetch: fetchSrc, isFetching: srcFetching } = useGetShareholdersCertificate(
+    { search: srcSearch, registerId: selectedRegister },
+    { enabled: false, retry: 1 },
+  );
+  const { refetch: fetchDest, isFetching: destFetching } = useGetShareholdersCertificate(
+    { search: destSearch, registerId: selectedRegister },
+    { enabled: false, retry: 1 },
+  );
 
   const submitMutation = useSubmitTransferRequest();
 
   const handleSearchSrc = async () => {
     if (!srcSearch) return;
+    if (!selectedRegister) return toast.error("Please select a register");
+
     setSrcLoaded(null);
     setSrcSearchResults([]);
     const res = await fetchSrc();
@@ -89,6 +115,8 @@ export const Transfer = ({
 
   const handleSearchDest = async () => {
     if (!destSearch) return;
+    if (!selectedRegister) return toast.error("Please select a register");
+
     setDestLoaded(null);
     setDestSearchResults([]);
     const res = await fetchDest();
@@ -316,6 +344,30 @@ export const Transfer = ({
         </Card>
       )}
 
+      <Select
+        value={selectedRegister}
+        onValueChange={(v) => setSelectedRegister(v || "")}
+      >
+        <SelectTrigger className="w-64 mrpsl-input">
+          <SelectValue placeholder="All Registers" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={""}>
+            All Registers
+          </SelectItem>
+          {activeRegisters?.content.map((r) => (
+            <SelectItem key={r.registerId} value={r.symbol}>
+              {r.registerName} {r.symbol}
+            </SelectItem>
+          ))}
+          {registersLoading && (
+            <SelectItem value="_loading" disabled>
+              Loading registers…
+            </SelectItem>
+          )}
+        </SelectContent>
+      </Select>
+
       {/* transferor and transferee forms */}
       <div className="grid grid-cols-2 gap-6">
         <Card className="mrpsl-card p-4 space-y-4">
@@ -345,7 +397,7 @@ export const Transfer = ({
             <div className="mt-2 border rounded-md divide-y max-h-48 overflow-y-auto bg-background">
               {srcSearchResults.map((sh) => (
                 <div
-                  key={sh.id}
+                  key={sh.certificateId}
                   className="p-3 hover:bg-muted cursor-pointer transition-colors"
                   onClick={() => {
                     setSrcLoaded(sh);

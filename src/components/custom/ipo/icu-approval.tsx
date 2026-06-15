@@ -74,7 +74,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
   // Queries
   const { data: activeRegisters } = useGetRegisters(
     {
-      size: 1000,
+      size: 100,
       status: "ACTIVE",
     },
     {

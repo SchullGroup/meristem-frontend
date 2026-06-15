@@ -123,7 +123,7 @@ export default function NewMandatePage() {
   const queryClient = useQueryClient();
   const { currentUser } = useStore();
   const { data: registersData } = useGetRegisters({
-    size: 1000,
+    size: 100,
   });
 
   const registerList = registersData?.content;
@@ -1261,10 +1261,10 @@ export default function NewMandatePage() {
                     <div key={i} className="flex items-center gap-3">
                       <div
                         className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done
-                            ? "bg-green-100"
-                            : step.pending
-                              ? "bg-amber-200 animate-pulse"
-                              : "border-2 border-muted bg-background"
+                          ? "bg-green-100"
+                          : step.pending
+                            ? "bg-amber-200 animate-pulse"
+                            : "border-2 border-muted bg-background"
                           }`}
                       >
                         {step.done && (

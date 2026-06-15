@@ -5,6 +5,7 @@ import { FileText, X, CheckCircle2, Loader2, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FILE_TYPE_ACCEPT, FILE_TYPE_COLORS } from "@/lib/mocks/doc-types";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
+import { GetImageUrl } from "@/lib/utils/get-image-url";
 
 interface DocUploadZoneProps {
   label: string;
@@ -31,9 +32,9 @@ export function DocUploadZone({
   initialUrl,
 }: DocUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile]         = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(initialUrl ?? null);
-  const [error, setError]       = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -50,16 +51,33 @@ export function DocUploadZone({
     }
     setFile(f);
     setIsUploading(true);
-    
+
     try {
-      const response = await GetPDFUrl(f, folderName);
+      const mimeType = f.type.toLowerCase();
+      const extension = f.name.split(".").pop()?.toLowerCase();
+      
+      let response;
+      if (mimeType === "application/pdf" || extension === "pdf") {
+        response = await GetPDFUrl(f, folderName);
+      } else if (
+        ["image/jpeg", "image/png", "image/jpg"].includes(mimeType) ||
+        ["jpeg", "png", "jpg"].includes(extension || "")
+      ) {
+        response = await GetImageUrl(f, folderName);
+      } else {
+        setError("Unsupported file format. Please upload PDF, PNG, JPG, or JPEG.");
+        setFile(null);
+        setIsUploading(false);
+        return;
+      }
+
       if (response?.type === "success") {
         setUploadedUrl(response.result);
         if (onUploadSuccess) {
           onUploadSuccess(response.result);
         }
       } else {
-        setError(response?.result || "Failed to upload file");
+        setError((response?.result as string) || "Failed to upload file");
         setFile(null);
       }
     } catch (err: any) {

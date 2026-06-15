@@ -53,7 +53,7 @@ export default function DividendReportsPage() {
 
   // Active registers for the Register filter
   const { data: activeRegisters } = useGetRegisters({
-    size: 1000,
+    size: 100,
     status: "ACTIVE",
   });
 
@@ -146,7 +146,7 @@ export default function DividendReportsPage() {
               <SelectContent>
                 <SelectItem value="">All Registers</SelectItem>
                 {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.registerId}>
+                  <SelectItem key={r.registerId} value={r.symbol}>
                     {r.registerName} · {r.symbol}
                   </SelectItem>
                 ))}

@@ -12,34 +12,121 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useGetPrincipalStats } from "@/hooks/usePrincipal"
+import { formatNaira } from "@/lib/utils/format";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { useGetDividendDeclarations } from "@/hooks/useDividendPayment";
+import { EntitlementTableSkeleton } from "@/components/custom/rights-issue/loaders";
+import { DataErrorState } from "@/components/custom/ipo/loaders";
+
+
+const getDivStatusBadge = (status: string) => {
+  switch (status) {
+    case "DRAFT":
+      return (
+        <Badge className="bg-gray-100      text-gray-600   border-0 text-[13px]">
+          Draft
+        </Badge>
+      );
+    case "PENDING_TIER2":
+      return (
+        <Badge className="bg-amber-100     text-amber-800  border-0 text-[13px]">
+          Pending Tier 2
+        </Badge>
+      );
+    case "PENDING_TIER3":
+      return (
+        <Badge className="bg-orange-100    text-orange-800 border-0 text-[13px]">
+          Pending Tier 3
+        </Badge>
+      );
+    case "PENDING_TIER4":
+      return (
+        <Badge className="bg-yellow-100    text-yellow-800 border-0 text-[13px]">
+          Pending Tier 4
+        </Badge>
+      );
+    case "AUTHORIZED":
+      return (
+        <Badge className="bg-blue-100      text-blue-800   border-0 text-[13px]">
+          Authorized
+        </Badge>
+      );
+    case "PAID":
+      return (
+        <Badge className="bg-green-100     text-green-800  border-0 text-[13px]">
+          Paid
+        </Badge>
+      );
+    case "REJECTED":
+      return (
+        <Badge className="bg-red-100       text-red-700    border-0 text-[13px]">
+          Rejected
+        </Badge>
+      );
+    default:
+      return (
+        <Badge className="bg-gray-100      text-gray-700   border-0 text-[13px]">
+          {status}
+        </Badge>
+      );
+  }
+};
+
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "ACTIVE":
+      return (
+        <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
+          Active
+        </Badge>
+      );
+    case "TRANSACTION_DISABLED":
+      return (
+        <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
+          Disabled
+        </Badge>
+      );
+    case "INACTIVE":
+      return (
+        <Badge className="bg-gray-100 text-gray-600 border-0 text-[13px]">
+          Inactive
+        </Badge>
+      );
+    default:
+      return <Badge className="text-[13px]">{status}</Badge>;
+  }
+};
 
 export default function DashboardHome() {
   const {
     currentUser,
-    principals,
-    registers,
     pendingApprovals,
-    dividendDeclarations,
   } = useStore();
   const router = useRouter();
 
-  if (!currentUser) return null;
+  const { data: principalStats, isLoading: principalStatsLoading } = useGetPrincipalStats();
 
-  const totalPrincipals = principals.length;
-  const activeRegisters = registers.filter((r) => r.status === "ACTIVE").length;
+  const { data: registers, isLoading: activeRegistersLoading } = useGetRegisters({
+    status: "ACTIVE",
+    size: 5,
+    sortBy: "asc"
+  });
+
+  const { data: dividendDeclarations, isLoading: declarationsLoading, isError: declarationError, refetch: refetchDecl, error: declarationErrorMsg } = useGetDividendDeclarations({
+    size: 5,
+    status: "AUTHORIZED"
+  })
+
+
+
+  const totalPrincipals = principalStats?.totalPrincipals || 0;
+  const activeRegisters = registers?.pagination?.total || 0;
+
   const pendingCount = pendingApprovals.filter(
     (a) => a.status === "PENDING",
   ).length;
-  const declaredYTD = dividendDeclarations.filter(
-    (d) => d.status === "AUTHORIZED",
-  ).length;
 
-  const recentDividends = [...dividendDeclarations]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    .slice(0, 5);
 
   const topPending = [...pendingApprovals]
     .filter((a) => a.status === "PENDING")
@@ -49,89 +136,9 @@ export default function DashboardHome() {
     )
     .slice(0, 5);
 
-  const formatNaira = (num: number) => {
-    if (num >= 1_000_000_000) return `₦${(num / 1_000_000_000).toFixed(1)}B`;
-    if (num >= 1_000_000) return `₦${(num / 1_000_000).toFixed(1)}M`;
-    return `₦${num.toLocaleString()}`;
-  };
 
-  const getDivStatusBadge = (status: string) => {
-    switch (status) {
-      case "DRAFT":
-        return (
-          <Badge className="bg-gray-100      text-gray-600   border-0 text-[13px]">
-            Draft
-          </Badge>
-        );
-      case "PENDING_TIER2":
-        return (
-          <Badge className="bg-amber-100     text-amber-800  border-0 text-[13px]">
-            Pending Tier 2
-          </Badge>
-        );
-      case "PENDING_TIER3":
-        return (
-          <Badge className="bg-orange-100    text-orange-800 border-0 text-[13px]">
-            Pending Tier 3
-          </Badge>
-        );
-      case "PENDING_TIER4":
-        return (
-          <Badge className="bg-yellow-100    text-yellow-800 border-0 text-[13px]">
-            Pending Tier 4
-          </Badge>
-        );
-      case "AUTHORIZED":
-        return (
-          <Badge className="bg-blue-100      text-blue-800   border-0 text-[13px]">
-            Authorized
-          </Badge>
-        );
-      case "PAID":
-        return (
-          <Badge className="bg-green-100     text-green-800  border-0 text-[13px]">
-            Paid
-          </Badge>
-        );
-      case "REJECTED":
-        return (
-          <Badge className="bg-red-100       text-red-700    border-0 text-[13px]">
-            Rejected
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-gray-100      text-gray-700   border-0 text-[13px]">
-            {status}
-          </Badge>
-        );
-    }
-  };
+  if (!currentUser) return null;
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return (
-          <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
-            Active
-          </Badge>
-        );
-      case "TRANSACTION_DISABLED":
-        return (
-          <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-            Disabled
-          </Badge>
-        );
-      case "INACTIVE":
-        return (
-          <Badge className="bg-gray-100 text-gray-600 border-0 text-[13px]">
-            Inactive
-          </Badge>
-        );
-      default:
-        return <Badge className="text-[13px]">{status}</Badge>;
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -155,9 +162,12 @@ export default function DashboardHome() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-bold tabular-nums">
+            {principalStatsLoading ? (
+              <span className="h-12 w-12 animate-pulse bg-muted rounded-sm  tabular-nums">
+              </span>
+            ) : <span className="text-3xl font-bold tabular-nums">
               {totalPrincipals}
-            </span>
+            </span>}
             <div className="text-[13px] text-green-600 mt-1 font-medium">
               +1 this month
             </div>
@@ -170,9 +180,12 @@ export default function DashboardHome() {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-bold tabular-nums">
+            {activeRegistersLoading ? (
+              <span className="h-12 w-12 animate-pulse bg-muted rounded-sm  tabular-nums">
+              </span>
+            ) : <span className="text-3xl font-bold tabular-nums">
               {activeRegisters}
-            </span>
+            </span>}
             <div className="text-[13px] text-muted-foreground mt-1">
               Across all principals
             </div>
@@ -205,7 +218,7 @@ export default function DashboardHome() {
           </div>
           <div className="mt-2">
             <span className="text-3xl font-bold tabular-nums">
-              {declaredYTD}
+              {dividendDeclarations?.data?.totalElements || 0}
             </span>
             <div className="text-[13px] text-muted-foreground mt-1">
               Authorized payouts
@@ -221,29 +234,26 @@ export default function DashboardHome() {
             Recent Dividend Declarations
           </h2>
           <Card className="mrpsl-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="px-4 py-3">Register</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Rate</th>
-                    <th className="px-4 py-3">Gross Liability</th>
-                    <th className="px-4 py-3">Tier</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentDividends.length > 0 ? (
-                    recentDividends.map((div) => {
-                      const register = registers.find(
-                        (r) => r.id === div.registerId,
-                      );
-                      return (
+            {declarationsLoading ? <EntitlementTableSkeleton /> : declarationError ? (<DataErrorState message={declarationErrorMsg?.message || "Failed to fetch dividend declarations"} onRetry={refetchDecl} />) :
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="px-4 py-3">Register</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Rate</th>
+                      <th className="px-4 py-3">Gross Liability</th>
+                      <th className="px-4 py-3">Tier</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dividendDeclarations?.data?.content?.length && dividendDeclarations?.data?.content?.length > 0 ? (
+                      dividendDeclarations.data?.content?.map((div) => (
                         <tr key={div.id} className="mrpsl-table-row">
                           <td className="px-4 py-3 font-medium">
-                            {register?.symbol || div.registerId}
+                            {div.registerSymbol}
                           </td>
                           <td className="px-4 py-3">{div.dividendType}</td>
                           <td className="px-4 py-3 text-right tabular-nums">
@@ -273,21 +283,20 @@ export default function DashboardHome() {
                             </Button>
                           </td>
                         </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="px-4 py-8 text-center text-muted-foreground text-sm"
-                      >
-                        No recent declarations found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-8 text-center text-muted-foreground text-sm"
+                        >
+                          No recent declarations found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>}
           </Card>
         </div>
 
@@ -376,56 +385,49 @@ export default function DashboardHome() {
                 </tr>
               </thead>
               <tbody>
-                {registers
-                  .filter((r) => r.status === "ACTIVE")
-                  .map((reg) => {
-                    const principal = principals.find(
-                      (p) => p.id === reg.principalId,
-                    );
-                    return (
-                      <tr key={reg.id} className="mrpsl-table-row">
-                        <td className="px-4 py-3">
-                          <div className="font-semibold">{reg.symbol}</div>
-                          <div className="text-[13px] text-muted-foreground truncate max-w-[200px]">
-                            {reg.name}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-[13px]">
-                          {principal?.name || "Unknown"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className="text-[13px]">
-                            {reg.registerType.replace(/\b\w/g, (c) =>
-                              c.toUpperCase(),
-                            )}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {reg.shareholdersToday.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {reg.stockToday.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          {getStatusBadge(reg.status)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-[13px]"
-                            onClick={() =>
-                              router.push(
-                                `/setup/registers?search=${reg.symbol}`,
-                              )
-                            }
-                          >
-                            View
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                {registers?.content?.map((reg) => (
+                  <tr key={reg.registerId} className="mrpsl-table-row">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold">{reg.symbol}</div>
+                      <div className="text-[13px] text-muted-foreground truncate max-w-[200px]">
+                        {reg.registerName}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[13px]">
+                      {reg.registerType}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant="outline" className="text-[13px]">
+                        {reg.registerType.replace(/\b\w/g, (c) =>
+                          c.toUpperCase(),
+                        )}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {reg.currentShareholdersSize?.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums">
+                      {reg.currentStockInIssue?.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      {getStatusBadge(reg.status)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-[13px]"
+                        onClick={() =>
+                          router.push(
+                            `/setup/registers?search=${reg.symbol}`,
+                          )
+                        }
+                      >
+                        View
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
