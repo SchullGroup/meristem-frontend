@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Download, Play, MousePointerClick } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -53,9 +52,10 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   const { data: activeDividends, isLoading: loadingDividends } = useQuery({
     queryKey: ["dividend-numbers", selectedRegister],
     queryFn: () =>
-      getDividendNumbers(
-        selectedRegister ? { registerId: selectedRegister } : undefined,
-      ),
+      getDividendNumbers({
+        registerId: selectedRegister !== "" ? selectedRegister : undefined,
+        status: "ACTIVE"
+      }),
     enabled: tab === "decl" && !!selectedRegister,
   });
 
@@ -75,7 +75,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
       {
         registerId: selectedRegister || undefined,
         paymentNumber: selectedDiv || undefined,
-        status: paymentStatus ? paymentStatus.toUpperCase() : undefined,
+        status: paymentStatus !== "" ? paymentStatus.toUpperCase() : undefined,
         page,
         size: pageSize,
       },
@@ -109,6 +109,11 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   function initiatePaymentRun() {
+    if (!gateway || gateway === "") {
+      toast.error("Please select a payment gateway");
+      return;
+    }
+
     if (declarationResponse?.data?.declarationId == null) {
       toast.error("Please select a dividend number.");
       return;
@@ -258,6 +263,24 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
             )}
           </SelectContent>
         </Select>
+
+        <Select
+          value={paymentStatus}
+          onValueChange={(value) => {
+            setPaymentStatus(value || "");
+            setPage(0);
+          }}
+          disabled={!selectedDiv && !selectedRegister}
+        >
+          <SelectTrigger className="w-48 mrpsl-input" id="payment-status-filter">
+            <SelectValue placeholder="Payment Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All</SelectItem>
+            <SelectItem value="Unpaid">Unpaid</SelectItem>
+            <SelectItem value="Paid">Paid</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* ── Initial empty state (neither filter selected) ─────────────────── */}
@@ -284,38 +307,23 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
             <div className="flex items-center gap-8 flex-wrap">
               <div className="shrink-0">
                 <h3 className="font-semibold text-sm mb-3">
-                  Select Payment Gateway
+                  PAYMENT GATEWAY
                 </h3>
-                <RadioGroup
+                <Select
                   value={gateway}
-                  onValueChange={setGateway}
-                  className="flex gap-6"
+                  onValueChange={(value) => {
+                    setGateway(value || "");
+                  }}
                 >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="nibss" id="gw-nibss" />
-                    <label
-                      htmlFor="gw-nibss"
-                      className="text-sm font-medium cursor-pointer"
-                    >
-                      NIBSS{" "}
-                      <span className="text-[13px] text-muted-foreground font-normal">
-                        — Nigeria Inter-Bank Settlement System
-                      </span>
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="remita" id="gw-remita" />
-                    <label
-                      htmlFor="gw-remita"
-                      className="text-sm font-medium cursor-pointer"
-                    >
-                      Remita{" "}
-                      <span className="text-[13px] text-muted-foreground font-normal">
-                        — SystemSpecs
-                      </span>
-                    </label>
-                  </div>
-                </RadioGroup>
+                  <SelectTrigger className="w-48 mrpsl-input" id="payment-gateway">
+                    <SelectValue placeholder="Payment Gateway" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nibss">NIBSS</SelectItem>
+                    <SelectItem value="remita">Remita</SelectItem>
+                  </SelectContent>
+                </Select>
+
               </div>
 
               <div className="flex gap-3 items-center ml-auto flex-wrap">
@@ -410,22 +418,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                 Payment File —{" "}
                 {formatNumber(stats?.rows?.totalElements ?? 0)} records
               </span>
-              <Select
-                value={paymentStatus}
-                onValueChange={(value) => {
-                  setPaymentStatus(value || "");
-                  setPage(0);
-                }}
-              >
-                <SelectTrigger className="w-48 mrpsl-input" id="payment-status-filter">
-                  <SelectValue placeholder="Payment Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All</SelectItem>
-                  <SelectItem value="Unpaid">Unpaid</SelectItem>
-                  <SelectItem value="Paid">Paid</SelectItem>
-                </SelectContent>
-              </Select>
+
             </div>
 
             {fetchingPayments ? <EntitlementTableSkeleton /> : isError ? (<DataErrorState
@@ -467,10 +460,10 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                           <td className="p-3">
                             <Badge
                               className={`border-0 text-[12px] ${row.status === "PAID"
-                                  ? "bg-green-100 text-green-800"
-                                  : row.status === "FAILED"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-amber-100 text-amber-800"
+                                ? "bg-green-100 text-green-800"
+                                : row.status === "FAILED"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-amber-100 text-amber-800"
                                 }`}
                             >
                               {row.status}

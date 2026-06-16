@@ -6,6 +6,7 @@ import NewAdmonForm from "@/components/custom/account-maintenance/new-admon-form
 import PendingAdmon from "@/components/custom/account-maintenance/pending-admon";
 import AdmonReversal from "@/components/custom/account-maintenance/admon-reversal";
 import AdmonHistory from "@/components/custom/account-maintenance/admon-history";
+import ApprovedAdmons from "@/components/custom/account-maintenance/approved-admons";
 
 export default function AdmonPage() {
   const [activeTab, setActiveTab] = useState("new");
@@ -42,6 +43,12 @@ export default function AdmonPage() {
             Pending Authorisation
           </TabsTrigger>
           <TabsTrigger
+            value="approved"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            Approved
+          </TabsTrigger>
+          <TabsTrigger
             value="reversal"
             className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
           >
@@ -61,6 +68,9 @@ export default function AdmonPage() {
           </TabsContent>
           <TabsContent value="pending" className="space-y-4">
             <PendingAdmon tab={activeTab} />
+          </TabsContent>
+          <TabsContent value="approved" className="space-y-4">
+            <ApprovedAdmons tab={activeTab} />
           </TabsContent>
           <TabsContent value="reversal" className="space-y-4">
             <AdmonReversal tab={activeTab} />

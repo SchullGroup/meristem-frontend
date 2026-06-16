@@ -19,6 +19,8 @@ import {
     useAuthoriseAdmonReversal,
     useRejectAdmonReversal,
 } from "@/hooks/useAccountMaintenance";
+import { formatDate } from "@/lib/utils/format";
+import { DocPreview } from "../doc-upload-zone";
 
 interface AdmonReversalDialogProps {
     reviewOpen: boolean;
@@ -112,19 +114,13 @@ export function AdmonReviewDialog({
                     </DialogTitle>
                 </DialogHeader>
                 {selected && (
-                    <div className="space-y-6 px-8 pb-8">
+                    <div className="space-y-6 px-8 pb-8 overflow-y-auto max-h-[600px]">
                         <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <div className="mrpsl-section-title">Account</div>
+                                    <div className="mrpsl-section-title">Accounts</div>
                                     <div className="font-mono font-bold mt-0.5">
                                         {selected.deceasedAccountNumbers?.join(", ") || "-"}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="mrpsl-section-title">Probate No</div>
-                                    <div className="font-mono text-sm mt-0.5">
-                                        {selected.probateNumber}
                                     </div>
                                 </div>
                                 <div>
@@ -135,11 +131,36 @@ export function AdmonReviewDialog({
                                         {selected.deceasedHolderName}
                                     </div>
                                 </div>
+
+                                <div>
+                                    <div className="mrpsl-section-title">Probate Court</div>
+                                    <div className="font-mono text-sm mt-0.5">
+                                        {selected.probateCourt}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="mrpsl-section-title">Probate No</div>
+                                    <div className="font-mono text-sm mt-0.5">
+                                        {selected.probateNumber}
+                                    </div>
+                                </div>
                                 <div>
                                     <div className="mrpsl-section-title">
                                         Administrator / Executor
                                     </div>
                                     <div className="text-sm mt-0.5">{selected.adminName}</div>
+                                </div>
+                                <div>
+                                    <div className="mrpsl-section-title">
+                                        Probate Date
+                                    </div>
+                                    <div className="text-sm mt-0.5">{formatDate(selected.probateDate)}</div>
+                                </div>
+                                <div className="col-span-2">
+                                    <div className="mrpsl-section-title">
+                                        Probate / Letter of Administration
+                                    </div>
+                                    <DocPreview url={selected?.probateDocUrl} />
                                 </div>
                             </div>
                         </div>

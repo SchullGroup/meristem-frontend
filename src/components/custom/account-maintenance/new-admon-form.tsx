@@ -22,11 +22,27 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { DocUploadZone } from "@/components/custom/doc-upload-zone";
-import { getDocType } from "@/lib/mocks/doc-types";
 import DateInput from "@/components/ui/date-input";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useCreateAdmon, useGetAccounts } from "@/hooks/useAccountMaintenance";
 import { ShareholderAccount } from "@/types/account-maintenance";
+
+const INITIAL_FORM = {
+    isExecutor: false,
+    adminName: "",
+    probateCourt: "",
+    probateNumber: "",
+    probatePage: "",
+    date1: new Date(),
+    date2: new Date(),
+    adminAddress: "",
+    adminCity: "",
+    adminState: "",
+    memo: "",
+    changeAddressToAdmin: true,
+    changeNameToEstate: true,
+    probateDocUrl: "",
+}
 
 export default function NewAdmonForm() {
     const { data: activeRegisters } = useGetRegisters({
@@ -40,21 +56,7 @@ export default function NewAdmonForm() {
     const [search, setSearch] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
 
-    // Form states
-    const [isExecutor, setIsExecutor] = useState(false);
-    const [adminName, setAdminName] = useState("");
-    const [probateCourt, setProbateCourt] = useState("");
-    const [probateNumber, setProbateNumber] = useState("");
-    const [probatePage, setProbatePage] = useState("");
-    const [date1, setDate1] = useState<Date>(new Date());
-    const [date2, setDate2] = useState<Date>(new Date());
-    const [adminAddress, setAdminAddress] = useState("");
-    const [adminCity, setAdminCity] = useState("");
-    const [adminState, setAdminState] = useState("");
-    const [memo, setMemo] = useState("");
-    const [changeAddressToAdmin, setChangeAddressToAdmin] = useState(true);
-    const [changeNameToEstate, setChangeNameToEstate] = useState(true);
-    const [probateDocUrl, setProbateDocUrl] = useState("");
+    const [formData, setFormData] = useState(INITIAL_FORM)
 
     const { data: accountsRes, isLoading: isLoadingAccount } = useGetAccounts(
         { q: searchQuery, registerId: registerId || undefined },
@@ -97,38 +99,14 @@ export default function NewAdmonForm() {
             toast.error("Please select at least one deceased account from the list below.");
             return;
         }
-        if (!adminName.trim()) {
-            toast.error("Please enter administrator name");
+
+        const { memo, ...requiredFields } = formData;
+
+        if (Object.values(requiredFields).some((value) => value === "" || value === null || value === undefined)) {
+            toast.error("Please fill in all required fields");
             return;
         }
-        if (!probateCourt.trim()) {
-            toast.error("Please enter probate court");
-            return;
-        }
-        if (!probateNumber.trim()) {
-            toast.error("Please enter probate number");
-            return;
-        }
-        if (!probatePage.trim()) {
-            toast.error("Please enter probate page");
-            return;
-        }
-        if (!probateDocUrl.trim()) {
-            toast.error("Please attach a probate letter of administration");
-            return;
-        }
-        if (!adminAddress.trim()) {
-            toast.error("Please enter admin address");
-            return;
-        }
-        if (!adminCity.trim()) {
-            toast.error("Please enter admin city");
-            return;
-        }
-        if (!adminState) {
-            toast.error("Please select admin state");
-            return;
-        }
+
         if (!currentUser) {
             toast.error("Your session has expired. Please login again.");
             return;
@@ -137,22 +115,12 @@ export default function NewAdmonForm() {
         const deceasedAccountIds = Array.from(selectedAccounts.keys());
 
         createAdmonMutation.mutate({
+            ...formData,
             registerId: registerId,
             deceasedAccountIds,
-            admonType: isExecutor ? "EXECUTOR" : "ADMINISTRATOR",
-            adminName,
-            probateCourt,
-            probateNumber,
-            probateDate: format(date1, "yyyy-MM-dd"),
-            probatePage,
-            lodgementDate: format(date2, "yyyy-MM-dd"),
-            adminAddress,
-            adminCity,
-            adminState,
-            memo,
-            changeAddressToAdmin,
-            changeNameToEstate,
-            probateDocUrl,
+            admonType: formData?.isExecutor ? "EXECUTOR" : "ADMINISTRATOR",
+            probateDate: format(formData?.date1, "yyyy-MM-dd"),
+            lodgementDate: format(formData?.date2, "yyyy-MM-dd"),
             initiatedBy: currentUser.email
         }, {
             onSuccess: () => {
@@ -160,19 +128,7 @@ export default function NewAdmonForm() {
                 // Reset form
                 setSearchQuery("");
                 setSearch("");
-                setAdminName("");
-                setProbateCourt("");
-                setProbateNumber("");
-                setProbatePage("");
-                setAdminAddress("");
-                setAdminCity("");
-                setAdminState("");
-                setMemo("");
-                setProbateDocUrl("");
-                setSelectedAccounts(new Map());
-                setAllDiscoveredAccounts([])
-                setSearchQuery("");
-                setSearch("");
+                setFormData(INITIAL_FORM)
             },
             onError: (err) => {
                 toast.error(err.message || "Failed to submit request");
@@ -307,8 +263,8 @@ export default function NewAdmonForm() {
                     <div className="flex items-center space-x-2">
                         <Checkbox
                             id="exec"
-                            checked={isExecutor}
-                            onCheckedChange={(c) => setIsExecutor(!!c)}
+                            checked={formData?.isExecutor}
+                            onCheckedChange={(c) => setFormData((prev) => ({ ...prev, isExecutor: !!c }))}
                         />
                         <label
                             htmlFor="exec"
@@ -322,8 +278,8 @@ export default function NewAdmonForm() {
                         <div className="space-y-2 col-span-2">
                             <label className="mrpsl-label">Administrator / Executor Name *</label>
                             <Input
-                                value={adminName}
-                                onChange={(e) => setAdminName(e.target.value)}
+                                value={formData?.adminName}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, adminName: e.target.value }))}
                                 placeholder="Estate of..."
                                 className="mrpsl-input"
                             />
@@ -331,32 +287,32 @@ export default function NewAdmonForm() {
                         <div className="space-y-2">
                             <label className="mrpsl-label">Probate Court *</label>
                             <Input
-                                value={probateCourt}
-                                onChange={(e) => setProbateCourt(e.target.value)}
+                                value={formData?.probateCourt}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, probateCourt: e.target.value }))}
                                 className="mrpsl-input"
                             />
                         </div>
                         <div className="space-y-2">
-                            <DateInput date={date1} setDate={setDate1} label="Probate Date *" />
+                            <DateInput date={formData?.date1} setDate={(d) => setFormData((prev) => ({ ...prev, date1: d }))} label="Probate Date *" />
                         </div>
                         <div className="space-y-2">
                             <label className="mrpsl-label">Probate Number *</label>
                             <Input
-                                value={probateNumber}
-                                onChange={(e) => setProbateNumber(e.target.value)}
+                                value={formData?.probateNumber}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, probateNumber: e.target.value }))}
                                 className="mrpsl-input"
                             />
                         </div>
                         <div className="space-y-2">
                             <label className="mrpsl-label">Probate Page *</label>
                             <Input
-                                value={probatePage}
-                                onChange={(e) => setProbatePage(e.target.value)}
+                                value={formData?.probatePage}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, probatePage: e.target.value }))}
                                 className="mrpsl-input"
                             />
                         </div>
                         <div className="space-y-2">
-                            <DateInput date={date2} setDate={setDate2} label="Lodgement Date *" />
+                            <DateInput date={formData?.date2} setDate={(d) => setFormData((prev) => ({ ...prev, date2: d }))} label="Lodgement Date *" />
                         </div>
                     </div>
 
@@ -364,8 +320,8 @@ export default function NewAdmonForm() {
                         <div className="space-y-2 col-span-3">
                             <label className="mrpsl-label">Admin Address *</label>
                             <Textarea
-                                value={adminAddress}
-                                onChange={(e) => setAdminAddress(e.target.value)}
+                                value={formData?.adminAddress}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, adminAddress: e.target.value }))}
                                 className="mrpsl-input"
                                 rows={2}
                             />
@@ -373,14 +329,14 @@ export default function NewAdmonForm() {
                         <div className="space-y-2">
                             <label className="mrpsl-label">Admin City *</label>
                             <Input
-                                value={adminCity}
-                                onChange={(e) => setAdminCity(e.target.value)}
+                                value={formData?.adminCity}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, adminCity: e.target.value }))}
                                 className="mrpsl-input"
                             />
                         </div>
                         <div className="space-y-2">
                             <label className="mrpsl-label">Admin State *</label>
-                            <Select value={adminState} onValueChange={(value) => setAdminState(value || "")}>
+                            <Select value={formData?.adminState} onValueChange={(value) => setFormData((prev) => ({ ...prev, adminState: value || "" }))}>
                                 <SelectTrigger className="mrpsl-input">
                                     <SelectValue placeholder="State" />
                                 </SelectTrigger>
@@ -402,27 +358,20 @@ export default function NewAdmonForm() {
                         <div className="space-y-2">
                             <label className="mrpsl-label">Memo</label>
                             <Textarea
-                                value={memo}
-                                onChange={(e) => setMemo(e.target.value)}
+                                value={formData?.memo}
+                                onChange={(e) => setFormData((prev) => ({ ...prev, memo: e.target.value }))}
                                 className="mrpsl-input"
-                                rows={2}
+                                rows={3}
                             />
                         </div>
                         <div className="space-y-2">
-                            {(() => {
-                                const probate = getDocType(
-                                    "Probate / Letters of Administration",
-                                );
-                                return (
-                                    <DocUploadZone
-                                        label="Probate / Letters of Administration"
-                                        required
-                                        fileTypes={probate?.fileTypes ?? ["PDF"]}
-                                        maxSizeMB={probate?.maxSizeMB ?? 10}
-                                        onUploadSuccess={(url) => setProbateDocUrl(url)}
-                                    />
-                                );
-                            })()}
+                            <DocUploadZone
+                                label="Probate / Letters of Administration"
+                                required
+                                fileTypes={["PDF"]}
+                                maxSizeMB={10}
+                                onUploadSuccess={(url) => setFormData((prev) => ({ ...prev, probateDocUrl: url }))}
+                            />
                         </div>
                     </div>
 
@@ -432,8 +381,8 @@ export default function NewAdmonForm() {
                                 Change Holder Address to Admin Address
                             </span>
                             <Switch
-                                checked={changeAddressToAdmin}
-                                onCheckedChange={setChangeAddressToAdmin}
+                                checked={formData?.changeAddressToAdmin}
+                                onCheckedChange={(value) => setFormData((prev) => ({ ...prev, changeAddressToAdmin: value }))}
                             />
                         </div>
                         <div className="flex items-center justify-between">
@@ -441,11 +390,11 @@ export default function NewAdmonForm() {
                                 Change Holder Name to Estate Name
                             </span>
                             <Switch
-                                checked={changeNameToEstate}
-                                onCheckedChange={setChangeNameToEstate}
+                                checked={formData?.changeNameToEstate}
+                                onCheckedChange={(value) => setFormData((prev) => ({ ...prev, changeNameToEstate: value }))}
                             />
                         </div>
-                        <div className="bg-background border p-3 rounded text-sm text-center font-mono space-y-1">
+                        {formData?.changeNameToEstate && <div className="bg-background border p-3 rounded text-sm text-center font-mono space-y-1">
                             {Array.from(selectedAccounts.values()).map((acc) => (
                                 <div key={acc.id}>
                                     <span className="text-muted-foreground line-through mr-2">
@@ -453,11 +402,11 @@ export default function NewAdmonForm() {
                                     </span>{" "}
                                     →{" "}
                                     <span className="font-bold text-primary">
-                                        Estate of {acc.firstName} {acc.lastName}
+                                        {formData?.adminName}
                                     </span>
                                 </div>
                             ))}
-                        </div>
+                        </div>}
                     </div>
 
                     <div className="flex justify-end pt-2">
