@@ -54,7 +54,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
     queryFn: () =>
       getDividendNumbers({
         registerId: selectedRegister !== "" ? selectedRegister : undefined,
-        status: "ACTIVE"
+        status: "AUTHORIZED",
       }),
     enabled: tab === "decl" && !!selectedRegister,
   });
@@ -67,20 +67,24 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   const downloadNibssMutation = useDownloadNibssFile();
 
   // Only fetch declaration payment when both register AND dividend are chosen
-  const readyToFetch =
-    tab === "decl" && !!selectedRegister && !!selectedDiv;
+  const readyToFetch = tab === "decl" && !!selectedRegister && !!selectedDiv;
 
-  const { data: declarationResponse, isLoading: fetchingPayments, isError, error, refetch } =
-    useGetDeclarationPayment(
-      {
-        registerId: selectedRegister || undefined,
-        paymentNumber: selectedDiv || undefined,
-        status: paymentStatus !== "" ? paymentStatus.toUpperCase() : undefined,
-        page,
-        size: pageSize,
-      },
-      { enabled: readyToFetch },
-    );
+  const {
+    data: declarationResponse,
+    isLoading: fetchingPayments,
+    isError,
+    error,
+    refetch,
+  } = useGetDeclarationPayment(
+    {
+      registerId: selectedRegister !== "" ? selectedRegister : undefined,
+      paymentNumber: selectedDiv !== "" ? selectedDiv : undefined,
+      status: paymentStatus !== "" ? paymentStatus.toUpperCase() : undefined,
+      page,
+      size: pageSize,
+    },
+    { enabled: readyToFetch },
+  );
 
   const stats = declarationResponse?.data;
   const paymentRows = stats?.rows?.content || [];
@@ -207,8 +211,8 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   const unpaid = Math.max(
     0,
     (stats?.totalEligible ?? 0) -
-    (stats?.successful ?? 0) -
-    (stats?.failedAttempts ?? 0),
+      (stats?.successful ?? 0) -
+      (stats?.failedAttempts ?? 0),
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -216,8 +220,10 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
     <>
       {/* ── Filter bar ───────────────────────────────────────────────────── */}
       <div className="flex gap-4 items-end">
-
-        <Select value={selectedRegister} onValueChange={(value) => handleRegisterChange(value || "")}>
+        <Select
+          value={selectedRegister}
+          onValueChange={(value) => handleRegisterChange(value || "")}
+        >
           <SelectTrigger className="w-48 mrpsl-input">
             <SelectValue placeholder="Register" />
           </SelectTrigger>
@@ -235,7 +241,6 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
             )}
           </SelectContent>
         </Select>
-
 
         <Select
           value={selectedDiv}
@@ -272,7 +277,10 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
           }}
           disabled={!selectedDiv && !selectedRegister}
         >
-          <SelectTrigger className="w-48 mrpsl-input" id="payment-status-filter">
+          <SelectTrigger
+            className="w-48 mrpsl-input"
+            id="payment-status-filter"
+          >
             <SelectValue placeholder="Payment Status" />
           </SelectTrigger>
           <SelectContent>
@@ -306,16 +314,17 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
           <Card className="p-5 border-l-4 border-primary bg-muted/10">
             <div className="flex items-center gap-8 flex-wrap">
               <div className="shrink-0">
-                <h3 className="font-semibold text-sm mb-3">
-                  PAYMENT GATEWAY
-                </h3>
+                <h3 className="font-semibold text-sm mb-3">PAYMENT GATEWAY</h3>
                 <Select
                   value={gateway}
                   onValueChange={(value) => {
                     setGateway(value || "");
                   }}
                 >
-                  <SelectTrigger className="w-48 mrpsl-input" id="payment-gateway">
+                  <SelectTrigger
+                    className="w-48 mrpsl-input"
+                    id="payment-gateway"
+                  >
                     <SelectValue placeholder="Payment Gateway" />
                   </SelectTrigger>
                   <SelectContent>
@@ -323,7 +332,6 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                     <SelectItem value="remita">Remita</SelectItem>
                   </SelectContent>
                 </Select>
-
               </div>
 
               <div className="flex gap-3 items-center ml-auto flex-wrap">
@@ -381,32 +389,52 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
           <div className="grid grid-cols-5 gap-3">
             <Card className="p-4">
               <div className="mrpsl-section-title">Total Eligible</div>
-              <div className="text-2xl font-mono mt-1 font-bold">
-                {formatNumber(stats?.totalEligible ?? 0)}
-              </div>
+              {fetchingPayments ? (
+                <div className="bg-muted/50 rounded-md w-12 h-12 animate-pulse"></div>
+              ) : (
+                <div className="text-2xl font-mono mt-1 font-bold">
+                  {formatNumber(stats?.totalEligible ?? 0)}
+                </div>
+              )}
             </Card>
             <Card className="p-4">
               <div className="mrpsl-section-title">Total Amount (₦)</div>
               <div className="text-xl font-mono mt-1 font-bold">
-                {formatNumber(stats?.totalPayout ?? 0)}
+                {fetchingPayments ? (
+                  <div className="bg-muted/50 rounded-md w-12 h-12 animate-pulse"></div>
+                ) : (
+                  formatNumber(stats?.totalPayout ?? 0)
+                )}
               </div>
             </Card>
             <Card className="p-4">
               <div className="mrpsl-section-title">Paid</div>
               <div className="text-2xl font-mono mt-1 font-bold text-green-600">
-                {formatNumber(stats?.successful ?? 0)}
+                {fetchingPayments ? (
+                  <div className="bg-muted/60 rounded-md w-12 h-12 animate-pulse"></div>
+                ) : (
+                  formatNumber(stats?.successful ?? 0)
+                )}
               </div>
             </Card>
             <Card className="p-4">
               <div className="mrpsl-section-title">Unpaid</div>
               <div className="text-2xl font-mono mt-1 font-bold text-amber-600">
-                {formatNumber(unpaid)}
+                {fetchingPayments ? (
+                  <div className="bg-muted/50 rounded-md w-12 h-12 animate-pulse"></div>
+                ) : (
+                  formatNumber(unpaid)
+                )}
               </div>
             </Card>
             <Card className="p-4">
               <div className="mrpsl-section-title">Failed</div>
               <div className="text-2xl font-mono mt-1 font-bold text-red-600">
-                {formatNumber(stats?.failedAttempts ?? 0)}
+                {fetchingPayments ? (
+                  <div className="bg-muted/50 rounded-md w-12 h-12 animate-pulse"></div>
+                ) : (
+                  formatNumber(stats?.failedAttempts ?? 0)
+                )}
               </div>
             </Card>
           </div>
@@ -415,17 +443,20 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
           <Card className="mrpsl-card overflow-hidden">
             <div className="px-4 py-3 bg-muted/20 border-b flex items-center justify-between">
               <span className="text-[13px] font-bold text-muted-foreground uppercase tracking-wide">
-                Payment File —{" "}
-                {formatNumber(stats?.rows?.totalElements ?? 0)} records
+                Payment File — {formatNumber(stats?.rows?.totalElements ?? 0)}{" "}
+                records
               </span>
-
             </div>
 
-            {fetchingPayments ? <EntitlementTableSkeleton /> : isError ? (<DataErrorState
-              message={error?.message || "Failed to load dividend payments."}
-              onRetry={refetch}
-            />) :
-              (<div className="overflow-x-auto">
+            {fetchingPayments ? (
+              <EntitlementTableSkeleton />
+            ) : isError ? (
+              <DataErrorState
+                message={error?.message || "Failed to load dividend payments."}
+                onRetry={refetch}
+              />
+            ) : (
+              <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="mrpsl-table-header">
                     <tr>
@@ -439,7 +470,6 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y font-mono text-[13px]">
-
                     {paymentRows.length > 0 ? (
                       paymentRows.map((row: PaymentRowContent) => (
                         <tr key={row.serial} className="hover:bg-accent/5">
@@ -459,12 +489,13 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                           </td>
                           <td className="p-3">
                             <Badge
-                              className={`border-0 text-[12px] ${row.status === "PAID"
-                                ? "bg-green-100 text-green-800"
-                                : row.status === "FAILED"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-amber-100 text-amber-800"
-                                }`}
+                              className={`border-0 text-[12px] ${
+                                row.status === "PAID"
+                                  ? "bg-green-100 text-green-800"
+                                  : row.status === "FAILED"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-amber-100 text-amber-800"
+                              }`}
                             >
                               {row.status}
                             </Badge>
@@ -483,7 +514,8 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                     )}
                   </tbody>
                 </table>
-              </div>)}
+              </div>
+            )}
           </Card>
 
           <PaginationBar
