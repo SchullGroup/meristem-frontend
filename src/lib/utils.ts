@@ -47,3 +47,7 @@ export function downloadCSVString(filename: string, csvContent: string) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export function getFileNameFromUrl(url: string): string {
+  return url.split("/").pop()?.split("?")[0] ?? "";
+};

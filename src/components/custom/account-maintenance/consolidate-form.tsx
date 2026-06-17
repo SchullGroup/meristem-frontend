@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -15,15 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { Loader2, Search, X } from "lucide-react";
+import { Check, Loader2, Search, X } from "lucide-react";
 import { useGetRegisters } from "@/hooks/useRegisters";
-import { useGetHolders } from "@/hooks/useCscs";
-import {
-  useCreateConsolidation,
-  useGetAccounts,
-} from "@/hooks/useAccountMaintenance";
+import { useCreateConsolidation, useGetAccounts } from "@/hooks/useAccountMaintenance";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Holder } from "@/types/cscs";
 import BulkAccountConsolidation from "./bulk-account-consolidation";
 import { ShareholderAccount } from "@/types/account-maintenance";
 
@@ -54,7 +49,9 @@ export default function Consolidate({ tab }: { tab: string }) {
   const [register, setRegister] = useState("");
 
   /* ─── single flow ─── */
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const [searchInput, setSearchInput] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const debouncedSearch = useDebounce(searchInput, 500);
 
   const [sourceAccounts, setSourceAccounts] = useState<SourceAccount[]>([]);
@@ -65,6 +62,23 @@ export default function Consolidate({ tab }: { tab: string }) {
   const [comment, setComment] = useState("");
 
   const searchValue = debouncedSearch.trim();
+
+  // 3. Close the dropdown if a click occurs outside the container
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+
+    // Bind the event listener
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      // Unbind the event listener on clean up
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
 
   /* search is only triggered when register is chosen and input has ≥1 char */
   const { data: holderResults, isFetching: searchingHolders } = useGetAccounts(
@@ -90,11 +104,11 @@ export default function Consolidate({ tab }: { tab: string }) {
       holderId: holder.id,
       name: `${holder.firstName} ${holder.lastName}`,
       chn: holder.chn,
-      units: holder.holdings ?? 0,
+      units: holder.holdings ?? 0
     };
     setSourceAccounts((prev) => [...prev, account]);
     setSelectedSourceIds((prev) => new Set([...prev, holder.id]));
-    setSearchInput("");
+    // intentionally NOT clearing searchInput — keep the list open for multi-select
   }
 
   function removeSource(id: string) {
@@ -215,68 +229,83 @@ export default function Consolidate({ tab }: { tab: string }) {
         <div className="grid grid-cols-5 gap-6">
           {/* left: source accounts */}
           <div className="col-span-3 space-y-4">
-            <h3 className="font-semibold text-sm">
-              1. Source Accounts (To be deactivated)
-            </h3>
+            <h3 className="font-semibold text-sm">1. Source Accounts (To be deactivated)</h3>
             <Card className="mrpsl-card p-4 space-y-4">
               {!register ? (
                 <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-xs font-medium">
-                  ⚠️ Please select a register above first. All duplicate
-                  accounts to consolidate must belong to the same register.
+                  ⚠️ Please select a register above first. All duplicate accounts to consolidate must belong to the same register.
                 </div>
               ) : (
                 <div className="p-3 bg-blue-50/50 border border-blue-100 text-blue-800 rounded-lg text-xs font-medium">
-                  ℹ️ Searching for duplicate accounts belonging to the selected
-                  register.
+                  ℹ️ Searching for duplicate accounts belonging to the selected register.
                 </div>
               )}
-              {/* search row */}
-              <div className="relative flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Account holder or surname…"
-                    className="pl-9 mrpsl-input"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    disabled={!register}
-                  />
-                </div>
-                {searchingHolders && (
-                  <Loader2 className="h-4 w-4 animate-spin self-center text-muted-foreground" />
-                )}
-              </div>
 
-              {/* search results */}
-              {holderResults?.data &&
-                holderResults.data?.data?.length > 0 &&
-                searchInput.length > 0 && (
-                  <div className="border rounded-md divide-y text-sm shadow-sm max-h-48 overflow-y-auto">
-                    {holderResults.data?.data?.map((holder) => (
+              <div ref={searchContainerRef} className="w-full max-w-md relative">
+                {/* search row */}
+                <div className="relative flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder="Account holder or surname…"
+                      className="pl-9 pr-8 mrpsl-input"
+                      value={searchInput}
+                      onChange={(e) => {
+                        setSearchInput(e.target.value);
+                        setIsDropdownOpen(true); // Open dropdown when user types
+                      }}
+                      onFocus={() => setIsDropdownOpen(true)} // Open dropdown when input is focused                                        disabled={!register}
+                    />
+                    {searchInput.length > 0 && (
                       <button
-                        key={holder.id}
-                        onClick={() => addHolderToTable(holder)}
-                        className="w-full text-left px-3 py-2 hover:bg-muted/40 transition-colors flex items-center justify-between gap-2"
+                        type="button"
+                        onClick={() => setSearchInput("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Clear search"
                       >
-                        <span className="font-medium">
-                          {holder.firstName} {holder.lastName}
-                        </span>
-                        <span className="text-muted-foreground font-mono text-xs">
-                          {holder.chn}
-                        </span>
+                        <X className="h-3.5 w-3.5" />
                       </button>
-                    ))}
+                    )}
+                  </div>
+                  {searchingHolders && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
+                  )}
+                </div>
+
+                {/* search results */}
+                {isDropdownOpen && holderResults?.data && holderResults.data?.data?.length > 0 && searchInput.length > 0 && (
+                  <div className="border rounded-md divide-y text-sm shadow-sm max-h-48 overflow-y-auto absolute w-full z-10 bg-background mt-1">
+                    {holderResults.data?.data?.map((holder) => {
+                      const alreadyAdded = sourceAccounts.some((a) => a.holderId === holder.id);
+                      return (
+                        <button
+                          key={holder.id}
+                          onClick={() => !alreadyAdded && addHolderToTable(holder)}
+                          disabled={alreadyAdded}
+                          className={`w-full text-left px-3 py-2 transition-colors flex items-center justify-between gap-2 ${alreadyAdded
+                            ? "opacity-50 cursor-default bg-muted/20"
+                            : "hover:bg-muted/40"
+                            }`}
+                        >
+                          <span className="font-medium">{holder.firstName} {holder.lastName}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground font-mono text-xs">{holder.chn}</span>
+                            {alreadyAdded && (
+                              <Check className="text-[10px] font-semibold text-green-600" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
-              {debouncedSearch.length > 0 &&
-                !searchingHolders &&
-                holderResults?.data?.data?.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-2">
-                    No holders found.
-                  </p>
-                )}
+              </div>
+
+              {debouncedSearch.length > 0 && !searchingHolders && holderResults?.data?.data?.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-2">No holders found.</p>
+              )}
 
               {/* source accounts table */}
               {sourceAccounts.length > 0 && (
@@ -350,9 +379,7 @@ export default function Consolidate({ tab }: { tab: string }) {
 
           {/* right: destination + submission */}
           <div className="col-span-2 space-y-4">
-            <h3 className="font-semibold text-sm">
-              2. Destination Account (Surviving)
-            </h3>
+            <h3 className="font-semibold text-sm">2. Destination Account (Surviving)</h3>
             <Card className="mrpsl-card p-4 space-y-4">
               <Select
                 value={destinationId}
@@ -360,7 +387,18 @@ export default function Consolidate({ tab }: { tab: string }) {
                 disabled={sourceAccounts.length === 0}
               >
                 <SelectTrigger className="mrpsl-input">
-                  <SelectValue placeholder="Select surviving account" />
+                  <SelectValue placeholder="Select surviving account">
+                    {destinationId
+                      ? (() => {
+                        const acc = sourceAccounts.find(
+                          (a) => a.holderId === destinationId,
+                        );
+                        return acc
+                          ? `${acc.chn} — ${acc.name}`
+                          : destinationId;
+                      })()
+                      : null}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {sourceAccounts.map((acc) => (
