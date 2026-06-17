@@ -176,8 +176,7 @@ export default function EnBlocMarkoff() {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.success(
-              `${selectedIds.size} warrant${
-                selectedIds.size !== 1 ? "s" : ""
+              `${selectedIds.size} warrant${selectedIds.size !== 1 ? "s" : ""
               } submitted for 1st level approval.`,
             );
             setSelectedIds(new Set());
@@ -214,7 +213,7 @@ export default function EnBlocMarkoff() {
                   </SelectItem>
                 )}
                 {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.registerId}>
+                  <SelectItem key={r.registerId} value={r.symbol}>
                     {r.registerName} - {r.symbol}
                   </SelectItem>
                 ))}
@@ -290,9 +289,8 @@ export default function EnBlocMarkoff() {
                   {warrants.map((w) => (
                     <tr
                       key={w.id}
-                      className={`mrpsl-table-row ${
-                        selectedIds.has(w.id) ? "bg-primary/5" : ""
-                      }`}
+                      className={`mrpsl-table-row ${selectedIds.has(w.id) ? "bg-primary/5" : ""
+                        }`}
                     >
                       <td className="p-3">
                         <input

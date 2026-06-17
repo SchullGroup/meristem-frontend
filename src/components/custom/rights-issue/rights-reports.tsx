@@ -434,7 +434,7 @@ export default function RightsIssueReports() {
             <SelectContent className="w-max">
               <SelectItem value="">All Registers</SelectItem>
               {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.registerId}>
+                <SelectItem key={r.registerId} value={r.symbol}>
                   {r.registerName} · {r.symbol}
                 </SelectItem>
               ))}

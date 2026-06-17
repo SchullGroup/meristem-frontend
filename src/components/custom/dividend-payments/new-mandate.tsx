@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useBatchPushMandateQueueToNibss,  useGetDividendDeclarations, useGetMandatePayments,  usePushMandateQueueToNibss } from "@/hooks/useDividendPayment";
+import { useBatchPushMandateQueueToNibss, useGetDividendDeclarations, useGetMandatePayments, usePushMandateQueueToNibss } from "@/hooks/useDividendPayment";
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { formatNumber } from "@/lib/utils/format";
@@ -146,7 +146,7 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
                     <SelectContent>
                         <SelectItem value="">All Registers</SelectItem>
                         {registers.map((r) => (
-                            <SelectItem key={r.registerId} value={r.registerId}>
+                            <SelectItem key={r.registerId} value={r.symbol}>
                                 {r.symbol}
                             </SelectItem>
                         ))}

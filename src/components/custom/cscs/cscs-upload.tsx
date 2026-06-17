@@ -479,7 +479,7 @@ export default function CscsUpload({ setActiveTab }: CscsUploadProps) {
                 <SelectContent>
                   <SelectItem value="All">All Registers</SelectItem>
                   {activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.registerId}>
+                    <SelectItem key={r.registerId} value={r.symbol}>
                       {r.registerName} · {r.symbol}
                     </SelectItem>
                   ))}

@@ -122,8 +122,9 @@ const INITIAL_ICU: MandateApproval[] = [
 export default function NewMandatePage() {
   const queryClient = useQueryClient();
   const { currentUser } = useStore();
-  const { data: registersData } = useGetRegisters({
+  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
     size: 100,
+    status: "ACTIVE",
   });
 
   const registerList = registersData?.content;
@@ -413,7 +414,11 @@ export default function NewMandatePage() {
   function togglePendingAppr(id: string) {
     setPendingApprIds((prev) => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) {
+        n.delete(id)
+      } else {
+        n.add(id)
+      }
       return n;
     });
   }
@@ -597,13 +602,20 @@ export default function NewMandatePage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Registers</SelectItem>
-                  {registerList
-                    ?.filter((r) => r?.status === "ACTIVE")
-                    .map((r) => (
-                      <SelectItem key={r?.registerId} value={r?.registerId}>
-                        {r?.symbol} - {r?.registerId}
+                  {loadingRegisters ? (
+                    <SelectItem
+                      disabled
+                      className="text-muted-foreground text-sm"
+                    >
+                      Loading Registers...
+                    </SelectItem>
+                  ) : (
+                    registersData?.content?.map((r) => (
+                      <SelectItem key={r?.registerId} value={r?.symbol}>
+                        {r?.registerName} - {r?.symbol}
                       </SelectItem>
-                    ))}
+                    ))
+                  )}
                 </SelectContent>
               </Select>
 

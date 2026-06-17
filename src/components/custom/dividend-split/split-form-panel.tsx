@@ -242,7 +242,7 @@ export function SplitFormPanel() {
                 </div>
               ) : (
                 activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.registerId}>
+                  <SelectItem key={r.registerId} value={r.symbol}>
                     {r.symbol}
                   </SelectItem>
                 ))
@@ -332,11 +332,10 @@ export function SplitFormPanel() {
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Status</span>
             <span
-              className={`text-[13px] px-2 rounded ${
-                selectedDividendMeta?.eligible
+              className={`text-[13px] px-2 rounded ${selectedDividendMeta?.eligible
                   ? "bg-emerald-100 text-emerald-800"
                   : "bg-amber-100 text-amber-800"
-              }`}
+                }`}
             >
               {selectedDividendMeta?.status ?? "Select dividend"}
             </span>

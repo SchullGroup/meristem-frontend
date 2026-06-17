@@ -211,8 +211,8 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   const unpaid = Math.max(
     0,
     (stats?.totalEligible ?? 0) -
-      (stats?.successful ?? 0) -
-      (stats?.failedAttempts ?? 0),
+    (stats?.successful ?? 0) -
+    (stats?.failedAttempts ?? 0),
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -234,7 +234,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
               </SelectItem>
             ) : (
               registers.map((r) => (
-                <SelectItem key={r.registerId} value={r.registerId}>
+                <SelectItem key={r.registerId} value={r.symbol}>
                   {r.symbol}
                 </SelectItem>
               ))
@@ -489,13 +489,12 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                           </td>
                           <td className="p-3">
                             <Badge
-                              className={`border-0 text-[12px] ${
-                                row.status === "PAID"
+                              className={`border-0 text-[12px] ${row.status === "PAID"
                                   ? "bg-green-100 text-green-800"
                                   : row.status === "FAILED"
                                     ? "bg-red-100 text-red-800"
                                     : "bg-amber-100 text-amber-800"
-                              }`}
+                                }`}
                             >
                               {row.status}
                             </Badge>
