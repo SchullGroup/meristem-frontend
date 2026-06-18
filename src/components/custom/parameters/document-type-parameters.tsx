@@ -55,7 +55,7 @@ export default function DocumentTypeParameters({
   tab,
   confirmDelete,
 }: DocumentTypeParametersProps) {
-  // ── Document Types ──────────────────────────────────────────
+  // ── Document Types ------──────────
   const { data: docsData, isLoading: docsLoading } = useGetDocumentTypes({
     enabled: tab === "docs",
   });
@@ -65,7 +65,7 @@ export default function DocumentTypeParameters({
   const updateDocMutation = useUpdateDocumentType();
   const deleteDocMutation = useDeleteDocumentType();
 
-  // ── Document dialog ──────────────────────────────────────────
+  // ── Document dialog ------──────────
   const [docOpen, setDocOpen] = useState(false);
   const [docMode, setDocMode] = useState<"add" | "edit">("add");
   const [editDoc, setEditDoc] = useState<DocumentType | null>(null);

@@ -97,7 +97,7 @@ export default function IcuApproveDemat({ tab }: { tab: string }) {
         page={page}
         pageSize={pageSize}
         total={data?.totalElements || 0}
-        totalPages={data?.totalPages || 0}
+        totalPages={data?.totalPages || 1}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         approveLabel="Approve for Lodgment"

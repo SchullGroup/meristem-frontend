@@ -330,7 +330,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={lodgmentBatchesData?.pagination?.totalPages || 0}
+            totalPages={lodgmentBatchesData?.pagination?.totalPages || 1}
             total={lodgmentBatchesData?.pagination?.total || 0}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}

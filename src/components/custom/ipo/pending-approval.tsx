@@ -119,7 +119,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
     { enabled: !!reviewingBatch },
   );
 
-  const totalPages = subscribersData?.pagination?.totalPages || 0;
+  const totalPages = subscribersData?.pagination?.totalPages || 1;
   const total = subscribersData?.pagination?.total || 0;
 
   // Mutations
@@ -395,7 +395,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
           <PaginationBar
             page={currentPage}
             pageSize={subscribersPageSize}
-            totalPages={pendingData?.pagination?.totalPages || 0}
+            totalPages={pendingData?.pagination?.totalPages || 1}
             total={pendingData?.pagination?.total || 0}
             onPageChange={setCurrentPage}
             onPageSizeChange={setSubscribersPageSize}

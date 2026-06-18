@@ -34,17 +34,17 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
 
-  // ── Filters ────────────────────────────────────────────────────────────────
+  // ── Filters ------------
   const [selectedRegister, setSelectedRegister] = useState("");
   const [selectedDiv, setSelectedDiv] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("");
 
-  // ── Payment-run state ──────────────────────────────────────────────────────
+  // ── Payment-run state ------──────────────────────
   const [gateway, setGateway] = useState("nibss");
   const [payRunInitiated, setPayRunInitiated] = useState(false);
   const [activeRunId, setActiveRunId] = useState<number | null>(null);
 
-  // ── Data fetching ──────────────────────────────────────────────────────────
+  // ── Data fetching ------──────────────────────────
   const { data: activeRegisters, isLoading: loadingRegisters } =
     useGetRegisters({ size: 100, status: "ACTIVE" });
 
@@ -89,9 +89,9 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   const stats = declarationResponse?.data;
   const paymentRows = stats?.rows?.content || [];
   const total = stats?.rows?.totalElements || 0;
-  const totalPages = stats?.rows?.totalPages || 0;
+  const totalPages = stats?.rows?.totalPages || 1;
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Helpers ------------
 
   /** Reset payment-run state whenever the user changes either filter */
   function handleRegisterChange(value: string) {
@@ -110,7 +110,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
     setActiveRunId(null);
   }
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Actions ------------
 
   function initiatePaymentRun() {
     if (!gateway || gateway === "") {
@@ -207,7 +207,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
     });
   }
 
-  // ── Derived display values ─────────────────────────────────────────────────
+  // ── Derived display values ------─────────────────
   const unpaid = Math.max(
     0,
     (stats?.totalEligible ?? 0) -
@@ -215,10 +215,10 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
     (stats?.failedAttempts ?? 0),
   );
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ------------─
   return (
     <>
-      {/* ── Filter bar ───────────────────────────────────────────────────── */}
+      {/* ── Filter bar ------───────────────────── */}
       <div className="flex gap-4 items-end">
         <Select
           value={selectedRegister}
@@ -490,10 +490,10 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                           <td className="p-3">
                             <Badge
                               className={`border-0 text-[12px] ${row.status === "PAID"
-                                  ? "bg-green-100 text-green-800"
-                                  : row.status === "FAILED"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-amber-100 text-amber-800"
+                                ? "bg-green-100 text-green-800"
+                                : row.status === "FAILED"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-amber-100 text-amber-800"
                                 }`}
                             >
                               {row.status}

@@ -86,7 +86,7 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
     );
     const pendingChanges = pendingKycData?.data?.data || [];
     const pendingTotal = pendingKycData?.data?.total || 0;
-    const pendingTotalPages = pendingKycData?.data?.totalPages || 0;
+    const pendingTotalPages = pendingKycData?.data?.totalPages || 1;
 
 
 

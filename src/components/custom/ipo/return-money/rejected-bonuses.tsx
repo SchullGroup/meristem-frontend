@@ -92,7 +92,7 @@ export function RejectedBonusesTab() {
 
   const entitlementList = entitlementData?.data?.entitlements?.content || [];
   const entitlementTotal = entitlementData?.data?.entitlements?.totalElements || 0;
-  const entitlementTotalPages = entitlementData?.data?.entitlements?.totalPages || 0;
+  const entitlementTotalPages = entitlementData?.data?.entitlements?.totalPages || 1;
 
   const triggerRefund = (batchId: string, ref: string, count: number) => {
     toast.promise(
@@ -250,7 +250,7 @@ export function RejectedBonusesTab() {
           <PaginationBar
             page={listPage}
             total={declarationsData?.data?.totalElements || 0}
-            totalPages={declarationsData?.data?.totalPages || 0}
+            totalPages={declarationsData?.data?.totalPages || 1}
             pageSize={listPageSize}
             onPageChange={setListPage}
             onPageSizeChange={setListPageSize}

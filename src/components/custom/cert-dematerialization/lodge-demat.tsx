@@ -306,7 +306,7 @@ export default function LodgeDemat({ tab }: { tab: string }) {
             page={page}
             pageSize={pageSize}
             total={data?.totalElements || 0}
-            totalPages={data?.totalPages || 0}
+            totalPages={data?.totalPages || 1}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
           />

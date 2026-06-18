@@ -299,7 +299,7 @@ export default function GeneralCertificateReconciliation() {
               onPageChange={setPage}
               onPageSizeChange={handlePageSizeChange}
               total={Math.max(cscsTotal, mrpslTotal)}
-              totalPages={data?.cscs?.totalPages || 0}
+              totalPages={data?.cscs?.totalPages || 1}
             />
           </div>
         </>

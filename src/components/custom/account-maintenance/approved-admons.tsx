@@ -75,7 +75,7 @@ export default function ApprovedAdmons({ tab }: { tab: string }) {
     const initiateReversalMutation = useCreateAdmonReversal();
 
     const approvedAdmons = data?.data?.data || [];
-    const totalPages = data?.data?.totalPages || 0;
+    const totalPages = data?.data?.totalPages || 1;
     const total = data?.data?.total || 0;
 
     function closeModal() {

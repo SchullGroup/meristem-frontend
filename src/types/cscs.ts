@@ -1,4 +1,4 @@
-import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from ".";
+import { ApiResponse, PaginatedResponse } from ".";
 import { Principal } from "./principal";
 import { Register } from "./register";
 
@@ -246,6 +246,18 @@ export interface CscsInjectJob {
   message: string;
   /** ACCEPTED = queued for background processing, FAILED = error */
   status: "ACCEPTED" | "FAILED" | string;
+  batchRef: string;
+}
+
+// Check import job status
+export interface CscsInjectStatus {
+  message: string;
+  status: "PENDING" | "SUCCESS" | "FAILED";
+  batchRef: string;
+  holdersLoaded: number;
+  transactionsLoaded: number;
+  startedAt: string;
+  completedAt: string;
 }
 
 export interface Holder {

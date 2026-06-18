@@ -55,7 +55,7 @@ export default function AdmonReversal({ tab }: { tab: string }) {
     const rejectMutation = useBatchRejectAdmons();
 
     const reversedAdmons = data?.data?.data || [];
-    const totalPages = data?.data?.totalPages || 0;
+    const totalPages = data?.data?.totalPages || 1;
     const total = data?.data?.total || 0;
 
     function toggleSelect(id: number) {

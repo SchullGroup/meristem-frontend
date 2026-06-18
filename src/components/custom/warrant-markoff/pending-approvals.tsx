@@ -92,7 +92,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
 
   const pendingList = pendingResponse?.data?.content || [];
   const totalElements = pendingResponse?.data?.totalElements || 0;
-  const totalPages = pendingResponse?.data?.totalPages || 0;
+  const totalPages = pendingResponse?.data?.totalPages || 1;
 
   // Toggle helpers
   const toggleAuthSel = (id: number) => {

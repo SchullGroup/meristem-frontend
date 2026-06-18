@@ -88,7 +88,7 @@ export const FlaggedTransactions = ({ tab }: {
     }
 
     const flaggedTransactions = data?.data?.content || []
-    const totalPages = data?.data?.totalPages || 0;
+    const totalPages = data?.data?.totalPages || 1;
     const total = data?.data?.totalElements || 0;
 
     return (

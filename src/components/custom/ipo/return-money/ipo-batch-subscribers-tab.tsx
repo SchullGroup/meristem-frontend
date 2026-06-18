@@ -123,7 +123,7 @@ export function IPOBatchSubscribersTab({
     { enabled: !!reviewingBatch },
   );
 
-  const totalPages = subscribersData?.pagination?.totalPages || 0;
+  const totalPages = subscribersData?.pagination?.totalPages || 1;
   const total = subscribersData?.pagination?.total || 0;
 
   // Export handler
@@ -352,7 +352,7 @@ export function IPOBatchSubscribersTab({
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={batchesData?.pagination?.totalPages || 0}
+            totalPages={batchesData?.pagination?.totalPages || 1}
             total={batchesData?.pagination?.total || 0}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
@@ -497,7 +497,7 @@ export function IPOBatchSubscribersTab({
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {subscribersData?.content &&
-                  subscribersData.content.length > 0 ? (
+                    subscribersData.content.length > 0 ? (
                     subscribersData.content.map((r, i) => (
                       <tr key={i} className="mrpsl-table-row">
                         <td className="px-4 py-2.5 text-muted-foreground">

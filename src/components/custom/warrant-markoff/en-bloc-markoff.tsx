@@ -114,7 +114,7 @@ export default function EnBlocMarkoff() {
 
   const warrants = response?.data?.content || [];
   const totalElements = response?.data?.totalElements || 0;
-  const totalPages = response?.data?.totalPages || 0;
+  const totalPages = response?.data?.totalPages || 1;
 
   const allChecked =
     warrants.length > 0 && warrants.every((w) => selectedIds.has(w.id));

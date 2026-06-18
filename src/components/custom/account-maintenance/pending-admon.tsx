@@ -77,7 +77,7 @@ export default function PendingAdmon({ tab }: { tab: string }) {
     const batchRejectMutation = useBatchRejectAdmons();
 
     const pendingAdmons = data?.data?.data || [];
-    const totalPages = data?.data?.totalPages || 0;
+    const totalPages = data?.data?.totalPages || 1;
     const total = data?.data?.total || 0;
 
     function toggleSelect(id: number) {

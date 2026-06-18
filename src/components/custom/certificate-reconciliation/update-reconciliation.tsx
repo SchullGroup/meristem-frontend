@@ -410,7 +410,7 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
           page={currentPage}
           pageSize={pageSize}
           onPageSizeChange={handlePageSizeChange}
-          totalPages={data?.totalPages || 0}
+          totalPages={data?.totalPages || 1}
           total={data?.totalElements || 0}
           onPageChange={(value) => setCurrentPage(value)}
         />

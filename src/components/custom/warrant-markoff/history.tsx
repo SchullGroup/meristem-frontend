@@ -51,7 +51,7 @@ export default function History({ tab }: { tab: string }) {
 
   const historyList = historyResponse?.data?.content || [];
   const totalElements = historyResponse?.data?.totalElements || 0;
-  const totalPages = historyResponse?.data?.totalPages || 0;
+  const totalPages = historyResponse?.data?.totalPages || 1;
 
   if (isLoadingHistory) {
     return (

@@ -19,11 +19,11 @@ import CautionParameters from "@/components/custom/parameters/caution-parameters
 import DocumentTypeParameters from "@/components/custom/parameters/document-type-parameters";
 // import AgentParameters from "@/components/custom/parameters/agent-parameters";
 
-// ── Page ─────────────────────────────────────────────────────────
+// ── Page ------─────────────────────────
 export default function ParametersPage() {
   const [activeTab, setActiveTab] = useState("currency");
 
-  // ── Delete confirmation ──────────────────────────────────────
+  // ── Delete confirmation ------──────
   const [delOpen, setDelOpen] = useState(false);
   const [delTarget, setDelTarget] = useState<{
     label: string;

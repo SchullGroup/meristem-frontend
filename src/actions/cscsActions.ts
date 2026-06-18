@@ -14,6 +14,7 @@ import {
   TransactionBatch,
   CscsInjectJob,
   CscsPosition,
+  CscsInjectStatus,
 } from "@/types/cscs";
 import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
@@ -52,9 +53,9 @@ export const INJECT_CSCS_ZIP_FILE = async (data: FormData): Promise<CscsInjectJo
   }
 };
 
-export const GET_CSCS_INJECT_JOB = async (batchRef: string): Promise<CscsInjectJob> => {
+export const GET_CSCS_INJECT_STATUS = async (batchRef: string): Promise<CscsInjectStatus> => {
   try {
-    const res = await api.get<CscsInjectJob>(`/cscs-ingestion/job/${batchRef}`);
+    const res = await api.get<CscsInjectStatus>(`/cscs-ingestion/status/${batchRef}`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

@@ -38,7 +38,7 @@ export default function KYCHistory({ tab, selectedShareholder }: { tab: string, 
 
     const historyChanges = historyData?.data?.data || [];
     const historyTotal = historyData?.data?.total || 0;
-    const historyTotalPages = historyData?.data?.totalPages || 0;
+    const historyTotalPages = historyData?.data?.totalPages || 1;
 
     if (isHistoryLoading) {
         return <EntitlementTableSkeleton />
