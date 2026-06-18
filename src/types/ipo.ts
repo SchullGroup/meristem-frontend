@@ -32,6 +32,9 @@ export interface IPOSubscriber {
   bank?: string;
   broker?: string;
   remark?: string;
+  certNo?: number;
+  symbol?: string;
+  stockbrokerCode?: string;
 }
 
 export interface LodgementResponse {

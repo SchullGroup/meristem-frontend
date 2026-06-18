@@ -16,7 +16,7 @@ import { PaginationBar } from "@/components/custom/pagination-bar";
 export default function RightsEnquiryPage() {
   const [showResults, setShowResults] = useState(false);
   const [registerSymbol, setRegisterSymbol] = useState("");
-  const [rightsIssueId, setRightsIssueId] = useState("all");
+  const [rightsIssueId, setRightsIssueId] = useState("");
   const [q, setQ] = useState("");
 
   const [page, setPage] = useState(0);
@@ -44,7 +44,7 @@ export default function RightsEnquiryPage() {
   const { data, isLoading, isError, error } = useGetRightsEntitlements(
     {
       registerSymbol: searchParams.registerSymbol || "",
-      rightsIssueId: searchParams.rightsIssueId,
+      rightsIssueId: searchParams.rightsIssueId !== "" ? searchParams.rightsIssueId : undefined,
       q: searchParams.q,
       page: page, // API is 0-indexed for page
       size: pageSize,
@@ -106,7 +106,7 @@ export default function RightsEnquiryPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="mrpsl-label">Rights Issue</label>
+            <label className="mrpsl-label">Rights Declarations</label>
             <Select
               value={rightsIssueId}
               onValueChange={(val) => {
@@ -117,10 +117,25 @@ export default function RightsEnquiryPage() {
               disabled={!registerSymbol}
             >
               <SelectTrigger className="w-64 mrpsl-input">
-                <SelectValue placeholder={isLoadingIssues ? "Loading..." : "Select Issue"} />
+                <SelectValue>
+                  {rightsIssueId
+                    ? (() => {
+                      const decl = rightsIssuesData?.content.find(
+                        (d) => d.id === rightsIssueId,
+                      );
+                      return decl
+                        ? decl.offerName
+                        : rightsIssueId;
+                    })()
+                    : "Select Declaration"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Issues</SelectItem>
+                <SelectItem value="">Select Declaration</SelectItem>
+                {
+                  isLoadingIssues && <SelectItem value="_loading" disabled>Loading Declarations</SelectItem>
+                }
                 {rightsIssuesData?.content?.map((issue) => (
                   <SelectItem key={issue.id} value={issue.id}>
                     {issue.offerName}
