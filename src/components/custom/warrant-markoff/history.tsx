@@ -33,7 +33,7 @@ function tierBadgeClass(tier: string | number | undefined) {
 
 export default function History({ tab }: { tab: string }) {
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   // Mark-off history query
   const {
@@ -51,7 +51,7 @@ export default function History({ tab }: { tab: string }) {
 
   const historyList = historyResponse?.data?.content || [];
   const totalElements = historyResponse?.data?.totalElements || 0;
-  const totalPages = historyResponse?.data?.totalPages || 0;
+  const totalPages = historyResponse?.data?.totalPages || 1;
 
   if (isLoadingHistory) {
     return (

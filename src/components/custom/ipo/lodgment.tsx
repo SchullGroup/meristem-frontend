@@ -28,9 +28,9 @@ import { useGetRegisters } from "@/hooks/useRegisters";
 import { DateRangePicker } from "../date-range-picker";
 import {
   useGetIpoBatchesLodgment,
-  useGetIpoBatchLodgment,
   useDownloadIpoBatchLodgment,
   useApproveBatchLodgment,
+  useGetIpoBatchSubscribers,
 } from "@/hooks/useIPO";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { DataErrorState, BatchDetailSkeleton } from "./loaders";
@@ -45,6 +45,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useStore } from "@/lib/store";
 import { PaginationBar } from "../pagination-bar";
+import { formatNumber } from "@/lib/utils/format";
 
 export default function ICULodgment({ tab }: { tab: string }) {
   const { data: activeRegisters } = useGetRegisters({
@@ -54,18 +55,22 @@ export default function ICULodgment({ tab }: { tab: string }) {
 
   // Lodgment drill-down
   const [lodgmentReviewing, setLodgmentReviewing] = useState<IPO | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
 
-  // Pending Approval filters
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+  const [subscribersPage, setSubscribersPage] = useState(0);
+  const [subscribersPageSize, setSubscribersPageSize] = useState(20);
+  const [downloadFormat, setDownloadFormat] = useState<
+    "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS"
+  >("RIN_AT_CSCS");
+
+  // Lodgment filters
   const [authRegister, setAuthRegister] = useState<string>("");
   const [authDateRange, setAuthDateRange] = useState<DateRange | undefined>(
     undefined,
   );
-  const [downloadFormat, setDownloadFormat] = useState<
-    "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS"
-  >("RIN_AT_CSCS");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+
 
   // Queries
   const {
@@ -97,10 +102,12 @@ export default function ICULodgment({ tab }: { tab: string }) {
     isError: isDetailError,
     error: detailError,
     refetch: refetchDetail,
-  } = useGetIpoBatchLodgment(
+  } = useGetIpoBatchSubscribers(
     {
       batchRef: lodgmentReviewing?.batchReference || "",
-      limit: 10,
+      type: "APPROVED",
+      page: subscribersPage,
+      size: subscribersPageSize,
     },
     {
       enabled:
@@ -330,48 +337,12 @@ export default function ICULodgment({ tab }: { tab: string }) {
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={lodgmentBatchesData?.pagination?.totalPages || 0}
+            totalPages={lodgmentBatchesData?.pagination?.totalPages || 1}
             total={lodgmentBatchesData?.pagination?.total || 0}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
           />
         </Card>
-      </div>
-    );
-  }
-
-  if (isDetailError) {
-    return (
-      <div className="py-12 space-y-4">
-        <DataErrorState
-          message={returnErrorMessage(detailError as ErrorLike)}
-          onRetry={refetchDetail}
-        />
-        <Button
-          variant="ghost"
-          className="mt-4 gap-2 text-muted-foreground mx-auto flex"
-          onClick={() => setLodgmentReviewing(null)}
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to list
-        </Button>
-      </div>
-    );
-  }
-
-  if (isDetailLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 -ml-2"
-            onClick={() => setLodgmentReviewing(null)}
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Lodgment Queue
-          </Button>
-        </div>
-        <BatchDetailSkeleton />
       </div>
     );
   }
@@ -459,113 +430,140 @@ export default function ICULodgment({ tab }: { tab: string }) {
 
       <Card className="mrpsl-card">
         <div className="p-5 space-y-6">
-          <div className="space-y-3">
-            <label className="mrpsl-label">Lodgment File Format</label>
-            <RadioGroup
-              value={downloadFormat}
-              onValueChange={(val) =>
-                setDownloadFormat(val as "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS")
-              }
-              className="flex gap-6"
-            >
-              <div className="flex items-center space-x-2.5">
-                <RadioGroupItem value="RIN_AT_CSCS" id="r1" />
-                <label htmlFor="r1" className="text-sm cursor-pointer">
-                  RIN at CSCS
-                </label>
-              </div>
-              <div className="flex items-center space-x-2.5">
-                <RadioGroupItem value="RIN_NOT_AT_CSCS" id="r2" />
-                <label htmlFor="r2" className="text-sm cursor-pointer">
-                  RIN NOT at CSCS
-                </label>
-              </div>
-            </RadioGroup>
-          </div>
+          {
+            isDetailLoading ? <BatchDetailSkeleton /> : isDetailError ? (<div className="py-12 space-y-4">
+              <DataErrorState
+                message={returnErrorMessage(detailError as ErrorLike)}
+                onRetry={refetchDetail}
+              />
+              <Button
+                variant="ghost"
+                className="mt-4 gap-2 text-muted-foreground mx-auto flex"
+                onClick={() => setLodgmentReviewing(null)}
+              >
+                <ArrowLeft className="h-4 w-4" /> Back to list
+              </Button>
+            </div>) : (
+              <>
+                <div className="space-y-3">
+                  <label className="mrpsl-label">Lodgment File Format</label>
+                  <RadioGroup
+                    value={downloadFormat}
+                    onValueChange={(val) =>
+                      setDownloadFormat(val as "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS")
+                    }
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <RadioGroupItem value="RIN_AT_CSCS" id="r1" />
+                      <label htmlFor="r1" className="text-sm cursor-pointer">
+                        RIN at CSCS
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2.5">
+                      <RadioGroupItem value="RIN_NOT_AT_CSCS" id="r2" />
+                      <label htmlFor="r2" className="text-sm cursor-pointer">
+                        RIN NOT at CSCS
+                      </label>
+                    </div>
+                  </RadioGroup>
+                </div>
 
-          <div className="border border-border/60 rounded-xl overflow-hidden">
-            <div className="bg-muted/40 p-2 border-b text-[13px] tabular font-bold text-muted-foreground">
-              PREVIEW (LODGMENT ROWS)
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[13px] tabular">
-                <thead className="bg-muted/20">
-                  <tr>
-                    <th className="p-2 text-left">STOCKBROKER CODE</th>
-                    <th className="p-2 text-left">CHN</th>
-                    <th className="p-2 text-left">SHAREHOLDER NAME</th>
-                    <th className="p-2 text-left">CERT NO</th>
-                    <th className="p-2 text-left">CSCS ACCOUNT NO</th>
-                    <th className="p-2 text-left">SYMBOL</th>
-                    <th className="p-2 text-right">UNITS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {lodgmentDetail?.previewRows &&
-                    lodgmentDetail.previewRows.length > 0 ? (
-                    lodgmentDetail.previewRows.map((row, i) => (
-                      <tr key={i} className="hover:bg-muted/20">
-                        <td className="p-2 font-mono">
-                          {row.stockbrokerCode || "—"}
-                        </td>
-                        <td className="p-2 font-mono">{row.chn || "—"}</td>
-                        <td className="p-2 font-medium">
-                          {row.shareholderName || "—"}
-                        </td>
-                        <td className="p-2 font-mono">{row.certNo || "—"}</td>
-                        <td className="p-2 font-mono">
-                          {row.cscsAccountNo || "—"}
-                        </td>
-                        <td className="p-2 font-mono">{row.symbol || "—"}</td>
-                        <td className="p-2 font-mono text-right font-semibold">
-                          {row.units?.toLocaleString() || 0}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="p-4 text-center text-muted-foreground"
-                      >
-                        No lodgment preview rows available.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                <div className="border border-border/60 rounded-xl overflow-hidden">
+                  <div className="bg-muted/40 p-2 border-b text-[13px] tabular font-bold text-muted-foreground">
+                    PREVIEW (LODGMENT ROWS)
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[13px] tabular">
+                      <thead className="bg-muted/20">
+                        <tr>
+                          <th className="p-2 text-left">STOCKBROKER CODE</th>
+                          <th className="p-2 text-left">CHN</th>
+                          <th className="p-2 text-left">SHAREHOLDER NAME</th>
+                          <th className="p-2 text-left">CERT NO</th>
+                          <th className="p-2 text-left">CSCS ACCOUNT NO</th>
+                          <th className="p-2 text-left">SYMBOL</th>
+                          <th className="p-2 text-right">UNITS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {lodgmentDetail?.content &&
+                          lodgmentDetail?.content.length > 0 ? (
+                          lodgmentDetail.content.map((row, i) => (
+                            <tr key={i} className="hover:bg-muted/20">
+                              <td className="p-2 font-mono">
+                                {row?.stockbrokerCode || row?.broker || "—"}
+                              </td>
+                              <td className="p-2 font-mono">{row.chn || "—"}</td>
+                              <td className="p-2 font-medium">
+                                {row?.subscriberName || "—"}
+                              </td>
+                              <td className="p-2 font-mono">{row?.certNo || "—"}</td>
+                              <td className="p-2 font-mono">
+                                {row?.cscsAccountNo || row?.accountNumber || "—"}
+                              </td>
+                              <td className="p-2 font-mono">{row?.symbol || "—"}</td>
+                              <td className="p-2 font-mono text-right font-semibold">
+                                {formatNumber(row.units)}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="p-4 text-center text-muted-foreground"
+                            >
+                              No lodgment preview rows available.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
 
-          <div className="flex flex-wrap gap-4">
-            <Button
-              variant="outline"
-              className="flex-1"
-              disabled={downloadMutation.isPending}
-              onClick={handleDownload}
-            >
-              {downloadMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Downloading...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" /> Download Lodgment File
-                  (.txt)
-                </>
-              )}
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={() => {
-                toast.success("Pushed to CSCS API successfully.");
-              }}
-            >
-              <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
-            </Button>
-          </div>
+                  <PaginationBar
+                    page={subscribersPage}
+                    pageSize={subscribersPageSize}
+                    totalPages={lodgmentDetail?.pagination?.totalPages || 1}
+                    total={lodgmentDetail?.pagination?.total || 0}
+                    onPageChange={setSubscribersPage}
+                    onPageSizeChange={setSubscribersPageSize}
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-4">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    disabled={downloadMutation.isPending}
+                    onClick={handleDownload}
+                  >
+                    {downloadMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 h-4 w-4" /> Download Lodgment File
+                        (.txt)
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={() => {
+                      toast.success("Pushed to CSCS API successfully.");
+                    }}
+                  >
+                    <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
+                  </Button>
+                </div>
+              </>)
+          }
         </div>
+
       </Card>
 
       <ApproveLodgmentDialog

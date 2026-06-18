@@ -78,7 +78,7 @@ export default function RightsIssueReports() {
   });
 
   // Page size (shared across all tables)
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   // Reports
   const [selectedReport, setSelectedReport] = useState(RIGHTS_REPORT_TYPES[0]);

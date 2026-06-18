@@ -342,6 +342,7 @@ export const RejectTransfer = ({
               variant="ghost"
               className="flex-1"
               onClick={() => setBatchRejectOpen(false)}
+              disabled={batchRejectMutation.isPending}
             >
               Cancel
             </Button>
@@ -349,8 +350,11 @@ export const RejectTransfer = ({
               variant="destructive"
               className="flex-1"
               onClick={handleBatchReject}
+              disabled={batchRejectMutation.isPending}
             >
-              Confirm Rejection
+              {batchRejectMutation.isPending
+                ? "Rejecting..."
+                : "Confirm Rejection"}
             </Button>
           </div>
         </div>

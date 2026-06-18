@@ -32,7 +32,7 @@ export function AllotmentDetailsView({
   allotReviewing,
 }: AllotmentDetailsViewProps) {
   // Page size & local paging/tab states
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [allotTab, setAllotTab] = useState<
     "approved" | "disapproved" | "invalid"
   >("approved");

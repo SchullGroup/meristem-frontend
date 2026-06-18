@@ -21,7 +21,7 @@ import { PaginationBar } from "../pagination-bar";
 
 export default function LodgeDemat({ tab }: { tab: string }) {
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rinType, setRinType] = useState<"RIN_AT_CSCS" | "RIN_NOT_AT_CSCS">(
     "RIN_AT_CSCS",
@@ -306,7 +306,7 @@ export default function LodgeDemat({ tab }: { tab: string }) {
             page={page}
             pageSize={pageSize}
             total={data?.totalElements || 0}
-            totalPages={data?.totalPages || 0}
+            totalPages={data?.totalPages || 1}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
           />

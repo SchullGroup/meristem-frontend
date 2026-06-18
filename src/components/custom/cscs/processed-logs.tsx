@@ -225,7 +225,7 @@ export const ProcessedLogs = ({ tab }: {
                 page={currentPage}
                 pageSize={pageSize}
                 total={processedLogs?.transactions?.totalElements || 0}
-                totalPages={processedLogs?.transactions?.totalPages || 0}
+                totalPages={processedLogs?.transactions?.totalPages || 1}
                 onPageChange={(page) => setCurrentPage(page)}
                 onPageSizeChange={(pageSize) => setPageSize(pageSize)}
             />

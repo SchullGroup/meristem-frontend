@@ -28,7 +28,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { currentUser, setCurrentUser } = useStore();
 
-  // ── Flow state ────────────────────────────────────────────────
+  // ── Flow state ------────────────────
   const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -57,7 +57,7 @@ export default function LoginPage() {
     (_, a, _b, c) => `${a}${"•".repeat(4)}${c}`,
   );
 
-  // ── Step handlers ─────────────────────────────────────────────
+  // ── Step handlers ------─────────────
 
   const loginMutation = useMutation({
     mutationFn: LOGIN,
@@ -194,7 +194,7 @@ export default function LoginPage() {
     });
   };
 
-  // ── OTP input handlers ────────────────────────────────────────
+  // ── OTP input handlers ------────────
 
   const handleOtpChange = (index: number, value: string) => {
     const digit = value.replace(/\D/g, "").slice(-1);
@@ -246,7 +246,7 @@ export default function LoginPage() {
     otpRefs.current[Math.min(text.length, 5)]?.focus();
   };
 
-  // ── Render ────────────────────────────────────────────────────
+  // ── Render ------────────────────────
   if (currentUser) return null;
 
   return (

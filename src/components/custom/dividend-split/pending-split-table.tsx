@@ -33,7 +33,7 @@ export function PendingSplitsTable() {
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchComment, setBatchComment] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const {
     data: pendingResponse,

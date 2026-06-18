@@ -8,7 +8,7 @@ import { ProcessedLogs } from "@/components/custom/cscs/processed-logs";
 import CscsUpload from "@/components/custom/cscs/cscs-upload";
 
 export default function CSCSUpdatesPage() {
-  // ── Page state ─────────────────────────────────────────────────
+  // ── Page state ------─────────────────
   const [activeTab, setActiveTab] = useState("upload");
 
   const tabTriggerClass =
@@ -16,7 +16,7 @@ export default function CSCSUpdatesPage() {
     "data-active:bg-background data-active:text-foreground data-active:shadow-sm " +
     "hover:text-foreground transition-all";
 
-  // ── Render ────────────────────────────────────────────────────
+  // ── Render ------//
   return (
     <div className="space-y-6">
       <div>
@@ -49,22 +49,22 @@ export default function CSCSUpdatesPage() {
         </TabsList>
 
         <div className="mt-6">
-          {/* ── Upload & Process ─────────────────────────────────── */}
+          {/* ── Upload & Process ------─── */}
           <TabsContent value="upload" className="space-y-6">
             <CscsUpload setActiveTab={setActiveTab} />
           </TabsContent>
 
-          {/* ── Processing Queue ─────────────────────────────────── */}
+          {/* ── Processing Queue ------─── */}
           <TabsContent value="queue" className="space-y-4">
             <ProcessingQueue tab="queue" setActiveTab={setActiveTab} />
           </TabsContent>
 
-          {/* ── Flagged Transactions ──────────────────────────────── */}
+          {/* ── Flagged Transactions ------ */}
           <TabsContent value="flagged" className="space-y-4">
             <FlaggedTransactions tab="flagged" />
           </TabsContent>
 
-          {/* ── Processed Log ────────────────────────────────────── */}
+          {/* ── Processed Log ------────── */}
           <TabsContent value="logs" className="space-y-4">
             <ProcessedLogs tab="logs" setActiveTab={setActiveTab} />
           </TabsContent>

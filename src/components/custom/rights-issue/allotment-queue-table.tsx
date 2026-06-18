@@ -30,7 +30,7 @@ export function AllotmentQueueTable({
   // Filters & Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRegister, setSelectedRegister] = useState("");
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedStatus, setSelectedStatus] = useState("ICU_APPROVED");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedListSearch = useDebounce(searchQuery, 500);

@@ -27,7 +27,7 @@ import { SubmittedLodgement } from "./submitted-lodgement";
 export default function RightsIssueTradedLodgment() {
   /* ── list-view state ── */
   const [listPage, setListPage] = useState(1);
-  const [listPageSize, setListPageSize] = useState(10);
+  const [listPageSize, setListPageSize] = useState(20);
   const [listSearch, setListSearch] = useState("");
   const [selectedIssue, setSelectedIssue] = useState<RightsIssue | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("");

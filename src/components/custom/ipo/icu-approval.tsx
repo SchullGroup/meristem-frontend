@@ -122,7 +122,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
       batchRef: reviewingBatch || "",
       type: reviewTab,
       page: subscribersPage,
-      size: PAGE_SIZE,
+      size: subscribersPageSize,
     },
     { enabled: !!reviewingBatch },
   );
@@ -364,7 +364,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={icuData?.pagination?.totalPages || 0}
+            totalPages={icuData?.pagination?.totalPages || 1}
             total={icuData?.pagination?.total || 0}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
@@ -703,11 +703,11 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           )}
         </div>
         <PaginationBar
-          page={currentPage}
+          page={subscribersPage}
           pageSize={subscribersPageSize}
-          totalPages={subscribersData?.pagination?.totalPages || 0}
+          totalPages={subscribersData?.pagination?.totalPages || 1}
           total={subscribersData?.pagination?.total || 0}
-          onPageChange={setCurrentPage}
+          onPageChange={setSubscribersPage}
           onPageSizeChange={setSubscribersPageSize}
         />
       </Card>

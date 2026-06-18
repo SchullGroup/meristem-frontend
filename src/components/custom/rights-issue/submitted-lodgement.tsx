@@ -20,7 +20,7 @@ interface SubmittedLodgementProps {
 
 export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
   const [historyPage, setHistoryPage] = useState(1);
-  const [historyPageSize, setHistoryPageSize] = useState(10);
+  const [historyPageSize, setHistoryPageSize] = useState(20);
 
   // Submitted history for the selected issue
   const {

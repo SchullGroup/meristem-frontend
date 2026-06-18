@@ -35,7 +35,7 @@ export default function CurrencyParameters({
   tab,
   confirmDelete,
 }: CurrencyParametersProps) {
-  // ── Currencies ──────────────────────────────────────────────
+  // ── Currencies ------──────────────
   const { data: currenciesData, isLoading: currenciesLoading } =
     useGetCurrencies(undefined, { enabled: tab === "currency" });
   const currencies = currenciesData?.content || [];
@@ -44,7 +44,7 @@ export default function CurrencyParameters({
   const updateCurrencyMutation = useUpdateCurrency();
   const deleteCurrencyMutation = useDeleteCurrency();
 
-  // ── Currency dialog ──────────────────────────────────────────
+  // ── Currency dialog ------──────────
   const [currOpen, setCurrOpen] = useState(false);
   const [currMode, setCurrMode] = useState<"add" | "edit">("add");
   const [editCurr, setEditCurr] = useState<Currency | null>(null);
@@ -294,8 +294,8 @@ export default function CurrencyParameters({
             >
               {(createCurrencyMutation.isPending ||
                 updateCurrencyMutation.isPending) && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
               {currMode === "add" ? "Add Currency" : "Save Changes"}
             </Button>
           </DialogFooter>

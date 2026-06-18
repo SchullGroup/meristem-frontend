@@ -41,7 +41,7 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
   const [search, setSearch] = useState("");
   const [selectedTransaction, setSelectedTransaction] = useState<ReconciliationFlaggedTransaction | null>(null);
 
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(0);
 
   const debouncedSearch = useDebounce(search, 500);
@@ -410,7 +410,7 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
           page={currentPage}
           pageSize={pageSize}
           onPageSizeChange={handlePageSizeChange}
-          totalPages={data?.totalPages || 0}
+          totalPages={data?.totalPages || 1}
           total={data?.totalElements || 0}
           onPageChange={(value) => setCurrentPage(value)}
         />

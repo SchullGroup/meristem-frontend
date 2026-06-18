@@ -45,7 +45,7 @@ export default function PendingAuth({ tab }: { tab: string }) {
     status: "ACTIVE",
   });
   const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [register, setRegister] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
@@ -77,7 +77,7 @@ export default function PendingAuth({ tab }: { tab: string }) {
   const rejectMutation = useRejectConsolidation();
 
   const consolidations = data?.content || [];
-  const totalPages = data?.pagination?.totalPages || 0;
+  const totalPages = data?.pagination?.totalPages || 1;
   const total = data?.pagination?.total || 0;
 
   function openReview(row: Consolidation) {
@@ -344,8 +344,8 @@ export default function PendingAuth({ tab }: { tab: string }) {
                     <td className="p-3 font-mono text-muted-foreground">
                       {row?.sourceAccounts?.length > 0
                         ? row.sourceAccounts
-                            ?.map((account) => account?.accountNumber)
-                            .join(", ")
+                          ?.map((account) => account?.accountNumber)
+                          .join(", ")
                         : "---"}
                     </td>
                     <td className="p-3 font-medium">
@@ -409,8 +409,8 @@ export default function PendingAuth({ tab }: { tab: string }) {
                     <div className="font-mono text-sm mt-0.5 text-muted-foreground">
                       {selected?.sourceAccounts?.length > 0
                         ? selected.sourceAccounts
-                            ?.map((account) => account?.accountNumber)
-                            .join(", ")
+                          ?.map((account) => account?.accountNumber)
+                          .join(", ")
                         : "---"}
                     </div>
                   </div>

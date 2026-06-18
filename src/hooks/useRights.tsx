@@ -46,6 +46,7 @@ import {
   NonAcceptanceResponse,
   RightsAllotmentResponse,
   RightsAcceptanceSummaryResponse,
+  RightsIssue,
 } from "@/types/rights";
 import { ApiResponse, EntitlementResponse, PaginatedResponse } from "@/types";
 
@@ -75,15 +76,8 @@ export interface TransformedResponse<T> {
   content: T[];
 }
 
-export interface TransformedShareholderProfileResponse {
-  content: Array<{
-    shareholderId: string;
-    shareholderName: string;
-    accountNumber: string;
-    email: string;
-    address: string;
-    issueName: string;
-  }>;
+export interface TransformedShareholderProfileResponse<T> {
+  content: T[];
   pagination: {
     total: number;
     page: number;
@@ -91,7 +85,14 @@ export interface TransformedShareholderProfileResponse {
   };
 }
 
-export const useAllRightsIssues = (params?: RightsIssueParams) => {
+export const useAllRightsIssues = (params?: RightsIssueParams, options?: Omit<
+  UseQueryOptions<
+    PaginatedResponse<RightsIssue>,
+    Error,
+    TransformedResponse<RightsIssue>
+  >,
+  "queryKey" | "queryFn"
+>,) => {
   return useQuery({
     queryKey: ["rightsIssues", params],
     queryFn: () => getAllRightsIssues(params),
@@ -106,6 +107,7 @@ export const useAllRightsIssues = (params?: RightsIssueParams) => {
       };
     },
     refetchOnWindowFocus: false,
+    ...options
   });
 };
 
@@ -425,7 +427,14 @@ export const useGetStickyLabels = (
         issueName: string;
       }>,
       Error,
-      TransformedShareholderProfileResponse
+      TransformedShareholderProfileResponse<{
+        shareholderId: string;
+        shareholderName: string;
+        accountNumber: string;
+        email: string;
+        address: string;
+        issueName: string;
+      }>
     >,
     "queryKey" | "queryFn"
   >,

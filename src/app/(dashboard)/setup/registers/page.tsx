@@ -73,7 +73,7 @@ export default function RegistersPage() {
       newParams.set("principalId", value);
     }
     const queryString = newParams.toString();
-    router.replace(`/setup/registers${queryString ? `?${queryString}` : ""}`, {
+    router?.replace(`/setup/registers${queryString ? `?${queryString}` : ""}`, {
       scroll: false,
     });
   };
@@ -108,7 +108,7 @@ export default function RegistersPage() {
 
   const pagedRows = registers?.content || [];
   const total = registers?.pagination.total || 0;
-  const totalPages = registers?.pagination?.totalPages || 0;
+  const totalPages = registers?.pagination?.totalPages || 1;
 
   const handleEdit = (r: Register) => {
     setSelectedRegister(r);
@@ -317,65 +317,65 @@ export default function RegistersPage() {
                 </tr>
               ) : pagedRows?.length > 0 ? (
                 pagedRows?.map((r) => (
-                  <tr key={r.registerId} className="mrpsl-table-row">
+                  <tr key={r?.registerId} className="mrpsl-table-row">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-foreground truncate max-w-50">
-                        {r.registerName}
+                        {r?.registerName}
                       </div>
                       {/* <div className="text-xs font-mono text-muted-foreground">
-                        {r.registerId}
+                        {r?.registerId}
                       </div> */}
                     </td>
                     <td className="px-4 py-3 text-sm truncate max-w-37.5">
-                      {r.principalName}
+                      {r?.principalName}
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${r.registerType === "ORDINARY"
+                        className={`border-0 text-xs ${r?.registerType === "ORDINARY"
                           ? "bg-blue-100 text-blue-800"
-                          : r.registerType === "PREFERENCE"
+                          : r?.registerType === "PREFERENCE"
                             ? "bg-violet-100 text-violet-800"
-                            : r.registerType === "BOND"
+                            : r?.registerType === "BOND"
                               ? "bg-amber-100 text-amber-800"
-                              : r.registerType === "ETF"
+                              : r?.registerType === "ETF"
                                 ? "bg-cyan-100 text-cyan-800"
                                 : "bg-emerald-100 text-emerald-800"
                           }`}
                       >
-                        {r.registerType
+                        {r?.registerType
                           .toLowerCase()
                           .replace(/\b\w/g, (c) => c.toUpperCase())}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs uppercase bg-muted px-1.5 py-0.5 rounded">
-                        {r.symbol}
+                        {r?.symbol}
                       </span>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r.shareholderSizeAtSetup.toLocaleString()}
+                      {r?.shareholderSizeAtSetup.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r.currentShareholdersSize.toLocaleString()}
+                      {r?.currentShareholdersSize.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {formatLargeNumber(r.currentStockInIssue)}
+                      {formatLargeNumber(r?.currentStockInIssue)}
                     </td>
                     <td className="px-4 py-3 font-mono text-sm text-right">
-                      ₦{r.nominalValue.toFixed(2)}
+                      ₦{r?.nominalValue?.toFixed(2)}
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs capitalize ${r.status === "ACTIVE"
+                        className={`border-0 text-xs capitalize ${r?.status === "ACTIVE"
                           ? "bg-green-100 text-green-800"
-                          : r.status === "INACTIVE"
+                          : r?.status === "INACTIVE"
                             ? "bg-gray-100 text-gray-600"
                             : "bg-amber-100 text-amber-800"
                           }`}
                       >
-                        {r.status === "TRANSACTION_DISABLED"
+                        {r?.status === "TRANSACTION_DISABLED"
                           ? "Disabled"
-                          : r.status}
+                          : r?.status}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -388,8 +388,8 @@ export default function RegistersPage() {
                         <DropdownMenuContent align="end">
                           {/* <DropdownMenuItem
                             onClick={() =>
-                              router.push(
-                                `/enquiry/holder?registerId=${r.registerId}`,
+                              router?.push(
+                                `/enquiry/holder?registerId=${r?.registerId}`,
                               )
                             }
                           >
@@ -402,7 +402,7 @@ export default function RegistersPage() {
                             onClick={() => openLockConfirm(r)}
                             className="text-amber-600"
                           >
-                            {r.status === "TRANSACTION_DISABLED" ? (
+                            {r?.status === "TRANSACTION_DISABLED" ? (
                               <>
                                 <Unlock className="mr-2 h-4 w-4" /> Unlock
                                 Transactions

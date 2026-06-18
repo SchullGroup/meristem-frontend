@@ -94,7 +94,7 @@ export const PullHistory = ({ open, setOpen, selectedTransaction, onComplete }: 
 
                 <div className="space-y-5 p-4">
 
-                    {/* ── ACTION ZONE: UPLOAD TRIGGER ───────────────────────────────── */}
+                    {/* ── ACTION ZONE: UPLOAD TRIGGER ------─ */}
                     {uploadedPositions.length === 0 && (
                         <div className="bg-muted/40 p-5 rounded-xl border border-border/60">
                             <h4 className="font-semibold text-sm mb-2 text-foreground flex items-center gap-1.5">

@@ -53,7 +53,7 @@ export default function RightsIssuePendingApproval({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [listPage, setListPage] = useState(1);
-  const [listPageSize, setListPageSize] = useState(10);
+  const [listPageSize, setListPageSize] = useState(20);
   const debouncedListSearch = useDebounce(searchQuery, 500);
 
   // Selection state for Review mode
@@ -62,7 +62,7 @@ export default function RightsIssuePendingApproval({
 
   // Review mode pagination
   const [authPage, setAuthPage] = useState(1);
-  const [authPageSize, setAuthPageSize] = useState(10);
+  const [authPageSize, setAuthPageSize] = useState(20);
 
   // Store & Download state
   const [downloading, setDownloading] = useState(false);

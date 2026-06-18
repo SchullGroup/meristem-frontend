@@ -48,7 +48,7 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
     const repushMutation = useRepushSingle();
 
     const filteredRepush = repushData?.data?.content || [];
-    const totalPages = repushData?.data?.totalPages || 0;
+    const totalPages = repushData?.data?.totalPages || 1;
     const total = repushData?.data?.totalElements || 0;
 
     function openRepushConfirm(row: any) {

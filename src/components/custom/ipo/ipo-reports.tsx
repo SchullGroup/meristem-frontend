@@ -204,7 +204,7 @@ export default function IPOReports() {
         toast.success("Report exported successfully.");
       },
       onError: (err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = err instanceof Error ? err?.message : String(err);
         toast.error(`Export failed: ${message}`);
       },
     };
@@ -280,8 +280,8 @@ export default function IPOReports() {
               <SelectContent className="w-max">
                 <SelectItem value="all">All Registers</SelectItem>
                 {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.symbol}>
-                    {r.registerName} · {r.symbol}
+                  <SelectItem key={r?.registerId} value={r?.symbol}>
+                    {r?.registerName} · {r?.symbol}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -380,40 +380,40 @@ export default function IPOReports() {
                   {(applicationOfferData.rows?.content || []).map((r, i) => (
                     <tr key={i} className="mrpsl-table-row">
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {r.rowNumber || i + 1}
+                        {r?.rowNumber || i + 1}
                       </td>
                       <td className="px-4 py-2.5 font-medium">
-                        {r.subscriberName}
+                        {r?.subscriberName}
                       </td>
-                      <td className="px-4 py-2.5 font-mono">{r.chn}</td>
+                      <td className="px-4 py-2.5 font-mono">{r?.chn}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {r.broker}
+                        {r?.broker}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {r.bank}
+                        {r?.bank}
                       </td>
                       <td className="px-4 py-2.5 font-mono">
-                        {r.accountNumber}
+                        {r?.accountNumber}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {r.units > 0 ? formatNumber(r.units) : "—"}
+                        {r?.units > 0 ? formatNumber(r?.units) : "—"}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {formatNumber(r.amount)}
+                        {formatNumber(r?.amount)}
                       </td>
                       <td className="px-4 py-2.5">
                         <Badge
                           className={cn(
                             "border-0 text-[13px] font-normal",
-                            r.status === "Approved" || r.status === "APPROVED"
+                            r?.status === "Approved" || r?.status === "APPROVED"
                               ? "bg-green-100 text-green-800"
-                              : r.status === "Disapproved" ||
-                                r.status === "DISAPPROVED"
+                              : r?.status === "Disapproved" ||
+                                r?.status === "DISAPPROVED"
                                 ? "bg-amber-100 text-amber-800"
                                 : "bg-red-100 text-red-700",
                           )}
                         >
-                          {r.status}
+                          {r?.status}
                         </Badge>
                       </td>
                     </tr>
@@ -435,7 +435,7 @@ export default function IPOReports() {
                     <td className="px-4 py-2.5 text-right">
                       ₦
                       {(applicationOfferData.rows?.content || [])
-                        .reduce((s, r) => s + r.amount, 0)
+                        .reduce((s, r) => s + r?.amount, 0)
                         .toLocaleString()}
                     </td>
                     <td />
@@ -467,25 +467,25 @@ export default function IPOReports() {
                     {(appOfferSummaryData.rows || []).map((r, i) => (
                       <tr key={i} className="mrpsl-table-row">
                         <td className="px-4 py-2.5 font-medium">
-                          {r.stockbroker}
+                          {r?.stockbroker}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono">
-                          {formatNumber(r.applications)}
+                          {formatNumber(r?.applications)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono text-green-700 font-semibold">
-                          {formatNumber(r.approved)}
+                          {formatNumber(r?.approved)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono text-amber-600 font-semibold">
-                          {formatNumber(r.disapproved)}
+                          {formatNumber(r?.disapproved)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono text-red-600 font-semibold">
-                          {formatNumber(r.invalid)}
+                          {formatNumber(r?.invalid)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono">
-                          {formatNumber(r.totalUnits)}
+                          {formatNumber(r?.totalUnits)}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                          {formatNumber(r.totalAmount)}
+                          {formatNumber(r?.totalAmount)}
                         </td>
                       </tr>
                     ))}
@@ -538,29 +538,29 @@ export default function IPOReports() {
                   {(fullSubListData.rows?.content || []).map((r, i) => (
                     <tr key={i} className="mrpsl-table-row">
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {r.rowNumber || i + 1}
+                        {r?.rowNumber || i + 1}
                       </td>
                       <td className="px-4 py-2.5 font-medium">
-                        {r.subscriberName}
+                        {r?.subscriberName}
                       </td>
-                      <td className="px-4 py-2.5 font-mono">{r.chn}</td>
+                      <td className="px-4 py-2.5 font-mono">{r?.chn}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {r.stockbroker}
+                        {r?.stockbroker}
                       </td>
                       <td className="px-4 py-2.5 font-mono">
-                        {r.cscsAccountNo}
+                        {r?.cscsAccountNo}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {formatNumber(r.unitsSubscribed)}
+                        {formatNumber(r?.unitsSubscribed)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold text-green-700">
-                        {formatNumber(r.unitsAllotted)}
+                        {formatNumber(r?.unitsAllotted)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {formatNumber(r.amount)}
+                        {formatNumber(r?.amount)}
                       </td>
                       <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                        {r.certNo}
+                        {r?.certNo}
                       </td>
                     </tr>
                   ))}
@@ -576,18 +576,18 @@ export default function IPOReports() {
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {(fullSubListData.rows?.content || [])
-                        .reduce((s, r) => s + r.unitsSubscribed, 0)
+                        .reduce((s, r) => s + r?.unitsSubscribed, 0)
                         .toLocaleString()}
                     </td>
                     <td className="px-4 py-2.5 text-right text-green-700">
                       {(fullSubListData.rows?.content || [])
-                        .reduce((s, r) => s + r.unitsAllotted, 0)
+                        .reduce((s, r) => s + r?.unitsAllotted, 0)
                         .toLocaleString()}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       ₦
                       {(fullSubListData.rows?.content || [])
-                        .reduce((s, r) => s + r.amount, 0)
+                        .reduce((s, r) => s + r?.amount, 0)
                         .toLocaleString()}
                     </td>
                     <td />
@@ -613,28 +613,28 @@ export default function IPOReports() {
                 <tbody className="divide-y">
                   {(stateSummaryData.rows || []).map((r, i) => (
                     <tr key={i} className="mrpsl-table-row">
-                      <td className="px-4 py-2.5 font-medium">{r.state}</td>
+                      <td className="px-4 py-2.5 font-medium">{r?.state}</td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {formatNumber(r.subscribers)}
+                        {formatNumber(r?.subscribers)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-primary rounded-full"
-                              style={{ width: `${r.percentOfTotal}%` }}
+                              style={{ width: `${r?.percentOfTotal}%` }}
                             />
                           </div>
                           <span className="font-mono tabular w-10 text-right">
-                            {r.percentOfTotal?.toFixed(1)}%
+                            {r?.percentOfTotal?.toFixed(1)}%
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {formatNumber(r.totalUnits)}
+                        {formatNumber(r?.totalUnits)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {formatNumber(r.totalAmount)}
+                        {formatNumber(r?.totalAmount)}
                       </td>
                     </tr>
                   ))}
@@ -648,13 +648,13 @@ export default function IPOReports() {
                     <td className="px-4 py-2.5 text-right">100%</td>
                     <td className="px-4 py-2.5 text-right">
                       {(stateSummaryData.rows || [])
-                        .reduce((s, r) => s + r.totalUnits, 0)
+                        .reduce((s, r) => s + r?.totalUnits, 0)
                         .toLocaleString()}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       ₦
                       {(stateSummaryData.rows || [])
-                        .reduce((s, r) => s + r.totalAmount, 0)
+                        .reduce((s, r) => s + r?.totalAmount, 0)
                         .toLocaleString()}
                     </td>
                   </tr>
@@ -680,29 +680,29 @@ export default function IPOReports() {
                   {(rangeAnalysisData.rows || []).map((r, i) => (
                     <tr key={i} className="mrpsl-table-row">
                       <td className="px-4 py-2.5 font-medium">
-                        {r.rangeLabel}
+                        {r?.rangeLabel}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {formatNumber(r.subscribers)}
+                        {formatNumber(r?.subscribers)}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-primary rounded-full"
-                              style={{ width: `${r.percentOfTotal}%` }}
+                              style={{ width: `${r?.percentOfTotal}%` }}
                             />
                           </div>
                           <span className="font-mono tabular w-10 text-right">
-                            {r.percentOfTotal.toFixed(1)}%
+                            {r?.percentOfTotal.toFixed(1)}%
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {formatNumber(r.totalUnits)}
+                        {formatNumber(r?.totalUnits)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {formatNumber(r.totalAmount)}
+                        {formatNumber(r?.totalAmount)}
                       </td>
                     </tr>
                   ))}
@@ -747,42 +747,42 @@ export default function IPOReports() {
                   {(batchSummaryData.rows || []).map((r, i) => (
                     <tr key={i} className="mrpsl-table-row">
                       <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                        {r.batchRef}
+                        {r?.batchRef}
                       </td>
                       <td className="px-4 py-2.5 font-semibold">
-                        {r.register}
+                        {r?.register}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {r.dateProcessed}
+                        {r?.dateProcessed}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-green-700 font-semibold">
-                        {formatNumber(r.approved)}
+                        {formatNumber(r?.approved)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-amber-600 font-semibold">
-                        {formatNumber(r.disapproved)}
+                        {formatNumber(r?.disapproved)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-red-600 font-semibold">
-                        {formatNumber(r.invalid)}
+                        {formatNumber(r?.invalid)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono">
-                        {formatNumber(r.total)}
+                        {formatNumber(r?.total)}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {formatNumber(r.totalAmount)}
+                        {formatNumber(r?.totalAmount)}
                       </td>
                       <td className="px-4 py-2.5">
                         <Badge
                           className={cn(
                             "border-0 text-[13px] font-normal",
-                            r.status === "Lodged" || r.status === "LODGED"
+                            r?.status === "Lodged" || r?.status === "LODGED"
                               ? "bg-green-100 text-green-800"
-                              : r.status === "ICU Approved" ||
-                                r.status === "ICU_APPROVED"
+                              : r?.status === "ICU Approved" ||
+                                r?.status === "ICU_APPROVED"
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-amber-100 text-amber-800",
                           )}
                         >
-                          {r.status}
+                          {r?.status}
                         </Badge>
                       </td>
                     </tr>
