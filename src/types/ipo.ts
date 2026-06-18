@@ -24,17 +24,33 @@ export interface PendingApprovalParams {
 }
 
 export interface IPOSubscriber {
-  subscriberName: string;
   accountNumber: string;
-  chn: string;
-  units: number;
+  address: string | null;
   amount: number;
-  bank?: string;
-  broker?: string;
-  remark?: string;
-  certNo?: number;
-  symbol?: string;
-  stockbrokerCode?: string;
+  bank: string;
+  broker: string;
+  certNo: string;
+  chn: string;
+  country: string | null;
+  cscsAccountNo: string;
+  dateOfBirth: string | null; // or Date | null depending on your data parsing
+  email: string | null;
+  firstName: string | null;
+  id: string; // UUID
+  lastName: string | null;
+  lga: string | null;
+  middleName: string | null;
+  nextOfKinName: string | null;
+  nextOfKinPhone: string | null;
+  nin: string | null;
+  phoneNumber: string | null;
+  remark: string | null;
+  state: string;
+  stockbrokerCode: string;
+  subscriberName: string;
+  symbol: string;
+  type: IPOBatchType;
+  units: number;
 }
 
 export interface LodgementResponse {

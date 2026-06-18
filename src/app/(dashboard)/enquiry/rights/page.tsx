@@ -20,7 +20,7 @@ export default function RightsEnquiryPage() {
   const [q, setQ] = useState("");
 
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const [searchParams, setSearchParams] = useState<{
     registerSymbol?: string;
@@ -117,19 +117,8 @@ export default function RightsEnquiryPage() {
               disabled={!registerSymbol}
             >
               <SelectTrigger className="w-64 mrpsl-input">
-                <SelectValue>
-                  {rightsIssueId
-                    ? (() => {
-                      const decl = rightsIssuesData?.content.find(
-                        (d) => d.id === rightsIssueId,
-                      );
-                      return decl
-                        ? decl.offerName
-                        : rightsIssueId;
-                    })()
-                    : "Select Declaration"
-                  }
-                </SelectValue>
+                <SelectValue placeholder="Select Declaration"
+                />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Select Declaration</SelectItem>
@@ -137,7 +126,7 @@ export default function RightsEnquiryPage() {
                   isLoadingIssues && <SelectItem value="_loading" disabled>Loading Declarations</SelectItem>
                 }
                 {rightsIssuesData?.content?.map((issue) => (
-                  <SelectItem key={issue.id} value={issue.id}>
+                  <SelectItem key={issue.id} value={issue.ref}>
                     {issue.offerName}
                   </SelectItem>
                 ))}

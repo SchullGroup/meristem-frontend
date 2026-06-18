@@ -63,7 +63,7 @@ function tierBadgeClass(tier: string | number | undefined) {
 export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const { currentUser } = useStore();
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   // Queries & Mutations
   const {

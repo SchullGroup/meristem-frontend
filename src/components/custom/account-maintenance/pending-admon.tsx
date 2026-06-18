@@ -45,7 +45,7 @@ export default function PendingAdmon({ tab }: { tab: string }) {
     const { currentUser } = useStore();
 
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
     const [registerId, setRegisterId] = useState("");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
         undefined,

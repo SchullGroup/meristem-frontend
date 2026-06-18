@@ -47,7 +47,7 @@ export function PreviewHolders({
     const [statusFilter, setStatusFilter] = useState('');
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
     const [confirmedStates, setConfirmedStates] = useState<Record<string, string>>({});
 
     const debouncedSearch = useDebounce(search, 500);

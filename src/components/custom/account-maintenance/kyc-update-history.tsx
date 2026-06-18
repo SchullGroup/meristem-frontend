@@ -19,9 +19,9 @@ import StatusBadge from "../status-badge";
 export default function KYCHistory({ tab, selectedShareholder }: { tab: string, selectedShareholder: ShareholderAccount | null }) {
     // ── Pagination state for pending & history ──
     const [pendingPage, setPendingPage] = useState(0);
-    const [pendingPageSize, setPendingPageSize] = useState(10);
+    const [pendingPageSize, setPendingPageSize] = useState(20);
     const [historyPage, setHistoryPage] = useState(0);
-    const [historyPageSize, setHistoryPageSize] = useState(10);
+    const [historyPageSize, setHistoryPageSize] = useState(20);
 
 
     // ── KYC history ──

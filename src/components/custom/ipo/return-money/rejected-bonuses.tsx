@@ -33,12 +33,12 @@ export function RejectedBonusesTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedListSearch = useDebounce(searchQuery, 500);
   const [listPage, setListPage] = useState(1)
-  const [listPageSize, setListPageSize] = useState(10)
+  const [listPageSize, setListPageSize] = useState(20)
 
   // Review mode state
   const [reviewingBatchId, setReviewingBatchId] = useState<string | null>(null);
   const [authPage, setAuthPage] = useState(1);
-  const [authPageSize, setAuthPageSize] = useState(10);
+  const [authPageSize, setAuthPageSize] = useState(20);
   const [refundedBatches, setRefundedBatches] = useState<string[]>([]);
 
   // Registers for filter

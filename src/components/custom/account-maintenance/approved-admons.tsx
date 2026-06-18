@@ -45,7 +45,7 @@ export default function ApprovedAdmons({ tab }: { tab: string }) {
 
     //----------------- filters -------------- //
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
     const [registerId, setRegisterId] = useState("");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
         undefined,

@@ -31,7 +31,7 @@ export default function AdmonReversal({ tab }: { tab: string }) {
     const { currentUser } = useStore();
 
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
 
     const [selected, setSelected] = useState<AdmonReversal | null>(null);
     const [reviewOpen, setReviewOpen] = useState(false);

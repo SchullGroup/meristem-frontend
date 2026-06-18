@@ -18,7 +18,7 @@ export default function AgentEnquiryPage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMandates, setShowMandates] = useState(false);
   const [mandatePage, setMandatePage] = useState(0);
-  const [mandatePageSize, setMandatePageSize] = useState(10);
+  const [mandatePageSize, setMandatePageSize] = useState(20);
 
   const debouncedQuery = useDebounce(query, 300);
 
@@ -123,7 +123,7 @@ export default function AgentEnquiryPage() {
       </Card>
 
       {selectedAgentId && (
-        <div className="space-y-6 max-w-2xl animate-in fade-in">
+        <div className="space-y-6 w-full animate-in fade-in">
           {isLoadingDetail && (
             <div className="flex items-center justify-center p-8 bg-background rounded-lg border mrpsl-card">
               <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
@@ -205,10 +205,6 @@ export default function AgentEnquiryPage() {
                     <div className="flex justify-center p-4">
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
-                  ) : !mandatesData?.content || mandatesData.content.length === 0 ? (
-                    <div className="text-xs text-muted-foreground text-center py-4 bg-muted/10 rounded">
-                      No mandates uploaded for this agent.
-                    </div>
                   ) : (
                     <div className="space-y-3">
                       <div className="overflow-x-auto rounded border">
@@ -223,23 +219,37 @@ export default function AgentEnquiryPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y font-mono">
-                            {mandatesData.content.map((mandate, idx) => (
-                              <tr key={idx} className="hover:bg-accent/5">
-                                <td className="p-2.5 font-bold">{mandate?.accountNo}</td>
-                                <td className="p-2.5 font-sans font-medium">{mandate?.holderName}</td>
-                                <td className="p-2.5 text-primary font-sans font-medium">{mandate?.registerSymbol}</td>
-                                <td className="p-2.5">{formatDate(mandate?.mandateDate)}</td>
-                                <td className="p-2.5 font-sans">
-                                  <Badge className={
-                                    mandate?.status === "ACTIVE"
-                                      ? "bg-green-50 text-green-700 hover:bg-green-50 border-green-200/50 text-[10px]"
-                                      : "bg-red-50 text-red-700 hover:bg-red-50 border-red-200/50 text-[10px]"
-                                  }>
-                                    {mandate?.status}
-                                  </Badge>
-                                </td>
-                              </tr>
-                            ))}
+                            {
+                              mandatesData?.content && mandatesData?.content?.length > 0 ?
+                                mandatesData.content.map((mandate, idx) => (
+                                  <tr key={idx} className="hover:bg-accent/5">
+                                    <td className="p-2.5 font-bold">{mandate?.accountNo}</td>
+                                    <td className="p-2.5 font-sans font-medium">{mandate?.holderName}</td>
+                                    <td className="p-2.5 text-primary font-sans font-medium">{mandate?.registerSymbol}</td>
+                                    <td className="p-2.5">{formatDate(mandate?.mandateDate)}</td>
+                                    <td className="p-2.5 font-sans">
+                                      <Badge className={
+                                        mandate?.status === "ACTIVE"
+                                          ? "bg-green-50 text-green-700 hover:bg-green-50 border-green-200/50 text-[10px]"
+                                          : "bg-red-50 text-red-700 hover:bg-red-50 border-red-200/50 text-[10px]"
+                                      }>
+                                        {mandate?.status}
+                                      </Badge>
+                                    </td>
+                                  </tr>
+                                )) : (
+                                  <tr>
+                                    <td
+                                      colSpan={10}
+                                      className="px-4 py-12 text-center text-muted-foreground text-sm"
+                                    >
+                                      No mandates uploaded for this agent.
+                                    </td>
+                                  </tr>
+
+
+                                )}
+
                           </tbody>
                         </table>
                       </div>
@@ -247,8 +257,8 @@ export default function AgentEnquiryPage() {
                       <PaginationBar
                         page={mandatePage}
                         pageSize={mandatePageSize}
-                        totalPages={mandatesData.totalPages || 1}
-                        total={mandatesData.totalElements || 0}
+                        totalPages={mandatesData?.totalPages || 1}
+                        total={mandatesData?.totalElements || 0}
                         onPageChange={setMandatePage}
                         onPageSizeChange={setMandatePageSize}
                       />

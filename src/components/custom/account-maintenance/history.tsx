@@ -30,7 +30,7 @@ export default function History({ tab }: { tab: string }) {
       status: "ACTIVE",
     });
   const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [register, setRegister] = useState("");
   const [status, setStatus] = useState<
     "PENDING" | "APPROVED" | "REJECTED" | ""

@@ -58,7 +58,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
 
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [subscribersPage, setSubscribersPage] = useState(0);
-  const [subscribersPageSize, setSubscribersPageSize] = useState(10);
+  const [subscribersPageSize, setSubscribersPageSize] = useState(20);
   const [downloadFormat, setDownloadFormat] = useState<
     "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS"
   >("RIN_AT_CSCS");
@@ -69,7 +69,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
     undefined,
   );
   const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
 
   // Queries
@@ -500,7 +500,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
                               </td>
                               <td className="p-2 font-mono">{row?.certNo || "—"}</td>
                               <td className="p-2 font-mono">
-                                {row?.accountNumber || "—"}
+                                {row?.cscsAccountNo || row?.accountNumber || "—"}
                               </td>
                               <td className="p-2 font-mono">{row?.symbol || "—"}</td>
                               <td className="p-2 font-mono text-right font-semibold">

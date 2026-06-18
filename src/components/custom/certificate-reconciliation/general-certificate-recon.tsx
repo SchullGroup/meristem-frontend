@@ -40,7 +40,7 @@ export default function GeneralCertificateReconciliation() {
 
   // ✅ Shared pagination state
   const [page, setPage] = useState(0);        // 0‑based
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useGetReconciliations(

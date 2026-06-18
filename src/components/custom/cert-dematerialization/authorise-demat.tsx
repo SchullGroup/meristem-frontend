@@ -19,7 +19,7 @@ export default function AuthoriseDemat({ tab }: { tab: string }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<Demat | null>(null);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading, isError, refetch } = useGetAllCertificateDemat(
     {

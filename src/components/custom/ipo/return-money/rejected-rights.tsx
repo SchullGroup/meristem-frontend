@@ -38,13 +38,13 @@ export function RejectedRightsTab() {
   const [authRegister, setAuthRegister] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [listPage, setListPage] = useState(1);
-  const [listPageSize, setListPageSize] = useState(10);
+  const [listPageSize, setListPageSize] = useState(20);
   const debouncedListSearch = useDebounce(searchQuery, 500);
 
   // Review mode state
   const [reviewingBatch, setReviewingBatch] = useState<RightsIssue | null>(null);
   const [authPage, setAuthPage] = useState(1);
-  const [authPageSize, setAuthPageSize] = useState(10);
+  const [authPageSize, setAuthPageSize] = useState(20);
   const [downloading, setDownloading] = useState(false);
   const [refundedBatches, setRefundedBatches] = useState<string[]>([]);
 

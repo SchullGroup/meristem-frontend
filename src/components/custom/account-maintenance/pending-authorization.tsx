@@ -45,7 +45,7 @@ export default function PendingAuth({ tab }: { tab: string }) {
     status: "ACTIVE",
   });
   const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [register, setRegister] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 

@@ -33,7 +33,7 @@ function tierBadgeClass(tier: string | number | undefined) {
 
 export default function History({ tab }: { tab: string }) {
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   // Mark-off history query
   const {

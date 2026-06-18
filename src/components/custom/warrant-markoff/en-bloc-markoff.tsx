@@ -37,7 +37,7 @@ export default function EnBlocMarkoff() {
   const [dateFrom, setDateFrom] = useState(new Date());
   const [dateTo, setDateTo] = useState(new Date());
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   // Active filter settings used for the loaded query
   const [loadedFilters, setLoadedFilters] = useState<{

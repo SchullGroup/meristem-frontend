@@ -28,7 +28,7 @@ export default function AdmonHistory({ tab }: { tab: string }) {
     })
 
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
     const [registerId, setRegisterId] = useState("");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
         undefined,

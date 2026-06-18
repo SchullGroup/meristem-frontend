@@ -28,7 +28,7 @@ export default function WarrantEnquiryPage() {
   const [accountNo, setAccountNo] = useState("");
 
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const [searchParams, setSearchParams] = useState<{
     paymentType?: WarrantPaymentType;
