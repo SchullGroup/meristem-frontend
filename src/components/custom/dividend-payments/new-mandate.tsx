@@ -68,7 +68,7 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
 
     const filteredMandateQueue = mandateData?.data?.content || [];
     const total = mandateData?.data?.totalElements || 0;
-    const totalPages = mandateData?.data?.totalPages || 0;
+    const totalPages = mandateData?.data?.totalPages || 1;
 
     const registers = activeRegisters?.content || [];
     const dividendNumbers = dividendNumbersData?.data?.content || [];

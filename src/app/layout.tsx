@@ -3,6 +3,7 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "@/components/providers/query-provider";
 import StoreHydrationProvider from "@/components/providers/store-hydration-provider";
+import { BulkJobMonitorProvider } from "@/components/providers/bulk-job-monitor-provider";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -28,7 +29,11 @@ export default function RootLayout({
     <html lang="en" className={outfit.variable}>
       <body className="antialiased">
         <QueryProvider>
-          <StoreHydrationProvider>{children}</StoreHydrationProvider>
+          <StoreHydrationProvider>
+            <BulkJobMonitorProvider>
+              {children}
+            </BulkJobMonitorProvider>
+          </StoreHydrationProvider>
         </QueryProvider>
       </body>
     </html>

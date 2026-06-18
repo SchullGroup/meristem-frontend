@@ -171,7 +171,7 @@ export default function NewMandatePage() {
   });
 
   const [pendingPage, setPendingPage] = useState(0);
-  const [pendingPageSize, setPendingPageSize] = useState(10);
+  const [pendingPageSize, setPendingPageSize] = useState(20);
 
   const {
     data: pendingMandatePaymentsData,
@@ -182,7 +182,7 @@ export default function NewMandatePage() {
   });
 
   const [icuPage, setIcuPage] = useState(0);
-  const [icuPageSize, setIcuPageSize] = useState(10);
+  const [icuPageSize, setIcuPageSize] = useState(20);
 
   const {
     data: icuMandatePaymentsData,

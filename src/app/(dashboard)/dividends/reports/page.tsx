@@ -48,7 +48,7 @@ export default function DividendReportsPage() {
   );
   const [reportGenerated, setReportGenerated] = useState(false);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
 
   // Active registers for the Register filter

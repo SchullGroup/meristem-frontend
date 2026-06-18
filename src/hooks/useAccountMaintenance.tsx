@@ -56,7 +56,7 @@ export const useGetConsolidations = (
                     currentPage: data?.data?.page || 0,
                     pageSize: data?.data?.pageSize || 0,
                     total: data?.data?.total || 0,
-                    totalPages: data?.data?.totalPages || 0,
+                    totalPages: data?.data?.totalPages || 1,
                 }
             }
         },

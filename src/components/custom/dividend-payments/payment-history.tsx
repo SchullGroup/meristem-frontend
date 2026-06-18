@@ -66,7 +66,7 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
 
     const historyData = data?.data?.content || [];
     const total = data?.data?.totalElements || 0;
-    const totalPages = data?.data?.totalPages || 0;
+    const totalPages = data?.data?.totalPages || 1;
 
 
     const downloadMutation = useDownloadPaymentRunReceipt();

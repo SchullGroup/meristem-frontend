@@ -40,7 +40,7 @@ export default function GeneralCertificateReconciliation() {
 
   // ✅ Shared pagination state
   const [page, setPage] = useState(0);        // 0‑based
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useGetReconciliations(
@@ -299,7 +299,7 @@ export default function GeneralCertificateReconciliation() {
               onPageChange={setPage}
               onPageSizeChange={handlePageSizeChange}
               total={Math.max(cscsTotal, mrpslTotal)}
-              totalPages={data?.cscs?.totalPages || 0}
+              totalPages={data?.cscs?.totalPages || 1}
             />
           </div>
         </>

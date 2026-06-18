@@ -18,7 +18,7 @@ import {
   GET_CSCS_RECONCILIATION_FLAGGED_TRANSACTIONS,
   GET_CSCS_RECONCILIATIONS,
   GET_CSCS_TRANSACTION_LOG_BATCHES,
-  GET_CSCS_INJECT_JOB,
+  GET_CSCS_INJECT_STATUS,
   GET_CSCS_SHAREHOLDER_TRANSACTIONS,
   UPLOAD_CSCS_HISTORY,
   UPDATE_CSCS_TRANSACTION,
@@ -31,9 +31,9 @@ import {
   ReconciliationFlaggedTransaction,
   ReconciliationResponse,
   TransactionBatch,
-  CscsInjectJob,
   CscsPosition,
   ProcessedTransaction,
+  CscsInjectStatus,
 } from "@/types/cscs";
 import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
@@ -175,17 +175,18 @@ export const useInjectCscsFile = () => {
  * Enable only when a batchRef is available and the job is not yet done.
  * The caller controls polling interval via `refetchInterval` in options.
  */
-export const useGetCscsInjectJob = (
+export const useGetCscsInjectStatus = (
   batchRef: string | null,
   options?: Omit<
-    UseQueryOptions<CscsInjectJob, Error, CscsInjectJob>,
+    UseQueryOptions<CscsInjectStatus, Error, CscsInjectStatus>,
     "queryKey" | "queryFn"
   >,
 ) => {
   return useQuery({
-    queryKey: ["cscs-inject-job", batchRef],
-    queryFn: () => GET_CSCS_INJECT_JOB(batchRef!),
+    queryKey: ["cscs-inject-status", batchRef],
+    queryFn: () => GET_CSCS_INJECT_STATUS(batchRef!),
     enabled: !!batchRef,
+    refetchInterval: 5000,
     refetchOnWindowFocus: false,
     ...options,
   });

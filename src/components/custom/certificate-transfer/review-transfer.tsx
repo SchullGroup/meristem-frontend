@@ -172,44 +172,44 @@ export const ReviewTranser = ({
                   pending?: boolean;
                   time?: string | null;
                 }> => [
-                  {
-                    label: `Submitted by ${selected.submittedBy}`,
-                    done: true,
-                    time: selected.submittedAt + ", 09:14",
-                  },
-                  // {
-                  //     label: "Authorised by Ngozi Adeyemi (Operations Manager)",
-                  //     done: true,
-                  //     // time: selected.date + ", 11:30",
-                  //     time: "12-06-2026" + ", 11:30",
-                  // },
-                  // {
-                  //     label: "ICU Final Review — Approved",
-                  //     done: true,
-                  //     time: "12-06-2026" + ", 14:00",
-                  // },
-                ])().map((step, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div
-                      className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
-                    >
-                      {step.done && (
-                        <Check
-                          className="h-3 w-3 text-white"
-                          style={{ strokeWidth: 3 }}
-                        />
-                      )}
+                    {
+                      label: `Submitted by ${selected.submittedBy}`,
+                      done: true,
+                      time: selected.submittedAt + ", 09:14",
+                    },
+                    // {
+                    //     label: "Authorised by Ngozi Adeyemi (Operations Manager)",
+                    //     done: true,
+                    //     // time: selected.date + ", 11:30",
+                    //     time: "12-06-2026" + ", 11:30",
+                    // },
+                    // {
+                    //     label: "ICU Final Review — Approved",
+                    //     done: true,
+                    //     time: "12-06-2026" + ", 14:00",
+                    // },
+                  ])().map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                      >
+                        {step.done && (
+                          <Check
+                            className="h-3 w-3 text-white"
+                            style={{ strokeWidth: 3 }}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm">{step.label}</div>
+                        {step.time && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {step.time}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm">{step.label}</div>
-                      {step.time && (
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          {step.time}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
@@ -228,11 +228,14 @@ export const ReviewTranser = ({
                 variant="destructive"
                 className="flex-1"
                 onClick={handleReject}
-              >
-                Reject
-              </Button>
-              <Button className="flex-1" onClick={handleApprove}>
-                Approve Transfer
+                disabled={rejectMutation?.isPending || approveMutation.isPending}
+              >{rejectMutation?.isPending ? "Rejecting..."
+                : "Reject"
+                }</Button>
+              <Button className="flex-1" disabled={rejectMutation?.isPending || approveMutation.isPending}
+                onClick={handleApprove}>
+                {approveMutation.isPending ? "Approving..."
+                  : "Approve Transfer"}
               </Button>
             </div>
           </div>
@@ -336,6 +339,8 @@ export const RejectTransfer = ({
               variant="ghost"
               className="flex-1"
               onClick={() => setBatchRejectOpen(false)}
+              disabled={batchRejectMutation.isPending}
+
             >
               Cancel
             </Button>
@@ -343,8 +348,10 @@ export const RejectTransfer = ({
               variant="destructive"
               className="flex-1"
               onClick={handleBatchReject}
+              disabled={batchRejectMutation.isPending}
             >
-              Confirm Rejection
+              {batchRejectMutation.isPending ? "Rejecting..."
+                : "Confirm Rejection"}
             </Button>
           </div>
         </div>

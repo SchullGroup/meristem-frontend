@@ -28,7 +28,7 @@ export default function AdmonHistory({ tab }: { tab: string }) {
     })
 
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(20);
     const [registerId, setRegisterId] = useState("");
     const [dateRange, setDateRange] = useState<DateRange | undefined>(
         undefined,
@@ -45,7 +45,7 @@ export default function AdmonHistory({ tab }: { tab: string }) {
     })
 
     const admonHistory = data?.data?.data || [];
-    const totalPages = data?.data?.totalPages || 0;
+    const totalPages = data?.data?.totalPages || 1;
     const total = data?.data?.total || 0;
 
 

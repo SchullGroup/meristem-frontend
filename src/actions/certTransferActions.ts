@@ -51,7 +51,7 @@ export const approveTransferRequest = async (approvalId: string, data: {
     authorisedBy: string
 }) => {
     try {
-        const res = await api.post<ApiResponse<TransferRequest>>(`/certificates/transfer/${approvalId}/reject`, data);
+        const res = await api.post<ApiResponse<TransferRequest>>(`/certificates/transfer/${approvalId}/approve`, data);
         return res.data;
     } catch (error) {
         const err = error as ErrorLike;

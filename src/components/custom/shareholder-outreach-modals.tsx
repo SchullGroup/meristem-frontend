@@ -28,7 +28,7 @@ import { useEmailShareholders } from "@/hooks/useRights";
 import { useMutation } from "@tanstack/react-query";
 import { EMAIL_SHAREHOLDERS } from "@/actions/bonusIssuesAction";
 
-/* ─── shared types ─────────────────────────────────────────────────────────── */
+/* ─── shared types ------─────────────────────────── */
 
 export interface OutreachShareholder {
   id: string;
@@ -68,7 +68,7 @@ export interface EmailPreviewModalProps {
   mode: string;
 }
 
-/* ─── Sticky Label Preview Modal ────────────────────────────────────────────── */
+/* ─── Sticky Label Preview Modal ------────────────── */
 
 function StickyLabel({
   holder,
@@ -394,7 +394,7 @@ export function StickyLabelModal({
   );
 }
 
-/* ─── Email Preview Modal ───────────────────────────────────────────────────── */
+/* ─── Email Preview Modal ------───────────────────── */
 
 function EmailBody({
   isRights,

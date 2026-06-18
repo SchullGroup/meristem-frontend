@@ -217,28 +217,28 @@ export default function DeclarationSummaryReport({
                 rows.map((reg, i) => (
                   <tr key={i} className="mrpsl-table-row">
                     <td className="px-4 py-2.5 font-semibold">
-                      {reg.registerSymbol}
+                      {reg?.registerSymbol}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">
-                      {reg.registerType}
+                      {reg?.registerType}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
-                      {reg.declarationCount}
+                      {reg?.declarationCount}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-semibold">
-                      {formatCurrency(reg.totalGrossLiability)}
+                      {formatCurrency(reg?.totalGrossLiability)}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-amber-600">
-                      {formatCurrency(reg.totalWht)}
+                      {formatCurrency(reg?.totalWht)}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-green-700 font-semibold">
-                      {formatCurrency(reg.totalNetPayout)}
+                      {formatCurrency(reg?.totalNetPayout)}
                     </td>
                     <td className="px-4 py-2.5">
-                      {reg.latestDividendType ?? "—"}
+                      {reg?.latestDividendType ?? "—"}
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums">
-                      {reg.latestRate?.toFixed(4) ?? "—"}
+                      {reg?.latestRate?.toFixed(4) ?? "—"}
                     </td>
                   </tr>
                 ))

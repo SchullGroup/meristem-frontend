@@ -50,7 +50,7 @@ export function TradedRightsEntry({
   const [volume, setVolume] = useState("");
   const [memberCode, setMemberCode] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
-  const [historyPageSize, setHistoryPageSize] = useState(10);
+  const [historyPageSize, setHistoryPageSize] = useState(20);
   const [lodgeOpen, setLodgeOpen] = useState(false);
 
   // Shareholder search for the selected issue

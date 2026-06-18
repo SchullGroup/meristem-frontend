@@ -33,12 +33,12 @@ export function RejectedBonusesTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedListSearch = useDebounce(searchQuery, 500);
   const [listPage, setListPage] = useState(1)
-  const [listPageSize, setListPageSize] = useState(10)
+  const [listPageSize, setListPageSize] = useState(20)
 
   // Review mode state
   const [reviewingBatchId, setReviewingBatchId] = useState<string | null>(null);
   const [authPage, setAuthPage] = useState(1);
-  const [authPageSize, setAuthPageSize] = useState(10);
+  const [authPageSize, setAuthPageSize] = useState(20);
   const [refundedBatches, setRefundedBatches] = useState<string[]>([]);
 
   // Registers for filter
@@ -92,7 +92,7 @@ export function RejectedBonusesTab() {
 
   const entitlementList = entitlementData?.data?.entitlements?.content || [];
   const entitlementTotal = entitlementData?.data?.entitlements?.totalElements || 0;
-  const entitlementTotalPages = entitlementData?.data?.entitlements?.totalPages || 0;
+  const entitlementTotalPages = entitlementData?.data?.entitlements?.totalPages || 1;
 
   const triggerRefund = (batchId: string, ref: string, count: number) => {
     toast.promise(
@@ -250,7 +250,7 @@ export function RejectedBonusesTab() {
           <PaginationBar
             page={listPage}
             total={declarationsData?.data?.totalElements || 0}
-            totalPages={declarationsData?.data?.totalPages || 0}
+            totalPages={declarationsData?.data?.totalPages || 1}
             pageSize={listPageSize}
             onPageChange={setListPage}
             onPageSizeChange={setListPageSize}
