@@ -256,7 +256,7 @@ export default function NewConsolidation({
                   </div>
                 ) : (
                   activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.registerId}>
+                    <SelectItem key={r.registerId} value={r.symbol}>
                       {r.registerName} · {r.symbol}
                     </SelectItem>
                   ))

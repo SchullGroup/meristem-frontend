@@ -1193,7 +1193,7 @@ export default function BonusIssuePage() {
                             {registerList?.map((r) => (
                               <SelectItem
                                 key={r.registerId}
-                                value={r.registerId}
+                                value={r.symbol}
                               >
                                 {r.registerName} - {r.symbol}
                               </SelectItem>
@@ -2432,7 +2432,7 @@ export default function BonusIssuePage() {
                   <SelectContent className="w-max">
                     <SelectItem value="all">All Registers</SelectItem>
                     {registerList?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.registerId}>
+                      <SelectItem key={r.registerId} value={r.symbol}>
                         {r.registerName} · {r.symbol}
                       </SelectItem>
                     ))}
@@ -2573,7 +2573,7 @@ export default function BonusIssuePage() {
                           <span>
                             Register:{" "}
                             {registerList?.find(
-                              (r) => r.registerId === reportRegister,
+                              (r) => r.symbol === reportRegister,
                             )?.registerName || "All Registers"}
                           </span>
                           <span>

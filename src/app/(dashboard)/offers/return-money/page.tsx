@@ -5,8 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RejectedRightsTab } from "@/components/custom/ipo/return-money/rejected-rights";
 import { RejectedBonusesTab } from "@/components/custom/ipo/return-money/rejected-bonuses";
 import { InvalidAccountsTab } from "@/components/custom/ipo/return-money/invalid-accounts";
-import { InvalidProfilesTab } from "@/components/custom/ipo/return-money/invalid-profiles";
-import { Coins, FileText, UserCheck, AlertTriangle } from "lucide-react";
+import { DisapprovedAccountsTab } from "@/components/custom/ipo/return-money/disapproved-accounts";
+import { Coins, FileText, AlertTriangle, Ban } from "lucide-react";
 
 export default function ReturnMoneyPage() {
   const [activeTab, setActiveTab] = useState("rejected-rights");
@@ -25,16 +25,16 @@ export default function ReturnMoneyPage() {
       component: RejectedBonusesTab,
     },
     {
+      id: "disapproved-accounts",
+      label: "Disapproved Accounts",
+      icon: Ban,
+      component: DisapprovedAccountsTab,
+    },
+    {
       id: "invalid-accounts",
       label: "Invalid Accounts",
       icon: AlertTriangle,
       component: InvalidAccountsTab,
-    },
-    {
-      id: "invalid-profiles",
-      label: "Invalid Profiles",
-      icon: UserCheck,
-      component: InvalidProfilesTab,
     },
   ];
 
@@ -43,7 +43,7 @@ export default function ReturnMoneyPage() {
       {/* Header */}
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Return Money (Offer Administration)
+          Return Money
         </h1>
         <p className="text-[13px] text-muted-foreground">
           Track and authorize refunds for rejected rights, failed bonus claims, and incorrect subscriber details.

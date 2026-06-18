@@ -134,7 +134,7 @@ export function RejectedBonusesTab() {
                 <SelectContent>
                   <SelectItem value="">All Registers</SelectItem>
                   {activeRegisters.map((r) => (
-                    <SelectItem key={r.registerId} value={r.registerId}>
+                    <SelectItem key={r.registerId} value={r.symbol}>
                       {r.symbol}
                     </SelectItem>
                   ))}

@@ -322,9 +322,9 @@ export default function RegistersPage() {
                       <div className="font-semibold text-foreground truncate max-w-50">
                         {r.registerName}
                       </div>
-                      <div className="text-xs font-mono text-muted-foreground">
+                      {/* <div className="text-xs font-mono text-muted-foreground">
                         {r.registerId}
-                      </div>
+                      </div> */}
                     </td>
                     <td className="px-4 py-3 text-sm truncate max-w-37.5">
                       {r.principalName}

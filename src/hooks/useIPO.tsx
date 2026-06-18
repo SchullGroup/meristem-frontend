@@ -108,7 +108,7 @@ export const useGetPendingApprovals = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.pending(params),
+    queryKey: ["ipo", "pending", params],
     queryFn: () => getIPOPendingApprovals(params),
     select: (data) => {
       return {
@@ -133,7 +133,7 @@ export const useGetIcuApprovals = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.icu(params),
+    queryKey: ["ipo", "icu", params],
     queryFn: () => getIPOICUApprovals(params),
     select: (data) => {
       return {
@@ -157,7 +157,7 @@ export const useUploadBatchIpo = () => {
 
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.all,
+        queryKey: ["ipo", "pending"],
       });
     },
   });
@@ -177,11 +177,11 @@ export const useOpsApproveIpo = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.all,
+        queryKey: ["ipo", "pending"],
       });
 
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.detail(variables.batchRef),
+        queryKey: ["ipo", "detail", variables.batchRef],
       });
     },
   });
@@ -204,11 +204,15 @@ export const useOpsRejectIpo = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.all,
+        queryKey: ["ipo", "pending"],
       });
 
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.detail(variables.batchRef),
+        queryKey: ["ipo", "rejected"],
+        exact: false
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["ipo", "detail", variables.batchRef],
       });
     },
   });
@@ -219,7 +223,7 @@ export const useGetRejectedIpoBatches = (
   options?: Omit<UseQueryOptions<ContentPaginatedResponse<IPO>, Error, ContentPaginatedResponse<IPO>>, "queryKey" | "queryFn">,
 ) => {
   return useQuery({
-    queryKey: ["rejected", params],
+    queryKey: ["ipo", "rejected", params],
     queryFn: () => getRejectedOpsBatches(params),
     ...options,
   });
@@ -239,11 +243,11 @@ export const useIcuReviewIpo = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.all,
+        queryKey: ["ipo", "pending"],
       });
 
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.detail(variables.batchRef),
+        queryKey: ["ipo", "detail", variables.batchRef],
       });
     },
   });
@@ -254,7 +258,7 @@ export const useGetIpoBatch = (
   options?: Omit<UseQueryOptions<IPO, Error, IPO>, "queryKey" | "queryFn">,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.detail(batchRef),
+    queryKey: ["ipo", "detail", batchRef],
     queryFn: () => getIpoBatch(batchRef),
     enabled: !!batchRef,
     ...options,
@@ -278,7 +282,7 @@ export const useGetIpoBatchSubscribers = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.subscribers(params.type),
+    queryKey: ["ipo", "subscribers", params],
     queryFn: () => getIpoBatchSubscribers(params),
     select: (data) => {
       return {
@@ -305,7 +309,7 @@ export const useGetIpoBatchLodgment = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.detail(params?.batchRef),
+    queryKey: ["ipo", "lodgment", params.batchRef],
     queryFn: () => getIpoBatchLogdement(params),
     enabled: !!params?.batchRef,
     ...options,
@@ -320,7 +324,7 @@ export const useGetIpoBatchesLodgment = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.lodgments(params),
+    queryKey: ["ipo", "lodgments", params],
     queryFn: () => getIpoBatchesLodgment(params),
     select: (data) => {
       return {
@@ -355,7 +359,7 @@ export const useGetBatchSummaryReport = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.reports.batchSummary(register),
+    queryKey: ["ipo", "summary-report", register],
     queryFn: () => getBatchSummaryReport(register),
     ...options,
   });
@@ -375,7 +379,7 @@ export const useGetStateSummaryReport = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.reports.stateSummary(register),
+    queryKey: ["ipo", "state-summary-report", register],
     queryFn: () => getStateSummaryReport(register),
     ...options,
   });
@@ -395,7 +399,7 @@ export const useGetRangeAnalysisReport = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.reports.rangeAnalysis(register),
+    queryKey: ["ipo", "range-analysis-report", register],
     queryFn: () => getRangeAnalysisReport(register),
     ...options,
   });
@@ -423,7 +427,7 @@ export const useGetFullSubscriptionListReport = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.reports.fullSubscription(params),
+    queryKey: ["ipo", "full-subscription-list-report", params],
     queryFn: () => getFullSubscriptionListReport(params),
     ...options,
   });
@@ -448,7 +452,7 @@ export const useGetApplicationOfferReport = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.reports.applicationOffer(params),
+    queryKey: ["ipo", "application-offer-report", params],
     queryFn: () => getApplicationOfferReport(params),
     ...options,
   });
@@ -472,7 +476,7 @@ export const useGetApplicationOfferSummaryReport = (
   >,
 ) => {
   return useQuery({
-    queryKey: ipoKeys.reports.applicationOfferSummary(register),
+    queryKey: ["ipo", "application-offer-summary-report", register],
     queryFn: () => getApplicationOfferSummaryReport(register),
     ...options,
   });
@@ -499,11 +503,13 @@ export const useApproveBatchLodgment = () => {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.all,
+        queryKey: ["ipo"],
+        exact: false
       });
 
       queryClient.invalidateQueries({
-        queryKey: ipoKeys.detail(variables.batchRef),
+        queryKey: ["ipo", "detail", variables.batchRef],
+        exact: false
       });
     },
   });
