@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { TransferRequest } from "@/types/cscs";
 import {
   useApproveTransferRequest,
@@ -230,9 +230,15 @@ export const ReviewTranser = ({
                 onClick={handleReject}
               >
                 Reject
+                {rejectMutation.isPending && (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                )}
               </Button>
               <Button className="flex-1" onClick={handleApprove}>
                 Approve Transfer
+                {approveMutation.isPending && (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                )}
               </Button>
             </div>
           </div>

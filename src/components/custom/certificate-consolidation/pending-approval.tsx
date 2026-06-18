@@ -160,7 +160,7 @@ export default function PendingConsolidationApprovals() {
                 <th className="p-3">CERTIFICATES</th>
                 <th className="p-3">TOTAL UNITS</th>
                 <th className="p-3">SUBMITTED BY</th>
-                <th className="p-3">ACTIONS</th>
+                <th className="p-3 text-center">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y text-[13px]">
@@ -186,7 +186,7 @@ export default function PendingConsolidationApprovals() {
                   <td className="p-3 text-muted-foreground">
                     {row.submittedBy}
                   </td>
-                  <td className="p-3 text-right">
+                  <td className="p-3 text-center">
                     <Button size="sm" onClick={() => openReview(row)}>
                       Review &amp; Decide
                     </Button>

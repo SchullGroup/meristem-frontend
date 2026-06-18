@@ -262,9 +262,15 @@ export const ReviewConsolidation = ({
                 onClick={handleReject}
               >
                 Reject
+                {rejectMutation.isPending && (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                )}
               </Button>
               <Button className="flex-1" onClick={handleApprove}>
                 Approve Consolidation
+                {approveMutation.isPending && (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                )}
               </Button>
             </div>
           </div>
