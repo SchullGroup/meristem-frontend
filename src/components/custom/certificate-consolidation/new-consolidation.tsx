@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -101,6 +102,19 @@ export default function NewConsolidation({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, autoLoad]);
+
+  // Prefill + auto-load when navigated from the certificate enquiry page
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const accountNo = searchParams.get("accountNo");
+    const register = searchParams.get("register");
+    if (accountNo) {
+      setSearch(accountNo);
+      if (register) setSelectedRegister(register);
+      setAutoLoad(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {

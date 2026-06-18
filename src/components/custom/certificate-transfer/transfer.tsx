@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export const Transfer = ({
   );
 
   const [autoLoad, setAutoLoad] = useState(false);
+  const [autoLoadSrc, setAutoLoadSrc] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
 
   const [srcSearch, setSrcSearch] = useState("");
@@ -76,21 +78,23 @@ export const Transfer = ({
   const [uploadingIot, setUploadingIot] = useState(false);
 
   // ── Registers ──
-  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
-
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   // Setup queries
-  const { refetch: fetchSrc, isFetching: srcFetching } = useGetShareholdersCertificate(
-    { search: srcSearch, registerId: selectedRegister },
-    { enabled: false, retry: 1 },
-  );
-  const { refetch: fetchDest, isFetching: destFetching } = useGetShareholdersCertificate(
-    { search: destSearch, registerId: selectedRegister },
-    { enabled: false, retry: 1 },
-  );
+  const { refetch: fetchSrc, isFetching: srcFetching } =
+    useGetShareholdersCertificate(
+      { search: srcSearch, registerId: selectedRegister },
+      { enabled: false, retry: 1 },
+    );
+  const { refetch: fetchDest, isFetching: destFetching } =
+    useGetShareholdersCertificate(
+      { search: destSearch, registerId: selectedRegister },
+      { enabled: false, retry: 1 },
+    );
 
   const submitMutation = useSubmitTransferRequest();
 
@@ -199,6 +203,28 @@ export const Transfer = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [srcSearch, destSearch, autoLoad]);
+
+  // Auto-search the source only (used when prefilled from the certificate enquiry page)
+  useEffect(() => {
+    if (autoLoadSrc && srcSearch && selectedRegister) {
+      handleSearchSrc();
+      setAutoLoadSrc(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [srcSearch, selectedRegister, autoLoadSrc]);
+
+  // Prefill register + transferor when navigated from the certificate enquiry page
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const register = searchParams.get("register");
+    const src = searchParams.get("src");
+    if (src) {
+      setSrcSearch(src);
+      if (register) setSelectedRegister(register);
+      setAutoLoadSrc(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const resetForm = () => {
     setEditingRejected(null);
@@ -352,9 +378,7 @@ export const Transfer = ({
           <SelectValue placeholder="All Registers" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={""}>
-            All Registers
-          </SelectItem>
+          <SelectItem value={""}>All Registers</SelectItem>
           {activeRegisters?.content.map((r) => (
             <SelectItem key={r.registerId} value={r.symbol}>
               {r.registerName} {r.symbol}

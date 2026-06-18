@@ -134,7 +134,7 @@ export default function DeclarationPage() {
   });
 
   const declarationList = declarationData?.data?.content || [];
-  console.log(declarationList);
+
   const {
     data: dividendLiabilityPreview,
     isFetching: liabilityPreviewFetching,
@@ -469,7 +469,7 @@ export default function DeclarationPage() {
     } catch (error) {
       toast.error(
         (error as { message: string }).message ||
-        "Failed to download Excel report.",
+          "Failed to download Excel report.",
       );
     } finally {
       setIsExportingExcel(false);
@@ -1603,15 +1603,15 @@ export default function DeclarationPage() {
                           d.status === "PENDING_TIER3" ||
                           d.status === "PENDING_TIER4",
                       )?.length === 0 && (
-                          <tr>
-                            <td
-                              colSpan={9}
-                              className="px-4 py-12 text-center text-muted-foreground"
-                            >
-                              No declarations pending ICU approval.
-                            </td>
-                          </tr>
-                        )}
+                        <tr>
+                          <td
+                            colSpan={9}
+                            className="px-4 py-12 text-center text-muted-foreground"
+                          >
+                            No declarations pending ICU approval.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1671,9 +1671,9 @@ export default function DeclarationPage() {
                             <td className="px-4 py-3 text-muted-foreground text-[13px]">
                               {d.qualificationDate
                                 ? format(
-                                  new Date(d.qualificationDate),
-                                  "dd MMM yyyy",
-                                )
+                                    new Date(d.qualificationDate),
+                                    "dd MMM yyyy",
+                                  )
                                 : "—"}
                             </td>
                             <td className="px-4 py-3 text-center tabular-nums">
@@ -1759,15 +1759,15 @@ export default function DeclarationPage() {
                     {declarationList?.filter((d: { status: string }) => {
                       return d.status === "AUTHORIZED";
                     })?.length === 0 && (
-                        <tr>
-                          <td
-                            colSpan={9}
-                            className="px-4 py-12 text-center text-muted-foreground"
-                          >
-                            No declaration history found.
-                          </td>
-                        </tr>
-                      )}
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-4 py-12 text-center text-muted-foreground"
+                        >
+                          No declaration history found.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

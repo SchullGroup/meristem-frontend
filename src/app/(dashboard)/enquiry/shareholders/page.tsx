@@ -1,11 +1,8 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { TrendingUp, Users, TrendingDown, X } from "lucide-react";
-import { useStore } from "@/lib/store";
-import { useState } from "react";
-import { usePagination } from "@/lib/use-pagination";
+import { useMemo, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { TrendingUp, Users, TrendingDown, X, Loader2 } from "lucide-react";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { ShareholderSearchInput } from "@/components/custom/shareholder-search-input";
 import { Card } from "@/components/ui/card";
@@ -18,23 +15,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import type { Shareholder } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
+import {
+  getShareholders,
+  getShareholderSummary,
+} from "@/actions/enquiryActions";
+import { useGetRegisters } from "@/hooks/useRegisters";
 
-const STATUS_BADGE: Record<Shareholder["status"], string> = {
+const STATUS_BADGE: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-800",
   DORMANT: "bg-gray-100 text-gray-600",
   CAUTIONED: "bg-amber-100 text-amber-800",
   SUSPENDED: "bg-red-100 text-red-800",
 };
 
-const STATUS_LABEL: Record<Shareholder["status"], string> = {
+const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Active",
   DORMANT: "Inactive",
   CAUTIONED: "Cautioned",
   SUSPENDED: "Suspended",
 };
 
-const STATUS_ROW_BG: Record<Shareholder["status"], string> = {
+const STATUS_ROW_BG: Record<string, string> = {
   ACTIVE: "",
   DORMANT: "",
   CAUTIONED: "bg-amber-50/40",
@@ -43,85 +45,95 @@ const STATUS_ROW_BG: Record<Shareholder["status"], string> = {
 
 export default function ShareholderRegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { shareholders, registers } = useStore();
 
-  const [registerFilter, setRegisterFilter] = useState("all");
+  const [registerFilter, setRegisterFilter] = useState("");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("");
+
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   useEffect(() => {
-    const reg = searchParams.get("register");
-    const q = searchParams.get("q");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (reg) setRegisterFilter(reg);
-    if (q) setSearch(q);
-  }, [searchParams]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0);
+    }, 300);
 
-  const activeRegisters = useMemo(
-    () => registers.filter((r) => r.status === "ACTIVE"),
-    [registers],
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [search]);
+
+  const { data: registersData, isLoading: isRegisterLoading } = useGetRegisters(
+    {
+      size: 100,
+    },
   );
+  const registerlist = registersData?.content;
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: [
+      "shareholders",
+      page,
+      pageSize,
+      debouncedSearch,
+      registerFilter,
+      statusFilter,
+    ],
+    queryFn: () =>
+      getShareholders({
+        page,
+        size: pageSize,
+        q: debouncedSearch || undefined,
+        registerSymbol: registerFilter || undefined,
+        status: (statusFilter as any) || undefined,
+      }),
+  });
+
+  const { data: summaryData } = useQuery({
+    queryKey: ["shareholderSummary", registerFilter],
+    queryFn: () => getShareholderSummary(registerFilter || undefined),
+  });
+
+  const shareholdersData = data?.content || [];
 
   const registerMap = useMemo(
-    () => new Map(registers.map((r) => [r.id, r])),
-    [registers],
+    () => new Map((registerlist ?? []).map((r) => [r.registerId, r])),
+    [registerlist],
   );
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return shareholders.filter((s) => {
-      if (registerFilter !== "all" && s.registerId !== registerFilter)
-        return false;
-      if (statusFilter !== "all" && s.status !== statusFilter) return false;
-      if (term) {
-        const hay =
-          `${s.firstName} ${s.lastName} ${s.accountNumber} ${s.chn}`.toLowerCase();
-        if (!hay.includes(term)) return false;
-      }
-      return true;
-    });
-  }, [shareholders, registerFilter, search, statusFilter]);
+  const summary = summaryData?.data;
+  const totalShareholdersCount = summary?.totalShareholders ?? 0;
+  const activeCount = summary?.activeCount ?? 0;
+  const dormantCount = summary?.dormantCount ?? 0;
+  const cautionedCount = summary?.cautionedCount ?? 0;
+  const totalHoldings = useMemo(() => {
+    const activeFilters =
+      registerFilter !== "" || search.trim() !== "" || statusFilter !== "";
+    if (activeFilters) {
+      return shareholdersData.reduce((sum, s) => sum + (s.holdings || 0), 0);
+    }
+    return summary?.totalHoldings ?? 0;
+  }, [registerFilter, search, statusFilter, shareholdersData, summary]);
 
-  const totalHoldings = useMemo(
-    () => filtered.reduce((s, h) => s + h.holdings, 0),
-    [filtered],
-  );
-  const activeCount = useMemo(
-    () => filtered.filter((s) => s.status === "ACTIVE").length,
-    [filtered],
-  );
-  const dormantCount = useMemo(
-    () => filtered.filter((s) => s.status === "DORMANT").length,
-    [filtered],
-  );
-  const cautionedCount = useMemo(
-    () => filtered.filter((s) => s.status === "CAUTIONED").length,
-    [filtered],
-  );
-
-  const {
-    page,
-    pageSize,
-    totalPages,
-    paged,
-    from,
-    to,
-    total,
-    setPage,
-    setPageSize,
-  } = usePagination(filtered, 20);
+  const total = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  const from = total === 0 ? 0 : page * pageSize + 1;
+  const to = Math.min((page + 1) * pageSize, total);
 
   function clearFilters() {
-    setRegisterFilter("all");
+    setRegisterFilter("");
     setSearch("");
-    setStatusFilter("all");
+    setStatusFilter("");
+    setPage(0);
   }
 
   const hasFilters =
-    registerFilter !== "all" || search.trim() !== "" || statusFilter !== "all";
+    registerFilter !== "" || search.trim() !== "" || statusFilter !== "";
 
-  function goToHolder(s: Shareholder) {
+  function goToHolder(s: { id: string }) {
     router.push(`/enquiry/holder?id=${s.id}`);
   }
 
@@ -141,7 +153,7 @@ export default function ShareholderRegisterPage() {
           {[
             {
               label: "Total",
-              value: shareholders.length,
+              value: totalShareholdersCount,
               icon: Users,
               color: "",
             },
@@ -186,7 +198,7 @@ export default function ShareholderRegisterPage() {
 
       {/* ── Search bar ── */}
       <ShareholderSearchInput
-        registerId={registerFilter !== "all" ? registerFilter : undefined}
+        registerSymbol={registerFilter}
         className="w-full"
         placeholder="Search shareholders — type a surname, account no or CHN to see suggestions…"
         onSelect={goToHolder}
@@ -199,33 +211,45 @@ export default function ShareholderRegisterPage() {
         <Select
           value={registerFilter}
           onValueChange={(v) => {
-            if (v) setRegisterFilter(v);
+            setRegisterFilter(v || "");
+            setPage(0);
           }}
         >
           <SelectTrigger className="w-[180px] mrpsl-input">
             <SelectValue placeholder="All Registers" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Registers</SelectItem>
-            {activeRegisters.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.symbol}
-              </SelectItem>
-            ))}
+            {isRegisterLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            ) : (
+              <>
+                <SelectItem value="">All Registers</SelectItem>
+                {registerlist
+                  ?.filter((r) => r?.status === "ACTIVE")
+                  .map((r) => (
+                    <SelectItem key={r.registerId} value={r?.symbol}>
+                      {r?.registerName} - {r?.symbol}
+                    </SelectItem>
+                  ))}
+              </>
+            )}
           </SelectContent>
         </Select>
 
         <Select
           value={statusFilter}
           onValueChange={(v) => {
-            if (v) setStatusFilter(v);
+            setStatusFilter(v || "");
+            setPage(0);
           }}
         >
           <SelectTrigger className="w-[150px] mrpsl-input">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="">All Statuses</SelectItem>
             <SelectItem value="ACTIVE">Active</SelectItem>
             <SelectItem value="DORMANT">Inactive</SelectItem>
             <SelectItem value="CAUTIONED">Cautioned</SelectItem>
@@ -247,7 +271,7 @@ export default function ShareholderRegisterPage() {
         <div className="ml-auto text-[12px] text-muted-foreground self-center">
           {totalHoldings > 0 && (
             <span>
-              Total filtered:{" "}
+              {hasFilters ? "Total filtered holdings" : "Total Holdings"}:{" "}
               <span className="font-mono font-semibold text-foreground">
                 {totalHoldings.toLocaleString()}
               </span>{" "}
@@ -273,7 +297,45 @@ export default function ShareholderRegisterPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {paged.length === 0 ? (
+            {isLoading ? (
+              Array.from({ length: pageSize }).map((_, i) => (
+                <tr key={`skeleton-${i}`} className="animate-pulse">
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-5 bg-muted rounded" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-24 bg-muted rounded font-mono" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-40 bg-muted rounded" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-24 bg-muted rounded font-mono" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-20 bg-muted rounded ml-auto" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-5 w-16 bg-muted rounded-full" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-12 bg-muted rounded" />
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="h-4 w-20 bg-muted rounded" />
+                  </td>
+                </tr>
+              ))
+            ) : error ? (
+              <tr>
+                <td
+                  colSpan={8}
+                  className="py-14 text-center text-red-500 text-sm font-medium"
+                >
+                  Failed to load shareholders. Please try again.
+                </td>
+              </tr>
+            ) : shareholdersData.length === 0 ? (
               <tr>
                 <td
                   colSpan={8}
@@ -283,7 +345,7 @@ export default function ShareholderRegisterPage() {
                 </td>
               </tr>
             ) : (
-              paged.map((s, idx) => {
+              shareholdersData.map((s, idx) => {
                 const reg = registerMap.get(s.registerId);
                 return (
                   <tr
@@ -291,7 +353,7 @@ export default function ShareholderRegisterPage() {
                     onClick={() => goToHolder(s)}
                     className={[
                       "cursor-pointer transition-colors text-[13px] cursor-pointer",
-                      STATUS_ROW_BG[s.status],
+                      STATUS_ROW_BG[s.status] || "",
                       "hover:bg-muted/30",
                     ].join(" ")}
                   >
@@ -313,13 +375,13 @@ export default function ShareholderRegisterPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       <Badge
-                        className={`${STATUS_BADGE[s.status]} border-0 text-[11px] font-semibold`}
+                        className={`${STATUS_BADGE[s.status] || "bg-gray-100 text-gray-800"} border-0 text-[11px] font-semibold`}
                       >
-                        {STATUS_LABEL[s.status]}
+                        {STATUS_LABEL[s.status] || s.status || "—"}
                       </Badge>
                     </td>
                     <td className="px-3 py-2.5 text-muted-foreground">
-                      {reg?.symbol ?? "—"}
+                      {s.registerSymbol || reg?.symbol || "—"}
                     </td>
                     <td className="px-3 py-2.5 text-muted-foreground">
                       {s.holderType}
@@ -332,14 +394,17 @@ export default function ShareholderRegisterPage() {
         </table>
         <div className="px-4 py-2 border-t">
           <TablePagination
-            page={page}
+            page={page + 1}
             pageSize={pageSize}
             totalPages={totalPages}
             from={from}
             to={to}
             total={total}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            onPageChange={(p) => setPage(p - 1)}
+            onPageSizeChange={(sz) => {
+              setPageSize(sz);
+              setPage(0);
+            }}
           />
         </div>
       </Card>

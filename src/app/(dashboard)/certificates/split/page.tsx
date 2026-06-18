@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -126,6 +127,18 @@ export default function SplitPage() {
     setActiveSearchTerm(searchTerm);
     setCertFound(true);
   };
+
+  // Prefill + auto-search when navigated from the certificate enquiry page
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const search = searchParams.get("search");
+    if (search) {
+      setSearchTerm(search);
+      setActiveSearchTerm(search);
+      setCertFound(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: splitsData } = useQuery({
     queryKey: ["pending-splits"],

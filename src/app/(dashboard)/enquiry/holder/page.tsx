@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import { useReactToPrint } from "react-to-print";
 import {
   FileText,
   DollarSign,
@@ -9,6 +10,7 @@ import {
   FolderOpen,
   Printer,
   Download,
+  Loader2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -29,20 +31,125 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { useStore } from "@/lib/store";
+import { useQuery } from "@tanstack/react-query";
 import { ShareholderSearchInput } from "@/components/custom/shareholder-search-input";
-import type { Shareholder } from "@/lib/types";
+import { TablePagination } from "@/components/custom/table-pagination";
+import { useServerPagination } from "@/lib/use-server-pagination";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import {
+  getHolderProfile,
+  getHolderCertificate,
+  getHolderDividends,
+  getHolderKycChanges,
+  getHolderMergers,
+  getHolderTransfers,
+  getHolderAdmonRecords,
+} from "@/actions/enquiryActions";
+import type { Shareholder, Certificate } from "@/types/enquiry";
 
 export default function HolderEnquiryPage() {
-  const { registers, shareholders } = useStore();
   const searchParams = useSearchParams();
   const [scope, setScope] = useState<"all" | "single">("all");
-  const [selectedRegisterId, setSelectedRegisterId] = useState("");
-  const [selectedHolder, setSelectedHolder] = useState<Shareholder | null>(
-    null,
-  );
+  const [selectedRegisterSymbol, setSelectedRegisterSymbol] = useState("");
+  const [holderId, setHolderId] = useState<string | null>(null);
 
-  const activeRegisters = registers.filter((r) => r.status === "ACTIVE");
+  const { data: registersData, isLoading: isRegisterLoading } = useGetRegisters(
+    { size: 100 },
+  );
+  const activeRegisters =
+    registersData?.content?.filter((r) => r.status === "ACTIVE") ?? [];
+
+  // Fetch the selected holder's profile from the endpoint
+  const {
+    data: profileData,
+    isLoading: isProfileLoading,
+    error: profileError,
+  } = useQuery({
+    queryKey: ["holderProfile", holderId],
+    queryFn: () => getHolderProfile(holderId as string),
+    enabled: !!holderId,
+  });
+  const holder = profileData?.data ?? null;
+
+  // ── Per-tab server pagination ──
+  const certPg = useServerPagination();
+  const divPg = useServerPagination();
+  const chgPg = useServerPagination();
+
+  // Certificate tab
+  const { data: certData, isLoading: isCertLoading } = useQuery({
+    queryKey: ["holderCertificates", holderId, certPg.page, certPg.pageSize],
+    queryFn: () =>
+      getHolderCertificate(holderId as string, {
+        page: certPg.page,
+        size: certPg.pageSize,
+      }),
+    enabled: !!holderId,
+  });
+  const certificates = certData?.content ?? [];
+
+  // Dividend tab
+  const { data: divData, isLoading: isDivLoading } = useQuery({
+    queryKey: ["holderDividends", holderId, divPg.page, divPg.pageSize],
+    queryFn: () =>
+      getHolderDividends(holderId as string, {
+        page: divPg.page,
+        size: divPg.pageSize,
+      }),
+    enabled: !!holderId,
+  });
+  const dividends = divData?.content ?? [];
+
+  // Changes (KYC) tab
+  const { data: chgData, isLoading: isChgLoading } = useQuery({
+    queryKey: ["holderKycChanges", holderId, chgPg.page, chgPg.pageSize],
+    queryFn: () =>
+      getHolderKycChanges(holderId as string, {
+        page: chgPg.page,
+        size: chgPg.pageSize,
+      }),
+    enabled: !!holderId,
+  });
+  const kycChanges = chgData?.content ?? [];
+
+  // Merger tab
+  const mergPg = useServerPagination();
+  const { data: mergData, isLoading: isMergLoading } = useQuery({
+    queryKey: ["holderMergers", holderId, mergPg.page, mergPg.pageSize],
+    queryFn: () =>
+      getHolderMergers(holderId as string, {
+        page: mergPg.page,
+        size: mergPg.pageSize,
+      }),
+    enabled: !!holderId,
+  });
+  const mergers = mergData?.content ?? [];
+
+  // Transfer tab
+  const trnPg = useServerPagination();
+  const { data: trnData, isLoading: isTrnLoading } = useQuery({
+    queryKey: ["holderTransfers", holderId, trnPg.page, trnPg.pageSize],
+    queryFn: () =>
+      getHolderTransfers(holderId as string, {
+        page: trnPg.page,
+        size: trnPg.pageSize,
+      }),
+    enabled: !!holderId,
+  });
+  const transfers = trnData?.content ?? [];
+
+  // Admon tab
+  const admPg = useServerPagination();
+  const { data: admData, isLoading: isAdmLoading } = useQuery({
+    queryKey: ["holderAdmon", holderId, admPg.page, admPg.pageSize],
+    queryFn: () =>
+      getHolderAdmonRecords(holderId as string, {
+        page: admPg.page,
+        size: admPg.pageSize,
+      }),
+    enabled: !!holderId,
+  });
+  const admonRecords = admData?.content ?? [];
 
   type HolderModal =
     | "statement"
@@ -53,27 +160,37 @@ export default function HolderEnquiryPage() {
     | null;
   const [activeModal, setActiveModal] = useState<HolderModal>(null);
   const [innerDetailTab, setInnerDetailTab] = useState("cert");
+  // Certificate selected for the print modal
+  const [printCert, setPrintCert] = useState<Certificate | null>(null);
+  const certPrintRef = useRef<HTMLDivElement>(null);
 
-  // Pre-select shareholder when navigated from another page with ?id=
+  function openPrintModal(cert: Certificate | null) {
+    setPrintCert(cert);
+    setActiveModal("print");
+  }
+
+  const handlePrintCertificate = useReactToPrint({
+    contentRef: certPrintRef,
+    documentTitle: printCert?.certificateNo
+      ? `Certificate ${printCert.certificateNo}`
+      : "Share Certificate",
+    onAfterPrint: () => setActiveModal(null),
+  });
+
+  // Pre-select holder when navigated from another page with ?id=
   useEffect(() => {
     const id = searchParams.get("id");
     if (!id) return;
-    const found = shareholders.find((s) => s.id === id);
-    if (found) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedHolder(found);
-      // Scope the register selector to match
-      setScope("single");
-      setSelectedRegisterId(found.registerId);
-    }
-  }, [searchParams, shareholders]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHolderId(id);
+  }, [searchParams]);
 
   function handleSelect(s: Shareholder) {
-    setSelectedHolder(s);
+    setHolderId(s.id);
   }
 
   function handleClear() {
-    setSelectedHolder(null);
+    setHolderId(null);
   }
 
   return (
@@ -95,8 +212,7 @@ export default function HolderEnquiryPage() {
             value={scope}
             onValueChange={(v) => {
               setScope(v as "all" | "single");
-              setSelectedRegisterId("");
-              setSelectedHolder(null);
+              setSelectedRegisterSymbol("");
             }}
             className="flex gap-6"
           >
@@ -116,25 +232,34 @@ export default function HolderEnquiryPage() {
 
           {scope === "single" && (
             <Select
-              value={selectedRegisterId || "none"}
+              value={selectedRegisterSymbol || "none"}
               onValueChange={(v) => {
-                setSelectedRegisterId(v && v !== "none" ? v : "");
-                setSelectedHolder(null);
+                setSelectedRegisterSymbol(v && v !== "none" ? v : "");
               }}
             >
               <SelectTrigger className="w-72 mrpsl-input">
                 <SelectValue placeholder="Select a register…" />
               </SelectTrigger>
               <SelectContent className="min-w-[480px]">
-                <SelectItem value="none">— Select a register —</SelectItem>
-                {activeRegisters.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    <span className="font-mono font-semibold">{r.symbol}</span>
-                    <span className="text-muted-foreground ml-2 text-[12px]">
-                      {r.name}
-                    </span>
-                  </SelectItem>
-                ))}
+                {isRegisterLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    <SelectItem value="none">— Select a register —</SelectItem>
+                    {activeRegisters.map((r) => (
+                      <SelectItem key={r.registerId} value={r.symbol}>
+                        <span className="font-mono font-semibold">
+                          {r.symbol}
+                        </span>
+                        <span className="text-muted-foreground ml-2 text-[12px]">
+                          {r.registerName}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
           )}
@@ -143,9 +268,9 @@ export default function HolderEnquiryPage() {
 
       {/* Search input sits outside Card so the suggestion dropdown isn't clipped */}
       <ShareholderSearchInput
-        registerId={
-          scope === "single" && selectedRegisterId
-            ? selectedRegisterId
+        registerSymbol={
+          scope === "single" && selectedRegisterSymbol
+            ? selectedRegisterSymbol
             : undefined
         }
         className="w-full"
@@ -153,40 +278,56 @@ export default function HolderEnquiryPage() {
         onSelect={handleSelect}
       />
 
-      {selectedHolder && (
+      {holderId && isProfileLoading && (
+        <Card className="mrpsl-card mt-4 flex items-center justify-center py-16">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span className="ml-2 text-sm text-muted-foreground">
+            Loading holder profile…
+          </span>
+        </Card>
+      )}
+
+      {holderId && profileError && !isProfileLoading && (
+        <Card className="mrpsl-card mt-4 py-12 text-center text-sm text-destructive">
+          {profileError instanceof Error
+            ? profileError.message
+            : "Failed to load holder profile."}
+        </Card>
+      )}
+
+      {holder && (
         <Card className="mrpsl-card mt-4 animate-in fade-in slide-in-from-bottom-4">
           <div className="p-5 border-b flex items-start gap-4 bg-muted/5">
             <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
               <span className="text-primary font-bold text-xl font-mono">
-                {selectedHolder.firstName[0]}
-                {selectedHolder.lastName[0]}
+                {holder.firstName?.[0]}
+                {holder.lastName?.[0]}
               </span>
             </div>
             <div className="flex-1 flex justify-between items-start">
               <div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="text-2xl font-bold">
-                    {selectedHolder.lastName}, {selectedHolder.firstName}
-                    {selectedHolder.otherNames
-                      ? ` ${selectedHolder.otherNames}`
-                      : ""}
+                    {holder.lastName}, {holder.firstName}
+                    {holder.otherNames ? ` ${holder.otherNames}` : ""}
                   </h2>
                   <span className="font-mono text-muted-foreground text-sm">
-                    {selectedHolder.accountNumber}
+                    {holder.accountNumber}
                   </span>
                   <Badge variant="outline" className="text-[13px] font-mono">
-                    {registers.find((r) => r.id === selectedHolder.registerId)
-                      ?.symbol ?? "—"}
+                    {holder.registerSymbol ?? "—"}
                   </Badge>
                   <Badge
-                    className={`border-0 text-[13px] ${selectedHolder.status === "ACTIVE" ? "bg-green-100 text-green-800" : selectedHolder.status === "CAUTIONED" ? "bg-amber-100 text-amber-800" : selectedHolder.status === "SUSPENDED" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}
+                    className={`border-0 text-[13px] ${holder.status === "ACTIVE" ? "bg-green-100 text-green-800" : holder.status === "CAUTIONED" ? "bg-amber-100 text-amber-800" : holder.status === "SUSPENDED" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}
                   >
-                    {selectedHolder.status.charAt(0) +
-                      selectedHolder.status.slice(1).toLowerCase()}
+                    {holder.status
+                      ? holder.status.charAt(0) +
+                        holder.status.slice(1).toLowerCase()
+                      : "—"}
                   </Badge>
                 </div>
                 <div className="text-sm text-muted-foreground mt-1 font-mono">
-                  CHN: {selectedHolder.chn}
+                  CHN: {holder.chn}
                 </div>
               </div>
               <div className="flex items-start gap-4">
@@ -196,7 +337,7 @@ export default function HolderEnquiryPage() {
                     title="View certificates"
                     onClick={() => setInnerDetailTab("cert")}
                   >
-                    {selectedHolder.holdings.toLocaleString()}
+                    {holder.holdings?.toLocaleString() ?? "0"}
                   </button>
                   <div className="text-[13px] text-muted-foreground font-medium uppercase tracking-widest mt-1">
                     Units Held
@@ -246,7 +387,7 @@ export default function HolderEnquiryPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setActiveModal("print")}
+              onClick={() => openPrintModal(certificates[0] ?? null)}
             >
               <Printer className="mr-2 h-4 w-4" /> Print Certificate
             </Button>
@@ -257,63 +398,71 @@ export default function HolderEnquiryPage() {
               <h3 className="mrpsl-section-title border-b pb-2">Personal</h3>
               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Date of Birth:</span>
-                <span className="font-mono">14 Feb 1980</span>
+                <span className="font-mono">
+                  {holder.personal?.dateOfBirth || "N/A"}
+                </span>
               </div>
               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Gender:</span>
-                <span>{selectedHolder.gender}</span>
+                <span>{holder.personal?.gender || "N/A"}</span>
               </div>
               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Nationality:</span>
-                <span>Nigerian</span>
+                <span>{holder.personal?.nationality || "N/A"}</span>
               </div>
               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">State:</span>
-                <span>{selectedHolder.state}</span>
+                <span>{holder.personal?.state || "N/A"}</span>
               </div>
               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Holder Type:</span>
-                <span>{selectedHolder.holderType}</span>
+                <span>{holder.holderType || "N/A"}</span>
               </div>
               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">NIN:</span>
                 <span className="font-mono">
-                  {selectedHolder.nin
-                    ? `***${selectedHolder.nin.slice(-4)}`
+                  {holder.personal?.nin
+                    ? `***${holder.personal.nin.slice(-4)}`
                     : "N/A"}
                 </span>
               </div>
               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">SCUML:</span>
-                <span className="font-mono text-muted-foreground">—</span>
+                <span className="font-mono text-muted-foreground">
+                  {holder.personal?.scuml || "—"}
+                </span>
               </div>
               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">TIN:</span>
-                <span className="font-mono">N/A</span>
+                <span className="font-mono">
+                  {holder.personal?.tin || "N/A"}
+                </span>
               </div>
             </div>
             <div className="space-y-4">
               <h3 className="mrpsl-section-title border-b pb-2">Contact</h3>
               <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Email:</span>
-                <span>{selectedHolder.email}</span>
+                <span>{holder.contact?.email || "N/A"}</span>
               </div>
               <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Phone:</span>
-                <span className="font-mono">{selectedHolder.phone}</span>
+                <span className="font-mono">
+                  {holder.contact?.phone || "N/A"}
+                </span>
               </div>
               <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Alt Phone:</span>
                 <span className="font-mono">
-                  {selectedHolder.phone2 ?? "N/A"}
+                  {holder.contact?.altPhone || "N/A"}
                 </span>
               </div>
               <div className="grid grid-cols-[80px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Address:</span>
                 <span className="leading-relaxed">
-                  {selectedHolder.address}
+                  {holder.contact?.address || "N/A"}
                   <br />
-                  {selectedHolder.state}
+                  {holder.personal?.state}
                 </span>
               </div>
             </div>
@@ -321,33 +470,34 @@ export default function HolderEnquiryPage() {
               <h3 className="mrpsl-section-title border-b pb-2">Financial</h3>
               <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Bank Name:</span>
-                <span>{selectedHolder.bankName}</span>
+                <span>{holder.financial?.bankName || "N/A"}</span>
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Bank Account:</span>
                 <span className="font-mono">
-                  {selectedHolder.bankAccountNumber}
+                  {holder.financial?.bankAccountNumber || "N/A"}
                 </span>
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">BVN:</span>
                 <span className="font-mono">
-                  {selectedHolder.bvn.slice(0, 3)}***
-                  {selectedHolder.bvn.slice(-4)}
+                  {holder.financial?.bvn
+                    ? `${holder.financial.bvn.slice(0, 3)}***${holder.financial.bvn.slice(-4)}`
+                    : "N/A"}
                 </span>
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Caution:</span>
-                <span>{selectedHolder.cautionReason ?? "None"}</span>
+                <span>{holder.financial?.cautionReason || "None"}</span>
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">No Tax:</span>
-                <span>{selectedHolder.noTax ? "Yes" : "No"}</span>
+                <span>{holder.financial?.noTax ? "Yes" : "No"}</span>
               </div>
               <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
                 <span className="text-muted-foreground">Unpaid Div:</span>
                 <span className="font-mono font-bold text-red-600">
-                  ₦45,000.00
+                  ₦{(holder.financial?.unpaidDividend ?? 0).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -416,63 +566,79 @@ export default function HolderEnquiryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y font-mono text-[13px]">
-                    {[
-                      {
-                        no: "CERT-DANGCEM-20015",
-                        issued: "01 Jan 2020",
-                        units: 15000,
-                        status: "Active",
-                      },
-                    ].map((cert) => (
-                      <tr key={cert.no} className="hover:bg-accent/5">
-                        <td className="p-3">{cert.no}</td>
-                        <td className="p-3 text-muted-foreground font-sans">
-                          {cert.issued}
-                        </td>
-                        <td className="p-3 text-right font-bold">
-                          {cert.units.toLocaleString()}
-                        </td>
-                        <td className="p-3">
-                          <Badge
-                            variant="outline"
-                            className="text-[13px] text-green-700 bg-green-50 border-0"
-                          >
-                            {cert.status}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              title="View certificate"
-                              className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                              onClick={() =>
-                                toast.success(`Viewing ${cert.no}`)
-                              }
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              title="Download PDF"
-                              className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                              onClick={() =>
-                                toast.success("Certificate downloaded")
-                              }
-                            >
-                              <Download className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              title="Print certificate"
-                              className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                              onClick={() => setActiveModal("print")}
-                            >
-                              <Printer className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
+                    {isCertLoading ? (
+                      <tr>
+                        <td colSpan={5} className="p-12 text-center">
+                          <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
                         </td>
                       </tr>
-                    ))}
+                    ) : certificates.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="p-12 text-center text-muted-foreground font-sans"
+                        >
+                          No certificates found.
+                        </td>
+                      </tr>
+                    ) : (
+                      certificates.map((cert) => (
+                        <tr
+                          key={cert.certificateNo}
+                          className="hover:bg-accent/5"
+                        >
+                          <td className="p-3">{cert.certificateNo}</td>
+                          <td className="p-3 text-muted-foreground font-sans">
+                            {cert.dateIssued}
+                          </td>
+                          <td className="p-3 text-right font-bold">
+                            {cert.units?.toLocaleString() ?? "0"}
+                          </td>
+                          <td className="p-3">
+                            <Badge
+                              variant="outline"
+                              className="text-[13px] text-green-700 bg-green-50 border-0"
+                            >
+                              {cert.status}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                title="View certificate"
+                                className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                                onClick={() =>
+                                  toast.success(`Viewing ${cert.certificateNo}`)
+                                }
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                title="Download PDF"
+                                className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                                onClick={() =>
+                                  toast.success("Certificate downloaded")
+                                }
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                title="Print certificate"
+                                className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                                onClick={() => openPrintModal(cert)}
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+                <div className="px-4 py-2 border-t">
+                  <TablePagination {...certPg.tableProps(certData)} />
+                </div>
               </TabsContent>
               <TabsContent value="div" className="m-0">
                 <table className="w-full text-left text-sm">
@@ -489,83 +655,59 @@ export default function HolderEnquiryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {[
-                      {
-                        no: "DIV-2025-003",
-                        decl: "15 Mar 2026",
-                        pay: "15 Apr 2026",
-                        rate: 1.5,
-                        gross: 22500,
-                        net: 19125,
-                        status: "PAID",
-                        method: "EFT",
-                      },
-                      {
-                        no: "DIV-2025-002",
-                        decl: "10 Sep 2025",
-                        pay: "10 Oct 2025",
-                        rate: 1.2,
-                        gross: 18000,
-                        net: 15300,
-                        status: "PAID",
-                        method: "EFT",
-                      },
-                      {
-                        no: "DIV-2025-001",
-                        decl: "20 Mar 2025",
-                        pay: "20 Apr 2025",
-                        rate: 0.9,
-                        gross: 13500,
-                        net: 11475,
-                        status: "PAID",
-                        method: "Warrant",
-                      },
-                      {
-                        no: "DIV-2024-002",
-                        decl: "12 Sep 2024",
-                        pay: "12 Oct 2024",
-                        rate: 1.0,
-                        gross: 15000,
-                        net: 12750,
-                        status: "PAID",
-                        method: "EFT",
-                      },
-                      {
-                        no: "DIV-2024-001",
-                        decl: "18 Mar 2024",
-                        pay: "—",
-                        rate: 0.75,
-                        gross: 11250,
-                        net: 9563,
-                        status: "UNPAID",
-                        method: "—",
-                      },
-                    ].map((r, i) => (
-                      <tr key={i} className="hover:bg-accent/5">
-                        <td className="p-3 font-mono">{r.no}</td>
-                        <td className="p-3 text-muted-foreground">{r.decl}</td>
-                        <td className="p-3 text-muted-foreground">{r.pay}</td>
-                        <td className="p-3 text-right font-mono">
-                          {r.rate.toFixed(2)}
+                    {isDivLoading ? (
+                      <tr>
+                        <td colSpan={8} className="p-12 text-center">
+                          <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
                         </td>
-                        <td className="p-3 text-right font-mono">
-                          {r.gross.toLocaleString()}.00
-                        </td>
-                        <td className="p-3 text-right font-mono font-semibold">
-                          {r.net.toLocaleString()}.00
-                        </td>
-                        <td className="p-3">
-                          <Badge
-                            className={`border-0 text-[13px] ${r.status === "PAID" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-                          >
-                            {r.status}
-                          </Badge>
-                        </td>
-                        <td className="p-3">{r.method}</td>
                       </tr>
-                    ))}
+                    ) : dividends.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="p-12 text-center text-muted-foreground"
+                        >
+                          No dividend records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      dividends.map((r, i) => (
+                        <tr
+                          key={r.dividendNo || i}
+                          className="hover:bg-accent/5"
+                        >
+                          <td className="p-3 font-mono">{r.dividendNo}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {r.declDate}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {r.paymentDate || "—"}
+                          </td>
+                          <td className="p-3 text-right font-mono">
+                            {(r.rate ?? 0).toFixed(2)}
+                          </td>
+                          <td className="p-3 text-right font-mono">
+                            {(r.gross ?? 0).toLocaleString()}
+                          </td>
+                          <td className="p-3 text-right font-mono font-semibold">
+                            {(r.net ?? 0).toLocaleString()}
+                          </td>
+                          <td className="p-3">
+                            <Badge
+                              className={`border-0 text-[13px] ${r.status === "PAID" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                            >
+                              {r.status}
+                            </Badge>
+                          </td>
+                          <td className="p-3">{r.method || "—"}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+                <div className="px-4 py-2 border-t">
+                  <TablePagination {...divPg.tableProps(divData)} />
+                </div>
               </TabsContent>
 
               <TabsContent
@@ -574,11 +716,61 @@ export default function HolderEnquiryPage() {
               >
                 No interest records (Equity register).
               </TabsContent>
-              <TabsContent
-                value="chg"
-                className="m-0 p-12 text-center text-muted-foreground"
-              >
-                Audit log of KYC changes.
+              <TabsContent value="chg" className="m-0">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header bg-muted/30">
+                    <tr>
+                      <th className="p-3">FIELD</th>
+                      <th className="p-3">OLD VALUE</th>
+                      <th className="p-3">NEW VALUE</th>
+                      <th className="p-3">CHANGED BY</th>
+                      <th className="p-3">ROLE</th>
+                      <th className="p-3">APPROVED BY</th>
+                      <th className="p-3">DATE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-[13px]">
+                    {isChgLoading ? (
+                      <tr>
+                        <td colSpan={7} className="p-12 text-center">
+                          <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
+                        </td>
+                      </tr>
+                    ) : kycChanges.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="p-12 text-center text-muted-foreground"
+                        >
+                          No KYC changes recorded.
+                        </td>
+                      </tr>
+                    ) : (
+                      kycChanges.map((c, i) => (
+                        <tr key={i} className="hover:bg-accent/5">
+                          <td className="p-3 font-medium">{c.field}</td>
+                          <td className="p-3 font-mono text-muted-foreground">
+                            {c.oldValue || "—"}
+                          </td>
+                          <td className="p-3 font-mono">{c.newValue || "—"}</td>
+                          <td className="p-3">{c.changedBy || "—"}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {c.changedByRole || "—"}
+                          </td>
+                          <td className="p-3">{c.approvedBy || "—"}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {c.changedAt
+                              ? new Date(c.changedAt).toLocaleDateString()
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+                <div className="px-4 py-2 border-t">
+                  <TablePagination {...chgPg.tableProps(chgData)} />
+                </div>
               </TabsContent>
 
               <TabsContent value="merg" className="m-0">
@@ -589,44 +781,61 @@ export default function HolderEnquiryPage() {
                       <th className="p-3">TYPE</th>
                       <th className="p-3">SOURCE ACCOUNTS</th>
                       <th className="p-3">DESTINATION</th>
-                      <th className="p-3">HOLDINGS MERGED</th>
+                      <th className="p-3 text-right">HOLDINGS MERGED</th>
                       <th className="p-3">INITIATED BY</th>
+                      <th className="p-3">STATUS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {[
-                      {
-                        date: "22 Apr 2026",
-                        type: "Account Consolidation",
-                        sources: "DANGCEM-001, DANGCEM-089",
-                        dest: "DANGCEM-001",
-                        holdings: 15000,
-                        by: "Chidi Okafor",
-                      },
-                      {
-                        date: "10 Jan 2025",
-                        type: "Account Consolidation",
-                        sources: "DANGCEM-001, DANGCEM-012",
-                        dest: "DANGCEM-001",
-                        holdings: 5000,
-                        by: "Ngozi Eze",
-                      },
-                    ].map((r, i) => (
-                      <tr key={i} className="hover:bg-accent/5">
-                        <td className="p-3 text-muted-foreground">{r.date}</td>
-                        <td className="p-3 font-medium">{r.type}</td>
-                        <td className="p-3 font-mono text-muted-foreground">
-                          {r.sources}
+                    {isMergLoading ? (
+                      <tr>
+                        <td colSpan={7} className="p-12 text-center">
+                          <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
                         </td>
-                        <td className="p-3 font-mono">{r.dest}</td>
-                        <td className="p-3 text-right font-mono font-semibold">
-                          {r.holdings.toLocaleString()}
-                        </td>
-                        <td className="p-3 text-muted-foreground">{r.by}</td>
                       </tr>
-                    ))}
+                    ) : mergers.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="p-12 text-center text-muted-foreground"
+                        >
+                          No merger records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      mergers.map((r, i) => (
+                        <tr key={i} className="hover:bg-accent/5">
+                          <td className="p-3 text-muted-foreground">
+                            {r.date}
+                          </td>
+                          <td className="p-3 font-medium">{r.type}</td>
+                          <td className="p-3 font-mono text-muted-foreground">
+                            {r.sourceAccounts?.join(", ") || "—"}
+                          </td>
+                          <td className="p-3 font-mono">
+                            {r.destinationAccount}
+                          </td>
+                          <td className="p-3 text-right font-mono font-semibold">
+                            {(r.holdingsMerged ?? 0).toLocaleString()}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {r.initiatedBy}
+                          </td>
+                          <td className="p-3">
+                            <Badge
+                              className={`border-0 text-[13px] ${r.status === "COMPLETED" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                            >
+                              {r.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+                <div className="px-4 py-2 border-t">
+                  <TablePagination {...mergPg.tableProps(mergData)} />
+                </div>
               </TabsContent>
 
               <TabsContent value="trn" className="m-0">
@@ -643,60 +852,115 @@ export default function HolderEnquiryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {[
-                      {
-                        date: "01 Mar 2026",
-                        no: "TRF-20260301-01",
-                        from: "DANGCEM-001",
-                        to: "DANGCEM-10300",
-                        units: 2000,
-                        type: "Off-Market",
-                        status: "COMPLETED",
-                      },
-                      {
-                        date: "14 Nov 2025",
-                        no: "TRF-20251114-07",
-                        from: "DANGCEM-10300",
-                        to: "DANGCEM-001",
-                        units: 500,
-                        type: "Gift",
-                        status: "COMPLETED",
-                      },
-                      {
-                        date: "05 Jun 2025",
-                        no: "TRF-20250605-03",
-                        from: "DANGCEM-001",
-                        to: "DANGCEM-00980",
-                        units: 1000,
-                        type: "Off-Market",
-                        status: "COMPLETED",
-                      },
-                    ].map((r, i) => (
-                      <tr key={i} className="hover:bg-accent/5">
-                        <td className="p-3 text-muted-foreground">{r.date}</td>
-                        <td className="p-3 font-mono">{r.no}</td>
-                        <td className="p-3 font-mono">{r.from}</td>
-                        <td className="p-3 font-mono">{r.to}</td>
-                        <td className="p-3 text-right font-mono font-semibold">
-                          {r.units.toLocaleString()}
-                        </td>
-                        <td className="p-3">{r.type}</td>
-                        <td className="p-3">
-                          <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
-                            {r.status}
-                          </Badge>
+                    {isTrnLoading ? (
+                      <tr>
+                        <td colSpan={7} className="p-12 text-center">
+                          <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
                         </td>
                       </tr>
-                    ))}
+                    ) : transfers.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="p-12 text-center text-muted-foreground"
+                        >
+                          No transfer records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      transfers.map((r, i) => (
+                        <tr
+                          key={r.transferNo || i}
+                          className="hover:bg-accent/5"
+                        >
+                          <td className="p-3 text-muted-foreground">
+                            {r.date}
+                          </td>
+                          <td className="p-3 font-mono">{r.transferNo}</td>
+                          <td className="p-3 font-mono">{r.fromAccount}</td>
+                          <td className="p-3 font-mono">{r.toAccount}</td>
+                          <td className="p-3 text-right font-mono font-semibold">
+                            {(r.units ?? 0).toLocaleString()}
+                          </td>
+                          <td className="p-3">{r.type}</td>
+                          <td className="p-3">
+                            <Badge
+                              className={`border-0 text-[13px] ${r.status === "COMPLETED" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                            >
+                              {r.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
+                <div className="px-4 py-2 border-t">
+                  <TablePagination {...trnPg.tableProps(trnData)} />
+                </div>
               </TabsContent>
 
-              <TabsContent
-                value="adm"
-                className="m-0 p-12 text-center text-muted-foreground"
-              >
-                Administration records.
+              <TabsContent value="adm" className="m-0">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header bg-muted/30">
+                    <tr>
+                      <th className="p-3">TYPE</th>
+                      <th className="p-3">REFERENCE</th>
+                      <th className="p-3">DECEASED NAME</th>
+                      <th className="p-3">DATE OF DEATH</th>
+                      <th className="p-3">ESTATE ADMINISTRATOR</th>
+                      <th className="p-3">STATUS</th>
+                      <th className="p-3">INITIATED AT</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-[13px]">
+                    {isAdmLoading ? (
+                      <tr>
+                        <td colSpan={7} className="p-12 text-center">
+                          <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
+                        </td>
+                      </tr>
+                    ) : admonRecords.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="p-12 text-center text-muted-foreground"
+                        >
+                          No administration records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      admonRecords.map((r) => (
+                        <tr key={r.id} className="hover:bg-accent/5">
+                          <td className="p-3 font-medium">{r.type}</td>
+                          <td className="p-3 font-mono">{r.reference}</td>
+                          <td className="p-3">{r.deceasedName}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {r.dateOfDeath || "—"}
+                          </td>
+                          <td className="p-3">
+                            {r.estateAdministrator || "—"}
+                          </td>
+                          <td className="p-3">
+                            <Badge
+                              className={`border-0 text-[13px] ${r.status === "COMPLETED" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                            >
+                              {r.status}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {r.initiatedAt
+                              ? new Date(r.initiatedAt).toLocaleDateString()
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+                <div className="px-4 py-2 border-t">
+                  <TablePagination {...admPg.tableProps(admData)} />
+                </div>
               </TabsContent>
             </div>
           </Tabs>
@@ -711,14 +975,10 @@ export default function HolderEnquiryPage() {
         <DialogContent className="max-w-2xl flex flex-col max-h-[85vh] p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>
-              Statement of Account — {selectedHolder?.accountNumber}
+              Statement of Account — {holder?.accountNumber}
             </DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedHolder?.lastName}, {selectedHolder?.firstName} ·{" "}
-              {
-                registers.find((r) => r.id === selectedHolder?.registerId)
-                  ?.symbol
-              }
+              {holder?.lastName}, {holder?.firstName} · {holder?.registerSymbol}
             </p>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 min-h-0">
@@ -729,7 +989,7 @@ export default function HolderEnquiryPage() {
                   Current Holdings
                 </div>
                 <div className="text-2xl font-mono font-bold">
-                  {selectedHolder?.holdings.toLocaleString()}
+                  {holder?.holdings.toLocaleString()}
                 </div>
               </div>
               <div>
@@ -743,7 +1003,7 @@ export default function HolderEnquiryPage() {
                   Net Movement
                 </div>
                 <div className="text-2xl font-mono font-bold text-green-700">
-                  +{((selectedHolder?.holdings ?? 0) - 8000).toLocaleString()}
+                  +{((holder?.holdings ?? 0) - 8000).toLocaleString()}
                 </div>
               </div>
             </div>
@@ -846,14 +1106,10 @@ export default function HolderEnquiryPage() {
         <DialogContent className="max-w-3xl flex flex-col max-h-[85vh] p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>
-              Dividend Statement — {selectedHolder?.accountNumber}
+              Dividend Statement — {holder?.accountNumber}
             </DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedHolder?.lastName}, {selectedHolder?.firstName} ·{" "}
-              {
-                registers.find((r) => r.id === selectedHolder?.registerId)
-                  ?.symbol
-              }
+              {holder?.lastName}, {holder?.firstName} · {holder?.registerSymbol}
             </p>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 min-h-0">
@@ -1008,15 +1264,15 @@ export default function HolderEnquiryPage() {
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>Signature on File</DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedHolder?.lastName}, {selectedHolder?.firstName}
+              {holder?.lastName}, {holder?.firstName}
             </p>
           </DialogHeader>
           <div className="p-6 space-y-4">
             <div className="rounded-xl border bg-muted/10 flex items-center justify-center h-40">
               <div className="text-center space-y-2">
                 <div className="font-serif italic text-4xl text-muted-foreground/60 select-none">
-                  {selectedHolder?.firstName?.[0]}
-                  {selectedHolder?.lastName}
+                  {holder?.firstName?.[0]}
+                  {holder?.lastName}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   Specimen signature — not for transfer
@@ -1062,8 +1318,7 @@ export default function HolderEnquiryPage() {
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>KYC Documents</DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedHolder?.lastName}, {selectedHolder?.firstName} ·{" "}
-              {selectedHolder?.accountNumber}
+              {holder?.lastName}, {holder?.firstName} · {holder?.accountNumber}
             </p>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 min-h-0 divide-y">
@@ -1144,41 +1399,61 @@ export default function HolderEnquiryPage() {
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>Print Share Certificate</DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {selectedHolder?.accountNumber} — {selectedHolder?.lastName},{" "}
-              {selectedHolder?.firstName}
+              {holder?.accountNumber} — {holder?.lastName}, {holder?.firstName}
             </p>
           </DialogHeader>
           <div className="px-6 py-5 space-y-4">
-            <div className="rounded-xl border bg-muted/10 p-4 space-y-3 text-sm">
-              {[
-                { label: "Certificate No", value: "CERT-DANGCEM-20015" },
-                {
-                  label: "Register",
-                  value:
-                    registers.find((r) => r.id === selectedHolder?.registerId)
-                      ?.symbol ?? "—",
-                },
-                {
-                  label: "Holder",
-                  value: `${selectedHolder?.lastName}, ${selectedHolder?.firstName}`,
-                },
-                {
-                  label: "Units",
-                  value: selectedHolder?.holdings.toLocaleString() ?? "0",
-                },
-                { label: "Date Issued", value: "01 Jan 2020" },
-                { label: "Status", value: "Active" },
-              ].map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="flex justify-between items-center border-b border-border/40 pb-2 last:border-0 last:pb-0"
-                >
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="font-semibold font-mono">{value}</span>
-                </div>
-              ))}
+            <div ref={certPrintRef} className="space-y-3 print:p-8">
+              <div className="hidden print:block text-center mb-4">
+                <h2 className="text-lg font-bold">Share Certificate</h2>
+                <p className="text-sm text-muted-foreground">
+                  {holder?.registerSymbol}
+                </p>
+              </div>
+              <div className="rounded-xl border bg-muted/10 p-4 space-y-3 text-sm">
+                {[
+                  {
+                    label: "Certificate No",
+                    value: printCert?.certificateNo ?? "—",
+                  },
+                  {
+                    label: "Register",
+                    value:
+                      printCert?.registerSymbol ??
+                      holder?.registerSymbol ??
+                      "—",
+                  },
+                  {
+                    label: "Holder",
+                    value:
+                      printCert?.holderName ??
+                      `${holder?.lastName}, ${holder?.firstName}`,
+                  },
+                  {
+                    label: "Units",
+                    value: (
+                      printCert?.units ??
+                      holder?.holdings ??
+                      0
+                    ).toLocaleString(),
+                  },
+                  {
+                    label: "Date Issued",
+                    value: printCert?.dateIssued ?? "—",
+                  },
+                  { label: "Status", value: printCert?.status ?? "—" },
+                ].map(({ label, value }) => (
+                  <div
+                    key={label}
+                    className="flex justify-between items-center border-b border-border/40 pb-2 last:border-0 last:pb-0"
+                  >
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="font-semibold font-mono">{value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground print:hidden">
               This will send a print job to the registry printer. Ensure the
               certificate stock is loaded before confirming.
             </p>
@@ -1193,10 +1468,8 @@ export default function HolderEnquiryPage() {
             </Button>
             <Button
               className="flex-1 gap-1.5"
-              onClick={() => {
-                toast.success("Certificate print job sent to registry printer");
-                setActiveModal(null);
-              }}
+              disabled={!printCert}
+              onClick={() => handlePrintCertificate()}
             >
               <Printer className="h-4 w-4" /> Confirm &amp; Print
             </Button>
