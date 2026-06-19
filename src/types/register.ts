@@ -26,7 +26,7 @@ export interface CreateRegisterPayload {
   registerType: RegisterType | string;
   symbol: string;
   shareholderSizeAtSetup: number;
-  currentShareholdersSize: number;
+  // currentShareholdersSize: number;
   stockInIssueAtSetup: number;
   currentStockInIssue: number;
   nominalValue: number;

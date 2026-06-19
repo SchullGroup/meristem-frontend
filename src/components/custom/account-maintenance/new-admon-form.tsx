@@ -118,7 +118,7 @@ export default function NewAdmonForm() {
             ...formData,
             registerId: registerId,
             deceasedAccountIds,
-            admonType: formData?.isExecutor ? "EXECUTOR" : "ADMINISTRATOR",
+            admonType: formData?.isExecutor ? "EXECUTOR" : "ADMINISTRATION",
             probateDate: format(formData?.date1, "yyyy-MM-dd"),
             lodgementDate: format(formData?.date2, "yyyy-MM-dd"),
             initiatedBy: currentUser.email
