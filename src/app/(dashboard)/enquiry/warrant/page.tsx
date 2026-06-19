@@ -17,9 +17,8 @@ import { WarrantPaymentType } from "@/types/enquiry";
 import { formatNaira, formatNumber } from "@/lib/utils/format";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PaginationBar } from "@/components/custom/pagination-bar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-
-
 
 export default function WarrantEnquiryPage() {
   const [showResults, setShowResults] = useState(false);
@@ -46,15 +45,14 @@ export default function WarrantEnquiryPage() {
     },
     {
       enabled: showResults && !!searchParams.paymentType,
-    }
+    },
   );
 
   const handleSearch = () => {
-
     if (!type) {
-      toast.error("Please select a payment type")
+      toast.error("Please select a payment type");
       return;
-    };
+    }
 
     setSearchParams({
       paymentType: type,
@@ -105,10 +103,18 @@ export default function WarrantEnquiryPage() {
               <SelectValue placeholder="Select payment type to search..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="DIVIDEND_WARRRANT">Dividend Warrant</SelectItem>
-              <SelectItem value="INTEREST_WARRRANT">Interest Warrant</SelectItem>
-              <SelectItem value="APPLICATION_RETURN_MONEY">Application Return Money</SelectItem>
-              <SelectItem value="RIGHTS_RETURN_MONEY">Rights Return Money</SelectItem>
+              <SelectItem value="DIVIDEND_WARRRANT">
+                Dividend Warrant
+              </SelectItem>
+              <SelectItem value="INTEREST_WARRRANT">
+                Interest Warrant
+              </SelectItem>
+              <SelectItem value="APPLICATION_RETURN_MONEY">
+                Application Return Money
+              </SelectItem>
+              <SelectItem value="RIGHTS_RETURN_MONEY">
+                Rights Return Money
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -156,10 +162,40 @@ export default function WarrantEnquiryPage() {
       {showResults && (
         <div className="space-y-4">
           {isLoading && (
-            <div className="flex items-center justify-center p-8 bg-background rounded-lg border mrpsl-card">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
-              <span className="text-muted-foreground font-medium">Fetching warrant records...</span>
-            </div>
+            <Card className="mrpsl-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="p-3">REGISTER</th>
+                      <th className="p-3">ACCOUNT NAME</th>
+                      <th className="p-3">WARRANT NO</th>
+                      <th className="p-3">PAY NUMBER</th>
+                      <th className="p-3 text-right">HOLDINGS</th>
+                      <th className="p-3 text-right">RATE PAID</th>
+                      <th className="p-3 text-right">GROSS AMOUNT</th>
+                      <th className="p-3 text-right">TAX AMOUNT</th>
+                      <th className="p-3 text-right">NET AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {Array.from({ length: pageSize }).map((_, i) => (
+                      <tr key={i}>
+                        <td className="p-3"><Skeleton className="h-4 w-16" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-32" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-24" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-20" /></td>
+                        <td className="p-3 flex justify-end"><Skeleton className="h-4 w-16" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-24 ml-auto" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-24 ml-auto" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-24 ml-auto" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           )}
 
           {isError && (
@@ -167,20 +203,25 @@ export default function WarrantEnquiryPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Search Failed</AlertTitle>
               <AlertDescription>
-                {error instanceof Error ? error.message : "An unexpected error occurred while fetching warrants."}
+                {error instanceof Error
+                  ? error.message
+                  : "An unexpected error occurred while fetching warrants."}
               </AlertDescription>
             </Alert>
           )}
 
-          {!isLoading && !isError && (!data?.content || data.content.length === 0) && (
-            <div className="flex flex-col items-center justify-center p-12 bg-background rounded-lg border mrpsl-card text-center">
-              <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
-              <h3 className="font-bold text-lg">No Warrants Found</h3>
-              <p className="text-muted-foreground text-sm max-w-sm mt-1">
-                We couldn&apos;t find any warrant records matching the query parameters provided. Please check your inputs and try again.
-              </p>
-            </div>
-          )}
+          {!isLoading &&
+            !isError &&
+            (!data?.content || data.content.length === 0) && (
+              <div className="flex flex-col items-center justify-center p-12 bg-background rounded-lg border mrpsl-card text-center">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mb-3" />
+                <h3 className="font-bold text-lg">No Warrants Found</h3>
+                <p className="text-muted-foreground text-sm max-w-sm mt-1">
+                  We couldn&apos;t find any warrant records matching the query
+                  parameters provided. Please check your inputs and try again.
+                </p>
+              </div>
+            )}
 
           {!isLoading && !isError && data && data.content.length > 0 && (
             <div className="space-y-4">
@@ -193,23 +234,28 @@ export default function WarrantEnquiryPage() {
                         <th className="p-3">ACCOUNT NAME</th>
                         <th className="p-3">WARRANT NO</th>
                         <th className="p-3">PAY NUMBER</th>
-                        <th className="p-3">HOLDINGS</th>
-                        <th className="p-3">RATE PAID</th>
-                        <th className="p-3">GROSS AMOUNT</th>
-                        <th className="p-3">TAX AMOUNT</th>
-                        <th className="p-3">NET AMOUNT</th>
+                        <th className="p-3 text-right">HOLDINGS</th>
+                        <th className="p-3 text-right">RATE PAID</th>
+                        <th className="p-3 text-right">GROSS AMOUNT</th>
+                        <th className="p-3 text-right">TAX AMOUNT</th>
+                        <th className="p-3 text-right">NET AMOUNT</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y font-mono text-[13px]">
                       {data.content.map((warrant) => (
-                        <tr key={warrant?.warrantNo} className="hover:bg-accent/5">
+                        <tr
+                          key={warrant?.warrantNo}
+                          className="hover:bg-accent/5"
+                        >
                           <td className="p-3 font-sans font-medium text-primary">
                             {warrant?.register}
                           </td>
                           <td className="p-3 font-sans font-medium">
                             {warrant?.accountName}
                           </td>
-                          <td className="p-3 font-bold">{warrant?.warrantNo}</td>
+                          <td className="p-3 font-bold">
+                            {warrant?.warrantNo}
+                          </td>
                           <td className="p-3 text-muted-foreground text-[13px]">
                             {warrant?.payNumber}
                           </td>
@@ -250,4 +296,3 @@ export default function WarrantEnquiryPage() {
     </div>
   );
 }
-

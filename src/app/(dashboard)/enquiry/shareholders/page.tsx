@@ -178,7 +178,7 @@ export default function ShareholderRegisterPage() {
           ].map(({ label, value, icon: Icon, color }) => (
             <Card
               key={label}
-              className="px-4 py-2.5 flex items-center gap-3 min-w-[90px]"
+              className="px-4 py-2.5 flex items-center gap-3 min-w-22.5"
             >
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -215,7 +215,7 @@ export default function ShareholderRegisterPage() {
             setPage(0);
           }}
         >
-          <SelectTrigger className="w-[180px] mrpsl-input">
+          <SelectTrigger className="w-45 mrpsl-input">
             <SelectValue placeholder="All Registers" />
           </SelectTrigger>
           <SelectContent>
@@ -229,8 +229,9 @@ export default function ShareholderRegisterPage() {
                 {registerlist
                   ?.filter((r) => r?.status === "ACTIVE")
                   .map((r) => (
-                    <SelectItem key={r.registerId} value={r?.symbol}>
-                      {r?.registerName} - {r?.symbol}
+                    <SelectItem key={r.registerId} value={r.symbol}>
+                      <span className="font-bold">{r.registerName}</span> -
+                      <span className="text-sm">{r.symbol}</span>
                     </SelectItem>
                   ))}
               </>
@@ -245,7 +246,7 @@ export default function ShareholderRegisterPage() {
             setPage(0);
           }}
         >
-          <SelectTrigger className="w-[150px] mrpsl-input">
+          <SelectTrigger className="w-37.5 mrpsl-input">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -352,7 +353,7 @@ export default function ShareholderRegisterPage() {
                     key={s.id}
                     onClick={() => goToHolder(s)}
                     className={[
-                      "cursor-pointer transition-colors text-[13px] cursor-pointer",
+                      "transition-colors text-[13px] cursor-pointer",
                       STATUS_ROW_BG[s.status] || "",
                       "hover:bg-muted/30",
                     ].join(" ")}

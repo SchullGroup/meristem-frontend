@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { getCertificates } from "@/actions/enquiryActions";
 import type { CertificatesParams } from "@/types/enquiry";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Filter keys persisted to the URL (the page's source of truth)
 const FILTER_KEYS = [
@@ -193,10 +194,11 @@ export default function CertificateEnquiryPage() {
                   </div>
                 ) : (
                   <>
-                    <SelectItem value="">All</SelectItem>
+                    <SelectItem value="">All Registers</SelectItem>
                     {activeRegisters.map((r) => (
                       <SelectItem key={r.registerId} value={r.symbol}>
-                        {r.registerName} - {r.symbol}
+                        <span className="font-bold">{r.registerName}</span> -
+                        <span className="text-sm">{r.symbol}</span>
                       </SelectItem>
                     ))}
                   </>
@@ -283,11 +285,43 @@ export default function CertificateEnquiryPage() {
                 </thead>
                 <tbody className="divide-y font-mono text-[13px]">
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={11} className="p-12 text-center">
-                        <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
-                      </td>
-                    </tr>
+                    Array.from({ length: pageSize }).map((_, i) => (
+                      <tr key={i}>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-24" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-20" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-36" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-24" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-16 ml-auto" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-5 w-16 mx-auto rounded-full" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
+                        </td>
+                      </tr>
+                    ))
                   ) : certificates.length === 0 ? (
                     <tr>
                       <td
