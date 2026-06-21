@@ -88,6 +88,7 @@ export function RegisterForm({
 
     const payload = {
       ...values,
+      currentShareholdersSize: values?.shareholderSizeAtSetup,
     };
 
     if (mode === "create") {
