@@ -58,29 +58,29 @@ export function RegisterForm({
     resolver: zodResolver(registerSchema),
     defaultValues: initialData
       ? {
-          registerName: initialData.registerName,
-          principalId: initialData.principalId,
-          registerType: initialData.registerType,
-          symbol: initialData.symbol,
-          nominalValue: initialData.nominalValue,
-          stockInIssueAtSetup: initialData.stockInIssueAtSetup,
-          shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
-          currentStockInIssue: initialData.currentStockInIssue,
-          currentShareholdersSize: initialData.currentShareholdersSize,
-          status: initialData.status ?? "ACTIVE",
-        }
+        registerName: initialData.registerName,
+        principalId: initialData.principalId,
+        registerType: initialData.registerType,
+        symbol: initialData.symbol,
+        nominalValue: initialData.nominalValue,
+        stockInIssueAtSetup: initialData.stockInIssueAtSetup,
+        shareholderSizeAtSetup: initialData.shareholderSizeAtSetup,
+        currentStockInIssue: initialData.currentStockInIssue,
+        // currentShareholdersSize: initialData.currentShareholdersSize,
+        status: initialData.status ?? "ACTIVE",
+      }
       : {
-          registerName: "",
-          principalId: "",
-          registerType: "ORDINARY",
-          symbol: "",
-          nominalValue: Number(""),
-          stockInIssueAtSetup: Number(""),
-          shareholderSizeAtSetup: Number(""),
-          currentStockInIssue: Number(""),
-          currentShareholdersSize: Number(""),
-          status: "ACTIVE",
-        },
+        registerName: "",
+        principalId: "",
+        registerType: "ORDINARY",
+        symbol: "",
+        nominalValue: Number(""),
+        stockInIssueAtSetup: Number(""),
+        shareholderSizeAtSetup: Number(""),
+        currentStockInIssue: Number(""),
+        // currentShareholdersSize: Number(""),
+        status: "ACTIVE",
+      },
   });
 
   const onSubmit = (values: RegisterFormValues) => {
@@ -88,6 +88,7 @@ export function RegisterForm({
 
     const payload = {
       ...values,
+      currentShareholdersSize: values?.shareholderSizeAtSetup,
     };
 
     if (mode === "create") {
@@ -265,18 +266,7 @@ export function RegisterForm({
                             Principal *
                           </FormLabel>
                           <Select
-                            onValueChange={(value) => {
-                              field.onChange(value);
-                              const selectedPrincipal = data?.content.find(
-                                (p) => p.principalId === value,
-                              );
-                              if (selectedPrincipal) {
-                                form.setValue(
-                                  "shareholderSizeAtSetup",
-                                  selectedPrincipal.shareHoldersAtSetUp,
-                                );
-                              }
-                            }}
+                            onValueChange={(value) => field.onChange(value)}
                             value={field.value}
                           >
                             <FormControl>
@@ -366,7 +356,7 @@ export function RegisterForm({
                       )}
                     />
 
-                    <FormField
+                    {/* <FormField
                       control={form.control}
                       name="currentShareholdersSize"
                       render={({ field }) => (
@@ -384,7 +374,7 @@ export function RegisterForm({
                           <FormMessage className="text-[10px] text-destructive mt-1" />
                         </FormItem>
                       )}
-                    />
+                    /> */}
                   </div>
                 </div>
 

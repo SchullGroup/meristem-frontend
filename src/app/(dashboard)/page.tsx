@@ -17,7 +17,7 @@ import { formatNaira } from "@/lib/utils/format";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useGetDividendDeclarations } from "@/hooks/useDividendPayment";
 import { EntitlementTableSkeleton } from "@/components/custom/rights-issue/loaders";
-import { DataErrorState } from "@/components/custom/ipo/loaders";
+import { DataErrorState, PendingListSkeleton } from "@/components/custom/ipo/loaders";
 
 
 const getDivStatusBadge = (status: string) => {
@@ -110,7 +110,6 @@ export default function DashboardHome() {
   const { data: registers, isLoading: activeRegistersLoading } = useGetRegisters({
     status: "ACTIVE",
     size: 5,
-    sortBy: "asc"
   });
 
   const { data: dividendDeclarations, isLoading: declarationsLoading, isError: declarationError, refetch: refetchDecl, error: declarationErrorMsg } = useGetDividendDeclarations({
@@ -163,8 +162,8 @@ export default function DashboardHome() {
           </div>
           <div className="mt-2">
             {principalStatsLoading ? (
-              <span className="h-12 w-12 animate-pulse bg-muted rounded-sm  tabular-nums">
-              </span>
+              <div className="h-12 w-14 animate-pulse bg-muted rounded-sm  tabular-nums">
+              </div>
             ) : <span className="text-3xl font-bold tabular-nums">
               {totalPrincipals}
             </span>}
@@ -181,8 +180,8 @@ export default function DashboardHome() {
           </div>
           <div className="mt-2">
             {activeRegistersLoading ? (
-              <span className="h-12 w-12 animate-pulse bg-muted rounded-sm  tabular-nums">
-              </span>
+              <div className="h-12 w-14 animate-pulse bg-muted rounded-sm  tabular-nums">
+              </div>
             ) : <span className="text-3xl font-bold tabular-nums">
               {activeRegisters}
             </span>}
@@ -385,49 +384,57 @@ export default function DashboardHome() {
                 </tr>
               </thead>
               <tbody>
-                {registers?.content?.map((reg) => (
-                  <tr key={reg.registerId} className="mrpsl-table-row">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold">{reg.symbol}</div>
-                      <div className="text-[13px] text-muted-foreground truncate max-w-[200px]">
-                        {reg.registerName}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-[13px]">
-                      {reg.registerType}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className="text-[13px]">
-                        {reg.registerType.replace(/\b\w/g, (c) =>
-                          c.toUpperCase(),
-                        )}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {reg.currentShareholdersSize?.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {reg.currentStockInIssue?.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      {getStatusBadge(reg.status)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-[13px]"
-                        onClick={() =>
-                          router.push(
-                            `/setup/registers?search=${reg.symbol}`,
-                          )
-                        }
-                      >
-                        View
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {activeRegistersLoading ? <tr><td colSpan={7}><PendingListSkeleton cols={7} /></td></tr>
+                  : registers?.content && registers?.content?.length > 0 ? registers?.content?.map((reg) => (
+                    <tr key={reg?.registerId} className="mrpsl-table-row">
+                      <td className="px-4 py-3">
+                        <div className="font-semibold">{reg?.symbol}</div>
+                        <div className="text-[13px] text-muted-foreground truncate max-w-[200px]">
+                          {reg?.registerName}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[13px]">
+                        {reg?.registerType}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className="text-[13px]">
+                          {reg.registerType.replace(/\b\w/g, (c) =>
+                            c.toUpperCase(),
+                          )}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {reg?.currentShareholdersSize?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {reg?.currentStockInIssue?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        {getStatusBadge(reg.status)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-[13px]"
+                          onClick={() =>
+                            router.push(
+                              `/setup/registers?search=${reg?.symbol}`,
+                            )
+                          }
+                        >
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-3 text-center tabular-nums">
+
+                        <p>No active registers</p>
+                      </td>
+                    </tr>
+                  )}
               </tbody>
             </table>
           </div>

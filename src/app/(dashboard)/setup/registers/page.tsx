@@ -49,6 +49,7 @@ export default function RegistersPage() {
   const params = useSearchParams();
 
   const principalIdParam = params.get("principalId");
+  const searchParam = params.get("search");
   const [search, setSearch] = useState("");
   const [principalFilter, setPrincipalFilter] = useState<string>(
     principalIdParam || "",
@@ -62,7 +63,11 @@ export default function RegistersPage() {
       //eslint-disable-next-line
       setPrincipalFilter(principalIdParam);
     }
-  }, [principalIdParam]);
+
+    if (searchParam) {
+      setSearch(searchParam);
+    }
+  }, [principalIdParam, searchParam]);
 
   const handlePrincipalFilterChange = (value: string) => {
     setPrincipalFilter(value);
@@ -274,18 +279,18 @@ export default function RegistersPage() {
           principalFilter !== null ||
           typeFilter !== null ||
           statusFilter !== null) && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setSearch("");
-                setPrincipalFilter("");
-                setTypeFilter("");
-                setStatusFilter("");
-              }}
-            >
-              Clear
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setSearch("");
+              setPrincipalFilter("");
+              setTypeFilter("");
+              setStatusFilter("");
+            }}
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
       {/* Data Table */}
@@ -331,16 +336,17 @@ export default function RegistersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${r?.registerType === "ORDINARY"
-                          ? "bg-blue-100 text-blue-800"
-                          : r?.registerType === "PREFERENCE"
-                            ? "bg-violet-100 text-violet-800"
-                            : r?.registerType === "BOND"
-                              ? "bg-amber-100 text-amber-800"
-                              : r?.registerType === "ETF"
-                                ? "bg-cyan-100 text-cyan-800"
-                                : "bg-emerald-100 text-emerald-800"
-                          }`}
+                        className={`border-0 text-xs ${
+                          r?.registerType === "ORDINARY"
+                            ? "bg-blue-100 text-blue-800"
+                            : r?.registerType === "PREFERENCE"
+                              ? "bg-violet-100 text-violet-800"
+                              : r?.registerType === "BOND"
+                                ? "bg-amber-100 text-amber-800"
+                                : r?.registerType === "ETF"
+                                  ? "bg-cyan-100 text-cyan-800"
+                                  : "bg-emerald-100 text-emerald-800"
+                        }`}
                       >
                         {r?.registerType
                           .toLowerCase()
@@ -353,10 +359,10 @@ export default function RegistersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r?.shareholderSizeAtSetup?.toLocaleString() ?? "—"}
+                      {r?.shareholderSizeAtSetup?.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r?.currentShareholdersSize?.toLocaleString() ?? "—"}
+                      {r?.currentShareholdersSize?.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
                       {formatLargeNumber(r?.currentStockInIssue)}
@@ -366,12 +372,13 @@ export default function RegistersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs capitalize ${r?.status === "ACTIVE"
-                          ? "bg-green-100 text-green-800"
-                          : r?.status === "INACTIVE"
-                            ? "bg-gray-100 text-gray-600"
-                            : "bg-amber-100 text-amber-800"
-                          }`}
+                        className={`border-0 text-xs capitalize ${
+                          r?.status === "ACTIVE"
+                            ? "bg-green-100 text-green-800"
+                            : r?.status === "INACTIVE"
+                              ? "bg-gray-100 text-gray-600"
+                              : "bg-amber-100 text-amber-800"
+                        }`}
                       >
                         {r?.status === "TRANSACTION_DISABLED"
                           ? "Disabled"
