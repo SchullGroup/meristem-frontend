@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useGetWarrants } from "@/hooks/useEnquiry";
 import { WarrantPaymentType } from "@/types/enquiry";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import { formatNaira, formatNumber } from "@/lib/utils/format";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PaginationBar } from "@/components/custom/pagination-bar";
@@ -25,6 +26,7 @@ export default function WarrantEnquiryPage() {
   const [type, setType] = useState<WarrantPaymentType | "">("");
   const [warrantNo, setWarrantNo] = useState("");
   const [accountNo, setAccountNo] = useState("");
+  const [registerSymbol, setRegisterSymbol] = useState("");
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -33,15 +35,20 @@ export default function WarrantEnquiryPage() {
     paymentType?: WarrantPaymentType;
     warrantNo?: string;
     accountNo?: string;
+    registerSymbol?: string;
   }>({});
+
+  const { data: registersData, isLoading: isLoadingRegisters } =
+    useGetRegisters({ size: 100, status: "ACTIVE" });
 
   const { data, isLoading, isError, error } = useGetWarrants(
     {
       paymentType: searchParams.paymentType || "DIVIDEND_WARRANT",
       warrantNo: searchParams.warrantNo,
       accountNo: searchParams.accountNo,
-      page: page, // API is 0-indexed for page
+      page: page,
       size: pageSize,
+      registerSymbol: searchParams.registerSymbol,
     },
     {
       enabled: showResults && !!searchParams.paymentType,
@@ -58,6 +65,7 @@ export default function WarrantEnquiryPage() {
       paymentType: type,
       warrantNo: warrantNo.trim() || undefined,
       accountNo: accountNo.trim() || undefined,
+      registerSymbol: registerSymbol || undefined,
     });
     setPage(0);
     setShowResults(true);
@@ -72,7 +80,8 @@ export default function WarrantEnquiryPage() {
     setPage(0);
   };
 
-  const hasParams = !!warrantNo.trim() || !!accountNo.trim();
+  const hasParams =
+    !!registerSymbol && (!!warrantNo.trim() || !!accountNo.trim());
 
   return (
     <div className="space-y-6">
@@ -95,6 +104,7 @@ export default function WarrantEnquiryPage() {
               setType(v as WarrantPaymentType);
               setWarrantNo("");
               setAccountNo("");
+              setRegisterSymbol("");
               setSearchParams({});
               setShowResults(false);
             }}
@@ -120,7 +130,42 @@ export default function WarrantEnquiryPage() {
         </div>
 
         {type && (
-          <div className="flex gap-4 items-end animate-in fade-in">
+          <div className="flex gap-4 items-end animate-in fade-in flex-wrap">
+            <div className="">
+              <label className="mrpsl-label">Register</label>
+              <Select
+                value={registerSymbol || "all"}
+                onValueChange={(v) =>
+                  setRegisterSymbol(v === "all" ? "" : (v ?? ""))
+                }
+              >
+                <SelectTrigger className="mrpsl-input w-48">
+                  <SelectValue placeholder="All Registers" />
+                </SelectTrigger>
+                <SelectContent>
+                  {isLoadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="all">All Registers</SelectItem>
+                      {registersData?.content?.map((reg) => (
+                        <SelectItem key={reg.registerId} value={reg.symbol}>
+                          <span className="font-bold">{reg.registerName}</span>{" "}
+                          <span className="text-sm text-muted-foreground">
+                            {reg.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-sm font-bold text-muted-foreground mb-3">
+              |
+            </div>
             <div className="space-y-2">
               <label className="mrpsl-label">Warrant No</label>
               <Input
@@ -181,15 +226,33 @@ export default function WarrantEnquiryPage() {
                   <tbody className="divide-y">
                     {Array.from({ length: pageSize }).map((_, i) => (
                       <tr key={i}>
-                        <td className="p-3"><Skeleton className="h-4 w-16" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-32" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-24" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-20" /></td>
-                        <td className="p-3 flex justify-end"><Skeleton className="h-4 w-16" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-20 ml-auto" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-24 ml-auto" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-24 ml-auto" /></td>
-                        <td className="p-3"><Skeleton className="h-4 w-24 ml-auto" /></td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-16" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-32" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-24" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-20" />
+                        </td>
+                        <td className="p-3 flex justify-end">
+                          <Skeleton className="h-4 w-16" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-20 ml-auto" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-24 ml-auto" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-24 ml-auto" />
+                        </td>
+                        <td className="p-3">
+                          <Skeleton className="h-4 w-24 ml-auto" />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
