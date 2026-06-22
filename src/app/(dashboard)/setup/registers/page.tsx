@@ -49,6 +49,7 @@ export default function RegistersPage() {
   const params = useSearchParams();
 
   const principalIdParam = params.get("principalId");
+  const searchParam = params.get("search")
   const [search, setSearch] = useState("");
   const [principalFilter, setPrincipalFilter] = useState<string>(
     principalIdParam || "",
@@ -62,7 +63,11 @@ export default function RegistersPage() {
       //eslint-disable-next-line
       setPrincipalFilter(principalIdParam);
     }
-  }, [principalIdParam]);
+
+    if (searchParam) {
+      setSearch(searchParam)
+    }
+  }, [principalIdParam, searchParam]);
 
   const handlePrincipalFilterChange = (value: string) => {
     setPrincipalFilter(value);
@@ -353,10 +358,10 @@ export default function RegistersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r?.shareholderSizeAtSetup.toLocaleString()}
+                      {r?.shareholderSizeAtSetup?.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r?.currentShareholdersSize.toLocaleString()}
+                      {r?.currentShareholdersSize?.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
                       {formatLargeNumber(r?.currentStockInIssue)}

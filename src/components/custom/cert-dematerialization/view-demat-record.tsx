@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Check, FileText, Download, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Demat } from "@/actions/certDematActions";
+import { getFileNameFromUrl } from "@/lib/utils";
 
 const STATUS_MAP: Record<string, { cls: string; label: string }> = {
   DRAFT: { cls: "bg-gray-100 text-gray-600", label: "Draft" },
@@ -102,18 +103,6 @@ export function ViewDematRecord({
         : null,
     },
   ];
-
-  // Helper: derive a friendly name from a URL (strip path and extension)
-  const getFileNameFromUrl = (url: string) => {
-    try {
-      const last = url.split("/").pop() || url;
-      // decode URI components and remove extension
-      const decoded = decodeURIComponent(last);
-      return decoded.replace(/\.[^/.]+$/, "");
-    } catch {
-      return url;
-    }
-  };
 
   const openDocument = (url: string) => {
     window.open(url, "_blank", "noopener,noreferrer");
@@ -260,13 +249,12 @@ export function ViewDematRecord({
               {approvalSteps.map((step, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <div
-                    className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                      step.done
+                    className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done
                         ? "bg-green-500"
                         : step.pending
                           ? "bg-amber-200 animate-pulse"
                           : "border-2 border-muted bg-background"
-                    }`}
+                      }`}
                   >
                     {step.done && (
                       <Check
@@ -305,6 +293,7 @@ export function ViewDematRecord({
                 <Button
                   variant="destructive"
                   className="flex-1"
+                  disabled={isPending}
                   onClick={() => {
                     if (!rejectComment.trim()) {
                       toast.error("Comment required to reject");
@@ -319,6 +308,7 @@ export function ViewDematRecord({
                 </Button>
                 <Button
                   className="flex-1"
+                  disabled={isPending}
                   onClick={() => {
                     if (onApprove) onApprove(selected.id);
                     setRejectComment("");

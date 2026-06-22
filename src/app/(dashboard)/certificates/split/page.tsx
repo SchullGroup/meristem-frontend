@@ -133,6 +133,7 @@ export default function SplitPage() {
   useEffect(() => {
     const search = searchParams.get("search");
     if (search) {
+      //eslint-disable-next-line
       setSearchTerm(search);
       setActiveSearchTerm(search);
       setCertFound(true);
@@ -453,11 +454,10 @@ export default function SplitPage() {
                     <Card
                       key={split.id}
                       onClick={handleEditRejected}
-                      className={`mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer transition-shadow ${
-                        isEditingThis
+                      className={`mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer transition-shadow ${isEditingThis
                           ? "ring-2 ring-red-400 shadow-md"
                           : "hover:shadow-md"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start gap-3">
                         <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -544,11 +544,10 @@ export default function SplitPage() {
                         <div
                           key={item.id}
                           onClick={() => setActiveCert(item)}
-                          className={`space-y-2 cursor-pointer p-4 rounded-xl border transition-colors ${
-                            activeCert?.id === item.id
+                          className={`space-y-2 cursor-pointer p-4 rounded-xl border transition-colors ${activeCert?.id === item.id
                               ? "bg-primary/5 border-primary"
                               : "hover:bg-muted/50 border-transparent"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="font-mono text-lg font-bold">
@@ -965,46 +964,46 @@ export default function SplitPage() {
                     pending?: boolean;
                     time?: string | null;
                   }> => [
-                    {
-                      label: `Submitted by ${selected.submittedBy}`,
-                      done: selected.submittedBy ? true : false,
-                      time: selected.date,
-                    },
-                    {
-                      label: `Authorised by ${selected.authorizedBy} (${selected.authorizerRole})`,
-                      done: selected.authorizedBy !== "-" ? true : false,
-                      time: selected.authorizedAt,
-                    },
-                    // {
-                    //   label: "ICU Final Review — Approved",
-                    //   done: true,
-                    //   time: selected.date + ", 14:00",
-                    // },
-                  ])().map(
-                    (step, i) =>
-                      step.done && (
-                        <div key={i} className="flex items-start gap-3">
-                          <div
-                            className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
-                          >
-                            {step.done && (
-                              <Check
-                                className="h-3 w-3 text-white"
-                                style={{ strokeWidth: 3 }}
-                              />
-                            )}
+                      {
+                        label: `Submitted by ${selected.submittedBy}`,
+                        done: selected.submittedBy ? true : false,
+                        time: selected.date,
+                      },
+                      {
+                        label: `Authorised by ${selected.authorizedBy} (${selected.authorizerRole})`,
+                        done: selected.authorizedBy !== "-" ? true : false,
+                        time: selected.authorizedAt,
+                      },
+                      // {
+                      //   label: "ICU Final Review — Approved",
+                      //   done: true,
+                      //   time: selected.date + ", 14:00",
+                      // },
+                    ])().map(
+                      (step, i) =>
+                        step.done && (
+                          <div key={i} className="flex items-start gap-3">
+                            <div
+                              className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                            >
+                              {step.done && (
+                                <Check
+                                  className="h-3 w-3 text-white"
+                                  style={{ strokeWidth: 3 }}
+                                />
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-sm">{step.label}</div>
+                              {step.time && (
+                                <div className="text-[11px] text-muted-foreground mt-0.5">
+                                  {step.time}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-sm">{step.label}</div>
-                            {step.time && (
-                              <div className="text-[11px] text-muted-foreground mt-0.5">
-                                {step.time}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ),
-                  )}
+                        ),
+                    )}
                 </div>
               </div>
 
