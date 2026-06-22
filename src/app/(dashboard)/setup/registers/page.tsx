@@ -353,10 +353,10 @@ export default function RegistersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r?.shareholderSizeAtSetup.toLocaleString()}
+                      {r?.shareholderSizeAtSetup?.toLocaleString() ?? "—"}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r?.currentShareholdersSize.toLocaleString()}
+                      {r?.currentShareholdersSize?.toLocaleString() ?? "—"}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
                       {formatLargeNumber(r?.currentStockInIssue)}
