@@ -1,6 +1,6 @@
-import { getAgentDetail, getAgentMandates, getAgents, getCertificateDetail, getCertificates, getDividendStatement, getHolderAdmonRecords, getHolderDividends, getHolderKycChanges, getHolderMergers, getHolderProfile, getHolderStatement, getHolderTransfers, getRightsEntitlements, getRightsHolderDetail, getShareholders, getShareholderSummary, getWarrantDetail, getWarrants } from "@/actions/enquiryActions";
+import { getAgentDetail, getAgentMandates, getAgents, getCertificateDetail, getCertificates, getDividendStatement, getHolderAdmonRecords, getHolderDividends, getHolderKycChanges, getHolderMergers, getHolderProfile, getHolderStatement, getHolderTransfers, getRightsEntitlements, getRightsHolderDetail, getShareholders, getShareholderSummary, getWarrantDetail, getWarrants, uploadAgentMandate, bulkAgentMandateUpload } from "@/actions/enquiryActions";
 import { ApiResponse, ContentPaginatedResponse } from "@/types";
-import { useQuery, UseQueryOptions } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, UseQueryOptions } from "@tanstack/react-query";
 import {
     Agent,
     AgentDetail,
@@ -443,3 +443,31 @@ export const useGetHolderAdmonRecords = (
         ...options,
     });
 };
+
+export const useUploadMandate = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (data: unknown) => uploadAgentMandate(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: ["agent-mandates"],
+                exact: false
+            })
+        }
+    });
+};
+
+export const useBulkUploadMandate = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ data, id }: { data: FormData, id?: string }) => bulkAgentMandateUpload(data, id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: ["agent-mandates"],
+                exact: false
+            })
+        }
+    })
+}

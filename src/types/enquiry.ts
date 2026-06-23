@@ -239,6 +239,7 @@ export interface SearchWarrantsParams {
   paymentType: WarrantPaymentType;
   warrantNo?: string;
   accountNo?: string;
+  registerSymbol?: string;
   page?: number;
   size?: number;
 }

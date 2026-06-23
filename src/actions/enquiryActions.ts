@@ -28,6 +28,7 @@ import {
 } from "@/types/enquiry";
 import { ApiResponse, ContentPaginatedResponse } from "@/types";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { headers } from "next/headers";
 
 export const getWarrants = async (params: SearchWarrantsParams) => {
   try {
@@ -375,3 +376,69 @@ export const getHolderAdmonRecords = async (
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const downloadMandateTemplate = async (
+  format: "csv" | "xlsx" = "csv",
+) => {
+  try {
+    const res = await api.get<Blob>(
+      "/enquiry/agents/mandate/template",
+      {
+        params: { format },
+        responseType: "blob",
+      },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const uploadAgentMandate = async (
+  data: unknown
+) => {
+  try {
+
+
+    const res = await api.post<
+      unknown
+    >(
+      "/enquiry/agents/mandate",
+      data
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const bulkAgentMandateUpload = async (
+  data: FormData,
+  id?: string
+) => {
+  try {
+
+    const res = await api.post<
+      unknown
+    >(
+      `/enquiry/agents/${id}/mandate/bulk-upload`,
+      data,
+      {
+        headers: {
+          "Content-Type":
+            "multipart/form-data",
+        },
+      },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+

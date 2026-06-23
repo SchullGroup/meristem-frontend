@@ -1,11 +1,28 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { Shareholder } from "@/types/rights";
 
-export function ShholderTableHead() {
+export function ShholderTableHead({
+  allSelected,
+  toggleSelectAll,
+  visibleIds = [],
+}: {
+  allSelected?: boolean;
+  toggleSelectAll?: (ids: string[] | number[]) => void;
+  visibleIds?: string[] | number[];
+}) {
   return (
     <thead className="mrpsl-table-header">
       <tr>
+        {toggleSelectAll && visibleIds && <th className="p-3 w-12">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={() =>
+              toggleSelectAll?.(visibleIds)
+            }
+          />
+        </th>}
         <th className="px-3 py-2.5 text-left">#</th>
         <th className="px-3 py-2.5 text-left">SHAREHOLDER NAME</th>
         <th className="px-3 py-2.5 text-left">CHN</th>
@@ -25,15 +42,23 @@ export function ShholderTableHead() {
 export function ShholderRows({
   rows,
   pageStart = 0,
+  selectedIds,
+  toggleSelect,
 }: {
   rows: Shareholder[];
   pageStart?: number;
+  selectedIds?: Set<string | number>;
+  toggleSelect?: (id: string | number) => void;
 }) {
   return (
     <>
       {rows.map((s, i) => {
         return (
           <tr key={s.shareholderId} className="mrpsl-table-row">
+            {toggleSelect && selectedIds && <td><Checkbox
+              checked={selectedIds?.has(s.shareholderId)}
+              onCheckedChange={() => toggleSelect?.(s.shareholderId)}
+            /></td>}
             <td className="px-3 py-2.5 text-muted-foreground">{pageStart + i + 1}</td>
             <td className="px-3 py-2.5 font-medium">{s.name}</td>
             <td className="px-3 py-2.5 font-mono text-xs">{s.chn}</td>

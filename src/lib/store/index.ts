@@ -53,7 +53,8 @@ export interface RejectedBatch {
 export type BulkJobType =
   | "cscs"
   | "kyc"
-  | "consolidation";
+  | "consolidation"
+  | "reports";
 
 export interface BulkJob {
   id: string;
@@ -63,7 +64,9 @@ export interface BulkJob {
   startedAt: number;
   progress?: number;   // 0–100
   message?: string;    // human‑readable description
+  downloadUrl?: string;
 }
+
 export interface AppState {
   // Auth
   currentUser: User | null;
@@ -101,9 +104,6 @@ export interface AppState {
   cscsInjectBatchRef: string | null;
   setCscsInjectBatchRef: (batchRef: string | null) => void;
   jobs: BulkJob[];
-  addJob(job: BulkJob): void;
-  updateJob(id: string, updates: Partial<BulkJob>): void;
-  removeJob(id: string): void;
 
   // CRUD actions
   addPrincipal: (p: Principal) => void;
@@ -139,6 +139,9 @@ export interface AppState {
   clearRejectedBatches: () => void;
   addRejectedTransfer: (transfer: TransferRequest) => void;
   removeRejectedTransfer: (id: string) => void;
+  addJob: (job: BulkJob) => void;
+  updateJob: (id: string, updates: Partial<BulkJob>) => void;
+  removeJob: (id: string) => void;
 
   // Utilities
   seedStore: () => void;

@@ -245,3 +245,41 @@
     background-position: 28px 0;
   }
 }
+
+/* styles/print.css or within a global <style> tag */
+@media print {
+
+  /* Remove card clipping and shadows */
+  .print-container {
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Let the printable container expand naturally */
+  .printable-table {
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Force the table to fit the page */
+  .printable-table table {
+    width: 100% !important;
+    table-layout: auto !important;
+    font-size: 11px;
+    border-collapse: collapse;
+  }
+
+  /* Override any inline column widths */
+  .printable-table th {
+    width: auto !important;
+  }
+
+  /* Allow cell content to wrap and add padding */
+  .printable-table th,
+  .printable-table td {
+    padding: 4px 6px !important;
+    white-space: normal;
+    word-break: break-word;
+  }
+}

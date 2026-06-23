@@ -89,7 +89,14 @@ export const useAllRightsIssues = (params?: RightsIssueParams, options?: Omit<
   UseQueryOptions<
     PaginatedResponse<RightsIssue>,
     Error,
-    TransformedResponse<RightsIssue>
+    {
+      content: RightsIssue[];
+      pagination: {
+        total: number;
+        page: number;
+        totalPages: number;
+      };
+    }
   >,
   "queryKey" | "queryFn"
 >,) => {

@@ -20,26 +20,30 @@ import {
   GET_DECLARATION_BY_ID,
   GET_SHAREHOLDERS_BY_DECLARATION_ID,
 } from "@/actions/bonusIssuesAction";
-import { toast } from "sonner";
 import { formatDateOnly } from "@/utils/helperFunctions";
 import { useDebounce } from "@/hooks/useDebounce";
 import { DataErrorState } from "../loaders";
 import { PaginationBar } from "../../pagination-bar";
-
-// Components local to pagination and rows
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export function RejectedBonusesTab() {
   const [authRegister, setAuthRegister] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedListSearch = useDebounce(searchQuery, 500);
-  const [listPage, setListPage] = useState(1)
-  const [listPageSize, setListPageSize] = useState(20)
+  const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState(20);
 
   // Review mode state
   const [reviewingBatchId, setReviewingBatchId] = useState<string | null>(null);
   const [authPage, setAuthPage] = useState(1);
   const [authPageSize, setAuthPageSize] = useState(20);
-  const [refundedBatches, setRefundedBatches] = useState<string[]>([]);
 
   // Registers for filter
   const { data: registersData } = useGetRegisters({ status: "ACTIVE", size: 100 });
@@ -62,8 +66,7 @@ export function RejectedBonusesTab() {
     }),
   });
 
-
-  // Filter for rejected declarations and filter criteria
+  // Filter for rejected declarations
   const filteredList = useMemo(() => {
     if (!declarationsData?.content) return [];
     return declarationsData?.content.filter((d: { status: string }) =>
@@ -71,7 +74,7 @@ export function RejectedBonusesTab() {
     );
   }, [declarationsData]);
 
-  // Review details queries
+  // Review detail queries
   const { data: activeReviewData, isLoading: isActiveReviewLoading } = useQuery({
     queryKey: ["bonus-declaration", reviewingBatchId],
     queryFn: () => GET_DECLARATION_BY_ID(reviewingBatchId as string),
@@ -94,20 +97,14 @@ export function RejectedBonusesTab() {
   const entitlementTotal = entitlementData?.data?.entitlements?.totalElements || 0;
   const entitlementTotalPages = entitlementData?.data?.entitlements?.totalPages || 1;
 
-  const triggerRefund = (batchId: string, ref: string, count: number) => {
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-      {
-        loading: `Processing return payments for bonus issue ${ref}...`,
-        success: () => {
-          setRefundedBatches((prev) => [...prev, batchId]);
-          return `Refund processed successfully for ${count} shareholders on declaration ${ref}.`;
-        },
-        error: "Refund failed.",
-      }
-    );
-  };
 
+
+  // ── Reimbursement Confirmation Modal state ──
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [selectedGateway, setSelectedGateway] = useState("");
+
+
+  // ── List view ──
   if (reviewingBatchId === null) {
     return (
       <div className="space-y-4">
@@ -141,6 +138,7 @@ export function RejectedBonusesTab() {
                 </SelectContent>
               </Select>
             </div>
+
           </div>
         </Card>
 
@@ -160,6 +158,7 @@ export function RejectedBonusesTab() {
               <table className="w-full text-left text-sm">
                 <thead className="mrpsl-table-header">
                   <tr>
+
                     <th className="px-4 py-3">DECLARATION REF</th>
                     <th className="px-4 py-3">REGISTER</th>
                     <th className="px-4 py-3">BONUS NAME</th>
@@ -173,9 +172,9 @@ export function RejectedBonusesTab() {
                 </thead>
                 <tbody className="divide-y">
                   {filteredList.map((issue: any) => {
-                    const isRefunded = refundedBatches.includes(issue.id.toString());
                     return (
                       <tr key={issue.id} className="mrpsl-table-row">
+
                         <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                           {issue.ref}
                         </td>
@@ -199,10 +198,10 @@ export function RejectedBonusesTab() {
                         </td>
                         <td className="px-4 py-3">
                           <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
-                            {isRefunded ? "REFUNDED" : issue.status}
+                            {issue.status}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
+                        <td className="px-4 py-3 text-right">
                           <Button
                             size="sm"
                             variant="outline"
@@ -213,21 +212,6 @@ export function RejectedBonusesTab() {
                           >
                             Review
                           </Button>
-                          {!isRefunded && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() =>
-                                triggerRefund(
-                                  issue.id.toString(),
-                                  issue.ref,
-                                  issue.totalShareholders || 0
-                                )
-                              }
-                            >
-                              Refund
-                            </Button>
-                          )}
                         </td>
                       </tr>
                     );
@@ -235,7 +219,7 @@ export function RejectedBonusesTab() {
                   {filteredList.length === 0 && (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={10}
                         className="px-4 py-12 text-center text-sm text-muted-foreground italic"
                       >
                         No rejected bonus declarations found.
@@ -255,15 +239,12 @@ export function RejectedBonusesTab() {
             onPageChange={setListPage}
             onPageSizeChange={setListPageSize}
           />
-
         </Card>
       </div>
     );
   }
 
-  /* ── Detail / Review view ── */
-  const isBatchRefunded = refundedBatches.includes(reviewingBatchId);
-
+  // ── Detail / Review view ──
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -288,7 +269,7 @@ export function RejectedBonusesTab() {
               · {activeReview.registerName} · {activeReview.bonusName}
             </span>
             <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
-              {isBatchRefunded ? "REFUNDED" : activeReview.status}
+              {activeReview.status}
             </Badge>
           </>
         )}
@@ -352,23 +333,91 @@ export function RejectedBonusesTab() {
         onPageSizeChange={setAuthPageSize}
       />
 
-      {/* Action Payout */}
-      {activeReview && !isBatchRefunded && (
+      {/* Process Refund — opens gateway confirmation modal */}
+      {activeReview && (
         <Button
           size="lg"
-          variant="destructive"
           className="h-12 text-base font-semibold w-full"
-          onClick={() =>
-            triggerRefund(
-              activeReview.id.toString(),
-              activeReview.ref,
-              activeReview.totalShareholders || 0
-            )
-          }
+          disabled={isEntitlementLoading}
+          onClick={() => {
+            setSelectedGateway("");
+            setIsConfirmOpen(true);
+          }}
         >
-          Process Refund for Rejected Bonus ({activeReview.totalShareholders || 0} Shareholders)
+          Process Reimbursment
         </Button>
       )}
+
+      {/* Confirmation Modal */}
+      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Approve Reimbursement</DialogTitle>
+            <DialogDescription className="text-[13px] text-muted-foreground mt-1">
+              You are about to process a refund reimbursement for the following declaration.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="m-4 space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50 text-[13px]">
+            {activeReview && (
+              <>
+                <div className="flex justify-between border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground text-sm">Declaration Reference</span>
+                  <span className="font-mono font-semibold text-sm">{activeReview?.ref}</span>
+                </div>
+                <div className="flex justify-between border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground text-sm">Current Stage</span>
+                  <Badge variant="outline" className="text-xs font-bold border-0 bg-blue-100 text-blue-800">
+                    {activeReview?.status}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground text-sm">Total Amount</span>
+                  <span className="font-mono font-bold text-destructive text-base">
+                    ₦{activeReview?.totalAmount.toLocaleString()}
+                  </span>
+                </div>
+              </>
+            )}
+            <div className="space-y-2">
+              <label className="text-[13px] font-semibold text-foreground">
+                Select Payment Gateway <span className="text-red-500">*</span>
+              </label>
+              <Select value={selectedGateway} onValueChange={(value) => setSelectedGateway(value as string)}>
+                <SelectTrigger className="w-full mrpsl-input">
+                  <SelectValue placeholder="Select Payment Gateway" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nibss">NIBSS</SelectItem>
+                  <SelectItem value="remita">Remita</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+
+
+          <DialogFooter className="mt-6 flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              className="text-xs font-bold"
+              onClick={() => setIsConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="text-xs font-bold px-6"
+              disabled={!selectedGateway}
+              onClick={() => {
+                setIsConfirmOpen(false);
+              }}
+            >
+              Approve
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
