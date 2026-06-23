@@ -71,16 +71,48 @@ export function JobPoller({ job }: Props) {
     ) {
       toastShown.current = true;
 
-      toast.success(
-        `${job.type.toUpperCase()} upload completed`,
-        {
+      if (job.type === "reports") {
+        toast.success("Export completed", {
+          description: "Your file is ready.",
+          action: {
+            label: "Download",
+            onClick: () => {
+              // Use the download URL from the job (we'll have stored it via updateJob)
+              const currentJob = useStore.getState().jobs.find(j => j.id === job.id);
+              if (currentJob?.downloadUrl) {
+                window.open(currentJob.downloadUrl, "_blank");
+              } else {
+                // fallback: call download endpoint
+                import("@/actions/reportActions").then(({ downloadReportJob }) => {
+                  downloadReportJob(job.id).then((blob) => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${job.id}.xlsx`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                  });
+                });
+              }
+              // Optionally remove job after download
+              useStore.getState().removeJob(job.id);
+            },
+          },
+          duration: 15000, // longer so user has time to act
+        });
+      } else {
+        // existing generic success toast
+        toast.success(`${job.type.toUpperCase()} completed`, {
           action: {
             label: "View",
-            onClick: () =>
-              router.push(job.route),
+            onClick: () => router.push(job.route),
           },
-        },
-      );
+        });
+      }
+    }
+    // Also ensure we update the store with downloadUrl when transformed includes it
+    if (transformed.downloadUrl) {
+      updateJob(job.id, { downloadUrl: transformed.downloadUrl });
     }
 
     if (

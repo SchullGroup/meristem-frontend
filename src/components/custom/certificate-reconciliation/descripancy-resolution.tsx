@@ -16,6 +16,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { useGetReconciliations, useUpdateCscsTransaction } from "@/hooks/useCscs";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import { ProcessedTransaction, ReconciliationFlaggedTransaction } from "@/types/cscs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface props {
     open: boolean,
@@ -26,6 +27,7 @@ interface props {
 
 export default function DiscrepancyResolution({ open, setOpen, selectedTransaction, setSelectedTransaction }: props) {
     const [txUnits, setTxUnits] = useState(0);
+    const [updateSide, setUpdateSide] = useState<"CSCS" | "MRPSL">("CSCS");
 
     // ── NETWORK LAYER QUERY: FETCH SIDE-BY-SIDE LEDGERS ─────────────────
     const { data: reconData, isFetching: isLoadingLedger } = useGetReconciliations({
@@ -137,6 +139,19 @@ export default function DiscrepancyResolution({ open, setOpen, selectedTransacti
                     <h3 className="font-semibold text-sm">
                         Insert Missing Transaction
                     </h3>
+                    <div className="flex gap-4 items-center">
+                        <label className="text-sm font-medium">Update Side:</label>
+                        <RadioGroup value={updateSide} onValueChange={(val) => setUpdateSide(val as "CSCS" | "MRPSL")} className="flex gap-2">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="CSCS" id="cscs" />
+                                <label className="mrspl-label" htmlFor="cscs">CSCS (Shortfall)</label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="MRPSL" id="mrpsl" />
+                                <label className="mrspl-label" htmlFor="mrpsl">MRPSL (CSCS ahead)</label>
+                            </div>
+                        </RadioGroup>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="mrpsl-label">Transaction Date</label>

@@ -18,6 +18,7 @@ import { formatNaira, formatNumber } from "@/lib/utils/format";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 import { toast } from "sonner";
+import RegisterSelect from "@/components/custom/register-select";
 
 
 
@@ -26,6 +27,7 @@ export default function WarrantEnquiryPage() {
   const [type, setType] = useState<WarrantPaymentType | "">("");
   const [warrantNo, setWarrantNo] = useState("");
   const [accountNo, setAccountNo] = useState("");
+  const [selectedRegister, setSelectedRegister] = useState("");
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -34,6 +36,7 @@ export default function WarrantEnquiryPage() {
     paymentType?: WarrantPaymentType;
     warrantNo?: string;
     accountNo?: string;
+    registerSymbol?: string;
   }>({});
 
   const { data, isLoading, isError, error } = useGetWarrants(
@@ -41,6 +44,7 @@ export default function WarrantEnquiryPage() {
       paymentType: searchParams.paymentType || "DIVIDEND_WARRANT",
       warrantNo: searchParams.warrantNo,
       accountNo: searchParams.accountNo,
+      registerSymbol: searchParams.registerSymbol !== "" ? searchParams.registerSymbol : undefined,
       page: page, // API is 0-indexed for page
       size: pageSize,
     },
@@ -60,6 +64,7 @@ export default function WarrantEnquiryPage() {
       paymentType: type,
       warrantNo: warrantNo.trim() || undefined,
       accountNo: accountNo.trim() || undefined,
+      registerSymbol: selectedRegister || undefined,
     });
     setPage(0);
     setShowResults(true);
@@ -115,6 +120,7 @@ export default function WarrantEnquiryPage() {
 
         {type && (
           <div className="flex gap-4 items-end animate-in fade-in">
+            <RegisterSelect label="Register *" value={selectedRegister} onChange={(value) => setSelectedRegister(value)} enabled={!!type} />
             <div className="space-y-2">
               <label className="mrpsl-label">Warrant No</label>
               <Input

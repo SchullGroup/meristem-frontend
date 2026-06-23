@@ -6,6 +6,7 @@ import { getConsolidationUploadJob, getKycUploadJob } from '@/actions/accountMai
 import { ApiResponse } from '@/types';
 import { CscsInjectStatus } from '@/types/cscs';
 import { ConsolidationUploadJob, KycUploadJob } from '@/types/account-maintenance';
+import { getReportJobStatus, ReportJobStatus } from '@/actions/reportActions';
 
 
 type JobHandler = {
@@ -14,6 +15,7 @@ type JobHandler = {
         status: BulkJob['status'];
         progress: number;
         message: string;
+        downloadUrl?: string;
     };
 };
 
@@ -83,4 +85,27 @@ export const jobHandlers: Record<BulkJobType, JobHandler> = {
             return { status, progress, message };
         },
     },
+
+    reports: {
+        getStatus: getReportJobStatus,
+        transform: (response: ReportJobStatus): {
+            status: BulkJob['status'];
+            progress: number;
+            message: string;
+            downloadUrl?: string;
+        } => {
+            const data = response.data; // ReportJobStatus.data
+            const status = mapStatus(data.status);
+            const progress = data.progress ?? 0;
+            const message = data.status === 'COMPLETED'
+                ? 'Export ready'
+                : data.errorMessage || `Processing… ${progress}%`;
+            return {
+                status,
+                progress,
+                message,
+                downloadUrl: data.downloadUrl, // available when COMPLETED
+            };
+        },
+    }
 };
