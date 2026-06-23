@@ -105,7 +105,7 @@ export default function WarrantEnquiryPage() {
               setType(v as WarrantPaymentType);
               setWarrantNo("");
               setAccountNo("");
-              setRegisterSymbol("");
+              setSelectedRegister("");
               setSearchParams({});
               setShowResults(false);
             }}
