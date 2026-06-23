@@ -8,17 +8,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   PlusCircle,
   MoreHorizontal,
   Pencil,
-  PenLine,
   FileText,
-  Power,
-  History,
   Loader2,
   Trash,
 } from "lucide-react";
@@ -65,7 +61,7 @@ import {
 } from "@/actions/agentAction";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 const agentSchema = z.object({
   name: z.string().min(2, "Name required"),
@@ -386,6 +382,17 @@ export default function AgentsPage() {
                               <Pencil className="mr-2 h-4 w-4" /> Edit Agent
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              onClick={() => toast.success("Coming soon..")}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" /> Manage
+                              Signatories
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => toast.success("Coming soon..")}
+                            >
+                              <FileText className="mr-2 h-4 w-4" /> View Mandate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                               onClick={() => {
                                 setAgentToDelete({ id: a.id, name: a.name });
                                 setDeleteOpen(true);
@@ -635,7 +642,7 @@ export default function AgentsPage() {
 
       {/* DELETE CONFIRMATION DIALOG */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="max-w-[400px] p-0 overflow-hidden border-none shadow-2xl bg-white">
+        <DialogContent className="max-w-100 p-0 overflow-hidden border-none shadow-2xl bg-white">
           <div className="px-6 pt-8 pb-6 flex flex-col items-center text-center">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
               <Trash className="h-6 w-6 text-muted-foreground" />

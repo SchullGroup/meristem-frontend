@@ -48,10 +48,11 @@ import { PaginationBar } from "../pagination-bar";
 import { formatNumber } from "@/lib/utils/format";
 
 export default function ICULodgment({ tab }: { tab: string }) {
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   // Lodgment drill-down
   const [lodgmentReviewing, setLodgmentReviewing] = useState<IPO | null>(null);
@@ -70,7 +71,6 @@ export default function ICULodgment({ tab }: { tab: string }) {
   );
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-
 
   // Queries
   const {
@@ -186,7 +186,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
         <Card className="mrpsl-card p-5">
           <div className="flex flex-col md:flex-row gap-4 items-end">
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+              <div className="">
                 <label className="mrpsl-label">Register</label>
                 <Select
                   value={authRegister}
@@ -196,17 +196,29 @@ export default function ICULodgment({ tab }: { tab: string }) {
                     <SelectValue placeholder="All Registers" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Registers</SelectItem>
-                    {activeRegisters?.content?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.symbol}>
-                        {r.registerName} · {r.symbol}
-                      </SelectItem>
-                    ))}
+                    {registersLoading ? (
+                      <div className="py-10 flex items-center justify-center">
+                        <Loader2 className="animate-spin w-4 h-4" />
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="All">All Register</SelectItem>
+                        {activeRegisters?.content?.map((r) => (
+                          <SelectItem key={r.registerId} value={r.symbol}>
+                            <span className="font-bold">{r.registerName}</span>{" "}
+                            -{" "}
+                            <span className="text-xs translate-y-0.5">
+                              {r.symbol}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="">
                 <label className="mrpsl-label">Date Range</label>
                 <DateRangePicker
                   date={authDateRange}
@@ -214,7 +226,12 @@ export default function ICULodgment({ tab }: { tab: string }) {
                 />
               </div>
             </div>
-            <Button variant="ghost" onClick={resetFilters} className="text-xs">
+            <Button
+              size="xl"
+              className="self-end"
+              variant="ghost"
+              onClick={resetFilters}
+            >
               Reset
             </Button>
           </div>
@@ -295,9 +312,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
                       <td className="px-4 py-3 text-[13px] text-muted-foreground">
                         {row.icuApprovedAt
                           ? format(
-                            new Date(row.icuApprovedAt),
-                            "dd MMM yyyy, HH:mm",
-                          )
+                              new Date(row.icuApprovedAt),
+                              "dd MMM yyyy, HH:mm",
+                            )
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -407,9 +424,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
             <div className="font-mono mt-0.5">
               {lodgmentReviewing?.icuApprovedAt
                 ? format(
-                  new Date(lodgmentReviewing.icuApprovedAt),
-                  "dd MMM yyyy, HH:mm",
-                )
+                    new Date(lodgmentReviewing.icuApprovedAt),
+                    "dd MMM yyyy, HH:mm",
+                  )
                 : "—"}
             </div>
           </div>
@@ -430,8 +447,10 @@ export default function ICULodgment({ tab }: { tab: string }) {
 
       <Card className="mrpsl-card">
         <div className="p-5 space-y-6">
-          {
-            isDetailLoading ? <BatchDetailSkeleton /> : isDetailError ? (<div className="py-12 space-y-4">
+          {isDetailLoading ? (
+            <BatchDetailSkeleton />
+          ) : isDetailError ? (
+            <div className="py-12 space-y-4">
               <DataErrorState
                 message={returnErrorMessage(detailError as ErrorLike)}
                 onRetry={refetchDetail}
@@ -443,127 +462,131 @@ export default function ICULodgment({ tab }: { tab: string }) {
               >
                 <ArrowLeft className="h-4 w-4" /> Back to list
               </Button>
-            </div>) : (
-              <>
-                <div className="space-y-3">
-                  <label className="mrpsl-label">Lodgment File Format</label>
-                  <RadioGroup
-                    value={downloadFormat}
-                    onValueChange={(val) =>
-                      setDownloadFormat(val as "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS")
-                    }
-                    className="flex gap-6"
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <RadioGroupItem value="RIN_AT_CSCS" id="r1" />
-                      <label htmlFor="r1" className="text-sm cursor-pointer">
-                        RIN at CSCS
-                      </label>
-                    </div>
-                    <div className="flex items-center space-x-2.5">
-                      <RadioGroupItem value="RIN_NOT_AT_CSCS" id="r2" />
-                      <label htmlFor="r2" className="text-sm cursor-pointer">
-                        RIN NOT at CSCS
-                      </label>
-                    </div>
-                  </RadioGroup>
-                </div>
-
-                <div className="border border-border/60 rounded-xl overflow-hidden">
-                  <div className="bg-muted/40 p-2 border-b text-[13px] tabular font-bold text-muted-foreground">
-                    PREVIEW (LODGMENT ROWS)
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <label className="mrpsl-label">Lodgment File Format</label>
+                <RadioGroup
+                  value={downloadFormat}
+                  onValueChange={(val) =>
+                    setDownloadFormat(val as "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS")
+                  }
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <RadioGroupItem value="RIN_AT_CSCS" id="r1" />
+                    <label htmlFor="r1" className="text-sm cursor-pointer">
+                      RIN at CSCS
+                    </label>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[13px] tabular">
-                      <thead className="bg-muted/20">
-                        <tr>
-                          <th className="p-2 text-left">STOCKBROKER CODE</th>
-                          <th className="p-2 text-left">CHN</th>
-                          <th className="p-2 text-left">SHAREHOLDER NAME</th>
-                          <th className="p-2 text-left">CERT NO</th>
-                          <th className="p-2 text-left">CSCS ACCOUNT NO</th>
-                          <th className="p-2 text-left">SYMBOL</th>
-                          <th className="p-2 text-right">UNITS</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {lodgmentDetail?.content &&
-                          lodgmentDetail?.content.length > 0 ? (
-                          lodgmentDetail.content.map((row, i) => (
-                            <tr key={i} className="hover:bg-muted/20">
-                              <td className="p-2 font-mono">
-                                {row?.stockbrokerCode || row?.broker || "—"}
-                              </td>
-                              <td className="p-2 font-mono">{row.chn || "—"}</td>
-                              <td className="p-2 font-medium">
-                                {row?.subscriberName || "—"}
-                              </td>
-                              <td className="p-2 font-mono">{row?.certNo || "—"}</td>
-                              <td className="p-2 font-mono">
-                                {row?.cscsAccountNo || row?.accountNumber || "—"}
-                              </td>
-                              <td className="p-2 font-mono">{row?.symbol || "—"}</td>
-                              <td className="p-2 font-mono text-right font-semibold">
-                                {formatNumber(row.units)}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td
-                              colSpan={7}
-                              className="p-4 text-center text-muted-foreground"
-                            >
-                              No lodgment preview rows available.
+                  <div className="flex items-center space-x-2.5">
+                    <RadioGroupItem value="RIN_NOT_AT_CSCS" id="r2" />
+                    <label htmlFor="r2" className="text-sm cursor-pointer">
+                      RIN NOT at CSCS
+                    </label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="border border-border/60 rounded-xl overflow-hidden">
+                <div className="bg-muted/40 p-2 border-b text-[13px] tabular font-bold text-muted-foreground">
+                  PREVIEW (LODGMENT ROWS)
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[13px] tabular">
+                    <thead className="bg-muted/20">
+                      <tr>
+                        <th className="p-2 text-left">STOCKBROKER CODE</th>
+                        <th className="p-2 text-left">CHN</th>
+                        <th className="p-2 text-left">SHAREHOLDER NAME</th>
+                        <th className="p-2 text-left">CERT NO</th>
+                        <th className="p-2 text-left">CSCS ACCOUNT NO</th>
+                        <th className="p-2 text-left">SYMBOL</th>
+                        <th className="p-2 text-right">UNITS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {lodgmentDetail?.content &&
+                      lodgmentDetail?.content.length > 0 ? (
+                        lodgmentDetail.content.map((row, i) => (
+                          <tr key={i} className="hover:bg-muted/20">
+                            <td className="p-2 font-mono">
+                              {row?.stockbrokerCode || row?.broker || "—"}
+                            </td>
+                            <td className="p-2 font-mono">{row.chn || "—"}</td>
+                            <td className="p-2 font-medium">
+                              {row?.subscriberName || "—"}
+                            </td>
+                            <td className="p-2 font-mono">
+                              {row?.certNo || "—"}
+                            </td>
+                            <td className="p-2 font-mono">
+                              {row?.cscsAccountNo || row?.accountNumber || "—"}
+                            </td>
+                            <td className="p-2 font-mono">
+                              {row?.symbol || "—"}
+                            </td>
+                            <td className="p-2 font-mono text-right font-semibold">
+                              {formatNumber(row.units)}
                             </td>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <PaginationBar
-                    page={subscribersPage}
-                    pageSize={subscribersPageSize}
-                    totalPages={lodgmentDetail?.pagination?.totalPages || 1}
-                    total={lodgmentDetail?.pagination?.total || 0}
-                    onPageChange={setSubscribersPage}
-                    onPageSizeChange={setSubscribersPageSize}
-                  />
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            className="p-4 text-center text-muted-foreground"
+                          >
+                            No lodgment preview rows available.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
 
-                <div className="flex flex-wrap gap-4">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    disabled={downloadMutation.isPending}
-                    onClick={handleDownload}
-                  >
-                    {downloadMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Downloading...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="mr-2 h-4 w-4" /> Download Lodgment File
-                        (.txt)
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    onClick={() => {
-                      toast.success("Pushed to CSCS API successfully.");
-                    }}
-                  >
-                    <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
-                  </Button>
-                </div>
-              </>)
-          }
+                <PaginationBar
+                  page={subscribersPage}
+                  pageSize={subscribersPageSize}
+                  totalPages={lodgmentDetail?.pagination?.totalPages || 1}
+                  total={lodgmentDetail?.pagination?.total || 0}
+                  onPageChange={setSubscribersPage}
+                  onPageSizeChange={setSubscribersPageSize}
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  disabled={downloadMutation.isPending}
+                  onClick={handleDownload}
+                >
+                  {downloadMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" /> Download Lodgment
+                      File (.txt)
+                    </>
+                  )}
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => {
+                    toast.success("Pushed to CSCS API successfully.");
+                  }}
+                >
+                  <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
+                </Button>
+              </div>
+            </>
+          )}
         </div>
-
       </Card>
 
       <ApproveLodgmentDialog

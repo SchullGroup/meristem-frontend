@@ -266,8 +266,9 @@ export const ReviewConsolidation = ({
               </Button>
               <Button
                 disabled={approveMutation.isPending || rejectMutation.isPending}
-
-                className="flex-1" onClick={handleApprove}>
+                className="flex-1"
+                onClick={handleApprove}
+              >
                 {approveMutation?.isPending ? "Approving..." : "Approve Consolidation"}
               </Button>
             </div>

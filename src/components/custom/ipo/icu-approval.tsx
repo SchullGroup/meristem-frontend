@@ -49,7 +49,7 @@ import {
 } from "./loaders";
 import { PaginationBar } from "../pagination-bar";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export default function IcuApprovalIPO({ tab }: { tab: string }) {
   const { currentUser } = useStore();
@@ -72,15 +72,16 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
   );
 
   // Queries
-  const { data: activeRegisters } = useGetRegisters(
-    {
-      size: 100,
-      status: "ACTIVE",
-    },
-    {
-      enabled: tab === "icu",
-    },
-  );
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters(
+      {
+        size: 100,
+        status: "ACTIVE",
+      },
+      {
+        enabled: tab === "icu",
+      },
+    );
 
   const {
     data: icuData,
@@ -231,7 +232,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         {/* Filters */}
         <Card className="mrpsl-card p-5">
           <div className="flex-1 flex gap-4">
-            <div className="space-y-1.5">
+            <div className="">
               <label className="mrpsl-label">Register</label>
               <Select
                 value={icuRegister}
@@ -241,24 +242,36 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Registers</SelectItem>
-                  {activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      {r.registerName} · {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {registersLoading ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="All">All Register</SelectItem>
+                      {activeRegisters?.content?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="">
               <label className="mrpsl-label">Date Range</label>
               <DateRangePicker date={icuDateRange} setDate={setIcuDateRange} />
             </div>
             <Button
               variant="ghost"
               onClick={resetFilters}
-              className="self-center"
+              size="xl"
+              className="self-end"
             >
               Reset
             </Button>
@@ -323,9 +336,9 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                         <div className="text-[10px] text-muted-foreground">
                           {batch.opsApprovedAt
                             ? format(
-                              new Date(batch.opsApprovedAt),
-                              "dd MMM yyyy, HH:mm",
-                            )
+                                new Date(batch.opsApprovedAt),
+                                "dd MMM yyyy, HH:mm",
+                              )
                             : "Pending"}
                         </div>
                       </td>
@@ -432,7 +445,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           onClick={() => setApprovalModal({ action: "return" })}
         >
           {icuReviewMutation.isPending &&
-            !icuReviewMutation.variables?.payload.approved ? (
+          !icuReviewMutation.variables?.payload.approved ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             "Return to Ops"
@@ -444,7 +457,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           onClick={() => setApprovalModal({ action: "approve" })}
         >
           {icuReviewMutation.isPending &&
-            icuReviewMutation.variables?.payload.approved ? (
+          icuReviewMutation.variables?.payload.approved ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <>
@@ -478,9 +491,9 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
               <div className="font-mono mt-0.5">
                 {batchDetails?.opsApprovedAt
                   ? format(
-                    new Date(batchDetails.opsApprovedAt),
-                    "dd MMM yyyy, HH:mm:ss",
-                  )
+                      new Date(batchDetails.opsApprovedAt),
+                      "dd MMM yyyy, HH:mm:ss",
+                    )
                   : "—"}
               </div>
             </div>
@@ -535,9 +548,9 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
             className={cn(
               "mrpsl-card p-3",
               s.tab &&
-              "cursor-pointer hover:border-primary/40 transition-colors",
+                "cursor-pointer hover:border-primary/40 transition-colors",
               s.tab === reviewTab &&
-              "border-primary ring-1 ring-primary/20 bg-primary/5",
+                "border-primary ring-1 ring-primary/20 bg-primary/5",
             )}
             onClick={() => {
               if (s.tab) {
@@ -644,7 +657,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {subscribersData?.content &&
-                    subscribersData.content.length > 0 ? (
+                  subscribersData.content.length > 0 ? (
                     subscribersData.content.map((r, i) => (
                       <tr key={i} className="mrpsl-table-row">
                         <td className="px-4 py-2.5 text-muted-foreground">

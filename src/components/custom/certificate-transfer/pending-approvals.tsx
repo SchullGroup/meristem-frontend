@@ -86,7 +86,7 @@ export const PendingApprovals = () => {
 
   if (isLoading) {
     return (
-      <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-muted-foreground min-h-[400px]">
+      <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-muted-foreground min-h-100">
         <Loader2 className="h-8 w-8 animate-spin mb-4" />
         <p>Loading pending transfer requests...</p>
       </Card>
@@ -117,7 +117,7 @@ export const PendingApprovals = () => {
       )}
 
       {isError ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-destructive min-h-[400px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-destructive min-h-100">
           <p className="font-semibold text-lg mb-2">Failed to load requests</p>
           <p className="text-sm mb-4">
             {error?.message || "An unexpected error occurred"}

@@ -28,7 +28,6 @@ import {
 } from "@/types/enquiry";
 import { ApiResponse, ContentPaginatedResponse } from "@/types";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
-import { headers } from "next/headers";
 
 export const getWarrants = async (params: SearchWarrantsParams) => {
   try {

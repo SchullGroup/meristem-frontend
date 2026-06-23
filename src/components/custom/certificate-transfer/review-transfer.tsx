@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { TransferRequest } from "@/types/cscs";
 import {
   useApproveTransferRequest,
@@ -172,44 +172,44 @@ export const ReviewTranser = ({
                   pending?: boolean;
                   time?: string | null;
                 }> => [
-                    {
-                      label: `Submitted by ${selected.submittedBy}`,
-                      done: true,
-                      time: selected.submittedAt + ", 09:14",
-                    },
-                    // {
-                    //     label: "Authorised by Ngozi Adeyemi (Operations Manager)",
-                    //     done: true,
-                    //     // time: selected.date + ", 11:30",
-                    //     time: "12-06-2026" + ", 11:30",
-                    // },
-                    // {
-                    //     label: "ICU Final Review — Approved",
-                    //     done: true,
-                    //     time: "12-06-2026" + ", 14:00",
-                    // },
-                  ])().map((step, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
-                      >
-                        {step.done && (
-                          <Check
-                            className="h-3 w-3 text-white"
-                            style={{ strokeWidth: 3 }}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-sm">{step.label}</div>
-                        {step.time && (
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                            {step.time}
-                          </div>
-                        )}
-                      </div>
+                  {
+                    label: `Submitted by ${selected.submittedBy}`,
+                    done: true,
+                    time: selected.submittedAt + ", 09:14",
+                  },
+                  // {
+                  //     label: "Authorised by Ngozi Adeyemi (Operations Manager)",
+                  //     done: true,
+                  //     // time: selected.date + ", 11:30",
+                  //     time: "12-06-2026" + ", 11:30",
+                  // },
+                  // {
+                  //     label: "ICU Final Review — Approved",
+                  //     done: true,
+                  //     time: "12-06-2026" + ", 14:00",
+                  // },
+                ])().map((step, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div
+                      className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                    >
+                      {step.done && (
+                        <Check
+                          className="h-3 w-3 text-white"
+                          style={{ strokeWidth: 3 }}
+                        />
+                      )}
                     </div>
-                  ))}
+                    <div>
+                      <div className="text-sm">{step.label}</div>
+                      {step.time && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {step.time}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -228,14 +228,17 @@ export const ReviewTranser = ({
                 variant="destructive"
                 className="flex-1"
                 onClick={handleReject}
-                disabled={rejectMutation?.isPending || approveMutation.isPending}
-              >{rejectMutation?.isPending ? "Rejecting..."
-                : "Reject"
-                }</Button>
-              <Button className="flex-1" disabled={rejectMutation?.isPending || approveMutation.isPending}
-                onClick={handleApprove}>
-                {approveMutation.isPending ? "Approving..."
-                  : "Approve Transfer"}
+              >
+                Reject
+                {rejectMutation.isPending && (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                )}
+              </Button>
+              <Button className="flex-1" onClick={handleApprove}>
+                Approve Transfer
+                {approveMutation.isPending && (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                )}
               </Button>
             </div>
           </div>
@@ -340,7 +343,6 @@ export const RejectTransfer = ({
               className="flex-1"
               onClick={() => setBatchRejectOpen(false)}
               disabled={batchRejectMutation.isPending}
-
             >
               Cancel
             </Button>
@@ -350,7 +352,8 @@ export const RejectTransfer = ({
               onClick={handleBatchReject}
               disabled={batchRejectMutation.isPending}
             >
-              {batchRejectMutation.isPending ? "Rejecting..."
+              {batchRejectMutation.isPending
+                ? "Rejecting..."
                 : "Confirm Rejection"}
             </Button>
           </div>

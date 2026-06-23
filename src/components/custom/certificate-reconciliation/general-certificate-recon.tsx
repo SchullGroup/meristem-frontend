@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Info, CheckCircle2, XCircle } from "lucide-react";
+import { Info, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useGetReconciliations } from "@/hooks/useCscs";
 import { PaginationBar } from "../pagination-bar";
@@ -25,7 +25,7 @@ import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 
 export default function GeneralCertificateReconciliation() {
-  const { data: activeRegisters } = useGetRegisters({
+  const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters({
     status: "ACTIVE",
     size: 100,
   });
@@ -109,11 +109,21 @@ export default function GeneralCertificateReconciliation() {
               <SelectValue placeholder="Select Register" />
             </SelectTrigger>
             <SelectContent>
-              {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.symbol}>
-                  {r.registerName} - {r.symbol}
-                </SelectItem>
-              ))}
+              {loadingRegisters ? (
+                <div className="py-10 flex items-center justify-center">
+                  <Loader2 className="animate-spin w-4 h-4" />
+                </div>
+              ) : (
+                <>
+                  {activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.symbol}>
+                      <span className="font-bold">{r.registerName}</span>{" "}
+                      -{" "}
+                      <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
 

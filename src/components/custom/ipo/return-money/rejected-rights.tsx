@@ -50,13 +50,18 @@ export function RejectedRightsTab() {
   const debouncedListSearch = useDebounce(searchQuery, 500);
 
   // Review mode state
-  const [reviewingBatch, setReviewingBatch] = useState<RightsIssue | null>(null);
+  const [reviewingBatch, setReviewingBatch] = useState<RightsIssue | null>(
+    null,
+  );
   const [authPage, setAuthPage] = useState(1);
   const [authPageSize, setAuthPageSize] = useState(20);
   const [downloading, setDownloading] = useState(false);
 
   // Registers for filter
-  const { data: registersData } = useGetRegisters({ status: "ACTIVE", size: 100 });
+  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
+    status: "ACTIVE",
+    size: 100,
+  });
   const activeRegisters = registersData?.content || [];
 
   // Get all rights issue declarations
@@ -144,7 +149,7 @@ export function RejectedRightsTab() {
       exportToCSV(
         `rejected_rights_returns_${reviewingBatch.ref}.csv`,
         headers,
-        rows
+        rows,
       );
       toast.success("Download complete", { id: toastId });
     } catch (err: any) {
@@ -154,11 +159,9 @@ export function RejectedRightsTab() {
     }
   };
 
-
   // ── Reimbursement Confirmation Modal state ──
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState("");
-
 
   // ── List view ──
   if (reviewingBatch === null) {
@@ -185,16 +188,26 @@ export function RejectedRightsTab() {
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Registers</SelectItem>
-                  {activeRegisters.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {loadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="">All Register</SelectItem>
+                      {activeRegisters?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-
           </div>
         </Card>
 
@@ -217,7 +230,6 @@ export function RejectedRightsTab() {
               <table className="w-full text-left text-sm">
                 <thead className="mrpsl-table-header">
                   <tr>
-
                     <th className="px-4 py-3">DECLARATION REF</th>
                     <th className="px-4 py-3">REGISTER</th>
                     <th className="px-4 py-3">RIGHTS ISSUE</th>
@@ -234,7 +246,6 @@ export function RejectedRightsTab() {
                   {filteredList.map((issue: RightsIssue) => {
                     return (
                       <tr key={issue.id} className="mrpsl-table-row">
-
                         <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                           {issue.ref}
                         </td>
@@ -244,7 +255,10 @@ export function RejectedRightsTab() {
                         <td className="px-4 py-3 text-sm">{issue.offerName}</td>
                         <td className="px-4 py-3 text-muted-foreground text-[13px]">
                           {issue.qualificationDate
-                            ? format(new Date(issue.qualificationDate), "dd MMM yyyy")
+                            ? format(
+                                new Date(issue.qualificationDate),
+                                "dd MMM yyyy",
+                              )
                             : "----"}
                         </td>
                         <td className="px-4 py-3 font-mono text-right">
@@ -261,7 +275,9 @@ export function RejectedRightsTab() {
                             {issue.submittedByName}
                           </div>
                           <div className="text-[13px] text-muted-foreground">
-                            {issue.submittedAt ? formatDate(issue.submittedAt) : "----"}
+                            {issue.submittedAt
+                              ? formatDate(issue.submittedAt)
+                              : "----"}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -405,9 +421,12 @@ export function RejectedRightsTab() {
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Approve Reimbursement</DialogTitle>
+            <DialogTitle className="text-lg font-bold">
+              Approve Reimbursement
+            </DialogTitle>
             <DialogDescription className="text-[13px] text-muted-foreground mt-1">
-              You are about to process a refund reimbursement for the following declaration.
+              You are about to process a refund reimbursement for the following
+              declaration.
             </DialogDescription>
           </DialogHeader>
 
@@ -415,17 +434,28 @@ export function RejectedRightsTab() {
             {reviewingBatch && (
               <>
                 <div className="flex justify-between border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground text-sm">Declaration Reference</span>
-                  <span className="font-mono font-semibold text-sm">{reviewingBatch?.ref}</span>
+                  <span className="text-muted-foreground text-sm">
+                    Declaration Reference
+                  </span>
+                  <span className="font-mono font-semibold text-sm">
+                    {reviewingBatch?.ref}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground text-sm">Current Stage</span>
-                  <Badge variant="outline" className="text-xs font-bold border-0 bg-blue-100 text-blue-800">
+                  <span className="text-muted-foreground text-sm">
+                    Current Stage
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-bold border-0 bg-blue-100 text-blue-800"
+                  >
                     {reviewingBatch?.status}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground text-sm">Total Amount</span>
+                  <span className="text-muted-foreground text-sm">
+                    Total Amount
+                  </span>
                   <span className="font-mono font-bold text-destructive text-base">
                     ₦{reviewingBatch?.totalAmount.toLocaleString()}
                   </span>
@@ -436,7 +466,10 @@ export function RejectedRightsTab() {
               <label className="text-[13px] font-semibold text-foreground">
                 Select Payment Gateway <span className="text-red-500">*</span>
               </label>
-              <Select value={selectedGateway} onValueChange={(value) => setSelectedGateway(value as string)}>
+              <Select
+                value={selectedGateway}
+                onValueChange={(value) => setSelectedGateway(value as string)}
+              >
                 <SelectTrigger className="w-full mrpsl-input">
                   <SelectValue placeholder="Select Payment Gateway" />
                 </SelectTrigger>
@@ -446,7 +479,6 @@ export function RejectedRightsTab() {
                 </SelectContent>
               </Select>
             </div>
-
           </div>
 
           <DialogFooter className="mt-6 flex justify-end gap-2">

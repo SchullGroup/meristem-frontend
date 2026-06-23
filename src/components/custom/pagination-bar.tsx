@@ -24,7 +24,7 @@ interface PaginationBarProps {
   pageSize: number;
   onPageSizeChange?: (s: number) => void;
   pageBase?: 0 | 1;
-  totalPages?: number
+  totalPages?: number;
 }
 
 export function PaginationBar({
@@ -34,7 +34,7 @@ export function PaginationBar({
   pageSize,
   onPageSizeChange,
   pageBase = 0,
-  totalPages: propTotalPages
+  totalPages: propTotalPages,
 }: PaginationBarProps) {
   // Convert to 1‑based for UI (page numbers shown to user start at 1)
   const uiPage = pageBase === 0 ? page + 1 : page;
@@ -64,7 +64,6 @@ export function PaginationBar({
     if (uiPage < totalPages) onPageChange(page + 1);
   };
 
-
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/10 text-[13px]">
       <div className="flex items-center gap-3">
@@ -77,7 +76,6 @@ export function PaginationBar({
             <Select
               value={String(pageSize)}
               onValueChange={(v) => handlePageSizeChange(Number(v))}
-
             >
               <SelectTrigger className="h-6 w-16 text-[13px] px-2 py-0 border-border/60">
                 <SelectValue />
@@ -99,7 +97,7 @@ export function PaginationBar({
           variant="outline"
           size="sm"
           className="h-7 px-2.5 text-[13px]"
-          disabled={uiPage === 1}          // ✓ Correct: disabled on first page
+          disabled={uiPage === 1} // ✓ Correct: disabled on first page
           onClick={goToPrevious}
         >
           Previous
@@ -119,7 +117,6 @@ export function PaginationBar({
               size="sm"
               className="h-7 w-7 p-0 text-[13px]"
               onClick={() => onPageChange(pageBase === 0 ? p - 1 : p)}
-
             >
               {p}
             </Button>

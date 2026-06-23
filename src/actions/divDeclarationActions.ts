@@ -55,10 +55,15 @@ export const GET_ALL_DIVIDEND_DECLARATIONS = async (params?: {
   size?: number;
   page?: number;
   status?: string;
+  registerId?: string;
+  dividendType?: string;
+  tier?: number;
+  dateFrom?: string;
+  dateTo?: string;
 }) => {
   try {
     const res = await api.get(`/dividend/declarations`, {
-      params
+      params,
     });
     return res.data;
   } catch (error) {
@@ -67,9 +72,13 @@ export const GET_ALL_DIVIDEND_DECLARATIONS = async (params?: {
   }
 };
 
-export const GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS = async () => {
+export const GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS = async (params?: {
+  registerId?: string;
+}) => {
   try {
-    const res = await api.get(`/dividend/declarations/dividend-numbers`);
+    const res = await api.get(`/dividend/declarations/dividend-numbers`, {
+      params,
+    });
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

@@ -46,7 +46,10 @@ export function RejectedBonusesTab() {
   const [authPageSize, setAuthPageSize] = useState(20);
 
   // Registers for filter
-  const { data: registersData } = useGetRegisters({ status: "ACTIVE", size: 100 });
+  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
+    status: "ACTIVE",
+    size: 100,
+  });
   const activeRegisters = registersData?.content || [];
 
   // Get bonus declarations
@@ -58,28 +61,33 @@ export function RejectedBonusesTab() {
     refetch: refetchList,
   } = useQuery({
     queryKey: ["bonus-declarations"],
-    queryFn: () => GET_DECLARATIONS({
-      page: listPage,
-      pageSize: listPageSize,
-      registerId: authRegister !== "" ? authRegister : undefined,
-      search: debouncedListSearch?.length > 3 ? debouncedListSearch : undefined
-    }),
+    queryFn: () =>
+      GET_DECLARATIONS({
+        page: listPage,
+        pageSize: listPageSize,
+        registerId: authRegister !== "" ? authRegister : undefined,
+        search:
+          debouncedListSearch?.length > 3 ? debouncedListSearch : undefined,
+      }),
   });
 
   // Filter for rejected declarations
   const filteredList = useMemo(() => {
     if (!declarationsData?.content) return [];
-    return declarationsData?.content.filter((d: { status: string }) =>
-      d.status === "AUTH_REJECTED" || d.status === "ICU_REJECTED"
+    return declarationsData?.content.filter(
+      (d: { status: string }) =>
+        d.status === "AUTH_REJECTED" || d.status === "ICU_REJECTED",
     );
   }, [declarationsData]);
 
   // Review detail queries
-  const { data: activeReviewData, isLoading: isActiveReviewLoading } = useQuery({
-    queryKey: ["bonus-declaration", reviewingBatchId],
-    queryFn: () => GET_DECLARATION_BY_ID(reviewingBatchId as string),
-    enabled: !!reviewingBatchId,
-  });
+  const { data: activeReviewData, isLoading: isActiveReviewLoading } = useQuery(
+    {
+      queryKey: ["bonus-declaration", reviewingBatchId],
+      queryFn: () => GET_DECLARATION_BY_ID(reviewingBatchId as string),
+      enabled: !!reviewingBatchId,
+    },
+  );
 
   const activeReview = activeReviewData?.data;
 
@@ -94,15 +102,14 @@ export function RejectedBonusesTab() {
   });
 
   const entitlementList = entitlementData?.data?.entitlements?.content || [];
-  const entitlementTotal = entitlementData?.data?.entitlements?.totalElements || 0;
-  const entitlementTotalPages = entitlementData?.data?.entitlements?.totalPages || 1;
-
-
+  const entitlementTotal =
+    entitlementData?.data?.entitlements?.totalElements || 0;
+  const entitlementTotalPages =
+    entitlementData?.data?.entitlements?.totalPages || 1;
 
   // ── Reimbursement Confirmation Modal state ──
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState("");
-
 
   // ── List view ──
   if (reviewingBatchId === null) {
@@ -129,16 +136,26 @@ export function RejectedBonusesTab() {
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Registers</SelectItem>
-                  {activeRegisters.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {loadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="">All Register</SelectItem>
+                      {activeRegisters?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-
           </div>
         </Card>
 
@@ -152,20 +169,26 @@ export function RejectedBonusesTab() {
               </p>
             </div>
           ) : listError ? (
-            <DataErrorState onRetry={refetchList} message={listErrorMsg?.message || "Failed to load bonus declarations"} />
+            <DataErrorState
+              onRetry={refetchList}
+              message={
+                listErrorMsg?.message || "Failed to load bonus declarations"
+              }
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="mrpsl-table-header">
                   <tr>
-
                     <th className="px-4 py-3">DECLARATION REF</th>
                     <th className="px-4 py-3">REGISTER</th>
                     <th className="px-4 py-3">BONUS NAME</th>
                     <th className="px-4 py-3">RECORD DATE</th>
                     <th className="px-4 py-3 text-right">TOTAL SHAREHOLDERS</th>
                     <th className="px-4 py-3 text-right">BONUS SHARES DUE</th>
-                    <th className="px-4 py-3 text-right">FRACTIONAL REMAINDER</th>
+                    <th className="px-4 py-3 text-right">
+                      FRACTIONAL REMAINDER
+                    </th>
                     <th className="px-4 py-3">STATUS</th>
                     <th className="px-4 py-3">ACTIONS</th>
                   </tr>
@@ -174,7 +197,6 @@ export function RejectedBonusesTab() {
                   {filteredList.map((issue: any) => {
                     return (
                       <tr key={issue.id} className="mrpsl-table-row">
-
                         <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
                           {issue.ref}
                         </td>
@@ -194,7 +216,8 @@ export function RejectedBonusesTab() {
                           {issue.totalBonusShares?.toLocaleString() || "0"}
                         </td>
                         <td className="px-4 py-3 font-mono text-right">
-                          {issue.totalFractionalRemainder?.toFixed(4) || "0.0000"}
+                          {issue.totalFractionalRemainder?.toFixed(4) ||
+                            "0.0000"}
                         </td>
                         <td className="px-4 py-3">
                           <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
@@ -313,7 +336,10 @@ export function RejectedBonusesTab() {
                 ))}
                 {entitlementList.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    <td
+                      colSpan={5}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
                       No entitlement records found.
                     </td>
                   </tr>
@@ -352,9 +378,12 @@ export function RejectedBonusesTab() {
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Approve Reimbursement</DialogTitle>
+            <DialogTitle className="text-lg font-bold">
+              Approve Reimbursement
+            </DialogTitle>
             <DialogDescription className="text-[13px] text-muted-foreground mt-1">
-              You are about to process a refund reimbursement for the following declaration.
+              You are about to process a refund reimbursement for the following
+              declaration.
             </DialogDescription>
           </DialogHeader>
 
@@ -362,17 +391,28 @@ export function RejectedBonusesTab() {
             {activeReview && (
               <>
                 <div className="flex justify-between border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground text-sm">Declaration Reference</span>
-                  <span className="font-mono font-semibold text-sm">{activeReview?.ref}</span>
+                  <span className="text-muted-foreground text-sm">
+                    Declaration Reference
+                  </span>
+                  <span className="font-mono font-semibold text-sm">
+                    {activeReview?.ref}
+                  </span>
                 </div>
                 <div className="flex justify-between border-b border-border/40 pb-2">
-                  <span className="text-muted-foreground text-sm">Current Stage</span>
-                  <Badge variant="outline" className="text-xs font-bold border-0 bg-blue-100 text-blue-800">
+                  <span className="text-muted-foreground text-sm">
+                    Current Stage
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-bold border-0 bg-blue-100 text-blue-800"
+                  >
                     {activeReview?.status}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground text-sm">Total Amount</span>
+                  <span className="text-muted-foreground text-sm">
+                    Total Amount
+                  </span>
                   <span className="font-mono font-bold text-destructive text-base">
                     ₦{activeReview?.totalAmount.toLocaleString()}
                   </span>
@@ -383,7 +423,10 @@ export function RejectedBonusesTab() {
               <label className="text-[13px] font-semibold text-foreground">
                 Select Payment Gateway <span className="text-red-500">*</span>
               </label>
-              <Select value={selectedGateway} onValueChange={(value) => setSelectedGateway(value as string)}>
+              <Select
+                value={selectedGateway}
+                onValueChange={(value) => setSelectedGateway(value as string)}
+              >
                 <SelectTrigger className="w-full mrpsl-input">
                   <SelectValue placeholder="Select Payment Gateway" />
                 </SelectTrigger>
@@ -394,8 +437,6 @@ export function RejectedBonusesTab() {
               </Select>
             </div>
           </div>
-
-
 
           <DialogFooter className="mt-6 flex justify-end gap-2">
             <Button

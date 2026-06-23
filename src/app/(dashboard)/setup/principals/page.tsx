@@ -44,7 +44,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import ToggleStatusDialog from "@/components/custom/principal/toggle-status-dialog";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 const colors = [
   "bg-emerald-500",
@@ -86,9 +86,9 @@ export default function PrincipalsPage() {
 
   const total = principalStats?.billingBreakdown
     ? Object.values(principalStats.billingBreakdown).reduce(
-      (sum, value) => sum + value,
-      0,
-    )
+        (sum, value) => sum + value,
+        0,
+      )
     : 0;
 
   const totalItems = principals?.pagination?.total || 0;
@@ -343,12 +343,13 @@ export default function PrincipalsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${p.billingCategory === "A"
+                        className={`border-0 text-xs ${
+                          p.billingCategory === "A"
                             ? "bg-emerald-100 text-emerald-800"
                             : p.billingCategory === "B"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-amber-100 text-amber-800"
-                          }`}
+                        }`}
                       >
                         Category {p.billingCategory}
                       </Badge>
