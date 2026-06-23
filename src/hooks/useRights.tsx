@@ -88,17 +88,21 @@ export interface TransformedShareholderProfileResponse<T> {
   };
 }
 
-export const useAllRightsIssues = (
-  params?: RightsIssueParams,
-  options?: Omit<
-    UseQueryOptions<
-      PaginatedResponse<RightsIssue>,
-      Error,
-      TransformedResponse<RightsIssue>
-    >,
-    "queryKey" | "queryFn"
+export const useAllRightsIssues = (params?: RightsIssueParams, options?: Omit<
+  UseQueryOptions<
+    PaginatedResponse<RightsIssue>,
+    Error,
+    {
+      content: RightsIssue[];
+      pagination: {
+        total: number;
+        page: number;
+        totalPages: number;
+      };
+    }
   >,
-) => {
+  "queryKey" | "queryFn" | "select"
+>) => {
   return useQuery({
     queryKey: ["rightsIssues", params],
     queryFn: () => getAllRightsIssues(params),
@@ -339,6 +343,9 @@ export const useGetAllotment = (
         processedAt: data?.data?.processedAt,
       },
       content: data.data?.content,
+      pagination: {
+        total: data?.data?.content?.length ?? 0,
+      },
     }),
     ...options,
   });

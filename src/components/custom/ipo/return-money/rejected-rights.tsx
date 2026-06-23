@@ -33,6 +33,14 @@ import { DataErrorState } from "../../ipo/loaders";
 import { format } from "date-fns";
 import { useDebounce } from "@/hooks/useDebounce";
 import { formatDate } from "@/lib/utils/format";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export function RejectedRightsTab() {
   const [authRegister, setAuthRegister] = useState("");
@@ -48,7 +56,6 @@ export function RejectedRightsTab() {
   const [authPage, setAuthPage] = useState(1);
   const [authPageSize, setAuthPageSize] = useState(20);
   const [downloading, setDownloading] = useState(false);
-  const [refundedBatches, setRefundedBatches] = useState<string[]>([]);
 
   // Registers for filter
   const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
@@ -152,17 +159,11 @@ export function RejectedRightsTab() {
     }
   };
 
-  const triggerRefund = (batchId: string, ref: string, amount: number) => {
-    toast.promise(new Promise((resolve) => setTimeout(resolve, 1500)), {
-      loading: `Processing return payment for ${ref}...`,
-      success: () => {
-        setRefundedBatches((prev) => [...prev, batchId]);
-        return `Refund of ₦${amount.toLocaleString()} for declaration ${ref} processed successfully.`;
-      },
-      error: "Refund failed.",
-    });
-  };
+  // ── Reimbursement Confirmation Modal state ──
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [selectedGateway, setSelectedGateway] = useState("");
 
+  // ── List view ──
   if (reviewingBatch === null) {
     return (
       <div className="space-y-4">
@@ -243,9 +244,6 @@ export function RejectedRightsTab() {
                 </thead>
                 <tbody className="divide-y">
                   {filteredList.map((issue: RightsIssue) => {
-                    const isRefunded = refundedBatches.includes(
-                      issue.id.toString(),
-                    );
                     return (
                       <tr key={issue.id} className="mrpsl-table-row">
                         <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
@@ -284,10 +282,10 @@ export function RejectedRightsTab() {
                         </td>
                         <td className="px-4 py-3">
                           <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
-                            {isRefunded ? "REFUNDED" : issue.status}
+                            {issue.status}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
+                        <td className="px-4 py-3 text-right">
                           <Button
                             size="sm"
                             variant="outline"
@@ -298,21 +296,6 @@ export function RejectedRightsTab() {
                           >
                             Review
                           </Button>
-                          {!isRefunded && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() =>
-                                triggerRefund(
-                                  issue.id.toString(),
-                                  issue.ref,
-                                  issue.totalAmount || 0,
-                                )
-                              }
-                            >
-                              Refund
-                            </Button>
-                          )}
                         </td>
                       </tr>
                     );
@@ -320,7 +303,7 @@ export function RejectedRightsTab() {
                   {filteredList.length === 0 && (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={11}
                         className="px-4 py-12 text-center text-sm text-muted-foreground italic"
                       >
                         No rejected rights declarations found.
@@ -334,7 +317,7 @@ export function RejectedRightsTab() {
 
           <PaginationBar
             page={listPage}
-            total={rightsList?.pagination.total || 0}
+            total={filteredList.length}
             pageSize={listPageSize}
             onPageChange={setListPage}
             onPageSizeChange={setListPageSize}
@@ -345,10 +328,7 @@ export function RejectedRightsTab() {
     );
   }
 
-  /* ── Detail / Review view ── */
-  const isBatchRefunded = refundedBatches.includes(
-    reviewingBatch.id.toString(),
-  );
+  // ── Detail / Review view ──
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -371,7 +351,7 @@ export function RejectedRightsTab() {
           · {reviewingBatch.registerName} · {reviewingBatch.offerName}
         </span>
         <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
-          {isBatchRefunded ? "REFUNDED" : reviewingBatch.status}
+          {reviewingBatch.status}
         </Badge>
         <div className="flex-1" />
         <Button
@@ -423,24 +403,105 @@ export function RejectedRightsTab() {
         pageBase={1}
       />
 
-      {/* Action Payout */}
-      {!isBatchRefunded && (
-        <Button
-          size="lg"
-          variant="destructive"
-          className="h-12 text-base font-semibold w-full"
-          onClick={() =>
-            triggerRefund(
-              reviewingBatch.id.toString(),
-              reviewingBatch.ref,
-              reviewingBatch.totalAmount || 0,
-            )
-          }
-        >
-          Process Refund (₦{reviewingBatch.totalAmount?.toLocaleString() || "0"}
-          )
-        </Button>
-      )}
+      {/* Process Refund — opens gateway confirmation modal */}
+      <Button
+        size="lg"
+        variant="destructive"
+        className="h-12 text-base font-semibold w-full"
+        disabled={shLoading}
+        onClick={() => {
+          setSelectedGateway("");
+          setIsConfirmOpen(true);
+        }}
+      >
+        Process Reimbursment
+      </Button>
+
+      {/* Confirmation Modal (shared) */}
+      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">
+              Approve Reimbursement
+            </DialogTitle>
+            <DialogDescription className="text-[13px] text-muted-foreground mt-1">
+              You are about to process a refund reimbursement for the following
+              declaration.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="m-4 space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50 text-[13px]">
+            {reviewingBatch && (
+              <>
+                <div className="flex justify-between border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground text-sm">
+                    Declaration Reference
+                  </span>
+                  <span className="font-mono font-semibold text-sm">
+                    {reviewingBatch?.ref}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-border/40 pb-2">
+                  <span className="text-muted-foreground text-sm">
+                    Current Stage
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="text-xs font-bold border-0 bg-blue-100 text-blue-800"
+                  >
+                    {reviewingBatch?.status}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground text-sm">
+                    Total Amount
+                  </span>
+                  <span className="font-mono font-bold text-destructive text-base">
+                    ₦{reviewingBatch?.totalAmount.toLocaleString()}
+                  </span>
+                </div>
+              </>
+            )}
+            <div className="space-y-2">
+              <label className="text-[13px] font-semibold text-foreground">
+                Select Payment Gateway <span className="text-red-500">*</span>
+              </label>
+              <Select
+                value={selectedGateway}
+                onValueChange={(value) => setSelectedGateway(value as string)}
+              >
+                <SelectTrigger className="w-full mrpsl-input">
+                  <SelectValue placeholder="Select Payment Gateway" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nibss">NIBSS</SelectItem>
+                  <SelectItem value="remita">Remita</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6 flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              className="text-xs font-bold"
+              onClick={() => setIsConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="text-xs font-bold px-6"
+              disabled={!selectedGateway}
+              onClick={() => {
+                setIsConfirmOpen(false);
+              }}
+            >
+              Approve
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

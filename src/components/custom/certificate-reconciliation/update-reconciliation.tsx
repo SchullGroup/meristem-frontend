@@ -25,6 +25,8 @@ import { DateRangePicker } from "../date-range-picker";
 import { DateRange } from "react-day-picker";
 import StatusBadge from "../status-badge";
 import { ProcessedTransaction, ReconciliationFlaggedTransaction } from "@/types/cscs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+
 
 export default function UpdateReconciliation({ tab }: { tab: string }) {
   const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters({
@@ -46,6 +48,7 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
 
   const debouncedSearch = useDebounce(search, 500);
   const [txUnits, setTxUnits] = useState(0);
+  const [updateSide, setUpdateSide] = useState<"CSCS" | "MRPSL">("CSCS");
 
   // ── PRIMARY DATA TABLE STREAM LISTING ──────────────────────────────
   const { data, isLoading, isError, error, refetch } =
@@ -81,7 +84,7 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
   const cscsRawList = reconData?.cscs?.content || [];
   const missingDataList = reconData?.missingData || [];
   const mrpslTotal = reconData?.mrpsl?.totalElements || 0
-  const cscsTotal = reconData?.mrpsl?.totalElements || 0
+  const cscsTotal = reconData?.cscs?.totalElements || 0
 
 
   const handlePageSizeChange = (value: number) => {
@@ -239,6 +242,19 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
         {/* INSERT FORM SECTION BLOCK LAYOUT */}
         <Card className="mrpsl-card p-5 space-y-4">
           <h3 className="font-semibold text-sm">Insert Missing Transaction</h3>
+          <div className="flex gap-4 items-center">
+            <label className="text-sm font-medium">Record:</label>
+            <RadioGroup value={updateSide} onValueChange={(val) => setUpdateSide(val as "CSCS" | "MRPSL")} className="flex gap-2">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="CSCS" id="cscs" />
+                <label className="mrspl-label" htmlFor="cscs">CSCS (Shortfall)</label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="MRPSL" id="mrpsl" />
+                <label className="mrspl-label" htmlFor="mrpsl">MRPSL (CSCS ahead)</label>
+              </div>
+            </RadioGroup>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="mrpsl-label">Transaction Date</label>

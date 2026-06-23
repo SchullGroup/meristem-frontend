@@ -20,13 +20,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import RegisterSelect from "@/components/custom/register-select";
 
 export default function WarrantEnquiryPage() {
   const [showResults, setShowResults] = useState(false);
   const [type, setType] = useState<WarrantPaymentType | "">("");
   const [warrantNo, setWarrantNo] = useState("");
   const [accountNo, setAccountNo] = useState("");
-  const [registerSymbol, setRegisterSymbol] = useState("");
+  const [selectedRegister, setSelectedRegister] = useState("");
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -46,9 +47,9 @@ export default function WarrantEnquiryPage() {
       paymentType: searchParams.paymentType || "DIVIDEND_WARRANT",
       warrantNo: searchParams.warrantNo,
       accountNo: searchParams.accountNo,
+      registerSymbol: searchParams.registerSymbol || undefined,
       page: page,
       size: pageSize,
-      registerSymbol: searchParams.registerSymbol,
     },
     {
       enabled: showResults && !!searchParams.paymentType,
@@ -65,7 +66,7 @@ export default function WarrantEnquiryPage() {
       paymentType: type,
       warrantNo: warrantNo.trim() || undefined,
       accountNo: accountNo.trim() || undefined,
-      registerSymbol: registerSymbol || undefined,
+      registerSymbol: selectedRegister || undefined,
     });
     setPage(0);
     setShowResults(true);
@@ -81,7 +82,7 @@ export default function WarrantEnquiryPage() {
   };
 
   const hasParams =
-    !!registerSymbol && (!!warrantNo.trim() || !!accountNo.trim());
+    !!selectedRegister && (!!warrantNo.trim() || !!accountNo.trim());
 
   return (
     <div className="space-y-6">
@@ -130,43 +131,14 @@ export default function WarrantEnquiryPage() {
         </div>
 
         {type && (
-          <div className="flex gap-4 items-end animate-in fade-in flex-wrap">
+          <div className="flex gap-4 items-end animate-in fade-in">
+            <RegisterSelect
+              label="Register *"
+              value={selectedRegister}
+              onChange={(value) => setSelectedRegister(value)}
+              enabled={!!type}
+            />
             <div className="">
-              <label className="mrpsl-label">Register</label>
-              <Select
-                value={registerSymbol || "all"}
-                onValueChange={(v) =>
-                  setRegisterSymbol(v === "all" ? "" : (v ?? ""))
-                }
-              >
-                <SelectTrigger className="mrpsl-input w-48">
-                  <SelectValue placeholder="All Registers" />
-                </SelectTrigger>
-                <SelectContent>
-                  {isLoadingRegisters ? (
-                    <div className="py-10 flex items-center justify-center">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    </div>
-                  ) : (
-                    <>
-                      <SelectItem value="all">All Registers</SelectItem>
-                      {registersData?.content?.map((reg) => (
-                        <SelectItem key={reg.registerId} value={reg.symbol}>
-                          <span className="font-bold">{reg.registerName}</span>{" "}
-                          <span className="text-sm text-muted-foreground">
-                            {reg.symbol}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="text-sm font-bold text-muted-foreground mb-3">
-              |
-            </div>
-            <div className="space-y-2">
               <label className="mrpsl-label">Warrant No</label>
               <Input
                 className="mrpsl-input w-48"
