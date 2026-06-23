@@ -144,7 +144,7 @@ export function UnclaimedOverviewTab() {
           <label className="mrpsl-label">Register</label>
           <Select
             value={registerFilter || "all"}
-            onValueChange={(v) => setRegisterFilter(v === "all" ? "" : v)}
+            onValueChange={(v) => setRegisterFilter(!v || v === "all" ? "" : v)}
           >
             <SelectTrigger className="mrpsl-input w-48">
               <SelectValue placeholder="All Registers" />
