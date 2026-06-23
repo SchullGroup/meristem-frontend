@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
     Search,
+    Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
@@ -36,7 +37,7 @@ export const FlaggedTransactions = ({ tab }: {
 }) => {
     const router = useRouter();
 
-    const { data: activeRegisters } = useGetRegisters({
+    const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters({
         size: 100,
         status: "ACTIVE",
     }, {
@@ -111,12 +112,22 @@ export const FlaggedTransactions = ({ tab }: {
                         <SelectValue placeholder="All Registers" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">All Registers</SelectItem>
-                        {activeRegisters?.content?.map((r) => (
-                            <SelectItem key={r.registerId} value={r.symbol}>
-                                {r.registerName} · {r.symbol}
-                            </SelectItem>
-                        ))}
+                        {loadingRegisters ? (
+                            <div className="py-10 flex items-center justify-center">
+                                <Loader2 className="animate-spin w-4 h-4" />
+                            </div>
+                        ) : (
+                            <>
+                                <SelectItem value="">All Registers</SelectItem>
+                                {activeRegisters?.content?.map((r) => (
+                                    <SelectItem key={r.registerId} value={r.symbol}>
+                                        <span className="font-bold">{r.registerName}</span>{" "}
+                                        -{" "}
+                                        <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                                    </SelectItem>
+                                ))}
+                            </>
+                        )}
                     </SelectContent>
                 </Select>
 

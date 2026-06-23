@@ -32,8 +32,8 @@ export function RejectedBonusesTab() {
   const [authRegister, setAuthRegister] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedListSearch = useDebounce(searchQuery, 500);
-  const [listPage, setListPage] = useState(1)
-  const [listPageSize, setListPageSize] = useState(20)
+  const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState(20);
 
   // Review mode state
   const [reviewingBatchId, setReviewingBatchId] = useState<string | null>(null);
@@ -42,7 +42,10 @@ export function RejectedBonusesTab() {
   const [refundedBatches, setRefundedBatches] = useState<string[]>([]);
 
   // Registers for filter
-  const { data: registersData } = useGetRegisters({ status: "ACTIVE", size: 100 });
+  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
+    status: "ACTIVE",
+    size: 100,
+  });
   const activeRegisters = registersData?.content || [];
 
   // Get bonus declarations
@@ -54,29 +57,33 @@ export function RejectedBonusesTab() {
     refetch: refetchList,
   } = useQuery({
     queryKey: ["bonus-declarations"],
-    queryFn: () => GET_DECLARATIONS({
-      page: listPage,
-      pageSize: listPageSize,
-      registerId: authRegister !== "" ? authRegister : undefined,
-      search: debouncedListSearch?.length > 3 ? debouncedListSearch : undefined
-    }),
+    queryFn: () =>
+      GET_DECLARATIONS({
+        page: listPage,
+        pageSize: listPageSize,
+        registerId: authRegister !== "" ? authRegister : undefined,
+        search:
+          debouncedListSearch?.length > 3 ? debouncedListSearch : undefined,
+      }),
   });
-
 
   // Filter for rejected declarations and filter criteria
   const filteredList = useMemo(() => {
     if (!declarationsData?.content) return [];
-    return declarationsData?.content.filter((d: { status: string }) =>
-      d.status === "AUTH_REJECTED" || d.status === "ICU_REJECTED"
+    return declarationsData?.content.filter(
+      (d: { status: string }) =>
+        d.status === "AUTH_REJECTED" || d.status === "ICU_REJECTED",
     );
   }, [declarationsData]);
 
   // Review details queries
-  const { data: activeReviewData, isLoading: isActiveReviewLoading } = useQuery({
-    queryKey: ["bonus-declaration", reviewingBatchId],
-    queryFn: () => GET_DECLARATION_BY_ID(reviewingBatchId as string),
-    enabled: !!reviewingBatchId,
-  });
+  const { data: activeReviewData, isLoading: isActiveReviewLoading } = useQuery(
+    {
+      queryKey: ["bonus-declaration", reviewingBatchId],
+      queryFn: () => GET_DECLARATION_BY_ID(reviewingBatchId as string),
+      enabled: !!reviewingBatchId,
+    },
+  );
 
   const activeReview = activeReviewData?.data;
 
@@ -91,21 +98,20 @@ export function RejectedBonusesTab() {
   });
 
   const entitlementList = entitlementData?.data?.entitlements?.content || [];
-  const entitlementTotal = entitlementData?.data?.entitlements?.totalElements || 0;
-  const entitlementTotalPages = entitlementData?.data?.entitlements?.totalPages || 1;
+  const entitlementTotal =
+    entitlementData?.data?.entitlements?.totalElements || 0;
+  const entitlementTotalPages =
+    entitlementData?.data?.entitlements?.totalPages || 1;
 
   const triggerRefund = (batchId: string, ref: string, count: number) => {
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-      {
-        loading: `Processing return payments for bonus issue ${ref}...`,
-        success: () => {
-          setRefundedBatches((prev) => [...prev, batchId]);
-          return `Refund processed successfully for ${count} shareholders on declaration ${ref}.`;
-        },
-        error: "Refund failed.",
-      }
-    );
+    toast.promise(new Promise((resolve) => setTimeout(resolve, 1500)), {
+      loading: `Processing return payments for bonus issue ${ref}...`,
+      success: () => {
+        setRefundedBatches((prev) => [...prev, batchId]);
+        return `Refund processed successfully for ${count} shareholders on declaration ${ref}.`;
+      },
+      error: "Refund failed.",
+    });
   };
 
   if (reviewingBatchId === null) {
@@ -132,12 +138,23 @@ export function RejectedBonusesTab() {
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Registers</SelectItem>
-                  {activeRegisters.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {loadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="">All Register</SelectItem>
+                      {activeRegisters?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -154,7 +171,12 @@ export function RejectedBonusesTab() {
               </p>
             </div>
           ) : listError ? (
-            <DataErrorState onRetry={refetchList} message={listErrorMsg?.message || "Failed to load bonus declarations"} />
+            <DataErrorState
+              onRetry={refetchList}
+              message={
+                listErrorMsg?.message || "Failed to load bonus declarations"
+              }
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
@@ -166,14 +188,18 @@ export function RejectedBonusesTab() {
                     <th className="px-4 py-3">RECORD DATE</th>
                     <th className="px-4 py-3 text-right">TOTAL SHAREHOLDERS</th>
                     <th className="px-4 py-3 text-right">BONUS SHARES DUE</th>
-                    <th className="px-4 py-3 text-right">FRACTIONAL REMAINDER</th>
+                    <th className="px-4 py-3 text-right">
+                      FRACTIONAL REMAINDER
+                    </th>
                     <th className="px-4 py-3">STATUS</th>
                     <th className="px-4 py-3">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {filteredList.map((issue: any) => {
-                    const isRefunded = refundedBatches.includes(issue.id.toString());
+                    const isRefunded = refundedBatches.includes(
+                      issue.id.toString(),
+                    );
                     return (
                       <tr key={issue.id} className="mrpsl-table-row">
                         <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
@@ -195,7 +221,8 @@ export function RejectedBonusesTab() {
                           {issue.totalBonusShares?.toLocaleString() || "0"}
                         </td>
                         <td className="px-4 py-3 font-mono text-right">
-                          {issue.totalFractionalRemainder?.toFixed(4) || "0.0000"}
+                          {issue.totalFractionalRemainder?.toFixed(4) ||
+                            "0.0000"}
                         </td>
                         <td className="px-4 py-3">
                           <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
@@ -221,7 +248,7 @@ export function RejectedBonusesTab() {
                                 triggerRefund(
                                   issue.id.toString(),
                                   issue.ref,
-                                  issue.totalShareholders || 0
+                                  issue.totalShareholders || 0,
                                 )
                               }
                             >
@@ -255,7 +282,6 @@ export function RejectedBonusesTab() {
             onPageChange={setListPage}
             onPageSizeChange={setListPageSize}
           />
-
         </Card>
       </div>
     );
@@ -332,7 +358,10 @@ export function RejectedBonusesTab() {
                 ))}
                 {entitlementList.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                    <td
+                      colSpan={5}
+                      className="px-4 py-8 text-center text-muted-foreground"
+                    >
                       No entitlement records found.
                     </td>
                   </tr>
@@ -362,11 +391,12 @@ export function RejectedBonusesTab() {
             triggerRefund(
               activeReview.id.toString(),
               activeReview.ref,
-              activeReview.totalShareholders || 0
+              activeReview.totalShareholders || 0,
             )
           }
         >
-          Process Refund for Rejected Bonus ({activeReview.totalShareholders || 0} Shareholders)
+          Process Refund for Rejected Bonus (
+          {activeReview.totalShareholders || 0} Shareholders)
         </Button>
       )}
     </div>

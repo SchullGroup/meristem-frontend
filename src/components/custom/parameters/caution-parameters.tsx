@@ -47,7 +47,7 @@ interface CautionParametersProps {
   confirmDelete: (label: string, onConfirm: () => void) => void;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export default function CautionParameters({
   tab,
@@ -345,8 +345,8 @@ export default function CautionParameters({
             >
               {(createCautionMutation.isPending ||
                 updateCautionMutation.isPending) && (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                )}
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
               {cautMode === "add" ? "Add Reason" : "Save Changes"}
             </Button>
           </DialogFooter>

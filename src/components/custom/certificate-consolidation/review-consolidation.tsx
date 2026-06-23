@@ -262,26 +262,14 @@ export const ReviewConsolidation = ({
                 onClick={handleReject}
                 disabled={approveMutation.isPending || rejectMutation.isPending}
               >
-<<<<<<< HEAD
-                Reject
-                {rejectMutation.isPending && (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                )}
-              </Button>
-              <Button className="flex-1" onClick={handleApprove}>
-                Approve Consolidation
-                {approveMutation.isPending && (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                )}
-=======
                 {rejectMutation?.isPending ? "Rejecting..." : "Reject"}
               </Button>
               <Button
                 disabled={approveMutation.isPending || rejectMutation.isPending}
-
-                className="flex-1" onClick={handleApprove}>
+                className="flex-1"
+                onClick={handleApprove}
+              >
                 {approveMutation?.isPending ? "Approving..." : "Approve Consolidation"}
->>>>>>> dev
               </Button>
             </div>
           </div>

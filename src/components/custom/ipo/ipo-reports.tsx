@@ -48,10 +48,11 @@ const REPORT_TYPES = [
 ];
 
 export default function IPOReports() {
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   const [selectedReport, setSelectedReport] = useState(REPORT_TYPES[0]);
   const [reportRegister, setReportRegister] = useState("all");
@@ -278,12 +279,23 @@ export default function IPOReports() {
                 <SelectValue placeholder="All Registers" />
               </SelectTrigger>
               <SelectContent className="w-max">
-                <SelectItem value="all">All Registers</SelectItem>
-                {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r?.registerId} value={r?.symbol}>
-                    {r?.registerName} · {r?.symbol}
-                  </SelectItem>
-                ))}
+                {registersLoading ? (
+                  <div className="py-10 flex items-center justify-center">
+                    <Loader2 className="animate-spin w-4 h-4" />
+                  </div>
+                ) : (
+                  <>
+                    <SelectItem value="All">All Register</SelectItem>
+                    {activeRegisters?.content?.map((r) => (
+                      <SelectItem key={r.registerId} value={r.symbol}>
+                        <span className="font-bold">{r.registerName}</span> -{" "}
+                        <span className="text-xs translate-y-0.5">
+                          {r.symbol}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
             <Button
@@ -408,7 +420,7 @@ export default function IPOReports() {
                             r?.status === "Approved" || r?.status === "APPROVED"
                               ? "bg-green-100 text-green-800"
                               : r?.status === "Disapproved" ||
-                                r?.status === "DISAPPROVED"
+                                  r?.status === "DISAPPROVED"
                                 ? "bg-amber-100 text-amber-800"
                                 : "bg-red-100 text-red-700",
                           )}
@@ -777,7 +789,7 @@ export default function IPOReports() {
                             r?.status === "Lodged" || r?.status === "LODGED"
                               ? "bg-green-100 text-green-800"
                               : r?.status === "ICU Approved" ||
-                                r?.status === "ICU_APPROVED"
+                                  r?.status === "ICU_APPROVED"
                                 ? "bg-blue-100 text-blue-800"
                                 : "bg-amber-100 text-amber-800",
                           )}

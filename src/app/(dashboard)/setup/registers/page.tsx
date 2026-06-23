@@ -41,7 +41,7 @@ import { useGetPrincipals } from "@/hooks/usePrincipal";
 import ToggleTransactionDialog from "@/components/custom/registers/toggle-transactions";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export default function RegistersPage() {
   const router = useRouter();

@@ -74,6 +74,9 @@ export interface TransformedResponse<T> {
     processedAt: string;
   };
   content: T[];
+  pagination: {
+    total: number;
+  };
 }
 
 export interface TransformedShareholderProfileResponse<T> {
@@ -85,14 +88,17 @@ export interface TransformedShareholderProfileResponse<T> {
   };
 }
 
-export const useAllRightsIssues = (params?: RightsIssueParams, options?: Omit<
-  UseQueryOptions<
-    PaginatedResponse<RightsIssue>,
-    Error,
-    TransformedResponse<RightsIssue>
+export const useAllRightsIssues = (
+  params?: RightsIssueParams,
+  options?: Omit<
+    UseQueryOptions<
+      PaginatedResponse<RightsIssue>,
+      Error,
+      TransformedResponse<RightsIssue>
+    >,
+    "queryKey" | "queryFn"
   >,
-  "queryKey" | "queryFn"
->,) => {
+) => {
   return useQuery({
     queryKey: ["rightsIssues", params],
     queryFn: () => getAllRightsIssues(params),
@@ -107,7 +113,7 @@ export const useAllRightsIssues = (params?: RightsIssueParams, options?: Omit<
       };
     },
     refetchOnWindowFocus: false,
-    ...options
+    ...options,
   });
 };
 
@@ -397,14 +403,17 @@ export const useLodgeRightsIssueDeclaration = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: {
+    mutationFn: ({
+      id,
+      data,
+    }: {
       id: string;
       data: {
         lodgmentDate: string;
         lodgmentRef: string;
         notes: string;
-        processedBy: string
-      }
+        processedBy: string;
+      };
     }) => lodgeRightsIssueDeclaration(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -457,7 +466,6 @@ export const useGetStickyLabels = (
 };
 
 export const useEmailShareholders = () => {
-
   return useMutation({
     mutationFn: (id: string) => emailShareholders(id),
   });

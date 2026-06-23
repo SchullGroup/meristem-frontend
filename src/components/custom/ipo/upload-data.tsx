@@ -12,7 +12,14 @@ import { useGetRegisters } from "@/hooks/useRegisters";
 import { format } from "date-fns";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileCheck2, FileX2, AlertCircle, CheckCircle, X } from "lucide-react";
+import {
+  FileCheck2,
+  FileX2,
+  AlertCircle,
+  CheckCircle,
+  X,
+  Loader2,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import DateInput from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
@@ -46,9 +53,13 @@ export default function UploadIPOData({ tab }: { tab: string }) {
   const [processedBatch, setProcessedBatch] = useState<IPO | null>(null);
   const [showRejected, setShowRejected] = useState(false);
 
-  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({ size: 100, status: "ACTIVE" }, {
-    enabled: tab === "upload",
-  });
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters(
+      { size: 100, status: "ACTIVE" },
+      {
+        enabled: tab === "upload",
+      },
+    );
   const uploadIpoMutation = useUploadBatchIpo();
 
   const handleProcess = () => {
@@ -169,13 +180,23 @@ export default function UploadIPOData({ tab }: { tab: string }) {
               <SelectValue placeholder="Select Register" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Select Register</SelectItem>
-              {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.symbol}>
-                  {r.registerName} ({r.symbol})
-                </SelectItem>
-              ))}
-              {registersLoading && <SelectItem disabled>Loading...</SelectItem>}
+              {registersLoading ? (
+                <div className="py-10 flex items-center justify-center">
+                  <Loader2 className="animate-spin w-4 h-4" />
+                </div>
+              ) : (
+                <>
+                  <SelectItem value="">Select Register</SelectItem>
+                  {activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.symbol}>
+                      <span className="font-bold">{r.registerName}</span> -{" "}
+                      <span className="text-xs translate-y-0.5">
+                        {r.symbol}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

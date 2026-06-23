@@ -59,16 +59,17 @@ export function IPOBatchSubscribersTab({
 
   // Filters
   const [filterRegister, setFilterRegister] = useState<string>("");
-  const [filterDateRange, setFilterDateRange] = useState<
-    DateRange | undefined
-  >(undefined);
+  const [filterDateRange, setFilterDateRange] = useState<DateRange | undefined>(
+    undefined,
+  );
   const [searchQuery, setSearchQuery] = useState("");
 
   // Registers
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: loadingRegisters } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   // Batches list — reuses the pending approvals endpoint (all batches have the counts)
   const {
@@ -80,9 +81,7 @@ export function IPOBatchSubscribersTab({
   } = useGetPendingApprovals(
     {
       register:
-        filterRegister && filterRegister !== "all"
-          ? filterRegister
-          : undefined,
+        filterRegister && filterRegister !== "all" ? filterRegister : undefined,
       from: filterDateRange?.from
         ? format(filterDateRange.from, "yyyy-MM-dd")
         : undefined,
@@ -157,8 +156,7 @@ export function IPOBatchSubscribersTab({
     setCurrentPage(0);
   };
 
-  const countKey =
-    type === "DISAPPROVED" ? "disapprovedCount" : "invalidCount";
+  const countKey = type === "DISAPPROVED" ? "disapprovedCount" : "invalidCount";
 
   // Filter batches that actually have items of this type
   const filteredBatches = batchesData?.content?.filter((batch) => {
@@ -208,7 +206,7 @@ export function IPOBatchSubscribersTab({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="">
               <label className="mrpsl-label">Register</label>
               <Select
                 value={filterRegister}
@@ -218,12 +216,23 @@ export function IPOBatchSubscribersTab({
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Registers</SelectItem>
-                  {activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.registerId}>
-                      {r.registerName} · {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {loadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="">All Register</SelectItem>
+                      {activeRegisters?.content?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.registerId}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -252,10 +261,7 @@ export function IPOBatchSubscribersTab({
                   <th className="px-4 py-3">REGISTER</th>
                   <th className="px-4 py-3">BATCH DATE</th>
                   <th className="px-4 py-3 text-right">
-                    {type === "DISAPPROVED"
-                      ? "DISAPPROVED"
-                      : "INVALID"}{" "}
-                    COUNT
+                    {type === "DISAPPROVED" ? "DISAPPROVED" : "INVALID"} COUNT
                   </th>
                   <th className="px-4 py-3 text-right">TOTAL AMOUNT</th>
                   <th className="px-4 py-3">STATUS</th>
@@ -444,7 +450,10 @@ export function IPOBatchSubscribersTab({
         >
           <div className="mrpsl-section-title">{label} Count</div>
           <div
-            className={cn("text-xl font-mono font-bold mt-1", colorScheme.amount)}
+            className={cn(
+              "text-xl font-mono font-bold mt-1",
+              colorScheme.amount,
+            )}
           >
             {(batchDetails?.[countKey] || 0).toLocaleString()}
           </div>
@@ -497,7 +506,7 @@ export function IPOBatchSubscribersTab({
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {subscribersData?.content &&
-                    subscribersData.content.length > 0 ? (
+                  subscribersData.content.length > 0 ? (
                     subscribersData.content.map((r, i) => (
                       <tr key={i} className="mrpsl-table-row">
                         <td className="px-4 py-2.5 text-muted-foreground">

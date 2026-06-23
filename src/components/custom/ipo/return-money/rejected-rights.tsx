@@ -42,14 +42,19 @@ export function RejectedRightsTab() {
   const debouncedListSearch = useDebounce(searchQuery, 500);
 
   // Review mode state
-  const [reviewingBatch, setReviewingBatch] = useState<RightsIssue | null>(null);
+  const [reviewingBatch, setReviewingBatch] = useState<RightsIssue | null>(
+    null,
+  );
   const [authPage, setAuthPage] = useState(1);
   const [authPageSize, setAuthPageSize] = useState(20);
   const [downloading, setDownloading] = useState(false);
   const [refundedBatches, setRefundedBatches] = useState<string[]>([]);
 
   // Registers for filter
-  const { data: registersData } = useGetRegisters({ status: "ACTIVE", size: 100 });
+  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
+    status: "ACTIVE",
+    size: 100,
+  });
   const activeRegisters = registersData?.content || [];
 
   // Get all rights issue declarations
@@ -137,7 +142,7 @@ export function RejectedRightsTab() {
       exportToCSV(
         `rejected_rights_returns_${reviewingBatch.ref}.csv`,
         headers,
-        rows
+        rows,
       );
       toast.success("Download complete", { id: toastId });
     } catch (err: any) {
@@ -148,17 +153,14 @@ export function RejectedRightsTab() {
   };
 
   const triggerRefund = (batchId: string, ref: string, amount: number) => {
-    toast.promise(
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-      {
-        loading: `Processing return payment for ${ref}...`,
-        success: () => {
-          setRefundedBatches((prev) => [...prev, batchId]);
-          return `Refund of ₦${amount.toLocaleString()} for declaration ${ref} processed successfully.`;
-        },
-        error: "Refund failed.",
-      }
-    );
+    toast.promise(new Promise((resolve) => setTimeout(resolve, 1500)), {
+      loading: `Processing return payment for ${ref}...`,
+      success: () => {
+        setRefundedBatches((prev) => [...prev, batchId]);
+        return `Refund of ₦${amount.toLocaleString()} for declaration ${ref} processed successfully.`;
+      },
+      error: "Refund failed.",
+    });
   };
 
   if (reviewingBatch === null) {
@@ -185,12 +187,23 @@ export function RejectedRightsTab() {
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Registers</SelectItem>
-                  {activeRegisters.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {loadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="">All Register</SelectItem>
+                      {activeRegisters?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -230,7 +243,9 @@ export function RejectedRightsTab() {
                 </thead>
                 <tbody className="divide-y">
                   {filteredList.map((issue: RightsIssue) => {
-                    const isRefunded = refundedBatches.includes(issue.id.toString());
+                    const isRefunded = refundedBatches.includes(
+                      issue.id.toString(),
+                    );
                     return (
                       <tr key={issue.id} className="mrpsl-table-row">
                         <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
@@ -242,7 +257,10 @@ export function RejectedRightsTab() {
                         <td className="px-4 py-3 text-sm">{issue.offerName}</td>
                         <td className="px-4 py-3 text-muted-foreground text-[13px]">
                           {issue.qualificationDate
-                            ? format(new Date(issue.qualificationDate), "dd MMM yyyy")
+                            ? format(
+                                new Date(issue.qualificationDate),
+                                "dd MMM yyyy",
+                              )
                             : "----"}
                         </td>
                         <td className="px-4 py-3 font-mono text-right">
@@ -259,7 +277,9 @@ export function RejectedRightsTab() {
                             {issue.submittedByName}
                           </div>
                           <div className="text-[13px] text-muted-foreground">
-                            {issue.submittedAt ? formatDate(issue.submittedAt) : "----"}
+                            {issue.submittedAt
+                              ? formatDate(issue.submittedAt)
+                              : "----"}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -286,7 +306,7 @@ export function RejectedRightsTab() {
                                 triggerRefund(
                                   issue.id.toString(),
                                   issue.ref,
-                                  issue.totalAmount || 0
+                                  issue.totalAmount || 0,
                                 )
                               }
                             >
@@ -326,7 +346,9 @@ export function RejectedRightsTab() {
   }
 
   /* ── Detail / Review view ── */
-  const isBatchRefunded = refundedBatches.includes(reviewingBatch.id.toString());
+  const isBatchRefunded = refundedBatches.includes(
+    reviewingBatch.id.toString(),
+  );
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -411,11 +433,12 @@ export function RejectedRightsTab() {
             triggerRefund(
               reviewingBatch.id.toString(),
               reviewingBatch.ref,
-              reviewingBatch.totalAmount || 0
+              reviewingBatch.totalAmount || 0,
             )
           }
         >
-          Process Refund (₦{reviewingBatch.totalAmount?.toLocaleString() || "0"})
+          Process Refund (₦{reviewingBatch.totalAmount?.toLocaleString() || "0"}
+          )
         </Button>
       )}
     </div>

@@ -265,16 +265,20 @@ export default function NewConsolidation({
               </SelectTrigger>
               <SelectContent>
                 {isRegisterLoading ? (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                  <div className="py-10 flex items-center justify-center">
+                    <Loader2 className="animate-spin w-4 h-4" />
                   </div>
                 ) : (
-                  activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      {r.registerName} · {r.symbol}
-                    </SelectItem>
-                  ))
-                )}{" "}
+                  <>
+                    {activeRegisters?.content?.map((r) => (
+                      <SelectItem key={r.registerId} value={r.symbol}>
+                        <span className="font-bold">{r.registerName}</span>{" "}
+                        -{" "}
+                        <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>

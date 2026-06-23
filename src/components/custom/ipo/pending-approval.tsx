@@ -41,7 +41,7 @@ import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { BatchDetailSkeleton, DataErrorState } from "./loaders";
 import { PaginationBar } from "../pagination-bar";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export default function PendingApprovalIPO({ tab }: { tab: string }) {
   const { currentUser, addRejectedBatch } = useStore();
@@ -62,15 +62,16 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
   );
 
   // Queries
-  const { data: activeRegisters } = useGetRegisters(
-    {
-      size: 100,
-      status: "ACTIVE",
-    },
-    {
-      enabled: tab === "auth",
-    },
-  );
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters(
+      {
+        size: 100,
+        status: "ACTIVE",
+      },
+      {
+        enabled: tab === "auth",
+      },
+    );
 
   const {
     data: pendingData,
@@ -254,7 +255,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
         {/* Filters */}
         <Card className="mrpsl-card p-5">
           <div className="flex-1 flex gap-4">
-            <div className="space-y-1.5">
+            <div className="">
               <label className="mrpsl-label">Register</label>
               <Select
                 value={authRegister}
@@ -264,17 +265,28 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Registers</SelectItem>
-                  {activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.registerId}>
-                      {r.registerName} · {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {registersLoading ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="all">All Register</SelectItem>
+                      {activeRegisters?.content?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.registerId}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="">
               <label className="mrpsl-label">Date Range</label>
               <DateRangePicker
                 date={authDateRange}
@@ -283,7 +295,8 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
             </div>
 
             <Button
-              className="self-center"
+              size="xl"
+              className="self-end"
               variant="ghost"
               onClick={resetFilters}
             >
@@ -524,9 +537,9 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
             className={cn(
               "mrpsl-card p-3",
               s.tab &&
-              "cursor-pointer hover:border-primary/40 transition-colors",
+                "cursor-pointer hover:border-primary/40 transition-colors",
               s.tab === reviewTab &&
-              "border-primary ring-1 ring-primary/20 bg-primary/5",
+                "border-primary ring-1 ring-primary/20 bg-primary/5",
             )}
             onClick={() => {
               if (s.tab) {
@@ -632,7 +645,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {subscribersData?.content &&
-                    subscribersData.content.length > 0 ? (
+                  subscribersData.content.length > 0 ? (
                     subscribersData.content.map((r, i) => (
                       <tr key={i} className="mrpsl-table-row">
                         <td className="px-4 py-2.5 text-muted-foreground">

@@ -334,16 +334,23 @@ export default function CreateRightsDeclaration() {
                   <SelectValue placeholder="Select Register" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Registers</SelectItem>
-
-                  {loadingRegisters && (
-                    <SelectItem disabled>Loading...</SelectItem>
+                  {loadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="">All Register</SelectItem>
+                      {activeRegisters?.content?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
                   )}
-                  {activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -471,14 +478,14 @@ export default function CreateRightsDeclaration() {
             {(retryId ||
               newRightsIssue.registerId !== "" ||
               newRightsIssue.issueName !== "") && (
-                <Button
-                  variant="outline"
-                  onClick={handleResetForm}
-                  disabled={createMutation.isPending}
-                >
-                  Reset Form
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={handleResetForm}
+                disabled={createMutation.isPending}
+              >
+                Reset Form
+              </Button>
+            )}
           </div>
           {computed && (
             <div className="flex items-center gap-2 mt-2 text-green-700 text-sm font-medium">

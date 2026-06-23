@@ -378,16 +378,21 @@ export const Transfer = ({
           <SelectValue placeholder="All Registers" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={""}>All Registers</SelectItem>
-          {activeRegisters?.content.map((r) => (
-            <SelectItem key={r.registerId} value={r.symbol}>
-              {r.registerName} {r.symbol}
-            </SelectItem>
-          ))}
-          {registersLoading && (
-            <SelectItem value="_loading" disabled>
-              Loading registers…
-            </SelectItem>
+          {registersLoading ? (
+            <div className="py-10 flex items-center justify-center">
+              <Loader2 className="animate-spin w-4 h-4" />
+            </div>
+          ) : (
+            <>
+              <SelectItem value={""}>All Registers</SelectItem>
+              {activeRegisters?.content.map((r) => (
+                <SelectItem key={r.registerId} value={r.symbol}>
+                  <span className="font-bold">{r.registerName}</span>{" "}
+                  -{" "}
+                  <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                </SelectItem>
+              ))}
+            </>
           )}
         </SelectContent>
       </Select>

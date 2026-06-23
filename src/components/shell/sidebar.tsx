@@ -93,6 +93,7 @@ const OPERATIONS_GROUPS = [
       { label: "Dividend Split", href: "/dividends/split" },
       { label: "Warrant Mark-Off", href: "/dividends/warrant-markoff" },
       { label: "Dividend Reports", href: "/dividends/reports" },
+      { label: "Return Money", href: "/dividends/return-money" },
     ],
   },
   {

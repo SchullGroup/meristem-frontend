@@ -10,7 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Coins, Map, AlertTriangle, Files, Users } from "lucide-react";
+import { Coins, Map, AlertTriangle, Files } from "lucide-react";
 
 // Sub-components
 import CurrencyParameters from "@/components/custom/parameters/currency-parameters";
