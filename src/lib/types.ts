@@ -255,12 +255,16 @@ export interface ApprovalItem {
   initiatorId: string;
   initiatorName: string;
   submittedAt: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  approvalSteps: ApprovalStep[];
+  status: "PENDING" | "APPROVED" | "REJECTED" | string;
+  approvalSteps?: ApprovalStep[];
   attachments?: ApprovalAttachment[];
   payload?: Record<string, unknown>;
   rejectComment?: string;
   roles?: string;
+  // API list fields
+  currentApproverRole?: string;
+  agingHours?: number;
+  overdue?: boolean;
 }
 
 export interface ApprovalStep {
