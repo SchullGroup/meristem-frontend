@@ -25,13 +25,14 @@ import { useListRepushQueue, useRepushSingle } from "@/hooks/useDividendPayment"
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { formatNumber } from "@/lib/utils/format";
 import { PaginationBar } from "../pagination-bar";
+import StatusBadge from "../status-badge";
 
 
 
 export const RepushQueue = ({ tab }: { tab: string }) => {
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(20);
-    const [repushStatusFlt, setRepushStatusFlt] = useState("all");
+    const [repushStatus, setRepushStatus] = useState("");
     const [holderViewOpen, setHolderViewOpen] = useState(false);
     const [holderViewTarget, setHolderViewTarget] = useState<any>(null);
     const [repushConfirmOpen, setRepushConfirmOpen] = useState(false);
@@ -40,7 +41,7 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
     const { data: repushData, isLoading: isFetching, isError, error, refetch } = useListRepushQueue({
         page,
         size,
-        status: repushStatusFlt !== "all" ? repushStatusFlt : undefined
+        status: repushStatus !== "" ? repushStatus : undefined
     }, {
         enabled: tab === "repush"
     });
@@ -58,9 +59,9 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
 
     function confirmRepush() {
         if (!repushTarget) return;
-        repushMutation.mutate(repushTarget.id, {
+        repushMutation.mutate(repushTarget?.id, {
             onSuccess: () => {
-                toast.success(`Re-push initiated for account ${repushTarget.accountNumber}.`);
+                toast.success(`Re-push initiated for account ${repushTarget?.accountNumber}.`);
                 setRepushConfirmOpen(false);
                 setRepushTarget(null);
             },
@@ -70,125 +71,108 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
         });
     }
 
-    function repushStatusBadge(status: string) {
-        if (status === "FAILED")
-            return (
-                <Badge className="border-0 text-[13px] bg-red-100 text-red-700">
-                    Failed
-                </Badge>
-            );
-        if (status === "REJECTED")
-            return (
-                <Badge className="border-0 text-[13px] bg-orange-100 text-orange-700">
-                    Rejected
-                </Badge>
-            );
-        return (
-            <Badge className="border-0 text-[13px] bg-amber-100 text-amber-800">
-                Unpaid
-            </Badge>
-        );
-    }
-
-    if (isFetching) {
-        return <PendingListSkeleton cols={8} />
-    }
-
     return (
         <>
             <div className="flex gap-3 items-end">
-                <Select
-                    value={repushStatusFlt}
-                    onValueChange={(v) => {
-                        setRepushStatusFlt(v ?? "all");
-                        setPage(0);
-                    }}
-                >
-                    <SelectTrigger className="w-44 mrpsl-input">
-                        <SelectValue placeholder="All Statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="FAILED">Failed</SelectItem>
-                        <SelectItem value="REJECTED">Rejected</SelectItem>
-                        <SelectItem value="UNPAID">Unpaid</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="space-y-1.5">
+                    <label htmlFor="repush-status" className="mrpsl-label">
+                        Payment Status
+                    </label>
+                    <Select
+                        id="repush-status"
+                        value={repushStatus}
+                        onValueChange={(v) => {
+                            setRepushStatus(v ?? "");
+                            setPage(0);
+                        }}
+                    >
+                        <SelectTrigger className="w-44 mrpsl-input">
+                            <SelectValue placeholder="Select Payment Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">Select Payment Status</SelectItem>
+                            <SelectItem value="FAILED">Failed</SelectItem>
+                            <SelectItem value="REJECTED">Rejected</SelectItem>
+                            <SelectItem value="UNPAID">Unpaid</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
             <Card className="mrpsl-card overflow-hidden">
-                {isError ? (
-                    <DataErrorState message={error?.message || "Failed to load repush queue."} onRetry={() => refetch()} />
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="mrpsl-table-header">
-                                <tr>
-                                    <th className="px-4 py-3">ACCOUNT NO</th>
-                                    <th className="px-4 py-3">HOLDER NAME</th>
-                                    <th className="px-4 py-3">BANK</th>
-                                    <th className="px-4 py-3">PAYMENT NO</th>
-                                    <th className="px-4 py-3">AMOUNT (₦)</th>
-                                    <th className="px-4 py-3">STATUS</th>
-                                    <th className="px-4 py-3">FAIL REASON</th>
-                                    <th className="px-4 py-3">ACTIONS</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y text-[13px]">
-                                {filteredRepush.map((row) => (
-                                    <tr key={row.id} className="mrpsl-table-row">
-                                        <td className="px-4 py-3 font-mono">{row.accountNumber}</td>
-                                        <td className="px-4 py-3 font-medium">{row.holderName}</td>
-                                        <td className="px-4 py-3">{row.bankName}</td>
-                                        <td className="px-4 py-3 font-mono text-muted-foreground">
-                                            {row.paymentNumber}
-                                        </td>
-                                        <td className="px-4 py-3 text-right tabular-nums">
-                                            ₦{formatNumber(row.grossAmount)}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {repushStatusBadge(row.status)}
-                                        </td>
-                                        <td className="px-4 py-3 text-red-600">{row.failReason}</td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className="flex justify-end gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-7 text-[13px]"
-                                                    onClick={() => {
-                                                        setHolderViewTarget(row);
-                                                        setHolderViewOpen(true);
-                                                    }}
-                                                >
-                                                    <Eye className="mr-1 h-3 w-3" /> View Holder
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    className="h-7 text-[13px]"
-                                                    onClick={() => openRepushConfirm(row)}
-                                                    disabled={repushMutation.isPending}
-                                                >
-                                                    <RotateCcw className="mr-1 h-3 w-3" /> Re-push
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {filteredRepush.length === 0 && (
+                {isFetching ? <PendingListSkeleton cols={8} /> :
+                    isError ? (
+                        <DataErrorState message={error?.message || "Failed to load repush queue."} onRetry={() => refetch()} />
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="mrpsl-table-header">
                                     <tr>
-                                        <td
-                                            colSpan={8}
-                                            className="p-8 text-center text-muted-foreground"
-                                        >
-                                            No records match the selected status.
-                                        </td>
+                                        <th className="px-4 py-3">ACCOUNT NO</th>
+                                        <th className="px-4 py-3">HOLDER NAME</th>
+                                        <th className="px-4 py-3">BANK</th>
+                                        <th className="px-4 py-3">PAYMENT NO</th>
+                                        <th className="px-4 py-3">AMOUNT (₦)</th>
+                                        <th className="px-4 py-3">STATUS</th>
+                                        <th className="px-4 py-3">FAIL REASON</th>
+                                        <th className="px-4 py-3">ACTIONS</th>
                                     </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                                </thead>
+                                <tbody className="divide-y text-[13px]">
+                                    {filteredRepush.map((row) => (
+                                        <tr key={row?.id} className="mrpsl-table-row">
+                                            <td className="px-4 py-3 font-mono">{row?.accountNumber}</td>
+                                            <td className="px-4 py-3 font-medium">{row?.holderName}</td>
+                                            <td className="px-4 py-3">{row?.bankName}</td>
+                                            <td className="px-4 py-3 font-mono text-muted-foreground">
+                                                {row?.paymentNumber}
+                                            </td>
+                                            <td className="px-4 py-3 text-right tabular-nums">
+                                                ₦{formatNumber(row?.grossAmount)}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <StatusBadge status={row?.status as string} />
+                                            </td>
+                                            <td className="px-4 py-3 text-red-600">{row?.failReason}</td>
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-7 text-[13px]"
+                                                        onClick={() => {
+                                                            setHolderViewTarget(row);
+                                                            setHolderViewOpen(true);
+                                                        }}
+                                                    >
+                                                        <Eye className="mr-1 h-3 w-3" /> View Holder
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-7 text-[13px]"
+                                                        onClick={() => openRepushConfirm(row)}
+                                                        disabled={repushMutation.isPending}
+                                                    >
+                                                        <RotateCcw className="mr-1 h-3 w-3" /> Re-push
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {filteredRepush.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={8}
+                                                className="p-8 text-center text-muted-foreground"
+                                            >
+                                                No records match the selected status.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 <PaginationBar
                     page={page}
                     pageSize={size}
@@ -210,7 +194,7 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
                         </div>
                         <DialogDescription>
                             {repushTarget &&
-                                `Account ${repushTarget.accountNumber} · ₦${formatNumber(repushTarget.grossAmount)} via ${repushTarget.bankName}`}
+                                `Account ${repushTarget?.accountNumber} · ₦${formatNumber(repushTarget?.grossAmount)} via ${repushTarget?.bankName}`}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -222,27 +206,27 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
                                         Account
                                     </div>
                                     <div className="font-mono font-bold mt-0.5">
-                                        {repushTarget.accountNumber}
+                                        {repushTarget?.accountNumber}
                                     </div>
                                 </div>
                                 <div>
                                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
                                         Holder
                                     </div>
-                                    <div className="font-medium mt-0.5">{repushTarget.holderName}</div>
+                                    <div className="font-medium mt-0.5">{repushTarget?.holderName}</div>
                                 </div>
                                 <div>
                                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
                                         Bank
                                     </div>
-                                    <div className="mt-0.5">{repushTarget.bankName}</div>
+                                    <div className="mt-0.5">{repushTarget?.bankName}</div>
                                 </div>
                                 <div>
                                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
                                         Amount
                                     </div>
                                     <div className="font-mono font-bold mt-0.5 text-base">
-                                        ₦{formatNumber(repushTarget.grossAmount)}
+                                        ₦{formatNumber(repushTarget?.grossAmount)}
                                     </div>
                                 </div>
                                 <div className="col-span-2">
@@ -250,7 +234,7 @@ export const RepushQueue = ({ tab }: { tab: string }) => {
                                         Fail Reason
                                     </div>
                                     <div className="text-red-600 mt-0.5">
-                                        {repushTarget.failReason}
+                                        {repushTarget?.failReason}
                                     </div>
                                 </div>
                             </div>

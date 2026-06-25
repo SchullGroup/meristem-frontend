@@ -10,7 +10,6 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
     Dialog,
     DialogContent,
@@ -29,6 +28,7 @@ import { useGetRegisters } from "@/hooks/useRegisters";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import { PaymentRun } from "@/actions/dividendPayments";
 import { PaginationBar } from "../pagination-bar";
+import StatusBadge from "../status-badge";
 
 
 
@@ -178,28 +178,24 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
                                     {
                                         historyData?.length > 0 ?
                                             historyData?.map((row) => (
-                                                <tr key={row.ref} className="mrpsl-table-row">
+                                                <tr key={row?.ref} className="mrpsl-table-row">
                                                     <td className="px-4 py-3 font-mono text-muted-foreground">
-                                                        {row.ref}
+                                                        {row?.ref}
                                                     </td>
-                                                    <td className="px-4 py-3 font-mono">{row.paymentNumber}</td>
-                                                    <td className="px-4 py-3 font-semibold">{row.registerSymbol}</td>
-                                                    <td className="px-4 py-3">{row.gateway}</td>
+                                                    <td className="px-4 py-3 font-mono">{row?.paymentNumber}</td>
+                                                    <td className="px-4 py-3 font-semibold">{row?.registerSymbol}</td>
+                                                    <td className="px-4 py-3">{row?.gateway}</td>
                                                     <td className="px-4 py-3 text-right tabular-nums">
-                                                        {formatNumber(row.totalRecords)}
+                                                        {formatNumber(row?.totalRecords)}
                                                     </td>
                                                     <td className="px-4 py-3 text-right tabular-nums font-semibold">
-                                                        ₦{formatNumber(row.totalAmount)}
+                                                        ₦{formatNumber(row?.totalAmount)}
                                                     </td>
                                                     <td className="px-4 py-3 text-muted-foreground">
-                                                        {formatDate(row.dateRun)}
+                                                        {formatDate(row?.dateRun)}
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <Badge
-                                                            className={`border-0 text-[13px] ${row.status === "PAID" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
-                                                        >
-                                                            {row.status === "PAID" ? "Paid" : "Failed"}
-                                                        </Badge>
+                                                        <StatusBadge status={row?.status as string} />
                                                     </td>
                                                     <td className="px-4 py-3 text-right">
                                                         <div className="flex justify-end gap-1">
@@ -214,19 +210,19 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
                                                             >
                                                                 <Eye className="mr-1 h-3 w-3" /> View
                                                             </Button>
-                                                            {row.status === "FAILED" && (
+                                                            {row?.status === "FAILED" && (
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
                                                                     className="h-7 text-[13px] text-amber-600"
                                                                     onClick={() =>
-                                                                        handleRepush(row.id)
+                                                                        handleRepush(row?.id)
                                                                     }
                                                                 >
                                                                     <RotateCcw className="mr-1 h-3 w-3" /> Re-push
                                                                 </Button>
                                                             )}
-                                                            {row.status === "PAID" && (
+                                                            {row?.status === "PAID" && (
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
@@ -275,28 +271,28 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
                                 {[
                                     {
                                         label: "Pay Run Reference",
-                                        value: payRunViewTarget.ref,
+                                        value: payRunViewTarget?.ref,
                                         mono: true,
                                     },
                                     {
                                         label: "Payment Number",
-                                        value: payRunViewTarget.paymentNumber,
+                                        value: payRunViewTarget?.paymentNumber,
                                         mono: true,
                                     },
                                     {
                                         label: "Register",
-                                        value: payRunViewTarget.registerSymbol,
+                                        value: payRunViewTarget?.registerSymbol,
                                         mono: false,
                                     },
-                                    { label: "Gateway", value: payRunViewTarget.gateway, mono: false },
+                                    { label: "Gateway", value: payRunViewTarget?.gateway, mono: false },
                                     {
                                         label: "Date Run",
-                                        value: formatDate(payRunViewTarget.dateRun),
+                                        value: formatDate(payRunViewTarget?.dateRun),
                                         mono: false,
                                     },
                                     {
                                         label: "Total Records",
-                                        value: formatNumber(payRunViewTarget.totalRecords),
+                                        value: formatNumber(payRunViewTarget?.totalRecords),
                                         mono: true,
                                     },
                                 ].map(({ label, value, mono }) => (
@@ -316,32 +312,32 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
                                 <div>
                                     <div className="mrpsl-section-title">Total Amount</div>
                                     <div className="text-2xl font-mono font-bold mt-1">
-                                        ₦{formatNumber(payRunViewTarget.totalAmount)}
+                                        ₦{formatNumber(payRunViewTarget?.totalAmount)}
                                     </div>
                                 </div>
                                 <div>
                                     <div className="mrpsl-section-title">Status</div>
                                     <div className="mt-1">
                                         <span
-                                            className={`inline-block text-sm font-semibold px-3 py-1 rounded-full ${payRunViewTarget.status === "PAID" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
+                                            className={`inline-block text-sm font-semibold px-3 py-1 rounded-full ${payRunViewTarget?.status === "PAID" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-700"}`}
                                         >
-                                            {payRunViewTarget.status === "PAID" ? "Paid" : "Failed"}
+                                            {payRunViewTarget?.status === "PAID" ? "Paid" : "Failed"}
                                         </span>
                                     </div>
                                 </div>
                                 <div>
                                     <div className="mrpsl-section-title">Paid Records</div>
                                     <div className="text-lg font-mono font-bold mt-1 text-green-700">
-                                        {payRunViewTarget.status === "PAID"
-                                            ? formatNumber(payRunViewTarget.paidRecords)
+                                        {payRunViewTarget?.status === "PAID"
+                                            ? formatNumber(payRunViewTarget?.paidRecords)
                                             : "0"}
                                     </div>
                                 </div>
                                 <div>
                                     <div className="mrpsl-section-title">Failed Records</div>
                                     <div className="text-lg font-mono font-bold mt-1 text-red-600">
-                                        {payRunViewTarget.status === "FAILED"
-                                            ? formatNumber(payRunViewTarget.failedRecords)
+                                        {payRunViewTarget?.status === "FAILED"
+                                            ? formatNumber(payRunViewTarget?.failedRecords)
                                             : "0"}
                                     </div>
                                 </div>
@@ -354,7 +350,7 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
                                 >
                                     <Download className="h-4 w-4" /> Download Receipt
                                 </Button>
-                                {payRunViewTarget.status === "FAILED" && (
+                                {payRunViewTarget?.status === "FAILED" && (
                                     <Button
                                         className="flex-1 gap-1.5"
                                         onClick={() => {

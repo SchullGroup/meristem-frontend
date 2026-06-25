@@ -6,14 +6,15 @@ import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
+import { useGetNotificationSummary } from "@/hooks/useNotifications";
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, pendingApprovals, emailJobs } = useStore();
+  const currentUser = useStore((state) => state.currentUser);
   const [searchQuery, setSearchQuery] = useState("");
+  const { data: summaryData } = useGetNotificationSummary(currentUser?.email);
 
-  if (!currentUser) return null;
 
   const generateBreadcrumbs = () => {
     if (pathname === "/") return "Dashboard Home";
@@ -32,17 +33,6 @@ export function Header() {
       })
       .join(" / ");
   };
-
-  const pendingCount = pendingApprovals.filter(
-    (a) => a.status === "PENDING",
-  ).length;
-  const activeEmailJobs = emailJobs.filter(
-    (j) => j.status === "sending",
-  ).length;
-  const myRejections = pendingApprovals.filter(
-    (a) => a.status === "REJECTED" && a.initiatorId === currentUser.id,
-  );
-  const badgeCount = myRejections.length + pendingCount + activeEmailJobs;
 
   return (
     <header className="h-14 border-b bg-background/95 backdrop-blur flex items-center gap-4 px-6 z-30 sticky top-0">
@@ -90,14 +80,12 @@ export function Header() {
         onClick={() => router.push("/notifications")}
       >
         <Bell className="h-4 w-4" />
-        {badgeCount > 0 && (
-          <Badge
-            variant="destructive"
-            className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[11px] rounded-full flex items-center justify-center"
-          >
-            {badgeCount}
-          </Badge>
-        )}
+        {summaryData?.data?.unreadCount && summaryData?.data?.unreadCount > 0 ? <Badge
+          variant="destructive"
+          className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[11px] rounded-full flex items-center justify-center"
+        >
+          {summaryData?.data?.unreadCount}
+        </Badge> : ""}
       </Button>
     </header>
   );

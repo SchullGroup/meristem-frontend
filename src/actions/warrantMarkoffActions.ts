@@ -8,6 +8,7 @@ export interface WarrantMarkOffParams {
     dateTo: string;
     page?: number; // 0 indexed
     size?: number;
+    status?: string;
 }
 
 export interface WarrantMarkOff {
@@ -175,6 +176,7 @@ export const batchApproveWarrantMarkoff = async (data: BatchRequest) => {
 // Search warrant for mark-off
 export const getWarrantSearch = async (params: {
     q: string;
+    registerId?: string;
 }) => {
     try {
         const res = await api.get<ApiResponse<WarrantMarkOff>>(`/dividend/warrant-markoff/search`, { params });
