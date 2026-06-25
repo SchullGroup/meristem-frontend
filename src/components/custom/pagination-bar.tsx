@@ -83,7 +83,7 @@ export function PaginationBar({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[10, 20, 25, 50, 100].map((n) => (
+                {[5, 10, 20, 25, 50, 100].map((n) => (
                   <SelectItem key={n} value={String(n)} className="text-[13px]">
                     {n}
                   </SelectItem>

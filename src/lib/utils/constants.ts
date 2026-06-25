@@ -999,3 +999,5 @@ export const PROCESSING_STAGES: [number, string][] = [
   [90, "Grouping by register…"],
   [100, "Ready for review"],
 ];
+
+

@@ -22,6 +22,7 @@ import {
   GET_CSCS_SHAREHOLDER_TRANSACTIONS,
   UPLOAD_CSCS_HISTORY,
   UPDATE_CSCS_TRANSACTION,
+  CREATE_CSCS_TRANSACTION,
 } from "@/actions/cscsActions";
 import {
   ProcessedLogsResponse,
@@ -34,6 +35,7 @@ import {
   CscsPosition,
   ProcessedTransaction,
   CscsInjectStatus,
+  CscsReconciliationRecord,
 } from "@/types/cscs";
 import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
@@ -237,8 +239,10 @@ export const useGetReconciliations = (
     startDate?: string;
     endDate?: string;
     chn?: string;
-    page?: number; // 0 indexed
-    size?: number;
+    mrpslPage?: number; // 0 indexed
+    mrpslPageSize?: number;
+    cscsPage?: number; // 0 indexed
+    cscsPageSize?: number;
   },
   options?: Omit<
     UseQueryOptions<ReconciliationResponse["data"], Error, ReconciliationResponse["data"]>,
@@ -338,6 +342,28 @@ export const useUpdateCscsTransaction = (
   return useMutation({
     mutationFn: ({ id, data }: { id: string, data: Partial<ProcessedTransaction> }) =>
       UPDATE_CSCS_TRANSACTION(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-flagged-transactions"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["reconciliations"], exact: false });
+    },
+    ...options
+  });
+};
+
+export const useCreateCscsTransaction = (
+  options?: Omit<
+    UseMutationOptions<
+      CscsReconciliationRecord,
+      Error,
+      { data: Omit<ProcessedTransaction, "holderName" | "batchRef" | "id" | "balanceAfter"> & { transStatus: string } }>,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ data }: { data: Omit<ProcessedTransaction, "holderName" | "batchRef" | "id" | "balanceAfter"> & { transStatus: string } }) =>
+      CREATE_CSCS_TRANSACTION(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reconciliation-flagged-transactions"], exact: false });
       queryClient.invalidateQueries({ queryKey: ["reconciliations"], exact: false });

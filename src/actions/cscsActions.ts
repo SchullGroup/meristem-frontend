@@ -15,6 +15,7 @@ import {
   CscsInjectJob,
   CscsPosition,
   CscsInjectStatus,
+  CscsReconciliationRecord,
 } from "@/types/cscs";
 import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
@@ -150,6 +151,17 @@ export const GET_CSCS_FLAGGED_TRANSACTIONS_HISTORY = async (chn: string) => {
   }
 };
 
+export const CREATE_CSCS_TRANSACTION = async (
+  data: Omit<ProcessedTransaction, "holderName" | "batchRef" | "id" | "balanceAfter"> & { transStatus: string },
+) => {
+  try {
+    const res = await api.post<CscsReconciliationRecord>(`/cscs`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
 export const UPDATE_CSCS_TRANSACTION = async (
   id: string,
   data: Partial<ProcessedTransaction>,
@@ -224,8 +236,10 @@ export const GET_CSCS_RECONCILIATIONS = async (params: {
   startDate?: string;
   endDate?: string;
   chn?: string;
-  page?: number; // 0 indexed
-  size?: number;
+  mrpslPage?: number; // 0 indexed
+  mrpslPageSize?: number;
+  cscsPage?: number; // 0 indexed
+  cscsPageSize?: number;
 }) => {
   try {
     const res = await api.get<ReconciliationResponse>(`/cscs-reconciliation`, {
