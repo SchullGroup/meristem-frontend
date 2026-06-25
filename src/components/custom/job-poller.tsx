@@ -73,16 +73,13 @@ export function JobPoller({ job }: Props) {
 
       if (job.type === "reports") {
         toast.success("Export completed", {
-          description: "Your file is ready.",
           action: {
             label: "Download",
             onClick: () => {
               // Use the download URL from the job (we'll have stored it via updateJob)
               const currentJob = useStore.getState().jobs.find(j => j.id === job.id);
-              if (currentJob?.downloadUrl) {
-                window.open(currentJob.downloadUrl, "_blank");
-              } else {
-                // fallback: call download endpoint
+              if (currentJob) {
+                // call download endpoint
                 import("@/actions/reportActions").then(({ downloadReportJob }) => {
                   downloadReportJob(job.id).then((blob) => {
                     const url = window.URL.createObjectURL(blob);

@@ -57,7 +57,7 @@ export default function PaymentPage() {
           </TabsContent>
 
           <TabsContent value="icu" className="space-y-4">
-            <IcuApproval />
+            <IcuApproval tab="icu" />
           </TabsContent>
 
           <TabsContent value="new" className="space-y-4">

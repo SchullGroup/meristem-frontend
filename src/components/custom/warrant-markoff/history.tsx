@@ -8,6 +8,9 @@ import { DataErrorState } from "../ipo/loaders";
 import { EntitlementTableSkeleton } from "../rights-issue/loaders";
 import { PaginationBar } from "../pagination-bar";
 import { formatDate, formatNumber } from "@/lib/utils/format";
+import DateInput from "@/components/ui/date-input";
+import { format } from "date-fns";
+import RegisterSelect from "../register-select";
 
 function getTierNumber(tier: string | number | undefined): 1 | 2 | 3 {
   if (!tier) return 1;
@@ -34,6 +37,9 @@ function tierBadgeClass(tier: string | number | undefined) {
 export default function History({ tab }: { tab: string }) {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const [selectedRegister, setSelectedRegister] = useState("")
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
 
   // Mark-off history query
   const {
@@ -45,6 +51,10 @@ export default function History({ tab }: { tab: string }) {
   } = useGetMarkOffHistory({
     page: page,
     size: pageSize,
+    registerId: selectedRegister !== "" ? selectedRegister : undefined,
+    dateFrom: dateFrom ? format(dateFrom, "yyyy-MM-dd") : undefined,
+    dateTo: dateTo ? format(dateTo, "yyyy-MM-dd") : undefined,
+    status: "APPROVED"
   }, {
     enabled: tab === "history"
   });
@@ -61,6 +71,24 @@ export default function History({ tab }: { tab: string }) {
 
   return (
     <div className="space-y-4">
+
+      <div className="flex gap-4 items-center">
+        <RegisterSelect label="Register" value={selectedRegister} onChange={(value) => setSelectedRegister(value)} />
+        <div className="space-y-1.5">
+          <DateInput
+            label="From"
+            date={dateFrom}
+            setDate={(value) => setDateFrom(value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <DateInput
+            label="To"
+            date={dateTo}
+            setDate={(value) => setDateTo(value)}
+          />
+        </div></div>
+
 
       {isErrorHistory ? (
         <DataErrorState

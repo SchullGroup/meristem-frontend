@@ -1,236 +1,338 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { TabsContent } from "@/components/ui/tabs";
-import { useStore } from "@/lib/store";
-import { format, parseISO } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { format } from "date-fns";
 import { Eye, ShieldCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useApprovePaymentRun, useListPaymentRuns } from "@/hooks/useDividendPayment";
+import { DataErrorState } from "../ipo/loaders";
+import { EntitlementTableSkeleton } from "../rights-issue/loaders";
+import { DateRange } from "react-day-picker";
+import { formatLargeNumber } from "@/lib/utils";
+import StatusBadge from "../status-badge";
+import { PaginationBar } from "../pagination-bar";
+import { PaymentRun } from "@/actions/dividendPayments";
+import { useStore } from "@/lib/store";
+import { Textarea } from "@/components/ui/textarea";
+import RegisterSelect from "../register-select";
+import { DateRangePicker } from "../date-range-picker";
+import { formatDate } from "@/lib/utils/format";
 
-type PayRunItem = {
-  ref: string;
-  dividendNo: string;
-  reg: string;
-  gateway: string;
-  records: number;
-  totalPayout: number;
-  initiator: string;
-  initiatedAt: string;
-  status: "PENDING_ICU" | "APPROVED" | "SUBMITTED";
-  payload: Record<string, unknown>;
-};
 
-const INITIAL_PAY_RUNS: PayRunItem[] = [
-  {
-    ref: "PAY-DIV-4821-20250610",
-    dividendNo: "DIV-2025-004",
-    reg: "DANGCEM",
-    gateway: "NIBSS",
-    records: 180248,
-    totalPayout: 69010000000,
-    initiator: "Amara Osei",
-    initiatedAt: "2025-06-10T09:30:00Z",
-    status: "PENDING_ICU",
-    payload: {
-      dividendId: "DIV-2025-004",
-      registerId: "REG-001",
-      gateway: "nibss",
-      records: 180248,
-      totalPayout: 69010000000,
-    },
-  },
-  {
-    ref: "PAY-DIV-3319-20250608",
-    dividendNo: "DIV-2025-003",
-    reg: "ACCESSCORP",
-    gateway: "Remita",
-    records: 92410,
-    totalPayout: 12500000000,
-    initiator: "Tunde Adeleke",
-    initiatedAt: "2025-06-08T14:15:00Z",
-    status: "APPROVED",
-    payload: {
-      dividendId: "DIV-2025-003",
-      registerId: "REG-002",
-      gateway: "remita",
-      records: 92410,
-      totalPayout: 12500000000,
-    },
-  },
-];
-
-export const IcuApproval = () => {
-  const {
-    registers,
-    shareholders,
-    dividendDeclarations,
-    currentUser,
-    addApprovalItem,
-  } = useStore();
-  const authDivs = dividendDeclarations.filter(
-    (d) => d.status === "AUTHORIZED",
+export const IcuApproval = ({ tab }: { tab: string }) => {
+  const currentUser = useStore((state) => state.currentUser)
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(20);
+  const [comment, setComment] = useState("")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(
+    undefined,
   );
-  const [pendingPayRuns, setPendingPayRuns] =
-    useState<PayRunItem[]>(INITIAL_PAY_RUNS);
-  const [selectedDiv, setSelectedDiv] = useState("");
-  const [icuViewTarget, setIcuViewTarget] = useState<PayRunItem | null>(null);
+  const [selectedRegister, setSelectedRegister] = useState("")
+  const [gateway, setGateway] = useState("")
+
   const [icuViewOpen, setIcuViewOpen] = useState(false);
+  const [icuViewTarget, setIcuViewTarget] = useState<PaymentRun | null>(null);
 
-  const selectedDivDecl = authDivs.find((d) => d.id === selectedDiv);
 
-  function formatPayout(n: number): string {
-    if (n === 0) return "—";
-    if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
-    if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
-    return n.toLocaleString();
-  }
+  const { data, isLoading, isError, error, refetch } = useListPaymentRuns({
+    page,
+    size,
+    dateFrom: dateRange?.from
+      ? format(dateRange.from, "yyyy-MM-dd")
+      : undefined,
+    dateTo: dateRange?.to
+      ? format(dateRange.to, "yyyy-MM-dd")
+      : undefined,
+    registerId: selectedRegister !== "" ? selectedRegister : undefined,
+    gateway: gateway !== "" ? gateway : undefined,
+    status: "PENDING_ICU"
+  }, {
+    enabled: tab === "icu"
+  });
 
-  function icuStatusBadge(status: PayRunItem["status"]) {
-    if (status === "SUBMITTED")
-      return (
-        <Badge className="border-0 text-[13px] bg-green-100 text-green-800">
-          Submitted
-        </Badge>
-      );
-    if (status === "APPROVED")
-      return (
-        <Badge className="border-0 text-[13px] bg-blue-100 text-blue-800">
-          Approved
-        </Badge>
-      );
-    return (
-      <Badge className="border-0 text-[13px] bg-amber-100 text-amber-800">
-        Pending ICU
-      </Badge>
+  const approveMutation = useApprovePaymentRun()
+
+
+  function approvePaymentRun() {
+    if (!icuViewTarget?.id) {
+      toast.error("No active payment run to approve.");
+      return;
+    }
+
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
+    if (!comment || comment === "") {
+      toast.error("Please leave a comment");
+      return;
+    }
+
+    approveMutation.mutate(
+      {
+        id: icuViewTarget?.id,
+        body: {
+          comment,
+          authorisedBy: currentUser?.email,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Payment run approved.");
+          setComment("");
+          setIcuViewOpen(false);
+          setIcuViewTarget(null);
+        },
+        onError: (err) => {
+          toast.error(err.message || "Failed to approve payment run.");
+        },
+      },
     );
   }
 
-  function handleICUApprove(ref: string) {
-    setPendingPayRuns((prev) =>
-      prev.map((r) => (r.ref === ref ? { ...r, status: "APPROVED" } : r)),
-    );
-    toast.success(`Payment run ${ref} approved.`);
-  }
+  const total = data?.data?.totalElements || 0;
+  const totalPages = data?.data?.totalPages || 1;
+  const pendingIcuApprovals = data?.data?.content || [];
 
-  function handleICUSubmit(item: PayRunItem) {
-    const seq = Math.floor(1000 + Math.random() * 9000);
-    addApprovalItem({
-      id: `APPR-PAYRUN-${seq}`,
-      module: "DIVIDENDS",
-      transactionType: "Payment Run",
-      description: `${item.ref} — ${item.reg} · ${item.records.toLocaleString()} recipients · ₦${formatPayout(item.totalPayout)} via ${item.gateway}`,
-      amount: item.totalPayout,
-      tier: selectedDivDecl?.tier ?? 1,
-      entityId: item.ref,
-      initiatorId: currentUser?.id ?? "USR-0001",
-      initiatorName: item.initiator,
-      submittedAt: new Date().toISOString(),
-      status: "PENDING",
-      approvalSteps: [],
-      payload: item.payload,
-    });
-    setPendingPayRuns((prev) =>
-      prev.map((r) => (r.ref === item.ref ? { ...r, status: "SUBMITTED" } : r)),
-    );
-    toast.success(`${item.ref} submitted to approvals queue.`);
-    setIcuViewOpen(false);
-  }
   return (
     <div>
-      <TabsContent value="icu" className="space-y-4">
-        <Card className="mrpsl-card overflow-hidden">
-          <div className="px-4 py-3 border-b flex items-center gap-2 bg-muted/20">
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-            <span className="text-[13px] font-bold text-muted-foreground uppercase tracking-wide">
-              Pending Payment Runs —{" "}
-              {pendingPayRuns.filter((r) => r.status !== "SUBMITTED").length}{" "}
-              active
-            </span>
+      <Card className="mrpsl-card p-5">
+        <div className="flex gap-3 items-start flex-wrap">
+          {/* Register */}
+          <RegisterSelect label="Register" value={selectedRegister} onChange={setSelectedRegister} />
+
+
+          {/* Date range */}
+          <div className="">
+            <label className="mrpsl-label">Date Range</label>
+            <DateRangePicker
+              className="mt-0"
+              date={dateRange}
+              setDate={setDateRange}
+            />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="mrpsl-table-header">
-                <tr>
-                  <th className="px-4 py-3">PAY RUN REF</th>
-                  <th className="px-4 py-3">DIVIDEND NO</th>
-                  <th className="px-4 py-3">REGISTER</th>
-                  <th className="px-4 py-3">GATEWAY</th>
-                  <th className="px-4 py-3">RECORDS</th>
-                  <th className="px-4 py-3">TOTAL PAYOUT (₦)</th>
-                  <th className="px-4 py-3">INITIATED BY</th>
-                  <th className="px-4 py-3">DATE INITIATED</th>
-                  <th className="px-4 py-3">STATUS</th>
-                  <th className="px-4 py-3">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-[13px]">
-                {pendingPayRuns.map((row) => (
-                  <tr key={row.ref} className="mrpsl-table-row">
-                    <td className="px-4 py-3 font-mono text-muted-foreground">
-                      {row.ref}
-                    </td>
-                    <td className="px-4 py-3 font-mono">{row.dividendNo}</td>
-                    <td className="px-4 py-3 font-semibold">{row.reg}</td>
-                    <td className="px-4 py-3">{row.gateway}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {row.records.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums font-semibold">
-                      ₦{formatPayout(row.totalPayout)}
-                    </td>
-                    <td className="px-4 py-3">{row.initiator}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {format(parseISO(row.initiatedAt), "dd MMM yyyy, HH:mm")}
-                    </td>
-                    <td className="px-4 py-3">{icuStatusBadge(row.status)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-[13px]"
-                          onClick={() => {
-                            setIcuViewTarget(row);
-                            setIcuViewOpen(true);
-                          }}
-                        >
-                          <Eye className="mr-1 h-3 w-3" /> View
-                        </Button>
-                        {row.status === "PENDING_ICU" && (
-                          <Button
-                            size="sm"
-                            className="h-7 text-[13px]"
-                            onClick={() => handleICUApprove(row.ref)}
-                          >
-                            Approve
-                          </Button>
-                        )}
-                        {row.status === "APPROVED" && (
-                          <Button
-                            size="sm"
-                            className="h-7 text-[13px]"
-                            onClick={() => handleICUSubmit(row)}
-                          >
-                            Submit
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {pendingPayRuns.length === 0 && (
+
+          <div className="">
+            <label className="mrpsl-label">PAYMENT GATEWAY</label>
+            <Select
+              value={gateway}
+              onValueChange={(value) => {
+                setGateway(value || "");
+              }}
+            >
+              <SelectTrigger
+                className="w-48 mrpsl-input"
+                id="payment-gateway"
+              >
+                <SelectValue placeholder="Select Payment Gateway" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="nibss">NIBSS</SelectItem>
+                <SelectItem value="remita">Remita</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mrpsl-card overflow-hidden">
+        <div className="px-4 py-3 border-b flex items-center gap-2 bg-muted/20">
+          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          <span className="text-[13px] font-bold text-muted-foreground uppercase tracking-wide">
+            Pending Payment Runs — {data?.data?.totalElements}
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          {
+            isLoading ? (
+              <EntitlementTableSkeleton />
+            ) : isError ? (
+              <DataErrorState message={error?.message || "Failed to load pending ICU approvals"} onRetry={refetch} />
+            ) :
+              <table className="w-full text-left text-sm">
+                <thead className="mrpsl-table-header">
                   <tr>
-                    <td colSpan={10} className="mrpsl-empty">
-                      No pending payment runs.
-                    </td>
+                    <th className="px-4 py-3">PAY RUN REF</th>
+                    <th className="px-4 py-3">DIVIDEND NO</th>
+                    <th className="px-4 py-3">REGISTER</th>
+                    <th className="px-4 py-3">GATEWAY</th>
+                    <th className="px-4 py-3">RECORDS</th>
+                    <th className="px-4 py-3">TOTAL PAYOUT (₦)</th>
+                    <th className="px-4 py-3">DATE INITIATED</th>
+                    <th className="px-4 py-3">STATUS</th>
+                    <th className="px-4 py-3">ACTIONS</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </TabsContent>
+                </thead>
+                <tbody className="divide-y text-[13px]">
+                  {
+                    pendingIcuApprovals.length > 0 ?
+
+                      pendingIcuApprovals.map((row) => (
+                        <tr key={row?.ref} className="mrpsl-table-row">
+                          <td className="px-4 py-3 font-mono text-muted-foreground">
+                            {row?.ref}
+                          </td>
+                          <td className="px-4 py-3 font-mono">{row?.paymentNumber}</td>
+                          <td className="px-4 py-3 font-semibold">{row?.registerSymbol}</td>
+                          <td className="px-4 py-3">{row?.gateway}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">
+                            {row?.totalRecords.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums font-semibold">
+                            ₦{formatLargeNumber(row?.totalAmount)}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {formatDate(row?.dateRun)}
+                          </td>
+                          <td className="px-4 py-3"><StatusBadge status={row?.status as string} /></td>
+                          <td className="px-4 py-3">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="sm"
+                                className="h-7 text-[13px]"
+                                onClick={() => {
+                                  setIcuViewTarget(row);
+                                  setIcuViewOpen(true);
+                                }}
+                              >
+                                <Eye className="mr-1 h-3 w-3" /> Review
+                              </Button>
+
+
+                            </div>
+                          </td>
+                        </tr>
+                      )) :
+                      <tr>
+                        <td colSpan={10} className="mrpsl-empty">
+                          No {selectedRegister} payment runs found.
+                        </td>
+                      </tr>
+                  }
+                </tbody>
+              </table>}
+
+          {
+            total > 0 && (
+              <PaginationBar
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                pageSize={size}
+                onPageChange={setPage}
+                onPageSizeChange={setSize}
+              />
+            )
+          }
+        </div>
+      </Card>
+
+      {/* ── Payment Run View Dialog ── */}
+      <Dialog open={icuViewOpen} onOpenChange={setIcuViewOpen}>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh] p-0 gap-0">
+          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
+            <DialogTitle>Payment Run Details</DialogTitle>
+          </DialogHeader>
+          {icuViewTarget && (
+            <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 min-h-0">
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  {
+                    label: "Reference",
+                    value: icuViewTarget?.ref,
+                    mono: true,
+                  },
+                  {
+                    label: "Payment Number",
+                    value: icuViewTarget?.paymentNumber,
+                    mono: true,
+                  },
+                  {
+                    label: "Register",
+                    value: icuViewTarget?.registerSymbol,
+                    mono: false,
+                  },
+                  { label: "Gateway", value: icuViewTarget?.gateway, mono: false },
+                  {
+                    label: "Date Run",
+                    value: formatDate(icuViewTarget?.dateRun),
+                    mono: false,
+                  },
+
+                  {
+                    label: "Total Records",
+                    value: icuViewTarget?.totalRecords,
+                    mono: true,
+                  },
+                  {
+                    label: "Total Amount",
+                    value: `₦${formatLargeNumber(icuViewTarget?.totalAmount)}`,
+                    mono: true,
+                  },
+                ].map(({ label, value, mono }) => (
+                  <div key={label}>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">
+                      {label}
+                    </div>
+                    <div
+                      className={`mt-0.5 text-sm font-medium ${mono ? "font-mono" : ""}`}
+                    >
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+
+              <div className="space-y-2">
+                <label className="mrpsl-label">Comment</label>
+                <Textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-1.5"
+                  onClick={() => {
+                    setIcuViewOpen(false);
+                    setIcuViewTarget(null)
+                  }}
+                  disabled={approveMutation.isPending}
+
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 gap-1.5"
+                  onClick={approvePaymentRun}
+                  disabled={approveMutation.isPending}
+                >
+                  {approveMutation.isPending ? "Approving...." : "Approve"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

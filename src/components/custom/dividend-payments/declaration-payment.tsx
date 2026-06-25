@@ -19,7 +19,6 @@ import { getDividendNumbers } from "@/actions/dividendReportActions";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   useInitiatePaymentRun,
-  useApprovePaymentRun,
   useGetDeclarationPayment,
   useDownloadNibssFile,
 } from "@/hooks/useDividendPayment";
@@ -28,6 +27,7 @@ import { PaymentRowContent } from "@/actions/dividendPayments";
 import { PaginationBar } from "../pagination-bar";
 import { EntitlementTableSkeleton } from "../rights-issue/loaders";
 import { DataErrorState } from "../ipo/loaders";
+import { formatLargeNumber } from "@/lib/utils";
 
 export default function DeclarationPayment({ tab }: { tab: string }) {
   const currentUser = useStore((state) => state.currentUser);
@@ -41,7 +41,6 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
 
   // ── Payment-run state ------──────────────────────
   const [gateway, setGateway] = useState("nibss");
-  const [payRunInitiated, setPayRunInitiated] = useState(false);
   const [activeRunId, setActiveRunId] = useState<number | null>(null);
 
   // ── Data fetching ------──────────────────────────
@@ -63,7 +62,6 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   const dividendNumbers = activeDividends?.data || [];
 
   const initiateMutation = useInitiatePaymentRun();
-  const approveMutation = useApprovePaymentRun();
   const downloadNibssMutation = useDownloadNibssFile();
 
   // Only fetch declaration payment when both register AND dividend are chosen
@@ -106,7 +104,6 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   }
 
   function resetPayRun() {
-    setPayRunInitiated(false);
     setActiveRunId(null);
   }
 
@@ -136,10 +133,9 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
       },
       {
         onSuccess: (res) => {
-          setPayRunInitiated(true);
           if (res.data?.id) setActiveRunId(res.data.id);
           toast.info(
-            "Preview generated. Review the NIBSS file below, then approve.",
+            "Payment Run Initiated. Proceed to ICU approval",
           );
         },
         onError: (err) => {
@@ -149,36 +145,6 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
     );
   }
 
-  function approvePaymentRun() {
-    if (!activeRunId) {
-      toast.error("No active payment run to approve.");
-      return;
-    }
-
-    if (!currentUser) {
-      toast.error("Your session has expired. Please login again.");
-      return;
-    }
-
-    approveMutation.mutate(
-      {
-        id: activeRunId,
-        body: {
-          comment: "Approved via dashboard",
-          authorisedBy: currentUser.email,
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Payment run submitted for ICU approval.");
-          resetPayRun();
-        },
-        onError: (err) => {
-          toast.error(err.message || "Failed to approve payment run.");
-        },
-      },
-    );
-  }
 
   function handleDownloadNibss() {
     if (!activeRunId) {
@@ -357,18 +323,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                       : "Initiate Payment Run"}
                 </Button>
 
-                {payRunInitiated && (
-                  <Button
-                    size="lg"
-                    className="bg-green-600 hover:bg-green-700"
-                    onClick={approvePaymentRun}
-                    disabled={approveMutation.isPending || !activeRunId}
-                  >
-                    {approveMutation.isPending
-                      ? "Approving…"
-                      : "Approve Payment Run"}
-                  </Button>
-                )}
+
 
                 {/* Allow user to cancel/reset an initiated run */}
                 {activeRunId && (
@@ -403,7 +358,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                 {fetchingPayments ? (
                   <div className="bg-muted/50 rounded-md w-12 h-12 animate-pulse"></div>
                 ) : (
-                  formatNumber(stats?.totalPayout ?? 0)
+                  formatLargeNumber(stats?.totalPayout ?? 0)
                 )}
               </div>
             </Card>

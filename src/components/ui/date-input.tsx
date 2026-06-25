@@ -13,7 +13,7 @@ export default function DateInput({
   setDate,
   label = "Date",
 }: {
-  date: Date;
+  date: Date | null;
   setDate: (date: Date) => void;
   label?: string;
 }) {
@@ -27,14 +27,14 @@ export default function DateInput({
             variant="outline"
             className="w-full mrpsl-input justify-start text-left font-normal"
           >
-            {format(date, "PPP")}
+            {date ? format(date, "PPP") : "Pick a date"}
             <CalendarIcon className="ml-auto h-4 w-4 opacity-40" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0">
           <Calendar
             mode="single"
-            selected={date}
+            selected={date ? date : undefined}
             onSelect={(d) => d && setDate(d)}
           />
         </PopoverContent>
