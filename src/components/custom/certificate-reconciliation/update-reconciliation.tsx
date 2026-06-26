@@ -25,6 +25,7 @@ import { DateRange } from "react-day-picker";
 import StatusBadge from "../status-badge";
 import { ReconciliationFlaggedTransaction } from "@/types/cscs";
 import { ReconciliationView } from "./reconciliation-review";
+import RegisterSelect from "../register-select";
 
 
 export default function UpdateReconciliation({ tab }: { tab: string }) {
@@ -101,29 +102,11 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Select value={register} onValueChange={(v) => setRegister(v || "All")}>
-          <SelectTrigger className="w-44 mrpsl-input">
-            <SelectValue placeholder="All Registers" />
-          </SelectTrigger>
-          <SelectContent>
-            {loadingRegisters ? (
-              <div className="py-10 flex items-center justify-center">
-                <Loader2 className="animate-spin w-4 h-4" />
-              </div>
-            ) : (
-              <>
-                <SelectItem value="">All Registers</SelectItem>
-                {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.symbol}>
-                    <span className="font-bold">{r.registerName}</span>{" "}
-                    -{" "}
-                    <span className="text-xs translate-y-0.5">{r.symbol}</span>
-                  </SelectItem>
-                ))}
-              </>
-            )}
-          </SelectContent>
-        </Select>
+        <RegisterSelect
+          label="Register"
+          value={register}
+          onChange={(value) => setRegister(value)}
+        />
 
         <Select value={status} onValueChange={(v) => setStatus(v || "")}>
           <SelectTrigger className="w-40 mrpsl-input">

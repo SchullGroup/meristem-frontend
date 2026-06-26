@@ -438,23 +438,23 @@ export default function AgentEnquiryPage() {
             <TabsContent value="single" className="space-y-4 p-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label>Name (Signatory)</label>
-                  <Input value={singleForm.name} onChange={(e) => setSingleForm({ ...singleForm, name: e.target.value })} />
+                  <label className="mrpsl-label">Name (Signatory)</label>
+                  <Input className="mrpsl-input" value={singleForm.name} onChange={(e) => setSingleForm({ ...singleForm, name: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label>Position</label>
-                  <Input value={singleForm.position} onChange={(e) => setSingleForm({ ...singleForm, position: e.target.value })} />
+                  <label className="mrpsl-label">Position</label>
+                  <Input className="mrpsl-input" value={singleForm.position} onChange={(e) => setSingleForm({ ...singleForm, position: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
                   <RegisterSelect label="Register *" value={singleForm.registerId} onChange={(value) => setSingleForm({ ...singleForm, registerId: value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label>Email</label>
-                  <Input type="email" value={singleForm.email} onChange={(e) => setSingleForm({ ...singleForm, email: e.target.value })} />
+                  <label className="mrpsl-label">Email</label>
+                  <Input className="mrpsl-input" type="email" value={singleForm.email} onChange={(e) => setSingleForm({ ...singleForm, email: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label>Phone</label>
-                  <Input value={singleForm.phone} onChange={(e) => setSingleForm({ ...singleForm, phone: e.target.value })} />
+                  <label className="mrpsl-label">Phone</label>
+                  <Input className="mrpsl-input" value={singleForm.phone} onChange={(e) => setSingleForm({ ...singleForm, phone: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
                   <DocUploadZone maxSizeMB={10} label="Signature" required fileTypes={["image"]} onUploadSuccess={(value) => setSingleForm({ ...singleForm, signatureFile: value })} />
