@@ -2,19 +2,11 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Info, CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { useGetRegisters } from "@/hooks/useRegisters";
+import { Info, CheckCircle2, XCircle } from "lucide-react";
 import { useGetReconciliations } from "@/hooks/useCscs";
 import { PaginationBar } from "../pagination-bar";
 import { formatNumber } from "@/lib/utils/format";
@@ -23,12 +15,13 @@ import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { DateRangePicker } from "../date-range-picker";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
+import RegisterSelect from "../register-select";
 
 export default function GeneralCertificateReconciliation() {
-  const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters({
-    status: "ACTIVE",
-    size: 100,
-  });
+  const [mrpslPage, setMrpslPage] = useState(0);
+  const [cscsPage, setCscsPage] = useState(0);
+  const [mrpslPageSize, setMrpslPageSize] = useState(10);
+  const [cscsPageSize, setCscsPageSize] = useState(10);
 
   const [selectedReg, setSelectedReg] = useState("");
   const [scopeMode, setScopeMode] = useState("all");
@@ -38,9 +31,6 @@ export default function GeneralCertificateReconciliation() {
     undefined,
   );
 
-  // ✅ Shared pagination state
-  const [page, setPage] = useState(0);        // 0‑based
-  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useGetReconciliations(
@@ -49,8 +39,10 @@ export default function GeneralCertificateReconciliation() {
         chn: scopeMode === "spec" ? specificChn : undefined,
         startDate: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
         endDate: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
-        page: page,
-        size: pageSize,
+        mrpslPage,
+        mrpslPageSize,
+        cscsPage,
+        cscsPageSize,
       },
       {
         enabled:
@@ -61,13 +53,21 @@ export default function GeneralCertificateReconciliation() {
       },
     );
 
-  // ✅ Single handler for page size change
-  const handlePageSizeChange = (value: number) => {
-    setPageSize(value);
-    setPage(0);       // reset to first page
-  };
-
   const isRunning = isFetching;
+
+  // mrpsl table
+  const mrpslRawList = data?.mrpsl?.content || [];
+  const mrpslTotal = data?.mrpsl?.totalElements || 0
+  const mrpslPageCount = data?.mrpsl?.totalPages || 1
+
+  // cscs table
+  const cscsRawList = data?.cscs?.content || [];
+  const cscsTotal = data?.cscs?.totalElements || 0
+  const cscsPageCount = data?.cscs?.totalPages || 1
+
+  const missingDataList = data?.missingData || [];
+
+  const missingRecordsCount = missingDataList.length;
 
 
   const runReconciliation = () => {
@@ -79,59 +79,35 @@ export default function GeneralCertificateReconciliation() {
       toast.error("Please enter a CHN to reconcile.");
       return;
     }
-    setPage(0);
+    setMrpslPage(0);
+    setCscsPage(0);
     setReconciled(true);
   };
 
-  const mrpslList = data?.mrpsl?.content || [];
-  const cscsList = data?.cscs?.content || [];
-  const missingDataList = data?.missingData || [];
 
-  const mrpslTotal = data?.mrpsl?.totalElements || 0;
-  const cscsTotal = data?.cscs?.totalElements || 0;
 
-  // Isolate number of anomalous transaction records found
-  const missingRecordsCount = missingDataList.length;
 
   return (
     <>
       <Card className="mrpsl-card p-4">
         <div className="flex flex-wrap items-center gap-4">
-          <Select
-            value={selectedReg}
-            onValueChange={(v) => {
-              setSelectedReg(v || "");
-              setReconciled(false);
-              setPage(0);
-            }}
-          >
-            <SelectTrigger className="w-64 mrpsl-input">
-              <SelectValue placeholder="Select Register" />
-            </SelectTrigger>
-            <SelectContent>
-              {loadingRegisters ? (
-                <div className="py-10 flex items-center justify-center">
-                  <Loader2 className="animate-spin w-4 h-4" />
-                </div>
-              ) : (
-                <>
-                  {activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      <span className="font-bold">{r.registerName}</span>{" "}
-                      -{" "}
-                      <span className="text-xs translate-y-0.5">{r.symbol}</span>
-                    </SelectItem>
-                  ))}
-                </>
-              )}
-            </SelectContent>
-          </Select>
-
-          <DateRangePicker
-            className="mt-0"
-            date={dateRange}
-            setDate={setDateRange}
+          <RegisterSelect value={selectedReg} label="Select Register" onChange={(v) => {
+            setSelectedReg(v || "");
+            setReconciled(false);
+            setMrpslPage(0);
+            setCscsPage(0);
+          }}
           />
+
+
+          <div className="space-y-1.5">
+            <label className="mrpsl-label">DATE RANGE</label>
+            <DateRangePicker
+              className="mt-0"
+              date={dateRange}
+              setDate={setDateRange}
+            />
+          </div>
 
           <RadioGroup
             value={scopeMode}
@@ -139,7 +115,8 @@ export default function GeneralCertificateReconciliation() {
               setScopeMode(v || "all");
               setReconciled(false);
               setSpecificChn("");
-              setPage(0);
+              setMrpslPage(0);
+              setCscsPage(0);
             }}
             className="flex gap-5 items-center"
           >
@@ -165,7 +142,8 @@ export default function GeneralCertificateReconciliation() {
               onChange={(e) => {
                 setSpecificChn(e.target.value);
                 setReconciled(false);
-                setPage(0);
+                setMrpslPage(0);
+                setCscsPage(0);
               }}
             />
           )}
@@ -246,20 +224,30 @@ export default function GeneralCertificateReconciliation() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {mrpslList.map((row) => (
+                    {mrpslRawList?.map((row) => (
                       <tr key={row.id} className="hover:bg-muted/20 transition-colors">
                         <td className="px-4 py-2.5 font-mono font-medium text-muted-foreground">{row.chn}</td>
                         <td className="px-4 py-2.5 font-medium">{row.holderName}</td>
                         <td className="px-4 py-2.5 text-right font-mono font-semibold">{formatNumber(row?.units)}</td>
                       </tr>
                     ))}
-                    {mrpslList.length === 0 && (
+                    {mrpslRawList.length === 0 && (
                       <tr>
                         <td colSpan={3} className="text-center py-8 text-muted-foreground italic">No historical aggregate rows indexed.</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
+
+                {/* Pagination */}
+                <PaginationBar
+                  page={mrpslPage}
+                  pageSize={mrpslPageSize}
+                  onPageSizeChange={setMrpslPageSize}
+                  totalPages={mrpslPageCount}
+                  total={mrpslTotal}
+                  onPageChange={(value) => setMrpslPage(value)}
+                />
               </div>
             </Card>
 
@@ -283,35 +271,35 @@ export default function GeneralCertificateReconciliation() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {cscsList.map((row) => (
+                    {cscsRawList.map((row) => (
                       <tr key={row.id} className="hover:bg-muted/20 transition-colors">
                         <td className="px-4 py-2.5 font-mono font-medium text-muted-foreground">{row.chn}</td>
                         <td className="px-4 py-2.5 font-medium">{row.holderName}</td>
                         <td className="px-4 py-2.5 text-right font-mono font-semibold">{formatNumber(row?.units)}</td>
                       </tr>
                     ))}
-                    {cscsList.length === 0 && (
+                    {cscsRawList.length === 0 && (
                       <tr>
                         <td colSpan={3} className="text-center py-8 text-muted-foreground italic">No clearing ledger items recovered.</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
+
+                {/* Pagination */}
+                <PaginationBar
+                  page={cscsPage}
+                  pageSize={cscsPageSize}
+                  onPageSizeChange={setCscsPageSize}
+                  totalPages={cscsPageCount}
+                  total={cscsTotal}
+                  onPageChange={setCscsPage}
+                />
               </div>
             </Card>
           </div>
 
-          {/* SHARED PAGINATION SYSTEM CONSOLE CONTROLLER */}
-          <div className="mt-4">
-            <PaginationBar
-              page={page}
-              pageSize={pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={handlePageSizeChange}
-              total={Math.max(cscsTotal, mrpslTotal)}
-              totalPages={data?.cscs?.totalPages || 1}
-            />
-          </div>
+
         </>
 
       )}
