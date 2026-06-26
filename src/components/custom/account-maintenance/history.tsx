@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -54,7 +54,14 @@ export default function History({ tab }: { tab: string }) {
     },
   );
 
-  const consolidations = data?.content || [];
+  const filteredList = useMemo(() => {
+    if (!data?.content) return [];
+    return data?.content.filter((r) => {
+      return r.status === "APPROVED" || r.status === "DECLINED";
+    });
+  }, [data?.content]);
+
+  const consolidations = filteredList || [];
   const totalPages = data?.pagination?.totalPages || 1;
   const total = data?.pagination?.total || 0;
 
@@ -103,7 +110,7 @@ export default function History({ tab }: { tab: string }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">All Status</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
+              {/* <SelectItem value="PENDING">Pending</SelectItem> */}
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="DECLINED">Declined</SelectItem>
             </SelectContent>

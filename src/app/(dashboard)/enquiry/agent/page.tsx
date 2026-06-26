@@ -514,7 +514,7 @@ export default function AgentEnquiryPage() {
 
       {/* Upload Mandate Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[700px] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-175 overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Upload Mandates for {agentDetail?.data?.agentName}
@@ -529,8 +529,9 @@ export default function AgentEnquiryPage() {
             <TabsContent value="single" className="space-y-4 p-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label>Name (Signatory)</label>
+                  <label className="mrpsl-label">Name (Signatory)</label>
                   <Input
+                    className="mrpsl-input"
                     value={singleForm.name}
                     onChange={(e) =>
                       setSingleForm({ ...singleForm, name: e.target.value })
@@ -538,8 +539,9 @@ export default function AgentEnquiryPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label>Position</label>
+                  <label className="mrpsl-label">Position</label>
                   <Input
+                    className="mrpsl-input"
                     value={singleForm.position}
                     onChange={(e) =>
                       setSingleForm({ ...singleForm, position: e.target.value })
@@ -556,8 +558,9 @@ export default function AgentEnquiryPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label>Email</label>
+                  <label className="mrpsl-label">Email</label>
                   <Input
+                    className="mrpsl-input"
                     type="email"
                     value={singleForm.email}
                     onChange={(e) =>
@@ -566,8 +569,9 @@ export default function AgentEnquiryPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label>Phone</label>
+                  <label className="mrpsl-label">Phone</label>
                   <Input
+                    className="mrpsl-input"
                     value={singleForm.phone}
                     onChange={(e) =>
                       setSingleForm({ ...singleForm, phone: e.target.value })

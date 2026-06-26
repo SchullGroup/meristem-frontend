@@ -1,5 +1,6 @@
 import {
   useMutation,
+  UseMutationOptions,
   useQuery,
   useQueryClient,
   UseQueryOptions,
@@ -31,9 +32,14 @@ import {
   exportApplicationOfferSummaryReport,
   approveLodgment,
   getRejectedOpsBatches,
+  opsReviewRefundSubscriber,
+  icuReviewRefundSubscriber,
+  opsReviewRefundBatch,
+  icuReviewRefundBatch,
+  getRefundEligibleSubscribers,
 } from "@/actions/ipoActions";
 
-import { ContentPaginatedResponse } from "@/types";
+import { ApiResponse, ContentPaginatedResponse } from "@/types";
 import {
   IPO,
   IPOBatchType,
@@ -46,6 +52,10 @@ import {
   FullSubscriptionListResponse,
   ApplicationOfferResponse,
   ApplicationOfferSummaryResponse,
+  IpoRefundSubscriber,
+  RefundReviewRequest,
+  RefundBatchReviewResponse,
+  RefundEligibleParams,
 } from "@/types/ipo";
 
 export const ipoKeys = {
@@ -512,5 +522,179 @@ export const useApproveBatchLodgment = () => {
         exact: false
       });
     },
+  });
+};
+
+
+export const useOpsReviewRefundSubscriber = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<IpoRefundSubscriber>,
+      Error,
+      {
+        subscriberId: string;
+        payload: RefundReviewRequest;
+      }
+    >,
+    "mutationKey" | "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      subscriberId,
+      payload,
+    }) =>
+      opsReviewRefundSubscriber(
+        subscriberId,
+        payload,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["refund-eligible-subscribers"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useIcuReviewRefundSubscriber = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<IpoRefundSubscriber>,
+      Error,
+      {
+        subscriberId: string;
+        payload: RefundReviewRequest;
+      }
+    >,
+    "mutationKey" | "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      subscriberId,
+      payload,
+    }) =>
+      icuReviewRefundSubscriber(
+        subscriberId,
+        payload,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["refund-eligible-subscribers"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useOpsReviewRefundBatch = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<RefundBatchReviewResponse>,
+      Error,
+      {
+        batchRef: string;
+        payload: RefundReviewRequest;
+      }
+    >,
+    "mutationKey" | "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      batchRef,
+      payload,
+    }) =>
+      opsReviewRefundBatch(
+        batchRef,
+        payload,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["refund-eligible-subscribers"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useIcuReviewRefundBatch = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<RefundBatchReviewResponse>,
+      Error,
+      {
+        batchRef: string;
+        payload: RefundReviewRequest;
+      }
+    >,
+    "mutationKey" | "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      batchRef,
+      payload,
+    }) =>
+      icuReviewRefundBatch(
+        batchRef,
+        payload,
+      ),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["refund-eligible-subscribers"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useGetRefundEligibleSubscribers = (
+  batchRef: string,
+  params?: RefundEligibleParams,
+  options?: Omit<
+    UseQueryOptions<
+      ApiResponse<
+        ContentPaginatedResponse<IpoRefundSubscriber>
+      >,
+      Error,
+      ApiResponse<
+        ContentPaginatedResponse<IpoRefundSubscriber>
+      >
+    >,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: [
+      "refund-eligible-subscribers",
+      batchRef,
+      params,
+    ],
+    queryFn: () =>
+      getRefundEligibleSubscribers(
+        batchRef,
+        params,
+      ),
+    enabled: !!batchRef,
+    refetchOnWindowFocus: false,
+    ...options,
   });
 };

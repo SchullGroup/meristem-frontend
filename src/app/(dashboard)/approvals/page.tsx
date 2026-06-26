@@ -20,6 +20,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -92,7 +93,7 @@ export default function ApprovalsPage() {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewReadOnly, setReviewReadOnly] = useState(false);
 
-  const { data: summaryData } = useQuery({
+  const { data: summaryData, isLoading: summaryLoading } = useQuery({
     queryKey: ["approval-summary", currentUser?.email],
     queryFn: () =>
       GET_APPROVAL_SUMMARY({ performedBy: currentUser?.email ?? "" }),
@@ -238,42 +239,60 @@ export default function ApprovalsPage() {
           className={`p-4 ${myPendingCount > 0 ? "bg-amber-50 border-amber-200" : "mrpsl-card"}`}
         >
           <div className="mrpsl-section-title">My Pending</div>
-          <div
-            className={`text-2xl font-mono mt-1 font-bold ${myPendingCount > 0 ? "text-amber-600" : ""}`}
-          >
-            {myPendingCount}
-          </div>
+          {summaryLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
+            <div
+              className={`text-2xl font-mono mt-1 font-bold ${myPendingCount > 0 ? "text-amber-600" : ""}`}
+            >
+              {myPendingCount}
+            </div>
+          )}
         </Card>
         <Card
           className={`p-4 ${overdueCount > 0 ? "bg-red-50 border-red-200" : "mrpsl-card"}`}
         >
           <div className="mrpsl-section-title">Overdue (&gt;4hrs)</div>
-          <div
-            className={`text-2xl font-mono mt-1 font-bold ${overdueCount > 0 ? "text-red-600" : ""}`}
-          >
-            {overdueCount}
-          </div>
+          {summaryLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
+            <div
+              className={`text-2xl font-mono mt-1 font-bold ${overdueCount > 0 ? "text-red-600" : ""}`}
+            >
+              {overdueCount}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">All Pending</div>
-          <div className="text-2xl font-mono mt-1 font-bold">
-            {allPendingCount}
-          </div>
+          {summaryLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
+            <div className="text-2xl font-mono mt-1 font-bold">
+              {allPendingCount}
+            </div>
+          )}
         </Card>
         <Card
           className={`p-4 cursor-pointer transition-colors ${myRejectedCount > 0 ? "bg-red-50 border-red-200 hover:bg-red-100" : "mrpsl-card"}`}
           onClick={() => myRejectedCount > 0 && setStatusFilter("REJECTED")}
         >
           <div className="mrpsl-section-title">My Rejected</div>
-          <div
-            className={`text-2xl font-mono mt-1 font-bold ${myRejectedCount > 0 ? "text-red-600" : ""}`}
-          >
-            {myRejectedCount}
-          </div>
-          {myRejectedCount > 0 && (
-            <div className="text-[12px] text-red-500 mt-0.5">
-              Click to review
-            </div>
+          {summaryLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
+            <>
+              <div
+                className={`text-2xl font-mono mt-1 font-bold ${myRejectedCount > 0 ? "text-red-600" : ""}`}
+              >
+                {myRejectedCount}
+              </div>
+              {myRejectedCount > 0 && (
+                <div className="text-[12px] text-red-500 mt-0.5">
+                  Click to review
+                </div>
+              )}
+            </>
           )}
         </Card>
       </div>

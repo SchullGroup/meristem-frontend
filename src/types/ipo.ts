@@ -188,3 +188,63 @@ export interface ApplicationOfferSummaryResponse {
   grandTotalUnits: number;
   grandTotalAmount: number;
 }
+
+export interface RefundReviewRequest {
+  approved: boolean;
+  reviewedBy: string;
+  remark: string;
+  subscriberIds?: string[];
+}
+
+export interface IpoRefundSubscriber {
+  id: string;
+  type: string;
+  subscriberName: string;
+  firstName: string;
+  lastName: string;
+  middleName: string;
+  dateOfBirth: string;
+  address: string;
+  country: string;
+  state: string;
+  lga: string;
+  phoneNumber: string;
+  accountNumber: string;
+  nin: string;
+  chn: string;
+  nextOfKinName: string;
+  nextOfKinPhone: string;
+  broker: string;
+  bank: string;
+  units: number;
+  stockbrokerCode: string;
+  certNo: string;
+  cscsAccountNo: string;
+  symbol: string;
+  email: string;
+  amount: number;
+  remark: string;
+  refundStatus: string;
+  refundOpsReviewedBy: string;
+  refundOpsReviewedAt: string;
+  refundIcuReviewedBy: string;
+  refundIcuReviewedAt: string;
+  refundRemark: string;
+}
+
+export interface RefundBatchReviewResponse {
+  updated: number;
+  newStatus: string;
+  message: string;
+}
+
+export interface RefundEligibleParams {
+  refundStatus?:
+  | "PENDING_OPS_REVIEW"
+  | "PENDING_ICU_REVIEW"
+  | "OPS_REJECTED"
+  | "ICU_REJECTED"
+  | "ELIGIBLE_FOR_REFUND";
+  page?: number;
+  size?: number;
+}

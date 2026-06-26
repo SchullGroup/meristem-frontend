@@ -9,10 +9,14 @@ import {
   FullSubscriptionListResponse,
   IPO,
   IPOBatchType,
+  IpoRefundSubscriber,
   IPOSubscriber,
   LodgementResponse,
   PendingApprovalParams,
   RangeAnalysisResponse,
+  RefundBatchReviewResponse,
+  RefundEligibleParams,
+  RefundReviewRequest,
   StateSummaryResponse,
 } from "@/types/ipo";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
@@ -419,6 +423,106 @@ export const exportApplicationOfferSummaryReport = async (
       `/ipo/reports/application-offer-summary/export`,
       { params: { register } },
     );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+
+export const opsReviewRefundSubscriber = async (
+  subscriberId: string,
+  payload: RefundReviewRequest,
+) => {
+  try {
+    const response = await api.patch<
+      ApiResponse<IpoRefundSubscriber>
+    >(
+      `/ipo/subscribers/${subscriberId}/refund/ops-review`,
+      payload,
+    );
+
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const icuReviewRefundSubscriber = async (
+  subscriberId: string,
+  payload: RefundReviewRequest,
+) => {
+  try {
+    const response = await api.patch<
+      ApiResponse<IpoRefundSubscriber>
+    >(
+      `/ipo/subscribers/${subscriberId}/refund/icu-review`,
+      payload,
+    );
+
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const opsReviewRefundBatch = async (
+  batchRef: string,
+  payload: RefundReviewRequest,
+) => {
+  try {
+    const response = await api.patch<
+      ApiResponse<RefundBatchReviewResponse>
+    >(
+      `/ipo/batches/${batchRef}/refund/ops-review`,
+      payload,
+    );
+
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const icuReviewRefundBatch = async (
+  batchRef: string,
+  payload: RefundReviewRequest,
+) => {
+  try {
+    const response = await api.patch<
+      ApiResponse<RefundBatchReviewResponse>
+    >(
+      `/ipo/batches/${batchRef}/refund/icu-review`,
+      payload,
+    );
+
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const getRefundEligibleSubscribers = async (
+  batchRef: string,
+  params?: RefundEligibleParams,
+) => {
+  try {
+    const response = await api.get<
+      ApiResponse<
+        ContentPaginatedResponse<IpoRefundSubscriber>
+      >
+    >(
+      `/ipo/batches/${batchRef}/refund-eligible`,
+      {
+        params,
+      },
+    );
+
     return response.data;
   } catch (error) {
     const err = error as ErrorLike;
