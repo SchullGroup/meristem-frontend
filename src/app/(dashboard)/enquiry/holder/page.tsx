@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import * as XLSX from "xlsx";
 import { useReactToPrint } from "react-to-print";
 import {
   FileText,
@@ -86,7 +87,11 @@ export default function HolderEnquiryPage() {
       }),
     enabled: !!holderId,
   });
-  const certificates = certData?.content ?? [];
+  const certificates = [...(certData?.content ?? [])].sort((a, b) => {
+    if (a.status === "ACTIVE" && b.status !== "ACTIVE") return -1;
+    if (a.status !== "ACTIVE" && b.status === "ACTIVE") return 1;
+    return 0;
+  });
 
   // Dividend tab
   const { data: divData, isLoading: isDivLoading } = useQuery({
@@ -160,13 +165,37 @@ export default function HolderEnquiryPage() {
     | null;
   const [activeModal, setActiveModal] = useState<HolderModal>(null);
   const [innerDetailTab, setInnerDetailTab] = useState("cert");
-  // Certificate selected for the print modal
+  // Certificate selected for the print/view modal
   const [printCert, setPrintCert] = useState<Certificate | null>(null);
+  const [certViewOnly, setCertViewOnly] = useState(false);
   const certPrintRef = useRef<HTMLDivElement>(null);
 
-  function openPrintModal(cert: Certificate | null) {
+  function openPrintModal(cert: Certificate | null, viewOnly = false) {
     setPrintCert(cert);
+    setCertViewOnly(viewOnly);
     setActiveModal("print");
+  }
+
+  function downloadCertificateExcel(cert: Certificate) {
+    const rows = [
+      {
+        "Certificate No": cert.certificateNo,
+        "Account No": cert.accountNo,
+        "Holder Name": cert.holderName ?? `${holder?.lastName}, ${holder?.firstName}`,
+        "Register ID": cert.registerId,
+        "Register Symbol": cert.registerSymbol,
+        "Date Issued": cert.dateIssued,
+        Units: cert.units,
+        Status: cert.status,
+        "Transfer No": cert.transferNo ?? "",
+        "Stockbroker Code": cert.stockbrokerCode ?? "",
+        Notes: cert.notes ?? "",
+      },
+    ];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Certificate");
+    XLSX.writeFile(wb, `${cert.certificateNo}.xlsx`);
   }
 
   const handlePrintCertificate = useReactToPrint({
@@ -597,7 +626,7 @@ export default function HolderEnquiryPage() {
                           <td className="p-3">
                             <Badge
                               variant="outline"
-                              className="text-[13px] text-green-700 bg-green-50 border-0"
+                              className={`${cert?.status?.toLocaleLowerCase() === "active" ? "text-green-700 bg-green-50 border-0" : "text-gray-700 bg-gray-50 border-gray-200 border"} text-[13px]`}
                             >
                               {cert.status}
                             </Badge>
@@ -607,18 +636,14 @@ export default function HolderEnquiryPage() {
                               <button
                                 title="View certificate"
                                 className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                                onClick={() =>
-                                  toast.success(`Viewing ${cert.certificateNo}`)
-                                }
+                                onClick={() => openPrintModal(cert, true)}
                               >
                                 <FileText className="h-3.5 w-3.5" />
                               </button>
                               <button
-                                title="Download PDF"
+                                title="Download Excel"
                                 className="h-7 w-7 rounded flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                                onClick={() =>
-                                  toast.success("Certificate downloaded")
-                                }
+                                onClick={() => downloadCertificateExcel(cert)}
                               >
                                 <Download className="h-3.5 w-3.5" />
                               </button>
@@ -1397,7 +1422,7 @@ export default function HolderEnquiryPage() {
       >
         <DialogContent className="max-w-md flex flex-col p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
-            <DialogTitle>Print Share Certificate</DialogTitle>
+            <DialogTitle>{certViewOnly ? "View Certificate" : "Print Share Certificate"}</DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
               {holder?.accountNumber} — {holder?.lastName}, {holder?.firstName}
             </p>
@@ -1453,26 +1478,30 @@ export default function HolderEnquiryPage() {
                 ))}
               </div>
             </div>
-            <p className="text-[13px] text-muted-foreground print:hidden">
-              This will send a print job to the registry printer. Ensure the
-              certificate stock is loaded before confirming.
-            </p>
+            {!certViewOnly && (
+              <p className="text-[13px] text-muted-foreground print:hidden">
+                This will send a print job to the registry printer. Ensure the
+                certificate stock is loaded before confirming.
+              </p>
+            )}
           </div>
           <div className="px-6 pb-6 flex gap-3 shrink-0">
             <Button
               variant="outline"
-              className="flex-1"
+              className={certViewOnly ? "w-full" : "flex-1"}
               onClick={() => setActiveModal(null)}
             >
-              Cancel
+              Close
             </Button>
-            <Button
-              className="flex-1 gap-1.5"
-              disabled={!printCert}
-              onClick={() => handlePrintCertificate()}
-            >
-              <Printer className="h-4 w-4" /> Confirm &amp; Print
-            </Button>
+            {!certViewOnly && (
+              <Button
+                className="flex-1 gap-1.5"
+                disabled={!printCert}
+                onClick={() => handlePrintCertificate()}
+              >
+                <Printer className="h-4 w-4" /> Confirm &amp; Print
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

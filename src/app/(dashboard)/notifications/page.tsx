@@ -24,6 +24,7 @@ import { useStore } from "@/lib/store";
 import { NotificationsParams } from "@/actions/notificationActions";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 
 type NotifType =
@@ -113,6 +114,7 @@ export default function NotificationsPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [page, setPage] = useState(0)
   const [size, setSize] = useState(20)
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const queryParams = useMemo<NotificationsParams>(() => {
     const base = { performedBy: currentUser?.email };
@@ -171,12 +173,20 @@ export default function NotificationsPage() {
     { key: "system", label: "System" },
   ];
 
+  const resolveUrl = (url?: string) => {
+    if (!url) return url;
+    const match = url.match(/^\/approvals\/(.+)$/);
+    if (match) return `/approvals?ref=${encodeURIComponent(match[1])}`;
+    return url;
+  };
+
   // Handlers
   const handleMarkRead = (id: string, actionUrl?: string) => {
     const notif = notifications.find((n) => n.id === id);
+    const resolvedUrl = resolveUrl(actionUrl);
     // If already read, just navigate
     if (notif?.read) {
-      if (actionUrl) router.push(actionUrl);
+      if (resolvedUrl) router.push(resolvedUrl);
       return;
     }
 
@@ -185,16 +195,19 @@ export default function NotificationsPage() {
       return;
     }
 
+    setLoadingId(id);
     markReadMutation.mutate(
       { id, performedBy: currentUser?.email },
       {
         onSuccess: () => {
-          toast.success("Notification marked as read")
-          if (actionUrl) router.push(actionUrl);
+          toast.success("Notification marked as read");
+          if (resolvedUrl) router.push(resolvedUrl);
+          else setLoadingId(null);
         },
         onError: () => {
-          toast.error("Failed to mark notification as read")
-        }
+          toast.error("Failed to mark notification as read");
+          setLoadingId(null);
+        },
       }
     );
   };
@@ -256,9 +269,21 @@ export default function NotificationsPage() {
       {/* Notification list */}
       {
         notificationsLoading ? (
-          <div className="flex items-center justify-center p-8 bg-background rounded-lg border mrpsl-card max-w-3xl">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
-            <span className="text-muted-foreground font-medium">Fetching notifications...</span>
+          <div className="space-y-1">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex gap-4 px-4 py-4 rounded-xl border bg-background border-border/50">
+                <Skeleton className="h-9 w-9 rounded-full shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-16 shrink-0" />
+                  </div>
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                  <Skeleton className="h-5 w-20 rounded-md" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : notificationsError ? (
           <Alert variant="destructive">
@@ -347,12 +372,13 @@ export default function NotificationsPage() {
                               variant="link"
                               size="sm"
                               className="h-auto p-0 text-primary text-[12px] font-medium gap-1"
+                              disabled={loadingId === notif.id}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleMarkRead(notif.id, notif.actionHref);
                               }}
                             >
-                              View details {markReadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+                              View details {loadingId === notif.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
                             </Button>
                           )}
                         </div>

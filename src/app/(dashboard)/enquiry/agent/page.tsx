@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, Loader2, AlertCircle, Download, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
@@ -14,11 +15,23 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useDebounce } from "@/hooks/useDebounce";
-import { useGetAgents, useGetAgentDetail, useGetAgentMandates, useUploadMandate, useBulkUploadMandate } from "@/hooks/useEnquiry";
+import {
+  useGetAgents,
+  useGetAgentDetail,
+  useGetAgentMandates,
+  useUploadMandate,
+  useBulkUploadMandate,
+} from "@/hooks/useEnquiry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatDate } from "@/lib/utils/format";
 import { PaginationBar } from "@/components/custom/pagination-bar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { DocUploadZone } from "@/components/custom/doc-upload-zone";
@@ -26,43 +39,69 @@ import { downloadMandateTemplate } from "@/actions/enquiryActions";
 import RegisterSelect from "@/components/custom/register-select";
 
 export default function AgentEnquiryPage() {
-  const [query, setQuery] = useState("");
+  const searchParams = useSearchParams();
+  const nameParam = searchParams.get("name") ?? "";
+
+  const [query, setQuery] = useState(nameParam);
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [selectedRegister, setSelectedRegister] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState<"ACTIVE" | "INACTIVE" | "">("");
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<
+    "ACTIVE" | "INACTIVE" | ""
+  >("");
+  const [showDropdown, setShowDropdown] = useState(nameParam.length > 2);
   const [showMandates, setShowMandates] = useState(false);
   const [mandatePage, setMandatePage] = useState(0);
   const [mandatePageSize, setMandatePageSize] = useState(20);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-
   const debouncedQuery = useDebounce(query, 300);
 
   // Fetch agents matching the debounced search term
-  const { data: agentsData, isLoading: isLoadingAgents, isError: isErrorAgents } = useGetAgents(
+  const {
+    data: agentsData,
+    isLoading: isLoadingAgents,
+    isError: isErrorAgents,
+  } = useGetAgents(
     { q: debouncedQuery },
-    { enabled: debouncedQuery.length > 2 && showDropdown }
+    { enabled: debouncedQuery.length > 2 && showDropdown },
   );
+
+  useEffect(() => {
+    if (!nameParam || !agentsData?.content?.length) return;
+    const match =
+      agentsData.content.find(
+        (a) => a.agentName.toLowerCase() === nameParam.toLowerCase(),
+      ) ?? agentsData.content[0];
+    Promise.resolve().then(() => {
+      setSelectedAgentId(match.id);
+      setQuery(match.agentName);
+      setShowDropdown(false);
+      setShowMandates(true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentsData]);
 
   // Fetch detailed information for the selected agent
-  const { data: agentDetail, isLoading: isLoadingDetail, isError: isErrorDetail, error: detailError } = useGetAgentDetail(
-    selectedAgentId,
-    { enabled: !!selectedAgentId }
-  );
+  const {
+    data: agentDetail,
+    isLoading: isLoadingDetail,
+    isError: isErrorDetail,
+    error: detailError,
+  } = useGetAgentDetail(selectedAgentId, { enabled: !!selectedAgentId });
 
   // Fetch mandates for the selected agent when they choose to view them
-  const { data: mandatesData, isLoading: isLoadingMandates } = useGetAgentMandates(
-    selectedAgentId,
-    {
-      page: mandatePage,
-      size: mandatePageSize,
-      registerSymbol: selectedRegister !== "" ? selectedRegister : undefined,
-      status: selectedStatus !== "" ? selectedStatus : undefined
-    },
-    { enabled: !!selectedAgentId && showMandates }
-  );
+  const { data: mandatesData, isLoading: isLoadingMandates } =
+    useGetAgentMandates(
+      selectedAgentId,
+      {
+        page: mandatePage,
+        size: mandatePageSize,
+        registerSymbol: selectedRegister !== "" ? selectedRegister : undefined,
+        status: selectedStatus !== "" ? selectedStatus : undefined,
+      },
+      { enabled: !!selectedAgentId && showMandates },
+    );
 
   // Template download mutation
 
@@ -110,7 +149,7 @@ export default function AgentEnquiryPage() {
         setUploadDialogOpen(false);
         resetSingleForm();
       },
-      onError: (error: any) => toast.error(error.message),
+      onError: (error) => toast.error(error.message),
     });
   };
 
@@ -124,17 +163,20 @@ export default function AgentEnquiryPage() {
     formData.append("data", csvFile);
     // formData.append("files", zipFile); // ZIP containing signature/document files
 
-    uploadBulkMutation.mutate({
-      data: formData,
-      id: selectedAgentId
-    }, {
-      onSuccess: () => {
-        toast.success("Bulk mandates uploaded successfully");
-        setUploadDialogOpen(false);
-        setCsvFile(null);
+    uploadBulkMutation.mutate(
+      {
+        data: formData,
+        id: selectedAgentId,
       },
-      onError: (error: any) => toast.error(error.message),
-    });
+      {
+        onSuccess: () => {
+          toast.success("Bulk mandates uploaded successfully");
+          setUploadDialogOpen(false);
+          setCsvFile(null);
+        },
+        onError: (error) => toast.error(error.message),
+      },
+    );
   };
 
   const handleDownloadTemplate = async () => {
@@ -158,7 +200,10 @@ export default function AgentEnquiryPage() {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Agent Enquiry</h1>
-          <p className="text-sm text-muted-foreground mt-1">Search and view details for banks, stockbrokers, and collecting agents</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Search and view details for banks, stockbrokers, and collecting
+            agents
+          </p>
         </div>
       </div>
 
@@ -191,7 +236,9 @@ export default function AgentEnquiryPage() {
             {isLoadingAgents ? (
               <div className="flex items-center justify-center p-4">
                 <Loader2 className="h-4 w-4 animate-spin mr-2 text-primary" />
-                <span className="text-sm text-muted-foreground">Searching...</span>
+                <span className="text-sm text-muted-foreground">
+                  Searching...
+                </span>
               </div>
             ) : isErrorAgents ? (
               <div className="p-3 text-sm text-destructive">
@@ -218,7 +265,9 @@ export default function AgentEnquiryPage() {
                   >
                     <div>
                       <span className="font-semibold">{agent.agentName}</span>
-                      <span className="text-xs text-muted-foreground ml-2">({agent.agentCode})</span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        ({agent.agentCode})
+                      </span>
                     </div>
                     <span className="text-[10px] font-bold uppercase bg-muted px-2 py-0.5 rounded text-muted-foreground">
                       {agent.agentType?.replace("_", " ")}
@@ -236,7 +285,9 @@ export default function AgentEnquiryPage() {
           {isLoadingDetail && (
             <div className="flex items-center justify-center p-8 bg-background rounded-lg border mrpsl-card">
               <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
-              <span className="text-muted-foreground font-medium">Fetching agent details...</span>
+              <span className="text-muted-foreground font-medium">
+                Fetching agent details...
+              </span>
             </div>
           )}
 
@@ -245,7 +296,9 @@ export default function AgentEnquiryPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Detail Fetch Failed</AlertTitle>
               <AlertDescription>
-                {detailError instanceof Error ? detailError.message : "Could not retrieve details for the selected agent."}
+                {detailError instanceof Error
+                  ? detailError.message
+                  : "Could not retrieve details for the selected agent."}
               </AlertDescription>
             </Alert>
           )}
@@ -254,13 +307,21 @@ export default function AgentEnquiryPage() {
             <Card className="mrpsl-card p-6 space-y-6">
               <div className="flex justify-between items-start border-b pb-4">
                 <div>
-                  <h2 className="text-2xl font-bold">{agentDetail?.data.agentName}</h2>
+                  <h2 className="text-2xl font-bold">
+                    {agentDetail?.data.agentName}
+                  </h2>
                   <div className="text-sm text-muted-foreground mt-1">
-                    Agent Code: <span className="font-mono text-foreground font-bold">{agentDetail?.data.agentCode}</span>
+                    Agent Code:{" "}
+                    <span className="font-mono text-foreground font-bold">
+                      {agentDetail?.data.agentCode}
+                    </span>
                   </div>
                   {agentDetail?.data.cscsCode && (
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      CSCS Code: <span className="font-mono font-medium">{agentDetail?.data.cscsCode}</span>
+                      CSCS Code:{" "}
+                      <span className="font-mono font-medium">
+                        {agentDetail?.data.cscsCode}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -273,28 +334,41 @@ export default function AgentEnquiryPage() {
                 <div className="space-y-4">
                   <h3 className="mrpsl-section-title border-b pb-2">Profile</h3>
                   <div className="text-sm">
-                    <span className="text-muted-foreground block text-xs">Address</span>
-                    <span className="font-medium">{agentDetail?.data.primaryAddress || "N/A"}</span>
+                    <span className="text-muted-foreground block text-xs">
+                      Address
+                    </span>
+                    <span className="font-medium">
+                      {agentDetail?.data.primaryAddress || "N/A"}
+                    </span>
                   </div>
                   <div className="text-sm">
-                    <span className="text-muted-foreground block text-xs">Status</span>
-                    <Badge className={
-                      agentDetail?.data.status === "ACTIVE"
-                        ? "bg-green-100 text-green-800 border-0 text-xs mt-1"
-                        : "bg-red-100 text-red-800 border-0 text-xs mt-1"
-                    }>
+                    <span className="text-muted-foreground block text-xs">
+                      Status
+                    </span>
+                    <Badge
+                      className={
+                        agentDetail?.data.status === "ACTIVE"
+                          ? "bg-green-100 text-green-800 border-0 text-xs mt-1"
+                          : "bg-red-100 text-red-800 border-0 text-xs mt-1"
+                      }
+                    >
                       {agentDetail?.data.status}
                     </Badge>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="mrpsl-section-title border-b pb-2">Sub-Records</h3>
+                  <h3 className="mrpsl-section-title border-b pb-2">
+                    Sub-Records
+                  </h3>
                   <div className="text-sm text-muted-foreground bg-muted/20 p-3 rounded border border-dashed flex justify-between items-center">
                     <span>Signatures: None uploaded</span>
                   </div>
                   <div className="text-sm text-muted-foreground bg-muted/20 p-3 rounded border border-dashed flex justify-between items-center">
-                    <span>Mandates: {agentDetail?.data.totalMandates || 0} total ({agentDetail?.data.activeMandates || 0} active)</span>
+                    <span>
+                      Mandates: {agentDetail?.data.totalMandates || 0} total (
+                      {agentDetail?.data.activeMandates || 0} active)
+                    </span>
                     <div className="flex items-center gap-2">
                       {/* Download Template button */}
                       <Button
@@ -331,10 +405,17 @@ export default function AgentEnquiryPage() {
 
               {showMandates && (
                 <div className="space-y-3 pt-4 border-t animate-in slide-in-from-top duration-200">
-                  <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Mandate List</h3>
-                  <div className="flex items-center gap-5 max-w-md">
-                    <RegisterSelect label="Register *" value={selectedRegister} onChange={(value) => setSelectedRegister(value)} enabled={showMandates || !isLoadingMandates} />
-                    <div className="space-y-1.5">
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">
+                    Mandate List
+                  </h3>
+                  <div className="flex items-end gap-5 max-w-md">
+                    <RegisterSelect
+                      label="Register *"
+                      value={selectedRegister}
+                      onChange={(value) => setSelectedRegister(value)}
+                      enabled={showMandates || !isLoadingMandates}
+                    />
+                    <div className="">
                       <Select
                         value={selectedStatus}
                         onValueChange={(v) => setSelectedStatus(v ?? "")}
@@ -372,37 +453,45 @@ export default function AgentEnquiryPage() {
                                 </div>
                               </td>
                             </tr>
-                          ) :
-                            mandatesData?.content && mandatesData?.content?.length > 0 ?
-                              mandatesData.content.map((mandate, idx) => (
-                                <tr key={idx} className="hover:bg-accent/5">
-                                  <td className="p-2.5 font-bold">{mandate?.accountNo}</td>
-                                  <td className="p-2.5 font-sans font-medium">{mandate?.holderName}</td>
-                                  <td className="p-2.5 text-primary font-sans font-medium">{mandate?.registerSymbol}</td>
-                                  <td className="p-2.5">{formatDate(mandate?.mandateDate)}</td>
-                                  <td className="p-2.5 font-sans">
-                                    <Badge className={
+                          ) : mandatesData?.content &&
+                            mandatesData?.content?.length > 0 ? (
+                            mandatesData.content.map((mandate, idx) => (
+                              <tr key={idx} className="hover:bg-accent/5">
+                                <td className="p-2.5 font-bold">
+                                  {mandate?.accountNo}
+                                </td>
+                                <td className="p-2.5 font-sans font-medium">
+                                  {mandate?.holderName}
+                                </td>
+                                <td className="p-2.5 text-primary font-sans font-medium">
+                                  {mandate?.registerSymbol}
+                                </td>
+                                <td className="p-2.5">
+                                  {formatDate(mandate?.mandateDate)}
+                                </td>
+                                <td className="p-2.5 font-sans">
+                                  <Badge
+                                    className={
                                       mandate?.status === "ACTIVE"
                                         ? "bg-green-50 text-green-700 hover:bg-green-50 border-green-200/50 text-[10px]"
                                         : "bg-red-50 text-red-700 hover:bg-red-50 border-red-200/50 text-[10px]"
-                                    }>
-                                      {mandate?.status}
-                                    </Badge>
-                                  </td>
-                                </tr>
-                              )) : (
-                                <tr>
-                                  <td
-                                    colSpan={10}
-                                    className="px-4 py-12 text-center text-muted-foreground text-sm"
+                                    }
                                   >
-                                    No mandates uploaded for this agent.
-                                  </td>
-                                </tr>
-
-
-                              )}
-
+                                    {mandate?.status}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td
+                                colSpan={10}
+                                className="px-4 py-12 text-center text-muted-foreground text-sm"
+                              >
+                                No mandates uploaded for this agent.
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -425,9 +514,11 @@ export default function AgentEnquiryPage() {
 
       {/* Upload Mandate Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[700px] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-175 overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Upload Mandates for {agentDetail?.data?.agentName}</DialogTitle>
+            <DialogTitle>
+              Upload Mandates for {agentDetail?.data?.agentName}
+            </DialogTitle>
           </DialogHeader>
           <Tabs defaultValue="single" className="px-4">
             <TabsList className="p-2">
@@ -439,34 +530,85 @@ export default function AgentEnquiryPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="mrpsl-label">Name (Signatory)</label>
-                  <Input className="mrpsl-input" value={singleForm.name} onChange={(e) => setSingleForm({ ...singleForm, name: e.target.value })} />
+                  <Input
+                    className="mrpsl-input"
+                    value={singleForm.name}
+                    onChange={(e) =>
+                      setSingleForm({ ...singleForm, name: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="mrpsl-label">Position</label>
-                  <Input className="mrpsl-input" value={singleForm.position} onChange={(e) => setSingleForm({ ...singleForm, position: e.target.value })} />
+                  <Input
+                    className="mrpsl-input"
+                    value={singleForm.position}
+                    onChange={(e) =>
+                      setSingleForm({ ...singleForm, position: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <RegisterSelect label="Register *" value={singleForm.registerId} onChange={(value) => setSingleForm({ ...singleForm, registerId: value })} />
+                  <RegisterSelect
+                    label="Register *"
+                    value={singleForm.registerId}
+                    onChange={(value) =>
+                      setSingleForm({ ...singleForm, registerId: value })
+                    }
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="mrpsl-label">Email</label>
-                  <Input className="mrpsl-input" type="email" value={singleForm.email} onChange={(e) => setSingleForm({ ...singleForm, email: e.target.value })} />
+                  <Input
+                    className="mrpsl-input"
+                    type="email"
+                    value={singleForm.email}
+                    onChange={(e) =>
+                      setSingleForm({ ...singleForm, email: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <label className="mrpsl-label">Phone</label>
-                  <Input className="mrpsl-input" value={singleForm.phone} onChange={(e) => setSingleForm({ ...singleForm, phone: e.target.value })} />
+                  <Input
+                    className="mrpsl-input"
+                    value={singleForm.phone}
+                    onChange={(e) =>
+                      setSingleForm({ ...singleForm, phone: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <DocUploadZone maxSizeMB={10} label="Signature" required fileTypes={["image"]} onUploadSuccess={(value) => setSingleForm({ ...singleForm, signatureFile: value })} />
-
+                  <DocUploadZone
+                    maxSizeMB={10}
+                    label="Signature"
+                    required
+                    fileTypes={["image"]}
+                    onUploadSuccess={(value) =>
+                      setSingleForm({ ...singleForm, signatureFile: value })
+                    }
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <DocUploadZone maxSizeMB={10} label="Document" required fileTypes={["pdf"]} onUploadSuccess={(value) => setSingleForm({ ...singleForm, documentFile: value })} />
+                  <DocUploadZone
+                    maxSizeMB={10}
+                    label="Document"
+                    required
+                    fileTypes={["pdf"]}
+                    onUploadSuccess={(value) =>
+                      setSingleForm({ ...singleForm, documentFile: value })
+                    }
+                  />
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleSingleSubmit} disabled={uploadSingleMutation.isPending}>
-                  {uploadSingleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button
+                  onClick={handleSingleSubmit}
+                  disabled={uploadSingleMutation.isPending}
+                >
+                  {uploadSingleMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   Upload Mandate
                 </Button>
               </DialogFooter>
@@ -476,8 +618,13 @@ export default function AgentEnquiryPage() {
               <div className="rounded border border-dashed p-4 bg-muted/20 text-sm text-muted-foreground">
                 <p className="font-medium mb-2">Instructions:</p>
                 <ol className="list-decimal list-inside space-y-1">
-                  <li>Download the CSV template and fill in the required columns.</li>
-                  <li>Place all signature and document files referenced in the template into a ZIP file. Ensure file names match exactly.</li>
+                  <li>
+                    Download the CSV template and fill in the required columns.
+                  </li>
+                  <li>
+                    Place all signature and document files referenced in the
+                    template into a ZIP file. Ensure file names match exactly.
+                  </li>
                   <li>Upload the CSV and the ZIP file below.</li>
                 </ol>
               </div>
@@ -485,20 +632,38 @@ export default function AgentEnquiryPage() {
                 <div className="space-y-1.5">
                   <label>CSV Template</label>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handleDownloadTemplate} disabled={isDownloading}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadTemplate}
+                      disabled={isDownloading}
+                    >
                       <Download className="h-4 w-4 mr-1" /> Template
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <label>Upload CSV</label>
-                  <Input type="file" accept=".csv" onChange={(e) => setCsvFile(e.target.files?.[0] || null)} />
-                  {csvFile && <span className="text-xs text-green-600">{csvFile.name}</span>}
+                  <Input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => setCsvFile(e.target.files?.[0] || null)}
+                  />
+                  {csvFile && (
+                    <span className="text-xs text-green-600">
+                      {csvFile.name}
+                    </span>
+                  )}
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleBulkSubmit} disabled={!csvFile || uploadBulkMutation.isPending}>
-                  {uploadBulkMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button
+                  onClick={handleBulkSubmit}
+                  disabled={!csvFile || uploadBulkMutation.isPending}
+                >
+                  {uploadBulkMutation.isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   Upload Bulk
                 </Button>
               </DialogFooter>

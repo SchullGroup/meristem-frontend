@@ -117,6 +117,7 @@ const OPERATIONS_GROUPS = [
       { label: "Certificate", href: "/enquiry/certificate" },
       { label: "Warrant", href: "/enquiry/warrant" },
       { label: "Rights", href: "/enquiry/rights" },
+      { label: "Bonus", href: "/enquiry/bonus" },
       { label: "Agent", href: "/enquiry/agent" },
     ],
   },
@@ -132,6 +133,7 @@ export function Sidebar() {
   });
   const [switchRoleOpen, setSwitchRoleOpen] = useState(false);
   const [switchUserId, setSwitchUserId] = useState<string>("");
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   useEffect(() => {
     [...NAV_GROUPS, ...OPERATIONS_GROUPS].forEach((group) => {
@@ -362,7 +364,7 @@ export function Sidebar() {
             </button> */}
             <button
               className="w-full flex items-center gap-2 px-3 py-1.5 text-[13px] text-muted-foreground hover:text-destructive hover:bg-destructive/5 rounded-lg transition-colors font-medium"
-              onClick={handleLogout}
+              onClick={() => setLogoutOpen(true)}
             >
               <LogOut className="h-3.5 w-3.5" />
               Logout
@@ -370,6 +372,26 @@ export function Sidebar() {
           </div>
         </div>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirm Logout</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to log out? Any unsaved changes will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setLogoutOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" /> Logout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Switch Role Dialog */}
       {/* <Dialog open={switchRoleOpen} onOpenChange={setSwitchRoleOpen}>

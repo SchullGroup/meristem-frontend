@@ -6,7 +6,6 @@ import {
   CheckCircle,
   Merge,
   Scissors,
-  RefreshCw,
   ArrowRight,
   Loader2,
 } from "lucide-react";
@@ -278,7 +277,7 @@ export default function CertificateEnquiryPage() {
                     <th className="p-3">DATE ISSUED</th>
                     <th className="p-3 text-right">UNITS</th>
                     <th className="p-3 text-center">ACTIVE</th>
-                    <th className="p-3" colSpan={5}>
+                    <th className="p-3" colSpan={4}>
                       ACTIONS
                     </th>
                   </tr>
@@ -304,9 +303,6 @@ export default function CertificateEnquiryPage() {
                         </td>
                         <td className="p-3">
                           <Skeleton className="h-5 w-16 mx-auto rounded-full" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
                         </td>
                         <td className="p-3">
                           <Skeleton className="h-7 w-7 mx-auto rounded-md" />
@@ -369,7 +365,13 @@ export default function CertificateEnquiryPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  disabled={cert.status !== "ACTIVE"}
                                   className="cursor-pointer"
+                                  onClick={() =>
+                                    router.push(
+                                      `/certificates/dematerialisation`,
+                                    )
+                                  }
                                 >
                                   <CheckCircle className="h-4 w-4 text-muted-foreground" />
                                 </Button>
@@ -388,6 +390,7 @@ export default function CertificateEnquiryPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  disabled={cert.status !== "ACTIVE"}
                                   className="cursor-pointer"
                                   onClick={() =>
                                     router.push(
@@ -416,6 +419,7 @@ export default function CertificateEnquiryPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  disabled={cert.status !== "ACTIVE"}
                                   className="cursor-pointer"
                                   onClick={() =>
                                     router.push(
@@ -441,24 +445,7 @@ export default function CertificateEnquiryPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="cursor-pointer"
-                                >
-                                  <RefreshCw className="h-4 w-4 text-primary" />
-                                </Button>
-                              }
-                            />
-                            <TooltipContent>
-                              Replace a lost or damaged certificate
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
-                        <td className="p-3 text-center">
-                          <Tooltip>
-                            <TooltipTrigger
-                              render={
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
+                                  disabled={cert.status !== "ACTIVE"}
                                   className="cursor-pointer"
                                   onClick={() =>
                                     router.push(

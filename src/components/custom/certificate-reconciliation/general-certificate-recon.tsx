@@ -27,17 +27,16 @@ export default function GeneralCertificateReconciliation() {
   const [scopeMode, setScopeMode] = useState("all");
   const [specificChn, setSpecificChn] = useState("");
   const [reconciled, setReconciled] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(
-    undefined,
-  );
-
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useGetReconciliations(
       {
         register: selectedReg,
         chn: scopeMode === "spec" ? specificChn : undefined,
-        startDate: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
+        startDate: dateRange?.from
+          ? format(dateRange.from, "yyyy-MM-dd")
+          : undefined,
         endDate: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
         mrpslPage,
         mrpslPageSize,
@@ -57,18 +56,17 @@ export default function GeneralCertificateReconciliation() {
 
   // mrpsl table
   const mrpslRawList = data?.mrpsl?.content || [];
-  const mrpslTotal = data?.mrpsl?.totalElements || 0
-  const mrpslPageCount = data?.mrpsl?.totalPages || 1
+  const mrpslTotal = data?.mrpsl?.totalElements || 0;
+  const mrpslPageCount = data?.mrpsl?.totalPages || 1;
 
   // cscs table
   const cscsRawList = data?.cscs?.content || [];
-  const cscsTotal = data?.cscs?.totalElements || 0
-  const cscsPageCount = data?.cscs?.totalPages || 1
+  const cscsTotal = data?.cscs?.totalElements || 0;
+  const cscsPageCount = data?.cscs?.totalPages || 1;
 
   const missingDataList = data?.missingData || [];
 
   const missingRecordsCount = missingDataList.length;
-
 
   const runReconciliation = () => {
     if (!selectedReg) {
@@ -84,21 +82,20 @@ export default function GeneralCertificateReconciliation() {
     setReconciled(true);
   };
 
-
-
-
   return (
     <>
       <Card className="mrpsl-card p-4">
         <div className="flex flex-wrap items-center gap-4">
-          <RegisterSelect value={selectedReg} label="Select Register" onChange={(v) => {
-            setSelectedReg(v || "");
-            setReconciled(false);
-            setMrpslPage(0);
-            setCscsPage(0);
-          }}
+          <RegisterSelect
+            value={selectedReg}
+            label="Select Register"
+            onChange={(v) => {
+              setSelectedReg(v || "");
+              setReconciled(false);
+              setMrpslPage(0);
+              setCscsPage(0);
+            }}
           />
-
 
           <div className="space-y-1.5">
             <label className="mrpsl-label">DATE RANGE</label>
@@ -174,14 +171,16 @@ export default function GeneralCertificateReconciliation() {
             <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
               <XCircle className="h-4 w-4 text-red-600 shrink-0" />
               <span className="text-sm font-medium text-red-800">
-                Ledger Variance Found: {missingRecordsCount} unmapped historical ledger transaction records isolated from systemic sync logs.
+                Ledger Variance Found: {missingRecordsCount} unmapped historical
+                ledger transaction records isolated from systemic sync logs.
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
               <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
               <span className="text-sm font-medium text-green-800">
-                All positions match perfectly. No unmapped transaction records detected.
+                All positions match perfectly. No unmapped transaction records
+                detected.
               </span>
             </div>
           )}
@@ -203,7 +202,6 @@ export default function GeneralCertificateReconciliation() {
         <>
           {/* SIDE-BY-SIDE DOUBLE COMPARISON VIEW BLOCKS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
             {/* MRPSL MATRIX LIST CARD */}
             <Card className="mrpsl-card overflow-hidden">
               <div className="px-4 py-3 bg-muted/30 border-b border-border/60 flex items-center justify-between">
@@ -225,15 +223,29 @@ export default function GeneralCertificateReconciliation() {
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     {mrpslRawList?.map((row) => (
-                      <tr key={row.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-4 py-2.5 font-mono font-medium text-muted-foreground">{row.chn}</td>
-                        <td className="px-4 py-2.5 font-medium">{row.holderName}</td>
-                        <td className="px-4 py-2.5 text-right font-mono font-semibold">{formatNumber(row?.units)}</td>
+                      <tr
+                        key={row.id}
+                        className="hover:bg-muted/20 transition-colors"
+                      >
+                        <td className="px-4 py-2.5 font-mono font-medium text-muted-foreground">
+                          {row.chn}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium">
+                          {row.holderName}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                          {formatNumber(row?.units)}
+                        </td>
                       </tr>
                     ))}
                     {mrpslRawList.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="text-center py-8 text-muted-foreground italic">No historical aggregate rows indexed.</td>
+                        <td
+                          colSpan={3}
+                          className="text-center py-8 text-muted-foreground italic"
+                        >
+                          No historical aggregate rows indexed.
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -272,15 +284,29 @@ export default function GeneralCertificateReconciliation() {
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     {cscsRawList.map((row) => (
-                      <tr key={row.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="px-4 py-2.5 font-mono font-medium text-muted-foreground">{row.chn}</td>
-                        <td className="px-4 py-2.5 font-medium">{row.holderName}</td>
-                        <td className="px-4 py-2.5 text-right font-mono font-semibold">{formatNumber(row?.units)}</td>
+                      <tr
+                        key={row.id}
+                        className="hover:bg-muted/20 transition-colors"
+                      >
+                        <td className="px-4 py-2.5 font-mono font-medium text-muted-foreground">
+                          {row.chn}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium">
+                          {row.holderName}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                          {formatNumber(row?.units)}
+                        </td>
                       </tr>
                     ))}
                     {cscsRawList.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="text-center py-8 text-muted-foreground italic">No clearing ledger items recovered.</td>
+                        <td
+                          colSpan={3}
+                          className="text-center py-8 text-muted-foreground italic"
+                        >
+                          No clearing ledger items recovered.
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -298,10 +324,7 @@ export default function GeneralCertificateReconciliation() {
               </div>
             </Card>
           </div>
-
-
         </>
-
       )}
     </>
   );

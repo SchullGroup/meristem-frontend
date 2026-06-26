@@ -275,10 +275,10 @@ export default function RegistersPage() {
             </SelectGroup>
           </SelectContent>
         </Select>
-        {(search ||
-          principalFilter !== null ||
-          typeFilter !== null ||
-          statusFilter !== null) && (
+        {(search !== "" ||
+          principalFilter !== "" ||
+          typeFilter !== "" ||
+          statusFilter !== "") && (
           <Button
             variant="ghost"
             onClick={() => {
