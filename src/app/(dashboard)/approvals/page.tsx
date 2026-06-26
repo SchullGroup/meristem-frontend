@@ -72,6 +72,7 @@ export default function ApprovalsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const refParam = searchParams.get("ref");
+  const tabParam = searchParams.get("tab");
   const {
     currentUser,
     updateApprovalItem,
@@ -85,7 +86,7 @@ export default function ApprovalsPage() {
   const [search, setSearch] = useState(refParam ?? "");
   const [moduleFilter, setModuleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("PENDING");
-  const [queueTab, setQueueTab] = useState(refParam ? "global" : "my-desk");
+  const [queueTab, setQueueTab] = useState(refParam || tabParam === "global" ? "global" : "my-desk");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewItem, setReviewItem] = useState<ApprovalItem | null>(null);
   const [reviewComment, setReviewComment] = useState("");

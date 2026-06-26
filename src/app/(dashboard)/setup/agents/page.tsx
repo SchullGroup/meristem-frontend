@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -73,6 +74,7 @@ const agentSchema = z.object({
 });
 
 export default function AgentsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { agentTypes } = useStore();
   const activeTypes = agentTypes.filter((t) => t.active);
@@ -361,7 +363,15 @@ export default function AgentsPage() {
                         {a.address}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+                        <Badge
+                          className={`border-0 text-xs ${
+                            a.status === "ACTIVE"
+                              ? "bg-green-100 text-green-800"
+                              : a.status === "SUSPENDED"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
                           {a.status
                             .toLowerCase()
                             .replace(/\b\w/g, (c) => c.toUpperCase())}
@@ -382,13 +392,11 @@ export default function AgentsPage() {
                               <Pencil className="mr-2 h-4 w-4" /> Edit Agent
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => toast.success("Coming soon..")}
-                            >
-                              <Pencil className="mr-2 h-4 w-4" /> Manage
-                              Signatories
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => toast.success("Coming soon..")}
+                              onClick={() =>
+                                router.push(
+                                  `/enquiry/agent?name=${encodeURIComponent(a.name)}`,
+                                )
+                              }
                             >
                               <FileText className="mr-2 h-4 w-4" /> View Mandate
                             </DropdownMenuItem>

@@ -287,7 +287,7 @@ export default function PrincipalsPage() {
             <SelectItem value="SUSPENDED">Suspended</SelectItem>
           </SelectContent>
         </Select>
-        {(search || billingFilter !== null || statusFilter !== null) && (
+        {(search !== "" || billingFilter !== "" || statusFilter !== "") && (
           <Button
             variant="ghost"
             onClick={() => {
@@ -320,13 +320,15 @@ export default function PrincipalsPage() {
             </thead>
             <tbody>
               {principalsLoading ? (
-                <tr>
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <td key={i} className="px-4 py-3">
-                      <div className="h-5 bg-gray-300 animate-pulse rounded-md" />
-                    </td>
-                  ))}
-                </tr>
+                Array.from({ length: pageSize }).map((_, i) => (
+                  <tr key={i} className="border-b border-border/40">
+                    {Array.from({ length: 9 }).map((_, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className="h-5 bg-gray-300 animate-pulse rounded-md" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : principals?.content && principals?.content?.length > 0 ? (
                 principals?.content?.map((p) => (
                   <tr key={p.principalId} className="mrpsl-table-row">

@@ -6,6 +6,7 @@ export interface User {
   email: string;
   phoneNumber: string;
   roles: string[];
+  role?: string;
   secondaryRole?: string;
   department: string;
   certificateTransactionLimit: number;

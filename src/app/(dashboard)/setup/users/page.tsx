@@ -385,7 +385,7 @@ export default function UsersPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1 flex-wrap max-w-[150px]">
+                    <div className="flex gap-1 flex-wrap max-w-37.5">
                       {u?.roles?.length > 0 && (
                         // <Badge variant="outline" className="text-xs">
 

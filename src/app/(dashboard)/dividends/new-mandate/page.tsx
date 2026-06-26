@@ -626,8 +626,8 @@ export default function NewMandatePage() {
                         <th className="p-3">NEW BANK</th>
                         <th className="p-3">NEW ACCOUNT NO</th>
                         <th className="p-3">DIVIDEND NO</th>
-                        <th className="p-3">AMOUNT (₦)</th>
-                        <th className="p-3">SOURCE</th>
+                        <th className="p-3 text-right">AMOUNT (₦)</th>
+                        <th className="p-3 text-center">SOURCE</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -679,7 +679,7 @@ export default function NewMandatePage() {
                               <td className="p-3 font-mono text-right text-[13px]">
                                 {q?.amount.toLocaleString()}.00
                               </td>
-                              <td className="p-3">
+                              <td className="p-3 text-center">
                                 <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
                                   KYC Update
                                 </Badge>

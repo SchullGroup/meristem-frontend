@@ -49,8 +49,10 @@ export default function GeneralCertificateReconciliation() {
         chn: scopeMode === "spec" ? specificChn : undefined,
         startDate: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
         endDate: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
-        page: page,
-        size: pageSize,
+        mrpslPage: page,
+        mrpslPageSize: pageSize,
+        cscsPage: page,
+        cscsPageSize: pageSize,
       },
       {
         enabled:

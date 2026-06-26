@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, Loader2, Search } from "lucide-react";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useReconciliationFlaggedTransactions } from "@/hooks/useCscs";
@@ -26,21 +26,24 @@ import StatusBadge from "../status-badge";
 import { ReconciliationFlaggedTransaction } from "@/types/cscs";
 import { ReconciliationView } from "./reconciliation-review";
 
-
 export default function UpdateReconciliation({ tab }: { tab: string }) {
-  const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters({
-    status: "ACTIVE",
-    size: 100,
-  });
+  const { data: activeRegisters, isLoading: loadingRegisters } =
+    useGetRegisters({
+      status: "ACTIVE",
+      size: 100,
+    });
 
   // Controls whether we slice out of the primary table and show the Desk Workspace workspace
   const [workspaceActive, setWorkspaceActive] = useState(false);
 
   const [status, setStatus] = useState<"PENDING" | "RESOLVED" | "">("");
   const [register, setRegister] = useState("");
-  const [txDateRange, setTxDateRange] = useState<DateRange | undefined>(undefined);
+  const [txDateRange, setTxDateRange] = useState<DateRange | undefined>(
+    undefined,
+  );
   const [search, setSearch] = useState("");
-  const [selectedTransaction, setSelectedTransaction] = useState<ReconciliationFlaggedTransaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<ReconciliationFlaggedTransaction | null>(null);
 
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(0);
@@ -53,8 +56,12 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
       {
         search: debouncedSearch || undefined,
         register: register !== "" ? register : undefined,
-        startDate: txDateRange?.from ? format(txDateRange.from, "yyyy-MM-dd") : undefined,
-        endDate: txDateRange?.to ? format(txDateRange.to, "yyyy-MM-dd") : undefined,
+        startDate: txDateRange?.from
+          ? format(txDateRange.from, "yyyy-MM-dd")
+          : undefined,
+        endDate: txDateRange?.to
+          ? format(txDateRange.to, "yyyy-MM-dd")
+          : undefined,
         status: status !== "" ? status : undefined,
         page: currentPage,
         size: pageSize,
@@ -65,29 +72,32 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
       },
     );
 
-
   const handlePageSizeChange = (value: number) => {
     setPageSize(value);
     setCurrentPage(0);
   };
 
-
   // ── VIEW BRANCHING: IF RESOLUTION WORKSPACE IS ACTIVE ───────────────
   if (workspaceActive && selectedTransaction) {
     return (
-      <ReconciliationView open={workspaceActive} setOpen={setWorkspaceActive}
-        selectedTransaction={selectedTransaction} />
+      <ReconciliationView
+        open={workspaceActive}
+        setOpen={setWorkspaceActive}
+        selectedTransaction={selectedTransaction}
+      />
     );
   }
 
   return (
     <div className="space-y-4">
-      {!isLoading && <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-        <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-        <span className="text-sm font-medium text-amber-800">
-          {data?.totalElements || 0} flagged transaction awaiting resolution
-        </span>
-      </div>}
+      {!isLoading && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+          <span className="text-sm font-medium text-amber-800">
+            {data?.totalElements || 0} flagged transaction awaiting resolution
+          </span>
+        </div>
+      )}
 
       <div className="flex gap-2 items-center flex-wrap">
         <div className="relative w-64">
@@ -115,8 +125,7 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
                 <SelectItem value="">All Registers</SelectItem>
                 {activeRegisters?.content?.map((r) => (
                   <SelectItem key={r.registerId} value={r.symbol}>
-                    <span className="font-bold">{r.registerName}</span>{" "}
-                    -{" "}
+                    <span className="font-bold">{r.registerName}</span> -{" "}
                     <span className="text-xs translate-y-0.5">{r.symbol}</span>
                   </SelectItem>
                 ))}
@@ -198,7 +207,13 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
                         <StatusBadge status={row.status} />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button size="sm" onClick={() => { setWorkspaceActive(true); setSelectedTransaction(row) }}>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setWorkspaceActive(true);
+                            setSelectedTransaction(row);
+                          }}
+                        >
                           Resolve
                         </Button>
                       </td>
@@ -226,8 +241,6 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
           onPageChange={(value) => setCurrentPage(value)}
         />
       </Card>
-
-
     </div>
   );
 }
