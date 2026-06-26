@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { GET_APPROVAL_SUMMARY } from "@/actions/approvalsAction";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -70,6 +70,8 @@ function moduleUrl(module: string, transactionType: string): string {
 
 export default function ApprovalsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const refParam = searchParams.get("ref");
   const {
     currentUser,
     updateApprovalItem,
@@ -80,10 +82,10 @@ export default function ApprovalsPage() {
     updateUser,
   } = useStore();
   const currentUserRole = currentUser?.roles?.[0];
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(refParam ?? "");
   const [moduleFilter, setModuleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("PENDING");
-  const [queueTab, setQueueTab] = useState("my-desk");
+  const [queueTab, setQueueTab] = useState(refParam ? "global" : "my-desk");
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewItem, setReviewItem] = useState<ApprovalItem | null>(null);
   const [reviewComment, setReviewComment] = useState("");

@@ -86,7 +86,11 @@ export default function HolderEnquiryPage() {
       }),
     enabled: !!holderId,
   });
-  const certificates = certData?.content ?? [];
+  const certificates = [...(certData?.content ?? [])].sort((a, b) => {
+    if (a.status === "ACTIVE" && b.status !== "ACTIVE") return -1;
+    if (a.status !== "ACTIVE" && b.status === "ACTIVE") return 1;
+    return 0;
+  });
 
   // Dividend tab
   const { data: divData, isLoading: isDivLoading } = useQuery({
@@ -597,7 +601,7 @@ export default function HolderEnquiryPage() {
                           <td className="p-3">
                             <Badge
                               variant="outline"
-                              className="text-[13px] text-green-700 bg-green-50 border-0"
+                              className={`${cert?.status?.toLocaleLowerCase() === "active" ? "text-green-700 bg-green-50 border-0" : "text-gray-700 bg-gray-50 border-gray-200 border"} text-[13px]`}
                             >
                               {cert.status}
                             </Badge>

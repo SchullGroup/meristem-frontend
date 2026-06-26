@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,11 +46,13 @@ export const Transfer = ({
     (c) => !hiddenRejectedIds.has(c.id),
   );
 
-  const [autoLoad, setAutoLoad] = useState(false);
-  const [autoLoadSrc, setAutoLoadSrc] = useState(false);
+  const searchParams = useSearchParams();
+
+  const autoLoadRef = useRef(false);
+  const autoLoadSrcRef = useRef(!!searchParams.get("src"));
   const [showRejected, setShowRejected] = useState(false);
 
-  const [srcSearch, setSrcSearch] = useState("");
+  const [srcSearch, setSrcSearch] = useState(() => searchParams.get("src") ?? "");
   const [destSearch, setDestSearch] = useState("");
 
   const [srcSearchResults, setSrcSearchResults] = useState<
@@ -195,36 +197,51 @@ export const Transfer = ({
   };
 
   useEffect(() => {
-    if (autoLoad && srcSearch && destSearch) {
-      //eslint-disable-next-line
-      handleSearchSrc();
-      handleSearchDest();
-      setAutoLoad(false);
-    }
+    if (!autoLoadRef.current || !srcSearch || !destSearch) return;
+    autoLoadRef.current = false;
+    fetchSrc().then((res) => {
+      const data = res.data?.data;
+      setSrcLoaded(null);
+      if (data && data.length > 0) {
+        setSrcSearchResults(data);
+        toast.success(data.length === 1 ? "1 shareholder found" : `${data.length} shareholders found. Please select one.`);
+      } else {
+        setSrcSearchResults([]);
+        toast.error("Source shareholder not found");
+      }
+    });
+    fetchDest().then((res) => {
+      const data = res.data?.data;
+      setDestLoaded(null);
+      if (data && data.length > 0) {
+        setDestSearchResults(data);
+        toast.success(data.length === 1 ? "1 shareholder found" : `${data.length} shareholders found. Please select one.`);
+      } else {
+        setDestSearchResults([]);
+        toast.error("Destination shareholder not found");
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [srcSearch, destSearch, autoLoad]);
+  }, [srcSearch, destSearch]);
 
   // Auto-search the source only (used when prefilled from the certificate enquiry page)
   useEffect(() => {
-    if (autoLoadSrc && srcSearch && selectedRegister) {
-      handleSearchSrc();
-      setAutoLoadSrc(false);
-    }
+    if (!autoLoadSrcRef.current || !srcSearch || !selectedRegister) return;
+    autoLoadSrcRef.current = false;
+    fetchSrc().then((res) => {
+      const data = res.data?.data;
+      setSrcLoaded(null);
+      if (data && data.length > 0) {
+        setSrcSearchResults(data);
+        toast.success(data.length === 1 ? "1 shareholder found" : `${data.length} shareholders found. Please select one.`);
+      } else {
+        setSrcSearchResults([]);
+        toast.error("Source shareholder not found");
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [srcSearch, selectedRegister, autoLoadSrc]);
+  }, [srcSearch, selectedRegister]);
 
-  // Prefill register + transferor when navigated from the certificate enquiry page
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    const register = searchParams.get("register");
-    const src = searchParams.get("src");
-    if (src) {
-      setSrcSearch(src);
-      if (register) setSelectedRegister(register);
-      setAutoLoadSrc(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const resetForm = () => {
     setEditingRejected(null);
@@ -329,7 +346,7 @@ export const Transfer = ({
                         new Set(prev).add(item.id),
                       );
                       setShowRejected(false);
-                      setAutoLoad(true);
+                      autoLoadRef.current = true;
                     }}
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -387,8 +404,7 @@ export const Transfer = ({
               <SelectItem value={""}>All Registers</SelectItem>
               {activeRegisters?.content.map((r) => (
                 <SelectItem key={r.registerId} value={r.symbol}>
-                  <span className="font-bold">{r.registerName}</span>{" "}
-                  -{" "}
+                  <span className="font-bold">{r.registerName}</span> -{" "}
                   <span className="text-xs translate-y-0.5">{r.symbol}</span>
                 </SelectItem>
               ))}
@@ -412,7 +428,7 @@ export const Transfer = ({
               onChange={(e) => setSrcSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearchSrc()}
             />
-            <Button onClick={handleSearchSrc} disabled={srcFetching}>
+            <Button size="xl" onClick={handleSearchSrc} disabled={srcFetching}>
               {srcFetching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -493,7 +509,11 @@ export const Transfer = ({
               onChange={(e) => setDestSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearchDest()}
             />
-            <Button onClick={handleSearchDest} disabled={destFetching}>
+            <Button
+              size="xl"
+              onClick={handleSearchDest}
+              disabled={destFetching}
+            >
               {destFetching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
