@@ -22,7 +22,7 @@ const TABS = [
   },
   {
     id: "refund-requests",
-    label: "Refund Requests",
+    label: "Reimburse Requests",
     icon: RefreshCcw,
     component: RefundRequestsTab,
   },
@@ -40,8 +40,8 @@ export default function DividendReturnMoneyPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Return Money</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage unclaimed dividend returns — 90% to company, 10% withheld
-            for shareholder claims
+            Manage unclaimed dividend returns — 90% to company, 10% withheld for
+            shareholder claims
           </p>
         </div>
       </div>
@@ -51,7 +51,11 @@ export default function DividendReturnMoneyPage() {
           {TABS.map((tab) => {
             const Icon = tab.icon;
             return (
-              <TabsTrigger key={tab.id} value={tab.id} className={TRIGGER_CLASS}>
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className={TRIGGER_CLASS}
+              >
                 <Icon className="h-4 w-4" />
                 {tab.label}
               </TabsTrigger>

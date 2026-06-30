@@ -16,16 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import {
-  AlertTriangle,
-  Search,
-  Loader2,
-} from "lucide-react";
-import { DocUploadZone } from "@/components/custom/doc-upload-zone";
+import { AlertTriangle, Search, Loader2 } from "lucide-react";
+import { MultiDocUpload } from "@/components/custom/multi-doc-upload";
 import { useGetRegisters } from "@/hooks/useRegisters";
-import {
-  ShareholderAccount,
-} from "@/types/account-maintenance";
+import { ShareholderAccount } from "@/types/account-maintenance";
 import {
   useGetAccounts,
   useCreateKycChange,
@@ -37,7 +31,6 @@ import KYCHistory from "@/components/custom/account-maintenance/kyc-update-histo
 import PendingKYC from "@/components/custom/account-maintenance/kyc-pending";
 import { useDebounce } from "@/hooks/useDebounce";
 import StatusBadge from "@/components/custom/status-badge";
-
 
 function getInitials(account: ShareholderAccount) {
   const first = account?.firstName?.[0] ?? "";
@@ -55,10 +48,11 @@ export default function KYCUpdatePage() {
   const currentUser = useStore((s) => s.currentUser);
 
   // ── Registers ──
-  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   // ── UI state ──
   const [mode, setMode] = useState<"single" | "bulk">("single");
@@ -67,9 +61,9 @@ export default function KYCUpdatePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedShareholder, setSelectedShareholder] =
     useState<ShareholderAccount | null>(null);
-  const [supportingDocUrl, setSupportingDocUrl] = useState("");
-
-
+  const [supportingDocs, setSupportingDocs] = useState<
+    { name: string; url: string }[]
+  >([]);
 
   // ── Form field state ──
   const [newName, setNewName] = useState("");
@@ -83,13 +77,14 @@ export default function KYCUpdatePage() {
 
   // ── Account search ──
   const debouncedSearch = useDebounce(searchTerm, 500);
-  const {
-    data: accountsResponse,
-    isFetching: isSearchingAccounts,
-  } = useGetAccounts(
-    { q: debouncedSearch, registerId: selectedRegister !== "" ? selectedRegister : undefined },
-    { enabled: debouncedSearch.length > 2 }
-  );
+  const { data: accountsResponse, isFetching: isSearchingAccounts } =
+    useGetAccounts(
+      {
+        q: debouncedSearch,
+        registerId: selectedRegister !== "" ? selectedRegister : undefined,
+      },
+      { enabled: debouncedSearch.length > 2 },
+    );
   const searchResults = accountsResponse?.data?.data ?? [];
 
   // ── Banks ──
@@ -100,7 +95,6 @@ export default function KYCUpdatePage() {
 
   const bankList = agents?.data?.content || [];
 
-
   // ── KYC submit mutation ──
   const createKycMutation = useCreateKycChange();
 
@@ -108,15 +102,21 @@ export default function KYCUpdatePage() {
     if (!selectedShareholder || !currentUser) return;
     const changes: { field: string; newValue: string }[] = [];
     if (newName) changes.push({ field: "holderName", newValue: newName });
-    if (newHolderType) changes.push({ field: "holderType", newValue: newHolderType });
-    if (!changes.length) { toast.error("No changes entered"); return; }
+    if (newHolderType)
+      changes.push({ field: "holderType", newValue: newHolderType });
+    if (!changes.length) {
+      toast.error("No changes entered");
+      return;
+    }
     createKycMutation.mutate(
       {
         accountNumber: selectedShareholder.accountNumber,
         data: {
           changeType: "PERSONAL",
           changes,
-          supportingDocUrl,
+          supportingDocUrl: supportingDocs.length
+            ? JSON.stringify(supportingDocs)
+            : undefined,
           initiatedBy: currentUser.email,
         },
       },
@@ -127,8 +127,8 @@ export default function KYCUpdatePage() {
           setNewHolderType("");
         },
         onError: (err: any) => {
-          toast.error(err.message || "Failed to update account changes")
-        }
+          toast.error(err.message || "Failed to update account changes");
+        },
       },
     );
   };
@@ -139,27 +139,32 @@ export default function KYCUpdatePage() {
     if (newEmail) changes.push({ field: "email", newValue: newEmail });
     if (newPhone) changes.push({ field: "phone", newValue: newPhone });
     if (newAddress) changes.push({ field: "address", newValue: newAddress });
-    if (!changes.length) { toast.error("No changes entered"); return; }
+    if (!changes.length) {
+      toast.error("No changes entered");
+      return;
+    }
     createKycMutation.mutate(
       {
         accountNumber: selectedShareholder.accountNumber,
         data: {
           changeType: "CONTACT",
           changes,
-          supportingDocUrl,
+          supportingDocUrl: supportingDocs.length
+            ? JSON.stringify(supportingDocs)
+            : undefined,
           initiatedBy: currentUser.email,
         },
       },
       {
         onSuccess: () => {
-          toast.success("Account changes submitted successfully!")
+          toast.success("Account changes submitted successfully!");
           setNewEmail("");
           setNewPhone("");
           setNewAddress("");
         },
         onError: (err: any) => {
-          toast.error(err.message || "Failed to update account changes")
-        }
+          toast.error(err.message || "Failed to update account changes");
+        },
       },
     );
   };
@@ -168,33 +173,36 @@ export default function KYCUpdatePage() {
     if (!selectedShareholder || !currentUser) return;
     const changes: { field: string; newValue: string }[] = [];
     if (newBank) changes.push({ field: "bankName", newValue: newBank });
-    if (newAccountNumber) changes.push({ field: "bankAccountNumber", newValue: newAccountNumber });
-    if (!changes.length) { toast.error("No changes entered"); return; }
+    if (newAccountNumber)
+      changes.push({ field: "bankAccountNumber", newValue: newAccountNumber });
+    if (!changes.length) {
+      toast.error("No changes entered");
+      return;
+    }
     createKycMutation.mutate(
       {
         accountNumber: selectedShareholder.accountNumber,
         data: {
           changeType: "BANK",
           changes,
-          supportingDocUrl,
+          supportingDocUrl: supportingDocs.length
+            ? JSON.stringify(supportingDocs)
+            : undefined,
           initiatedBy: currentUser.email,
         },
       },
       {
         onSuccess: () => {
-          toast.success("Account changes submitted successfully!")
+          toast.success("Account changes submitted successfully!");
           setNewBank("");
           setNewAccountNumber("");
         },
         onError: (err: any) => {
-          toast.error(err.message || "Failed to update account changes")
-        }
+          toast.error(err.message || "Failed to update account changes");
+        },
       },
     );
   };
-
-
-
 
   return (
     <div className="space-y-6">
@@ -218,9 +226,7 @@ export default function KYCUpdatePage() {
             <SelectValue placeholder="All Registers" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={""}>
-              All Registers
-            </SelectItem>
+            <SelectItem value={""}>All Registers</SelectItem>
             {activeRegisters?.content.map((r) => (
               <SelectItem key={r.registerId} value={r.symbol}>
                 {r.registerName} {r.symbol}
@@ -290,9 +296,9 @@ export default function KYCUpdatePage() {
                           {acc.accountNumber} · {acc.registerSymbol}
                         </p>
                       </button>
-                    ))
-                    }
-                  </div>)}
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -312,7 +318,9 @@ export default function KYCUpdatePage() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="text-xl font-bold">{fullName(selectedShareholder)}</h2>
+                  <h2 className="text-xl font-bold">
+                    {fullName(selectedShareholder)}
+                  </h2>
                   <Badge variant="outline" className="font-mono text-[13px]">
                     {selectedShareholder.accountNumber}
                   </Badge>
@@ -328,13 +336,17 @@ export default function KYCUpdatePage() {
                   {selectedShareholder.bankName && (
                     <div className="text-[13px]">
                       <span className="text-muted-foreground">Bank:</span>{" "}
-                      <span className="font-medium">{selectedShareholder.bankName}</span>
+                      <span className="font-medium">
+                        {selectedShareholder.bankName}
+                      </span>
                     </div>
                   )}
                   {selectedShareholder.chn && (
                     <div className="text-[13px]">
                       <span className="text-muted-foreground">CHN:</span>{" "}
-                      <span className="font-mono">{selectedShareholder.chn}</span>
+                      <span className="font-mono">
+                        {selectedShareholder.chn}
+                      </span>
                     </div>
                   )}
                   {selectedShareholder.bvn && (
@@ -379,13 +391,23 @@ export default function KYCUpdatePage() {
               <TabsContent value="personal">
                 <Card className="mrpsl-card p-6 space-y-6">
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 font-semibold text-sm border-b pb-2">
-                    <div className="text-muted-foreground uppercase text-[13px]">Field</div>
-                    <div className="text-muted-foreground uppercase text-[13px]">Current Value</div>
-                    <div className="text-primary uppercase text-[13px]">New Value</div>
+                    <div className="text-muted-foreground uppercase text-[13px]">
+                      Field
+                    </div>
+                    <div className="text-muted-foreground uppercase text-[13px]">
+                      Current Value
+                    </div>
+                    <div className="text-primary uppercase text-[13px]">
+                      New Value
+                    </div>
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
-                    <span className="text-sm font-medium">Shareholder Name</span>
-                    <span className="text-sm text-muted-foreground">{fullName(selectedShareholder)}</span>
+                    <span className="text-sm font-medium">
+                      Shareholder Name
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {fullName(selectedShareholder)}
+                    </span>
                     <div className="flex gap-2">
                       <Input
                         className="mrpsl-input"
@@ -393,7 +415,12 @@ export default function KYCUpdatePage() {
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
                       />
-                      <Select value={nameChangeType} onValueChange={(value) => setNameChangeType(value || "")}>
+                      <Select
+                        value={nameChangeType}
+                        onValueChange={(value) =>
+                          setNameChangeType(value || "")
+                        }
+                      >
                         <SelectTrigger className="w-32">
                           <SelectValue placeholder="Type" />
                         </SelectTrigger>
@@ -406,10 +433,19 @@ export default function KYCUpdatePage() {
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Holder Type</span>
-                    <span className="text-sm text-muted-foreground">{selectedShareholder?.holderType}</span>
-                    <Select value={newHolderType} onValueChange={(value) => setNewHolderType(value || "")}>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedShareholder?.holderType}
+                    </span>
+                    <Select
+                      value={newHolderType}
+                      onValueChange={(value) => setNewHolderType(value || "")}
+                    >
                       <SelectTrigger className="mrpsl-input">
-                        <SelectValue placeholder={selectedShareholder?.holderType ?? "Select"} />
+                        <SelectValue
+                          placeholder={
+                            selectedShareholder?.holderType ?? "Select"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="INDIVIDUAL">INDIVIDUAL</SelectItem>
@@ -419,12 +455,7 @@ export default function KYCUpdatePage() {
                     </Select>
                   </div>
                   <div className="mt-6">
-                    <DocUploadZone
-                      label="Supporting Document"
-                      fileTypes={["PDF", "JPG", "PNG"]}
-                      maxSizeMB={10}
-                      onUploadSuccess={(url) => setSupportingDocUrl(url)}
-                    />
+                    <MultiDocUpload onChange={setSupportingDocs} />
                   </div>
                   <div className="flex justify-end pt-4">
                     <Button
@@ -444,13 +475,21 @@ export default function KYCUpdatePage() {
               <TabsContent value="contact">
                 <Card className="mrpsl-card p-6 space-y-6">
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 font-semibold text-sm border-b pb-2">
-                    <div className="text-muted-foreground uppercase text-[13px]">Field</div>
-                    <div className="text-muted-foreground uppercase text-[13px]">Current Value</div>
-                    <div className="text-primary uppercase text-[13px]">New Value</div>
+                    <div className="text-muted-foreground uppercase text-[13px]">
+                      Field
+                    </div>
+                    <div className="text-muted-foreground uppercase text-[13px]">
+                      Current Value
+                    </div>
+                    <div className="text-primary uppercase text-[13px]">
+                      New Value
+                    </div>
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Email Address</span>
-                    <span className="text-sm text-muted-foreground">{selectedShareholder?.email}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedShareholder?.email}
+                    </span>
                     <Input
                       className="mrpsl-input"
                       placeholder="New email"
@@ -460,7 +499,9 @@ export default function KYCUpdatePage() {
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Phone Number</span>
-                    <span className="text-sm text-muted-foreground">{selectedShareholder?.phone}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedShareholder?.phone}
+                    </span>
                     <Input
                       className="mrpsl-input"
                       placeholder="New phone"
@@ -469,8 +510,12 @@ export default function KYCUpdatePage() {
                     />
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-start">
-                    <span className="text-sm font-medium mt-2">Registered Address *</span>
-                    <span className="text-sm text-muted-foreground mt-2">{selectedShareholder?.address}</span>
+                    <span className="text-sm font-medium mt-2">
+                      Registered Address *
+                    </span>
+                    <span className="text-sm text-muted-foreground mt-2">
+                      {selectedShareholder?.address}
+                    </span>
                     <Textarea
                       className="mrpsl-input"
                       placeholder="New address"
@@ -497,32 +542,46 @@ export default function KYCUpdatePage() {
                 <div className="border-l-4 border-amber-400 bg-amber-50 p-4 rounded-r-md flex gap-3 mb-6">
                   <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-800">
-                    Updating bank details will automatically queue all outstanding
-                    dividend warrants for this account in New Mandate Payment
-                    Processing.
+                    Updating bank details will automatically queue all
+                    outstanding dividend warrants for this account in New
+                    Mandate Payment Processing.
                   </p>
                 </div>
                 <Card className="mrpsl-card p-6 space-y-6">
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 font-semibold text-sm border-b pb-2">
-                    <div className="text-muted-foreground uppercase text-[13px]">Field</div>
-                    <div className="text-muted-foreground uppercase text-[13px]">Current Value</div>
-                    <div className="text-primary uppercase text-[13px]">New Value</div>
+                    <div className="text-muted-foreground uppercase text-[13px]">
+                      Field
+                    </div>
+                    <div className="text-muted-foreground uppercase text-[13px]">
+                      Current Value
+                    </div>
+                    <div className="text-primary uppercase text-[13px]">
+                      New Value
+                    </div>
                   </div>
                   <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-center">
                     <span className="text-sm font-medium">Bank Name</span>
-                    <span className="text-sm text-muted-foreground">{selectedShareholder?.bankName}</span>
-                    <Select value={newBank} onValueChange={(value) => setNewBank(value || "")}>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedShareholder?.bankName}
+                    </span>
+                    <Select
+                      value={newBank}
+                      onValueChange={(value) => setNewBank(value || "")}
+                    >
                       <SelectTrigger className="mrpsl-input">
                         <SelectValue placeholder="Select Bank" />
                       </SelectTrigger>
                       <SelectContent>
                         {isLoadingBanks && (
-                          <SelectItem value="_loading" disabled>Loading banks…</SelectItem>
+                          <SelectItem value="_loading" disabled>
+                            Loading banks…
+                          </SelectItem>
                         )}
                         {bankList.map((b: Agent) => (
                           <SelectItem key={b.id} value={b.name}>
                             {b.name} · {b.code}
-                          </SelectItem>))}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -540,11 +599,7 @@ export default function KYCUpdatePage() {
                       />
                       <Button
                         variant="outline"
-                        onClick={() =>
-                          toast.success(
-                            "Account validated"
-                          )
-                        }
+                        onClick={() => toast.success("Account validated")}
                       >
                         Validate
                       </Button>
@@ -566,12 +621,19 @@ export default function KYCUpdatePage() {
 
               {/* ── Pending Changes ── */}
               <TabsContent value="pending" className="space-y-4">
-                <PendingKYC tab="pending" setTab={setInnerTab} selectedShareholder={selectedShareholder} />
+                <PendingKYC
+                  tab="pending"
+                  setTab={setInnerTab}
+                  selectedShareholder={selectedShareholder}
+                />
               </TabsContent>
 
               {/* ── Audit History ── */}
               <TabsContent value="history" className="space-y-4">
-                <KYCHistory tab="history" selectedShareholder={selectedShareholder} />
+                <KYCHistory
+                  tab="history"
+                  selectedShareholder={selectedShareholder}
+                />
               </TabsContent>
             </div>
           </Tabs>
@@ -589,10 +651,7 @@ export default function KYCUpdatePage() {
       )}
 
       {/* ── Bulk upload ── */}
-      {mode === "bulk" && (
-        <KYCBulkUpload registerId={selectedRegister} />
-      )}
-
+      {mode === "bulk" && <KYCBulkUpload registerId={selectedRegister} />}
     </div>
   );
 }

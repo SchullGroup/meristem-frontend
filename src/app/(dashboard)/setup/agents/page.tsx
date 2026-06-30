@@ -215,9 +215,9 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agents</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Agents</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage external parties (Banks, Stockbrokers)
           </p>
@@ -227,7 +227,7 @@ export default function AgentsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">Total</div>
           {isStatsLoading ? (
@@ -444,13 +444,13 @@ export default function AgentsPage() {
               onSubmit={form.handleSubmit(onSubmit)}
               className="flex flex-col h-full"
             >
-              <div className="px-8 pb-8 space-y-8 overflow-y-auto max-h-[70vh]">
+              <div className="px-4 sm:px-8 pb-8 space-y-8 overflow-y-auto max-h-[70vh]">
                 {/* SECTION 1: Agent Identity */}
                 <div>
                   <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-4">
                     Agent Identity & Type
                   </h3>
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
                     <FormField
                       control={form.control}
                       name="name"
