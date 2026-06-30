@@ -2,6 +2,7 @@ import type {
   DividendReturnRecord,
   WithheldPayment,
   RefundRequest,
+  ReturnInitiation,
 } from "@/types/dividend-return-money";
 
 export const SEED_RETURN_RECORDS: DividendReturnRecord[] = [
@@ -20,8 +21,10 @@ export const SEED_RETURN_RECORDS: DividendReturnRecord[] = [
     withheldPercentage: 10,
     withheldAmount: 1_542_000,
     totalPaidToShareholders: 890_000,
+    totalReimbursed: 0,
     remainingBalance: 652_000,
     returnStatus: "PARTIALLY_CLAIMED",
+    recipientType: "COMPANY",
     returnDate: "2024-04-15",
     returnRef: "RTN-2024-0041",
   },
@@ -40,8 +43,10 @@ export const SEED_RETURN_RECORDS: DividendReturnRecord[] = [
     withheldPercentage: 10,
     withheldAmount: 875_000,
     totalPaidToShareholders: 875_000,
-    remainingBalance: 0,
-    returnStatus: "EXHAUSTED",
+    totalReimbursed: 350_000,
+    remainingBalance: 350_000,
+    returnStatus: "PARTIALLY_CLAIMED",
+    recipientType: "COMPANY",
     returnDate: "2024-05-20",
     returnRef: "RTN-2024-0058",
   },
@@ -60,8 +65,10 @@ export const SEED_RETURN_RECORDS: DividendReturnRecord[] = [
     withheldPercentage: 10,
     withheldAmount: 2_210_000,
     totalPaidToShareholders: 0,
+    totalReimbursed: 0,
     remainingBalance: 2_210_000,
     returnStatus: "PENDING_RETURN",
+    pendingInitiationId: 1,
   },
   {
     id: 4,
@@ -78,15 +85,33 @@ export const SEED_RETURN_RECORDS: DividendReturnRecord[] = [
     withheldPercentage: 10,
     withheldAmount: 530_000,
     totalPaidToShareholders: 210_000,
+    totalReimbursed: 0,
     remainingBalance: 320_000,
-    returnStatus: "RETURNED",
-    returnDate: "2023-12-15",
-    returnRef: "RTN-2023-0112",
+    returnStatus: "PENDING_RETURN",
+  },
+];
+
+export const SEED_RETURN_INITIATIONS: ReturnInitiation[] = [
+  {
+    id: 1,
+    returnRecordId: 3,
+    paymentNumber: "DIV-2024/03",
+    registerSymbol: "ZENITHBANK",
+    recipientType: "COMPANY",
+    totalUnclaimed: 22_100_000,
+    returnAmount: 19_890_000,
+    withheldAmount: 2_210_000,
+    narration: "Q2 2024 unclaimed dividend return — scheduled batch",
+    initiatedBy: "Amaka Eze",
+    initiatedDate: "2024-06-22",
+    status: "ICU_APPROVED",
+    icuApprovedBy: "Chioma Adaeze",
+    icuApprovedDate: "2024-06-23",
   },
 ];
 
 export const SEED_WITHHELD_PAYMENTS: WithheldPayment[] = [
-  // MTN Nigeria (id: 1) — PARTIALLY_CLAIMED
+  // MTN Nigeria (id: 1) — approved historical payments
   {
     id: 1,
     returnRecordId: 1,
@@ -98,7 +123,9 @@ export const SEED_WITHHELD_PAYMENTS: WithheldPayment[] = [
     amount: 150_000,
     paymentDate: "2024-05-03",
     reference: "WHP-2024-001",
+    status: "APPROVED",
     approvedBy: "Amaka Eze",
+    approvedDate: "2024-05-03",
   },
   {
     id: 2,
@@ -111,7 +138,9 @@ export const SEED_WITHHELD_PAYMENTS: WithheldPayment[] = [
     amount: 340_000,
     paymentDate: "2024-05-11",
     reference: "WHP-2024-002",
+    status: "APPROVED",
     approvedBy: "Amaka Eze",
+    approvedDate: "2024-05-11",
     narration: "Shareholder complaint — dividend not received",
   },
   {
@@ -125,10 +154,10 @@ export const SEED_WITHHELD_PAYMENTS: WithheldPayment[] = [
     amount: 400_000,
     paymentDate: "2024-05-20",
     reference: "WHP-2024-003",
-    approvedBy: "Tunde Bello",
+    status: "PENDING",
     narration: "Bank account change — old account rejected",
   },
-  // Dangote Cement (id: 2) — EXHAUSTED
+  // Dangote Cement (id: 2)
   {
     id: 4,
     returnRecordId: 2,
@@ -140,7 +169,9 @@ export const SEED_WITHHELD_PAYMENTS: WithheldPayment[] = [
     amount: 250_000,
     paymentDate: "2024-06-05",
     reference: "WHP-2024-004",
+    status: "APPROVED",
     approvedBy: "Amaka Eze",
+    approvedDate: "2024-06-05",
   },
   {
     id: 5,
@@ -153,7 +184,7 @@ export const SEED_WITHHELD_PAYMENTS: WithheldPayment[] = [
     amount: 300_000,
     paymentDate: "2024-06-12",
     reference: "WHP-2024-005",
-    approvedBy: "Tunde Bello",
+    status: "PENDING",
   },
   {
     id: 6,
@@ -166,10 +197,10 @@ export const SEED_WITHHELD_PAYMENTS: WithheldPayment[] = [
     amount: 325_000,
     paymentDate: "2024-06-18",
     reference: "WHP-2024-006",
-    approvedBy: "Amaka Eze",
-    narration: "Final payment — pool now exhausted",
+    status: "PENDING",
+    narration: "Final payment — pool exhausted",
   },
-  // Nestlé Nigeria (id: 4) — RETURNED
+  // Nestlé Nigeria (id: 4)
   {
     id: 7,
     returnRecordId: 4,
@@ -181,7 +212,9 @@ export const SEED_WITHHELD_PAYMENTS: WithheldPayment[] = [
     amount: 210_000,
     paymentDate: "2024-01-09",
     reference: "WHP-2024-007",
+    status: "APPROVED",
     approvedBy: "Tunde Bello",
+    approvedDate: "2024-01-09",
   },
 ];
 
@@ -198,6 +231,7 @@ export const SEED_REFUND_REQUESTS: RefundRequest[] = [
     requestedAmount: 350_000,
     reason: "Withheld pool exhausted — 3 additional shareholder claims pending",
     requestDate: "2024-06-20",
+    initiatedBy: "Amaka Eze",
     status: "PENDING",
     narration: "Pool fully paid out. Pending claims require company refund.",
   },
@@ -213,8 +247,9 @@ export const SEED_REFUND_REQUESTS: RefundRequest[] = [
     requestedAmount: 200_000,
     reason: "Pre-emptive request — high volume of shareholder enquiries expected",
     requestDate: "2024-05-28",
-    status: "APPROVED",
-    approvedBy: "Chioma Adaeze",
-    approvedDate: "2024-05-30",
+    initiatedBy: "Tunde Bello",
+    status: "FIRST_APPROVED",
+    firstApprovedBy: "Chioma Adaeze",
+    firstApprovedDate: "2024-05-30",
   },
 ];

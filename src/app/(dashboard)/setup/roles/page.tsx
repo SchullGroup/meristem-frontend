@@ -194,9 +194,9 @@ export default function RolesPage() {
 
   return (
     <>
-      <div className="flex h-[calc(100vh-3.5rem-1px)] -m-6">
+      <div className="flex flex-col lg:flex-row lg:h-[calc(100vh-3.5rem-1px)] -m-4 lg:-m-6">
         {/* LEFT PANEL */}
-        <div className="w-64 border-r bg-background overflow-y-auto flex flex-col">
+        <div className="w-full lg:w-64 max-h-64 lg:max-h-none border-b lg:border-b-0 lg:border-r bg-background overflow-y-auto flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-background/95 backdrop-blur z-10">
             <span className="font-semibold text-sm">Roles</span>
             <Button
@@ -304,7 +304,7 @@ export default function RolesPage() {
                   </span>
                 )}
               </div>
-              <div className="p-4 grid grid-cols-3 gap-8">
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {isLoading
                   ? Array.from({ length: 6 }).map((_, i) => (
                       <div key={i} className="space-y-3">

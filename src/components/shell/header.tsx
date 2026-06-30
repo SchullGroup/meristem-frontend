@@ -1,14 +1,18 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, Menu } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useGetNotificationSummary } from "@/hooks/useNotifications";
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const currentUser = useStore((state) => state.currentUser);
@@ -35,9 +39,19 @@ export function Header() {
   };
 
   return (
-    <header className="h-14 border-b bg-background/95 backdrop-blur flex items-center gap-4 px-6 z-30 sticky top-0">
+    <header className="h-14 border-b bg-background/95 backdrop-blur flex items-center gap-4 px-4 lg:px-6 z-30 sticky top-0">
+      {/* Mobile menu toggle */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="lg:hidden shrink-0 -ml-1"
+        onClick={onMenuClick}
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+
       {/* Breadcrumb */}
-      <div className="text-sm font-medium text-muted-foreground shrink-0">
+      <div className="text-sm font-medium text-muted-foreground shrink-0 hidden sm:block">
         {generateBreadcrumbs()}
       </div>
 

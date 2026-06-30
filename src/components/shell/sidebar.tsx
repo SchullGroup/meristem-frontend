@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -17,7 +17,6 @@ import {
   ClipboardCheck,
   ChevronRight,
   LogOut,
-  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,13 +28,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -93,7 +85,7 @@ const OPERATIONS_GROUPS = [
       { label: "Dividend Split", href: "/dividends/split" },
       { label: "Warrant Mark-Off", href: "/dividends/warrant-markoff" },
       { label: "Dividend Reports", href: "/dividends/reports" },
-      { label: "Return Money", href: "/dividends/return-money" },
+      { label: "Return Dividend", href: "/dividends/return-money" },
     ],
   },
   {
@@ -123,17 +115,21 @@ const OPERATIONS_GROUPS = [
   },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, users, setCurrentUser, pendingApprovals } = useStore();
+  const { currentUser, setCurrentUser, pendingApprovals } = useStore();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Setup: true,
     "Certificate Management": true,
   });
-  const [switchRoleOpen, setSwitchRoleOpen] = useState(false);
-  const [switchUserId, setSwitchUserId] = useState<string>("");
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
     [...NAV_GROUPS, ...OPERATIONS_GROUPS].forEach((group) => {
@@ -143,22 +139,19 @@ export function Sidebar() {
     });
   }, [pathname]);
 
+  // Close sidebar on navigation (mobile)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    onClose?.();
+  }, [pathname]);
+
   if (!currentUser) return null;
 
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
-  };
-
-  const handleSwitchRole = () => {
-    const user = users.find((u) => u.id === switchUserId);
-    if (user) {
-      setCurrentUser(user);
-      setSwitchRoleOpen(false);
-      setSwitchUserId("");
-      toast.success(
-        `Switched to ${user.firstName} ${user.lastName} (${user.roles[0]})`,
-      );
-    }
   };
 
   const handleLogout = () => {
@@ -172,9 +165,22 @@ export function Sidebar() {
 
   return (
     <>
-      <div className="w-72 h-screen border-r bg-background flex flex-col z-40 fixed left-0 top-0">
+      {/* Mobile backdrop */}
+      <div
+        className={cn(
+          "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300",
+          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+        )}
+        onClick={onClose}
+      />
+
+      <div className={cn(
+        "w-72 h-screen border-r bg-background flex flex-col z-50 fixed left-0 top-0 transition-transform duration-300 ease-in-out",
+        "lg:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+      )}>
         {/* Branding */}
-        <div className="h-[57px] px-6 flex items-center border-b border-border/60 shrink-0">
+        <div className="h-14.25 px-6 flex items-center border-b border-border/60 shrink-0">
           <Link href="/" className="flex items-center">
             <Image
               src="/logo.svg"
@@ -195,7 +201,9 @@ export function Sidebar() {
               const hasItems = group.items && group.items.length > 0;
               const isGroupActive =
                 hasItems &&
-                group.items.some((item: any) => pathname.startsWith(item.href));
+                group.items.some((item: { href: string }) =>
+                  pathname.startsWith(item.href),
+                );
               const isSingleActive =
                 !hasItems &&
                 group.href &&
@@ -216,7 +224,7 @@ export function Sidebar() {
                         <div className="flex items-center gap-2.5 min-w-0">
                           <group.icon
                             className={cn(
-                              "h-[15px] w-[15px] shrink-0",
+                              "h-3.75 w-3.75 shrink-0",
                               isGroupActive
                                 ? "text-primary"
                                 : "text-foreground/70",
@@ -236,26 +244,28 @@ export function Sidebar() {
 
                       {isOpen && (
                         <div className="mt-0.5 mb-1 space-y-0.5">
-                          {group.items.map((item: any) => {
-                            const isActive = pathname === item.href;
-                            return (
-                              <Link
-                                key={item.href}
-                                href={item.href}
-                                className={cn(
-                                  "flex items-center pl-10 pr-3 py-1.5 rounded-lg text-[13px] transition-colors relative whitespace-nowrap",
-                                  isActive
-                                    ? "bg-primary/8 text-primary font-semibold"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                                )}
-                              >
-                                {isActive && (
-                                  <div className="absolute left-[30px] w-0.5 h-3.5 bg-primary rounded-full" />
-                                )}
-                                {item.label}
-                              </Link>
-                            );
-                          })}
+                          {group.items.map(
+                            (item: { href: string; label: string }) => {
+                              const isActive = pathname === item.href;
+                              return (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  className={cn(
+                                    "flex items-center pl-10 pr-3 py-1.5 rounded-lg text-[13px] transition-colors relative whitespace-nowrap",
+                                    isActive
+                                      ? "bg-primary/8 text-primary font-semibold"
+                                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                                  )}
+                                >
+                                  {isActive && (
+                                    <div className="absolute left-7.5 w-0.5 h-3.5 bg-primary rounded-full" />
+                                  )}
+                                  {item.label}
+                                </Link>
+                              );
+                            },
+                          )}
                         </div>
                       )}
                     </>
@@ -269,7 +279,7 @@ export function Sidebar() {
                     >
                       <group.icon
                         className={cn(
-                          "h-[15px] w-[15px] shrink-0",
+                          "h-3.75 w-3.75 shrink-0",
                           isSingleActive
                             ? "text-primary"
                             : "text-foreground/70",
@@ -294,7 +304,7 @@ export function Sidebar() {
               >
                 <BarChart3
                   className={cn(
-                    "h-[15px] w-[15px] shrink-0",
+                    "h-3.75 w-3.75 shrink-0",
                     pathname.startsWith("/reports")
                       ? "text-primary"
                       : "text-foreground/70",
@@ -315,7 +325,7 @@ export function Sidebar() {
                 <div className="flex items-center gap-2.5 min-w-0">
                   <ClipboardCheck
                     className={cn(
-                      "h-[15px] w-[15px] shrink-0",
+                      "h-3.75 w-3.75 shrink-0",
                       pathname.startsWith("/approvals")
                         ? "text-primary"
                         : "text-foreground/70",
@@ -379,7 +389,8 @@ export function Sidebar() {
           <DialogHeader>
             <DialogTitle>Confirm Logout</DialogTitle>
             <DialogDescription>
-              Are you sure you want to log out? Any unsaved changes will be lost.
+              Are you sure you want to log out? Any unsaved changes will be
+              lost.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

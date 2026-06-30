@@ -38,7 +38,7 @@ export default function ParametersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Other Parameters</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Other Parameters</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Manage system-wide lookup values and document definitions
         </p>
@@ -49,6 +49,7 @@ export default function ParametersPage() {
         onValueChange={(v) => setActiveTab(v || "")}
         className="w-full flex flex-col"
       >
+        <div className="overflow-x-auto pb-1">
         <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
           <TabsTrigger
             value="currency"
@@ -81,6 +82,7 @@ export default function ParametersPage() {
             <Users className="h-3.5 w-3.5 mr-1.5" /> Agent Types
           </TabsTrigger> */}
         </TabsList>
+        </div>
 
         <div className="mt-6">
           <TabsContent value="currency">

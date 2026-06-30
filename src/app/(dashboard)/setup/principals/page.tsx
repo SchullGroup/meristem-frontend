@@ -143,9 +143,9 @@ export default function PrincipalsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Principals</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Principals</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage issuer client companies whose shareholder registers are
             maintained by MRPSL
@@ -158,7 +158,7 @@ export default function PrincipalsPage() {
       </div>
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="mrpsl-card p-4 flex items-center gap-4">
           <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
             <Building2 className="h-5 w-5 text-primary" />
@@ -249,13 +249,13 @@ export default function PrincipalsPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex gap-2 items-center">
+      <div className="flex flex-wrap gap-2 items-center">
         <Input
           type="search"
           placeholder="Search principals..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 mrpsl-input"
+          className="w-full sm:w-64 mrpsl-input"
         />
         <Select
           value={billingFilter}

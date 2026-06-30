@@ -158,7 +158,7 @@ export default function DashboardHome() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
           Good morning, {currentUser?.firstName ?? currentUser?.username}.
         </h1>
         <p className="text-sm text-muted-foreground">
@@ -170,7 +170,7 @@ export default function DashboardHome() {
       </div>
 
       {/* Row 1: Stat Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <span className="mrpsl-section-title">Total Principals</span>
@@ -269,8 +269,8 @@ export default function DashboardHome() {
       </div>
 
       {/* Row 2: Two Columns */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="col-span-1 lg:col-span-2 space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">
             Recent Dividend Declarations
           </h2>

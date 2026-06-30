@@ -135,9 +135,9 @@ export default function RegistersPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Registers</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Registers</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Official shareholder lists for each security managed by MRPSL
           </p>
@@ -149,7 +149,7 @@ export default function RegistersPage() {
       </div>
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="mrpsl-section-title">Total Registers</div>
           {statsLoading ? (
@@ -211,12 +211,12 @@ export default function RegistersPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex gap-2 items-center">
+      <div className="flex flex-wrap gap-2 items-center">
         <Input
           placeholder="Search registers..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 mrpsl-input"
+          className="w-full sm:w-64 mrpsl-input"
         />
         <Select
           value={principalFilter}

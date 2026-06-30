@@ -27,6 +27,7 @@ export default function DashboardLayout({
   const [mounted, setMounted] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [showSessionDialog, setShowSessionDialog] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleRedirect = () => {
     setIsSessionExpired(false);
@@ -107,10 +108,10 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-muted/20 flex">
-      <Sidebar />
-      <div className="ml-72 flex-1 flex flex-col min-h-screen relative">
-        <Header />
-        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="lg:ml-72 flex-1 flex flex-col min-h-screen relative">
+        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <main className="flex-1 p-4 lg:p-6 overflow-y-auto">{children}</main>
       </div>
       <Toaster />
     </div>
