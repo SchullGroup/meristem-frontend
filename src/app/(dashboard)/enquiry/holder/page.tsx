@@ -12,7 +12,10 @@ import {
   Printer,
   Download,
   Loader2,
+  X,
+  CalendarIcon,
 } from "lucide-react";
+import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { ShareholderSearchInput } from "@/components/custom/shareholder-search-input";
@@ -45,8 +49,68 @@ import {
   getHolderMergers,
   getHolderTransfers,
   getHolderAdmonRecords,
+  getHolderKycDocuments,
+  getHolderSignature,
+  getHolderStatement,
+  getDividendStatement,
 } from "@/actions/enquiryActions";
-import type { Shareholder, Certificate } from "@/types/enquiry";
+import type {
+  Shareholder,
+  Certificate,
+  HolderStatement,
+  DividendStatement,
+} from "@/types/enquiry";
+
+function InlineDatePicker({
+  date,
+  onSelect,
+}: {
+  date: Date | undefined;
+  onSelect: (d: Date | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full mrpsl-input justify-start text-left font-normal"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {date ? (
+          format(date, "PPP")
+        ) : (
+          <span className="text-muted-foreground">Pick a date</span>
+        )}
+        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+      </Button>
+      {open && (
+        <div className="absolute top-full left-0 z-50 mt-1 rounded-lg bg-popover shadow-md ring-1 ring-foreground/10">
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={(d) => {
+              onSelect(d);
+              setOpen(false);
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function HolderEnquiryPage() {
   const searchParams = useSearchParams();
@@ -156,6 +220,57 @@ export default function HolderEnquiryPage() {
   });
   const admonRecords = admData?.content ?? [];
 
+  // Statement of Account filters
+  const [stmtFrom, setStmtFrom] = useState<Date | undefined>(undefined);
+  const [stmtTo, setStmtTo] = useState<Date | undefined>(undefined);
+  const { data: stmtData, isLoading: isLoadingStmt } = useQuery({
+    queryKey: ["holderStatement", holderId, stmtFrom, stmtTo],
+    queryFn: () =>
+      getHolderStatement(holderId!, {
+        ...(stmtFrom && { dateFrom: format(stmtFrom, "yyyy-MM-dd") }),
+        ...(stmtTo && { dateTo: format(stmtTo, "yyyy-MM-dd") }),
+      }),
+    enabled: !!holderId,
+  });
+  const statement: HolderStatement | null = stmtData?.data ?? null;
+
+  // Dividend Statement filters
+  const [divFrom, setDivFrom] = useState<Date | undefined>(undefined);
+  const [divTo, setDivTo] = useState<Date | undefined>(undefined);
+  const { data: divStmtData, isLoading: isLoadingDivStmt } = useQuery({
+    queryKey: ["dividendStatement", holderId, divFrom, divTo],
+    queryFn: () =>
+      getDividendStatement(holderId!, {
+        ...(divFrom && { dateFrom: format(divFrom, "yyyy-MM-dd") }),
+        ...(divTo && { dateTo: format(divTo, "yyyy-MM-dd") }),
+      }),
+    enabled: !!holderId,
+  });
+  const dividendStatement: DividendStatement | null = divStmtData?.data ?? null;
+
+  // Signature & KYC documents
+  const { data: sigData, isLoading: isLoadingSig } = useQuery({
+    queryKey: ["holderSignature", holder?.chn, holder?.registerSymbol],
+    queryFn: () => getHolderSignature(holder!.chn, holder!.registerSymbol),
+    enabled: !!holder?.chn && !!holder?.registerSymbol,
+  });
+  const sigOnFile = sigData?.data ?? null;
+
+  const { data: kycDocsData, isLoading: isLoadingDocs } = useQuery({
+    queryKey: ["holderKycDocs", holder?.chn, holder?.registerSymbol],
+    queryFn: () => getHolderKycDocuments(holder!.chn, holder!.registerSymbol),
+    enabled: !!holder?.chn && !!holder?.registerSymbol,
+  });
+  const kycDocs: {
+    id: string;
+    documentName: string;
+    documentType: string;
+    documentRef: string;
+    documentUrl: string;
+    uploadedAt: string;
+    status: string;
+  }[] = kycDocsData?.data ?? [];
+
   type HolderModal =
     | "statement"
     | "dividend"
@@ -181,7 +296,8 @@ export default function HolderEnquiryPage() {
       {
         "Certificate No": cert.certificateNo,
         "Account No": cert.accountNo,
-        "Holder Name": cert.holderName ?? `${holder?.lastName}, ${holder?.firstName}`,
+        "Holder Name":
+          cert.holderName ?? `${holder?.lastName}, ${holder?.firstName}`,
         "Register ID": cert.registerId,
         "Register Symbol": cert.registerSymbol,
         "Date Issued": cert.dateIssued,
@@ -269,7 +385,7 @@ export default function HolderEnquiryPage() {
               <SelectTrigger className="w-72 mrpsl-input">
                 <SelectValue placeholder="Select a register…" />
               </SelectTrigger>
-              <SelectContent className="min-w-[480px]">
+              <SelectContent className="min-w-120">
                 {isRegisterLoading ? (
                   <div className="flex items-center justify-center py-10">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -621,7 +737,20 @@ export default function HolderEnquiryPage() {
                             {cert.dateIssued}
                           </td>
                           <td className="p-3 text-right font-bold">
-                            {cert.units?.toLocaleString() ?? "0"}
+                            {cert?.status === "TRANSFERRED" ? (
+                              <>
+                                <span className="flex flex-col">
+                                  <span>
+                                    {cert?.unitsTransferred?.toLocaleString()}
+                                  </span>
+                                  <small className="text-[9px] font-normal">
+                                    {cert.units?.toLocaleString()}
+                                  </small>
+                                </span>
+                              </>
+                            ) : (
+                              cert.units?.toLocaleString()
+                            )}
                           </td>
                           <td className="p-3">
                             <Badge
@@ -997,7 +1126,7 @@ export default function HolderEnquiryPage() {
         open={activeModal === "statement"}
         onOpenChange={(o) => !o && setActiveModal(null)}
       >
-        <DialogContent className="max-w-2xl flex flex-col max-h-[85vh] p-0 gap-0">
+        <DialogContent className="max-w-2xl flex flex-col h-[85vh] p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>
               Statement of Account — {holder?.accountNumber}
@@ -1006,112 +1135,116 @@ export default function HolderEnquiryPage() {
               {holder?.lastName}, {holder?.firstName} · {holder?.registerSymbol}
             </p>
           </DialogHeader>
-          <div className="overflow-y-auto flex-1 min-h-0">
-            {/* Summary row */}
-            <div className="grid grid-cols-3 gap-4 px-6 py-4 border-b bg-muted/10">
-              <div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
-                  Current Holdings
-                </div>
-                <div className="text-2xl font-mono font-bold">
-                  {holder?.holdings.toLocaleString()}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
-                  Opening Balance
-                </div>
-                <div className="text-2xl font-mono font-bold">8,000</div>
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
-                  Net Movement
-                </div>
-                <div className="text-2xl font-mono font-bold text-green-700">
-                  +{((holder?.holdings ?? 0) - 8000).toLocaleString()}
-                </div>
-              </div>
+          {/* Date filters */}
+          <div className="px-6 py-4 border-b bg-muted/10 flex items-end gap-4 shrink-0">
+            <div className="flex-1 space-y-2">
+              <label className="mrpsl-label">From</label>
+              <InlineDatePicker date={stmtFrom} onSelect={setStmtFrom} />
             </div>
-            <table className="w-full text-sm text-left">
-              <thead className="mrpsl-table-header sticky top-0">
-                <tr>
-                  <th className="px-4 py-3">DATE</th>
-                  <th className="px-4 py-3">TRANSACTION</th>
-                  <th className="px-4 py-3">REFERENCE</th>
-                  <th className="px-4 py-3 text-right">DEBIT</th>
-                  <th className="px-4 py-3 text-right">CREDIT</th>
-                  <th className="px-4 py-3 text-right">BALANCE</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-[13px]">
-                {[
-                  {
-                    date: "01 Jan 2020",
-                    tx: "Initial Allotment",
-                    ref: "ALLOT-2020-001",
-                    dr: 0,
-                    cr: 8000,
-                    bal: 8000,
-                  },
-                  {
-                    date: "22 Apr 2021",
-                    tx: "Rights Issue",
-                    ref: "RIGHTS-2021-001",
-                    dr: 0,
-                    cr: 5000,
-                    bal: 13000,
-                  },
-                  {
-                    date: "10 Jan 2025",
-                    tx: "Account Consolidation",
-                    ref: "MERGE-2025-012",
-                    dr: 0,
-                    cr: 2000,
-                    bal: 15000,
-                  },
-                  {
-                    date: "01 Mar 2026",
-                    tx: "Off-Market Transfer Out",
-                    ref: "TRF-20260301-01",
-                    dr: 2000,
-                    cr: 0,
-                    bal: 13000,
-                  },
-                  {
-                    date: "22 Apr 2026",
-                    tx: "Account Consolidation",
-                    ref: "MERGE-2026-022",
-                    dr: 0,
-                    cr: 2000,
-                    bal: 15000,
-                  },
-                ].map((r, i) => (
-                  <tr key={i} className="hover:bg-accent/5">
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {r.date}
-                    </td>
-                    <td className="px-4 py-3 font-medium">{r.tx}</td>
-                    <td className="px-4 py-3 font-mono text-muted-foreground text-[12px]">
-                      {r.ref}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {r.dr > 0 ? r.dr.toLocaleString() : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-green-700">
-                      {r.cr > 0 ? r.cr.toLocaleString() : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-bold">
-                      {r.bal.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="flex-1 space-y-2">
+              <label className="mrpsl-label">To</label>
+              <InlineDatePicker date={stmtTo} onSelect={setStmtTo} />
+            </div>
+            {(stmtFrom || stmtTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground shrink-0"
+                onClick={() => {
+                  setStmtFrom(undefined);
+                  setStmtTo(undefined);
+                }}
+              >
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+
+          <div className="overflow-y-auto flex-1 min-h-0">
+            {isLoadingStmt ? (
+              <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading statement…
+              </div>
+            ) : !statement ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                <FileText className="h-8 w-8 text-muted-foreground/30" />
+                No transactions found for the selected period
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-4 px-6 py-4 border-b bg-muted/10">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+                      Current Holdings
+                    </div>
+                    <div className="text-2xl font-mono font-bold">
+                      {statement.currentHoldings.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+                      Opening Balance
+                    </div>
+                    <div className="text-2xl font-mono font-bold">
+                      {statement.openingBalance.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+                      Net Movement
+                    </div>
+                    <div
+                      className={`text-2xl font-mono font-bold ${statement.netMovement >= 0 ? "text-green-700" : "text-red-600"}`}
+                    >
+                      {statement.netMovement >= 0 ? "+" : ""}
+                      {statement.netMovement.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+                <table className="w-full text-sm text-left">
+                  <thead className="mrpsl-table-header sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3">DATE</th>
+                      <th className="px-4 py-3">TRANSACTION</th>
+                      <th className="px-4 py-3">REFERENCE</th>
+                      <th className="px-4 py-3 text-right">DEBIT</th>
+                      <th className="px-4 py-3 text-right">CREDIT</th>
+                      <th className="px-4 py-3 text-right">BALANCE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-[13px]">
+                    {statement.transactions.map((r, i) => (
+                      <tr key={i} className="hover:bg-accent/5">
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {r.date}
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          {r.description}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-muted-foreground text-[12px]">
+                          {r.reference}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono">
+                          {r.debit > 0 ? r.debit.toLocaleString() : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-green-700">
+                          {r.credit > 0 ? r.credit.toLocaleString() : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-bold">
+                          {r.balance.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
           </div>
           <div className="px-6 py-4 border-t flex justify-between items-center shrink-0">
             <Button
               variant="outline"
               className="gap-1.5"
+              disabled={!statement}
               onClick={() => toast.success("Statement downloaded as PDF")}
             >
               <FileText className="h-4 w-4" /> Download PDF
@@ -1128,7 +1261,7 @@ export default function HolderEnquiryPage() {
         open={activeModal === "dividend"}
         onOpenChange={(o) => !o && setActiveModal(null)}
       >
-        <DialogContent className="max-w-3xl flex flex-col max-h-[85vh] p-0 gap-0">
+        <DialogContent className="max-w-3xl flex flex-col h-[85vh] p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>
               Dividend Statement — {holder?.accountNumber}
@@ -1137,138 +1270,143 @@ export default function HolderEnquiryPage() {
               {holder?.lastName}, {holder?.firstName} · {holder?.registerSymbol}
             </p>
           </DialogHeader>
-          <div className="overflow-y-auto flex-1 min-h-0">
-            <div className="grid grid-cols-3 gap-4 px-6 py-4 border-b bg-muted/10">
-              <div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
-                  Total Gross (₦)
-                </div>
-                <div className="text-2xl font-mono font-bold">80,250.00</div>
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
-                  Total Net (₦)
-                </div>
-                <div className="text-2xl font-mono font-bold text-primary">
-                  68,213.00
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
-                  Unpaid Amount (₦)
-                </div>
-                <div className="text-2xl font-mono font-bold text-red-600">
-                  9,563.00
-                </div>
-              </div>
+          {/* Date filters */}
+          <div className="px-6 py-4 border-b bg-muted/10 flex items-end gap-4 shrink-0">
+            <div className="flex-1 space-y-2">
+              <label className="mrpsl-label">From</label>
+              <InlineDatePicker date={divFrom} onSelect={setDivFrom} />
             </div>
-            <table className="w-full text-sm text-left">
-              <thead className="mrpsl-table-header sticky top-0">
-                <tr>
-                  <th className="px-4 py-3">DIVIDEND NO</th>
-                  <th className="px-4 py-3">DECL. DATE</th>
-                  <th className="px-4 py-3">PAYMENT DATE</th>
-                  <th className="px-4 py-3 text-right">RATE (₦)</th>
-                  <th className="px-4 py-3 text-right">GROSS (₦)</th>
-                  <th className="px-4 py-3 text-right">TAX (₦)</th>
-                  <th className="px-4 py-3 text-right">NET (₦)</th>
-                  <th className="px-4 py-3">STATUS</th>
-                  <th className="px-4 py-3">METHOD</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-[13px]">
-                {[
-                  {
-                    no: "DIV-2025-003",
-                    decl: "15 Mar 2026",
-                    pay: "15 Apr 2026",
-                    rate: 1.5,
-                    gross: 22500,
-                    tax: 3375,
-                    net: 19125,
-                    status: "PAID",
-                    method: "EFT",
-                  },
-                  {
-                    no: "DIV-2025-002",
-                    decl: "10 Sep 2025",
-                    pay: "10 Oct 2025",
-                    rate: 1.2,
-                    gross: 18000,
-                    tax: 2700,
-                    net: 15300,
-                    status: "PAID",
-                    method: "EFT",
-                  },
-                  {
-                    no: "DIV-2025-001",
-                    decl: "20 Mar 2025",
-                    pay: "20 Apr 2025",
-                    rate: 0.9,
-                    gross: 13500,
-                    tax: 2025,
-                    net: 11475,
-                    status: "PAID",
-                    method: "Warrant",
-                  },
-                  {
-                    no: "DIV-2024-002",
-                    decl: "12 Sep 2024",
-                    pay: "12 Oct 2024",
-                    rate: 1.0,
-                    gross: 15000,
-                    tax: 2250,
-                    net: 12750,
-                    status: "PAID",
-                    method: "EFT",
-                  },
-                  {
-                    no: "DIV-2024-001",
-                    decl: "18 Mar 2024",
-                    pay: "—",
-                    rate: 0.75,
-                    gross: 11250,
-                    tax: 1688,
-                    net: 9563,
-                    status: "UNPAID",
-                    method: "—",
-                  },
-                ].map((r, i) => (
-                  <tr key={i} className="hover:bg-accent/5">
-                    <td className="px-4 py-3 font-mono">{r.no}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {r.decl}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.pay}</td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {r.rate.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {r.gross.toLocaleString()}.00
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-red-600">
-                      {r.tax.toLocaleString()}.00
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono font-semibold">
-                      {r.net.toLocaleString()}.00
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge
-                        className={`border-0 text-[12px] ${r.status === "PAID" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-                      >
-                        {r.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">{r.method}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="flex-1 space-y-2">
+              <label className="mrpsl-label">To</label>
+              <InlineDatePicker date={divTo} onSelect={setDivTo} />
+            </div>
+            {(divFrom || divTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground shrink-0"
+                onClick={() => {
+                  setDivFrom(undefined);
+                  setDivTo(undefined);
+                }}
+              >
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+
+          <div className="overflow-auto flex-1 min-h-0">
+            {isLoadingDivStmt ? (
+              <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading statement…
+              </div>
+            ) : !dividendStatement ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                <DollarSign className="h-8 w-8 text-muted-foreground/30" />
+                No dividends found for the selected period
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-4 px-6 py-4 border-b bg-muted/10">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+                      Total Gross (₦)
+                    </div>
+                    <div className="text-2xl font-mono font-bold">
+                      {dividendStatement.totalGross.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+                      Total Net (₦)
+                    </div>
+                    <div className="text-2xl font-mono font-bold text-primary">
+                      {dividendStatement.totalNet.toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">
+                      Unpaid Amount (₦)
+                    </div>
+                    <div className="text-2xl font-mono font-bold text-red-600">
+                      {dividendStatement.unpaidAmount.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+                <table className="min-w-full text-sm text-left">
+                  <thead className="mrpsl-table-header sticky top-0">
+                    <tr className="bg-white">
+                      <th className="px-4 py-3 whitespace-nowrap">
+                        DIVIDEND NO
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap">
+                        DECL. DATE
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap">
+                        PAYMENT DATE
+                      </th>
+                      <th className="px-4 py-3 text-right whitespace-nowrap">
+                        RATE (₦)
+                      </th>
+                      <th className="px-4 py-3 text-right whitespace-nowrap">
+                        GROSS (₦)
+                      </th>
+                      <th className="px-4 py-3 text-right whitespace-nowrap">
+                        TAX (₦)
+                      </th>
+                      <th className="px-4 py-3 text-right whitespace-nowrap">
+                        NET (₦)
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap">STATUS</th>
+                      <th className="px-4 py-3 whitespace-nowrap">METHOD</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-[13px]">
+                    {dividendStatement.dividends.map((r, i) => (
+                      <tr key={i} className="hover:bg-accent/5">
+                        <td className="px-4 py-3 font-mono whitespace-nowrap">
+                          {r.dividendNo}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                          {r.declDate}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                          {r.paymentDate ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono">
+                          {r.rate.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
+                          {r.gross.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-red-600 whitespace-nowrap">
+                          {r.wht.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono font-semibold whitespace-nowrap">
+                          {r.net.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={`border-0 text-[12px] ${r.status === "PAID" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                          >
+                            {r.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {r.method ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
           </div>
           <div className="px-6 py-4 border-t flex justify-between shrink-0">
             <Button
               variant="outline"
               className="gap-1.5"
+              disabled={!dividendStatement}
               onClick={() => toast.success("Dividend statement downloaded")}
             >
               <DollarSign className="h-4 w-4" /> Download Statement
@@ -1293,27 +1431,44 @@ export default function HolderEnquiryPage() {
             </p>
           </DialogHeader>
           <div className="p-6 space-y-4">
-            <div className="rounded-xl border bg-muted/10 flex items-center justify-center h-40">
-              <div className="text-center space-y-2">
-                <div className="font-serif italic text-4xl text-muted-foreground/60 select-none">
-                  {holder?.firstName?.[0]}
-                  {holder?.lastName}
+            {isLoadingSig ? (
+              <div className="flex items-center justify-center gap-2 h-40 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading signature…
+              </div>
+            ) : sigOnFile?.signatureUrl ? (
+              <>
+                <div className="rounded-xl border bg-muted/10 flex items-center justify-center p-4 min-h-40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sigOnFile.signatureUrl}
+                    alt="Holder signature"
+                    className="max-h-36 max-w-full object-contain"
+                  />
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Specimen signature — not for transfer
-                </p>
+                <div className="text-[12px] text-muted-foreground space-y-1">
+                  {sigOnFile.capturedAt && (
+                    <div className="flex justify-between">
+                      <span>Captured:</span>
+                      <span className="font-mono">{sigOnFile.capturedAt}</span>
+                    </div>
+                  )}
+                  {sigOnFile.lastUpdatedAt && (
+                    <div className="flex justify-between">
+                      <span>Last updated:</span>
+                      <span className="font-mono">
+                        {sigOnFile.lastUpdatedAt}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 h-40 text-sm text-muted-foreground">
+                <PenLine className="h-8 w-8 text-muted-foreground/30" />
+                No signature on file
               </div>
-            </div>
-            <div className="text-[12px] text-muted-foreground space-y-1">
-              <div className="flex justify-between">
-                <span>Captured:</span>
-                <span className="font-mono">01 Jan 2020</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Last updated:</span>
-                <span className="font-mono">14 Feb 2023</span>
-              </div>
-            </div>
+            )}
           </div>
           <div className="px-6 pb-5 flex justify-end gap-2">
             <Button
@@ -1347,65 +1502,57 @@ export default function HolderEnquiryPage() {
             </p>
           </DialogHeader>
           <div className="overflow-y-auto flex-1 min-h-0 divide-y">
-            {[
-              {
-                name: "National ID Card",
-                ref: "NIN-2022-00345",
-                uploaded: "12 Jan 2022",
-                verified: true,
-              },
-              {
-                name: "Utility Bill",
-                ref: "UB-2023-00112",
-                uploaded: "03 Mar 2023",
-                verified: true,
-              },
-              {
-                name: "Bank Statement",
-                ref: "BS-2023-00890",
-                uploaded: "03 Mar 2023",
-                verified: true,
-              },
-              {
-                name: "Passport Photograph",
-                ref: "PP-2020-00011",
-                uploaded: "01 Jan 2020",
-                verified: true,
-              },
-              {
-                name: "Signature Mandate Card",
-                ref: "SGN-2020-00011",
-                uploaded: "01 Jan 2020",
-                verified: false,
-              },
-            ].map((doc) => (
-              <div key={doc.ref} className="px-6 py-4 flex items-center gap-4">
-                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium">{doc.name}</div>
-                  <div className="text-[12px] text-muted-foreground font-mono">
-                    {doc.ref} · Uploaded {doc.uploaded}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge
-                    className={`text-[11px] border-0 ${doc.verified ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-                  >
-                    {doc.verified ? "Verified" : "Pending"}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-[12px]"
-                    onClick={() => toast.success(`${doc.name} downloaded`)}
-                  >
-                    View
-                  </Button>
-                </div>
+            {isLoadingDocs ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading documents…
               </div>
-            ))}
+            ) : kycDocs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                <FolderOpen className="h-8 w-8 text-muted-foreground/30" />
+                No KYC documents on file
+              </div>
+            ) : (
+              kycDocs.map((doc) => {
+                const isVerified =
+                  doc.status?.toUpperCase() === "VERIFIED" ||
+                  doc.status?.toUpperCase() === "APPROVED";
+                return (
+                  <div
+                    key={doc.id}
+                    className="px-6 py-4 flex items-center gap-4"
+                  >
+                    <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">
+                        {doc.documentName || doc.documentType}
+                      </div>
+                      <div className="text-[12px] text-muted-foreground font-mono">
+                        {doc.documentRef && `${doc.documentRef} · `}Uploaded{" "}
+                        {doc.uploadedAt}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge
+                        className={`text-[11px] border-0 ${isVerified ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                      >
+                        {isVerified ? "Verified" : doc.status || "Pending"}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-[12px]"
+                        onClick={() => window.open(doc.documentUrl, "_blank")}
+                      >
+                        View
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
           <div className="px-6 py-4 border-t flex justify-end shrink-0">
             <Button variant="ghost" onClick={() => setActiveModal(null)}>
@@ -1422,7 +1569,9 @@ export default function HolderEnquiryPage() {
       >
         <DialogContent className="max-w-md flex flex-col p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
-            <DialogTitle>{certViewOnly ? "View Certificate" : "Print Share Certificate"}</DialogTitle>
+            <DialogTitle>
+              {certViewOnly ? "View Certificate" : "Print Share Certificate"}
+            </DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
               {holder?.accountNumber} — {holder?.lastName}, {holder?.firstName}
             </p>

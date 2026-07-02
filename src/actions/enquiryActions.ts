@@ -380,13 +380,10 @@ export const downloadMandateTemplate = async (
   format: "csv" | "xlsx" = "csv",
 ) => {
   try {
-    const res = await api.get<Blob>(
-      "/enquiry/agents/mandate/template",
-      {
-        params: { format },
-        responseType: "blob",
-      },
-    );
+    const res = await api.get<Blob>("/enquiry/agents/mandate/template", {
+      params: { format },
+      responseType: "blob",
+    });
 
     return res.data;
   } catch (error) {
@@ -395,18 +392,9 @@ export const downloadMandateTemplate = async (
   }
 };
 
-export const uploadAgentMandate = async (
-  data: unknown
-) => {
+export const uploadAgentMandate = async (data: unknown) => {
   try {
-
-
-    const res = await api.post<
-      unknown
-    >(
-      "/enquiry/agents/mandate",
-      data
-    );
+    const res = await api.post<unknown>("/enquiry/agents/mandate", data);
 
     return res.data;
   } catch (error) {
@@ -415,21 +403,14 @@ export const uploadAgentMandate = async (
   }
 };
 
-export const bulkAgentMandateUpload = async (
-  data: FormData,
-  id?: string
-) => {
+export const bulkAgentMandateUpload = async (data: FormData, id?: string) => {
   try {
-
-    const res = await api.post<
-      unknown
-    >(
+    const res = await api.post<unknown>(
       `/enquiry/agents/${id}/mandate/bulk-upload`,
       data,
       {
         headers: {
-          "Content-Type":
-            "multipart/form-data",
+          "Content-Type": "multipart/form-data",
         },
       },
     );
@@ -441,3 +422,33 @@ export const bulkAgentMandateUpload = async (
   }
 };
 
+export const getHolderKycDocuments = async (
+  chn: string,
+  registerSymbol: string,
+) => {
+  try {
+    const res = await api.get(
+      `/holders/kyc-documents?chn=${chn}&register=${registerSymbol}`,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const getHolderSignature = async (
+  chn: string,
+  registerSymbol: string,
+) => {
+  try {
+    const res = await api.get(
+      `/holders/signature?chn=${chn}&register=${registerSymbol}`,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};

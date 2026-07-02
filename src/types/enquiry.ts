@@ -102,8 +102,8 @@ export interface HolderStatement {
 }
 
 export interface HolderStatementParams {
-  dateFrom: string;
-  dateTo: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface HolderMerger {
@@ -192,6 +192,7 @@ export interface Certificate {
   registerSymbol: string;
   dateIssued: string;
   units: number;
+  unitsTransferred: number;
   status: string;
   transferNo: string;
   stockbrokerCode: string;
