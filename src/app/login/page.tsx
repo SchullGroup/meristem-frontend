@@ -16,7 +16,12 @@ import {
 } from "lucide-react";
 import { BrandPanel } from "@/components/custom/auth/brand-panel";
 import { SiteLogo } from "@/components/custom/auth/site-logo";
-import { LOGIN, REQUEST_OTP, REQUEST_PASSWORD_RESET, VERIFY_OTP } from "@/actions/authAction";
+import {
+  LOGIN,
+  REQUEST_OTP,
+  REQUEST_PASSWORD_RESET,
+  VERIFY_OTP,
+} from "@/actions/authAction";
 import { useMutation } from "@tanstack/react-query";
 import { setUserSession } from "@/services/AuthServices";
 
@@ -137,7 +142,9 @@ export default function LoginPage() {
       }
     },
     onError: (error) => {
-      setError(error?.message || "Failed to request password reset. Please try again.");
+      setError(
+        error?.message || "Failed to request password reset. Please try again.",
+      );
     },
   });
 
@@ -515,7 +522,9 @@ export default function LoginPage() {
                   {passwordResetRequestMutation.isPending && (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   )}
-                  {passwordResetRequestMutation.isPending ? "Sending…" : "Send Reset Link"}
+                  {passwordResetRequestMutation.isPending
+                    ? "Sending…"
+                    : "Send Reset Link"}
                 </Button>
               </div>
 
