@@ -28,7 +28,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const NAV_GROUPS = [
@@ -151,6 +150,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   if (!currentUser) return null;
 
+  const isSuperAdmin = currentUser?.roles?.includes("SUPER_ADMIN") ?? false;
+
+  const visibleNavGroups = [...NAV_GROUPS, ...OPERATIONS_GROUPS].map((group) => {
+    if (group.title === "Setup" && !isSuperAdmin) {
+      return {
+        ...group,
+        items: group.items.filter(
+          (item) => item.href !== "/setup/roles" && item.href !== "/setup/users",
+        ),
+      };
+    }
+    return group;
+  });
+
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
   };
@@ -170,16 +183,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       <div
         className={cn(
           "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300",
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          open
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none",
         )}
         onClick={onClose}
       />
 
-      <div className={cn(
-        "w-72 h-screen border-r bg-background flex flex-col z-50 fixed left-0 top-0 transition-transform duration-300 ease-in-out",
-        "lg:translate-x-0",
-        open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-      )}>
+      <div
+        className={cn(
+          "w-72 h-screen border-r bg-background flex flex-col z-50 fixed left-0 top-0 transition-transform duration-300 ease-in-out",
+          "lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        )}
+      >
         {/* Branding */}
         <div className="h-14.25 px-6 flex items-center border-b border-border/60 shrink-0">
           <Link href="/" className="flex items-center">
@@ -197,7 +214,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Navigation */}
         <div className="flex-1 overflow-y-auto py-3 no-scrollbar">
           <div className="space-y-0.5 px-3">
-            {[...NAV_GROUPS, ...OPERATIONS_GROUPS].map((group: any) => {
+            {visibleNavGroups.map((group: any) => {
               const isOpen = openGroups[group.title];
               const hasItems = group.items && group.items.length > 0;
               const isGroupActive =
