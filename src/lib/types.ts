@@ -2,19 +2,23 @@ export interface User {
   id: string;
   firstName: string;
   lastName: string;
+  username?: string;
   email: string;
-  phone: string;
-  role: UserRole;
-  secondaryRole?: UserRole;
+  phoneNumber: string;
+  roles: string[];
+  role?: string;
+  secondaryRole?: string;
   department: string;
-  certLimit: number;
-  divLimit: number;
-  status: "ACTIVE" | "INACTIVE";
-  twoFAEnabled: boolean;
+  certificateTransactionLimit: number;
+  certTransactionLimit?: number;
+  dividendTransactionLimit: number;
+  divTransactionLimit?: number;
+  status: "ACTIVE" | "IN_ACTIVE";
+  twoFaEnabled: boolean;
   lastLogin?: string;
+  enabled: boolean;
+  lastLoginTime: string;
 }
-
-export type UserRole = "SYSTEM_ADMIN" | "OPS_MANAGER" | "DIV_INITIATOR" | "DIV_AUTHORIZER" | "CERT_INITIATOR" | "CERT_AUTHORIZER" | "ICU" | "HEAD_OPS" | "ACCOUNTS" | "IT" | "MANAGEMENT" | "AUDIT_REVIEWER" | "ENQUIRY_ONLY";
 
 export interface Principal {
   id: string;
@@ -54,8 +58,8 @@ export interface Register {
 
 export interface AgentType {
   id: string;
-  code: string;   // e.g. "BANK", "STOCKBROKER"
-  label: string;  // e.g. "Bank", "Stockbroker"
+  code: string; // e.g. "BANK", "STOCKBROKER"
+  label: string; // e.g. "Bank", "Stockbroker"
   builtIn: boolean;
   active: boolean;
 }
@@ -131,8 +135,17 @@ export interface DividendDeclaration {
   whtAmount: number;
   netLiability: number;
   tier: 1 | 2 | 3 | 4;
-  status: "DRAFT" | "PENDING_TIER2" | "PENDING_TIER3" | "PENDING_TIER4" | "AUTHORIZED" | "PAID" | "REJECTED";
+  registerSymbol: string;
+  status:
+    | "DRAFT"
+    | "PENDING_TIER2"
+    | "PENDING_TIER3"
+    | "PENDING_TIER4"
+    | "AUTHORIZED"
+    | "PAID"
+    | "REJECTED";
   initiatorId: string;
+  initiatorName: string;
   approvals: ApprovalStep[];
   narrative?: string;
   createdAt: string;
@@ -175,7 +188,12 @@ export interface DematRecord {
   brokerName: string;
   certNumbers: string[];
   units: number;
-  status: "DRAFT" | "PENDING_CALLOVER" | "AUTHORIZED" | "ICU_APPROVED" | "LODGED";
+  status:
+    | "DRAFT"
+    | "PENDING_CALLOVER"
+    | "AUTHORIZED"
+    | "ICU_APPROVED"
+    | "LODGED";
   initiatorId: string;
   createdAt: string;
 }
@@ -221,6 +239,12 @@ export interface AuditEntry {
   timestamp: string;
 }
 
+export interface ApprovalAttachment {
+  name: string;
+  url: string;
+  fileType: string;
+}
+
 export interface ApprovalItem {
   id: string;
   module: string;
@@ -232,15 +256,35 @@ export interface ApprovalItem {
   initiatorId: string;
   initiatorName: string;
   submittedAt: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  approvalSteps: ApprovalStep[];
+  status: "PENDING" | "APPROVED" | "REJECTED" | string;
+  approvalSteps?: ApprovalStep[];
+  attachments?: ApprovalAttachment[];
+  payload?: Record<string, unknown>;
+  rejectComment?: string;
+  roles?: string;
+  // API list fields
+  currentApproverRole?: string;
+  agingHours?: number;
+  overdue?: boolean;
 }
 
 export interface ApprovalStep {
-  role: UserRole;
+  roles: string[];
   approverName?: string;
   approverId?: string;
   decision?: "APPROVED" | "REJECTED";
   comment?: string;
   decidedAt?: string;
+}
+
+export interface EmailJob {
+  id: string;
+  offerName: string;
+  companyName: string;
+  totalRecipients: number;
+  sent: number;
+  bounced: number;
+  status: "sending" | "complete" | "failed";
+  startedAt: string;
+  completedAt?: string;
 }

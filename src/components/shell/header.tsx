@@ -1,37 +1,57 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { Search, Bell } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Search, Bell, Menu } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
+import { useGetNotificationSummary } from "@/hooks/useNotifications";
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
-  const { currentUser, pendingApprovals } = useStore();
+  const router = useRouter();
+  const currentUser = useStore((state) => state.currentUser);
   const [searchQuery, setSearchQuery] = useState("");
+  const { data: summaryData } = useGetNotificationSummary(currentUser?.email);
 
-  if (!currentUser) return null;
 
   const generateBreadcrumbs = () => {
     if (pathname === "/") return "Dashboard Home";
     const parts = pathname.split("/").filter(Boolean);
-    return parts.map(part => {
-      if (part === "cscs-updates") return "CSCS Updates";
-      if (part === "ipo") return "IPO / Public Offer";
-      if (part === "kyc-update") return "KYC Update";
-      if (part === "admon") return "Administration (ADMON)";
-      return part.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-    }).join(" / ");
+    return parts
+      .map((part) => {
+        if (part === "cscs-updates") return "CSCS Updates";
+        if (part === "ipo") return "IPO / Public Offer";
+        if (part === "kyc-update") return "KYC Update";
+        if (part === "admon") return "Administration (ADMON)";
+        if (part === "notifications") return "Notifications";
+        return part
+          .split("-")
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+      })
+      .join(" / ");
   };
 
-  const pendingCount = pendingApprovals.filter(a => a.status === "PENDING").length;
-
   return (
-    <header className="h-14 border-b bg-background/95 backdrop-blur flex items-center gap-4 px-6 z-30 sticky top-0">
+    <header className="h-14 border-b bg-background/95 backdrop-blur flex items-center gap-4 px-4 lg:px-6 z-30 sticky top-0">
+      {/* Mobile menu toggle */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="lg:hidden shrink-0 -ml-1"
+        onClick={onMenuClick}
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+
       {/* Breadcrumb */}
-      <div className="text-sm font-medium text-muted-foreground shrink-0">
+      <div className="text-sm font-medium text-muted-foreground shrink-0 hidden sm:block">
         {generateBreadcrumbs()}
       </div>
 
@@ -40,32 +60,46 @@ export function Header() {
         <Search className="h-4 w-4 text-muted-foreground shrink-0" />
         <input
           value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          onKeyDown={e => e.key === "Escape" && setSearchQuery("")}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setSearchQuery("");
+              return;
+            }
+            if (e.key === "Enter" && searchQuery.trim()) {
+              router.push(
+                `/enquiry/shareholders?q=${encodeURIComponent(searchQuery.trim())}`,
+              );
+              setSearchQuery("");
+            }
+          }}
           placeholder="Search holders, registers, certificates..."
           className="bg-transparent text-sm outline-none w-full placeholder:text-muted-foreground/50 text-foreground"
         />
         {searchQuery && (
           <button
             onClick={() => setSearchQuery("")}
-            className="text-muted-foreground/60 hover:text-muted-foreground transition-colors text-xs shrink-0"
+            className="text-muted-foreground/60 hover:text-muted-foreground transition-colors text-[13px] shrink-0"
           >
             esc
           </button>
         )}
       </div>
 
-      {/* Notifications — right-aligned */}
-      <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground shrink-0 ml-auto">
+      {/* Notifications bell — navigates to /notifications */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative text-muted-foreground hover:text-foreground shrink-0 ml-auto"
+        onClick={() => router.push("/notifications")}
+      >
         <Bell className="h-4 w-4" />
-        {pendingCount > 0 && (
-          <Badge
-            variant="destructive"
-            className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[9px] rounded-full flex items-center justify-center"
-          >
-            {pendingCount}
-          </Badge>
-        )}
+        {summaryData?.data?.unreadCount && summaryData?.data?.unreadCount > 0 ? <Badge
+          variant="destructive"
+          className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[11px] rounded-full flex items-center justify-center"
+        >
+          {summaryData?.data?.unreadCount}
+        </Badge> : ""}
       </Button>
     </header>
   );

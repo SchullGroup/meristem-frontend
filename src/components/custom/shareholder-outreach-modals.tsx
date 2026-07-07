@@ -1,23 +1,42 @@
 "use client";
 
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useState, useRef } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Printer, Download, Mail, ChevronLeft, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Printer,
+  Download,
+  Mail,
+  ArrowLeft,
+  ArrowRight,
+  ImageIcon,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
+import { useReactToPrint } from "react-to-print";
+import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { GetImageUrl } from "@/lib/utils/get-image-url";
+import { useEmailShareholders } from "@/hooks/useRights";
+import { useMutation } from "@tanstack/react-query";
+import { EMAIL_SHAREHOLDERS } from "@/actions/bonusIssuesAction";
 
-/* ─── shared types ─────────────────────────────────────────────────────────── */
+/* ─── shared types ------─────────────────────────── */
 
 export interface OutreachShareholder {
   id: string;
   accountNumber: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   address: string;
-  state: string;
-  holdings: number;
+  state?: string;
+  holdings?: number;
 }
 
 export interface StickyLabelModalProps {
@@ -27,6 +46,9 @@ export interface StickyLabelModalProps {
   companyName: string;
   shareholders: OutreachShareholder[];
   totalCount: number;
+  currentPage: number;
+  onPageChange: (page: number) => void;
+  loading: boolean;
 }
 
 export interface EmailPreviewModalProps {
@@ -42,20 +64,22 @@ export interface EmailPreviewModalProps {
   contactEmail: string;
   shareholders: OutreachShareholder[];
   totalCount: number;
+  issueId?: string;
+  mode: string;
 }
 
-/* ─── Sticky Label Preview Modal ────────────────────────────────────────────── */
+/* ─── Sticky Label Preview Modal ------────────────── */
 
 function StickyLabel({
-  s,
+  holder,
   companyName,
 }: {
-  s: OutreachShareholder;
+  holder: OutreachShareholder;
   companyName: string;
 }) {
   /* Break address into lines at commas or natural splits to match PDF */
-  const addrLines = s.address.split(/,\s*/).filter(Boolean);
-  const stateCity = s.state.toUpperCase();
+  const addrLines = holder?.address.split(/,\s*/).filter(Boolean);
+  const stateCity = holder?.state?.toUpperCase();
 
   return (
     <div
@@ -64,11 +88,13 @@ function StickyLabel({
         background: "#ffffff",
         padding: "10px 12px 8px",
         fontFamily: "Arial, Helvetica, sans-serif",
-        minHeight: "110px",
+        minHeight: "135px",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
         boxShadow: "inset 0 0 0 3px #f4f6f8",
+        overflow: "hidden",
+        minWidth: 0,
       }}
     >
       {/* Top section: company + account */}
@@ -85,11 +111,16 @@ function StickyLabel({
           <span
             style={{
               fontWeight: 700,
-              fontSize: "9.5px",
+              fontSize: "13px",
               textTransform: "uppercase",
               letterSpacing: "0.02em",
               lineHeight: 1.2,
               color: "#111",
+              flex: 1,
+              minWidth: 0,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
             {companyName}
@@ -97,14 +128,17 @@ function StickyLabel({
           <span
             style={{
               fontWeight: 700,
-              fontSize: "9px",
+              fontSize: "12px",
               color: "#333",
               whiteSpace: "nowrap",
               fontFamily: "Courier New, monospace",
               flexShrink: 0,
+              maxWidth: "52%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
-            A/C.: {s.accountNumber}
+            A/C.: {holder?.accountNumber}
           </span>
         </div>
 
@@ -115,20 +149,31 @@ function StickyLabel({
         <div
           style={{
             fontWeight: 700,
-            fontSize: "10.5px",
+            fontSize: "13px",
             textTransform: "uppercase",
             color: "#000",
             letterSpacing: "0.01em",
             marginBottom: "4px",
           }}
         >
-          {s.lastName} {s.firstName}
+          {holder?.name}
         </div>
 
         {/* Address lines */}
-        <div style={{ fontSize: "9.5px", textTransform: "uppercase", color: "#2c2c2c", lineHeight: 1.4 }}>
-          {addrLines.map((line, i) => (
-            <div key={i}>{line.trim()}</div>
+        <div
+          style={{
+            fontSize: "13px",
+            textTransform: "uppercase",
+            color: "#2c2c2c",
+            lineHeight: 1.4,
+            WebkitLineClamp: 3,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          {addrLines?.map((line, i) => (
+            <div key={i}>{line?.trim()}</div>
           ))}
         </div>
       </div>
@@ -136,7 +181,7 @@ function StickyLabel({
       {/* State / city pinned to bottom */}
       <div
         style={{
-          fontSize: "9.5px",
+          fontSize: "13px",
           textTransform: "uppercase",
           color: "#555",
           marginTop: "6px",
@@ -156,59 +201,105 @@ export function StickyLabelModal({
   companyName,
   shareholders,
   totalCount,
+  currentPage,
+  onPageChange,
+  loading,
 }: StickyLabelModalProps) {
-  const preview = shareholders.slice(0, 6);
   const sheetsTotal = Math.ceil(totalCount / 24);
+
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: contentRef,
+    documentTitle: `${companyName} - Labels`,
+  });
+
+  const handleDownloadPDF = () => {
+    toast.info(
+      "Opening browser print dialog. To download as a PDF, please set the 'Destination' field in the printer options to 'Save as PDF'.",
+      {
+        duration: 6500,
+      },
+    );
+    handlePrint();
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[92vh] flex flex-col gap-0 p-0"
-        style={{ maxWidth: "860px" }}
+        className="h-[90vh] flex flex-col gap-0 p-0 overflow-hidden"
+        style={{ display: "flex", flexDirection: "column", maxWidth: "860px" }}
       >
         {/* ── Header ── */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <DialogTitle className="text-[15px] font-bold tracking-tight">
-                Sticky Label Preview
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {offerType === "rights" ? "Rights Issue" : "Bonus Issue"} &mdash;{" "}
-                <span className="font-semibold text-foreground">{companyName}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
-                {totalCount.toLocaleString()} labels
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                {sheetsTotal} sheet{sheetsTotal !== 1 ? "s" : ""}
-              </Badge>
-            </div>
+          <div className="flex items-center gap-2.5 pr-8">
+            <DialogTitle className="text-[15px] font-bold tracking-tight">
+              Sticky Label Preview
+            </DialogTitle>
+            <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px] font-normal shrink-0">
+              {totalCount.toLocaleString()} labels
+            </Badge>
+            <Badge
+              variant="outline"
+              className="text-[13px] font-normal shrink-0"
+            >
+              {sheetsTotal} sheet{sheetsTotal !== 1 ? "s" : ""}
+            </Badge>
           </div>
+          <p className="text-[13px] text-muted-foreground mt-0.5">
+            {offerType === "rights" ? "Rights Issue" : "Bonus Issue"} &mdash;{" "}
+            <span className="font-semibold text-foreground">{companyName}</span>
+          </p>
 
           {/* Print info strip */}
-          <div className="mt-3 pt-3 border-t flex items-center gap-6 text-xs text-muted-foreground">
+          <div className="mt-3 pt-3 border-t flex items-center gap-6 text-[13px] text-muted-foreground">
             <span>Format: A4 · Portrait</span>
             <span>Labels per sheet: 24 (3 × 8)</span>
             <span>Paper type: Self-adhesive label stock</span>
           </div>
         </DialogHeader>
 
+        {/* Pagination controls for pages/sheets of labels */}
+        <div className="bg-muted/30 px-6 py-2.5 border-b flex items-center justify-between shrink-0 text-sm">
+          <span className="text-muted-foreground">
+            Showing sheet {currentPage} of {sheetsTotal} (
+            {totalCount.toLocaleString()} total labels)
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              disabled={currentPage === 1}
+              onClick={() => onPageChange(currentPage - 1)}
+            >
+              <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Previous Sheet
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3"
+              disabled={currentPage >= sheetsTotal}
+              onClick={() => onPageChange(currentPage + 1)}
+            >
+              Next Sheet <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
         {/* ── Label sheet preview ── */}
         <div
-          className="overflow-y-auto flex-1"
+          className="overflow-y-auto overflow-x-hidden flex-1"
           style={{ background: "#e8eaed" }}
         >
-          <div className="py-6 px-8">
+          <div className="py-4 px-3" ref={contentRef}>
             {/* Sheet page */}
             <div
               style={{
                 background: "#ffffff",
                 border: "1px solid #c8cdd5",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-                padding: "20px 16px",
+                padding: "16px 12px",
               }}
             >
               {/* Sheet header */}
@@ -225,7 +316,7 @@ export function StickyLabelModal({
                 <span
                   style={{
                     fontFamily: "Arial, sans-serif",
-                    fontSize: "10px",
+                    fontSize: "13px",
                     textTransform: "uppercase",
                     letterSpacing: "0.08em",
                     color: "#6b7280",
@@ -237,11 +328,11 @@ export function StickyLabelModal({
                 <span
                   style={{
                     fontFamily: "Arial, sans-serif",
-                    fontSize: "10px",
+                    fontSize: "13px",
                     color: "#9ca3af",
                   }}
                 >
-                  Page 1 of {sheetsTotal} (preview — 6 of {totalCount.toLocaleString()})
+                  Sheet {currentPage} of {sheetsTotal}
                 </span>
               </div>
 
@@ -253,8 +344,15 @@ export function StickyLabelModal({
                   gap: "8px 12px",
                 }}
               >
-                {preview.map((s) => (
-                  <StickyLabel key={s.id} s={s} companyName={companyName} />
+                {loading &&
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="bg-gray-200 animate-pulse h-20 rounded"
+                    />
+                  ))}
+                {shareholders.map((holder, i) => (
+                  <StickyLabel key={i} holder={holder} companyName={companyName} />
                 ))}
               </div>
 
@@ -265,13 +363,15 @@ export function StickyLabelModal({
                   paddingTop: "10px",
                   borderTop: "1px dashed #c0c8d0",
                   fontFamily: "Arial, sans-serif",
-                  fontSize: "9px",
+                  fontSize: "13px",
                   color: "#9ca3af",
                   textAlign: "center",
                 }}
               >
-                Meristem Registrars &amp; Probate Services Ltd · 213 Herbert Macaulay Way, Yaba, Lagos ·{" "}
-                {offerType === "rights" ? "Rights Issue" : "Bonus Issue"} Mailing
+                Meristem Registrars &amp; Probate Services Ltd · 213 Herbert
+                Macaulay Way, Yaba, Lagos ·{" "}
+                {offerType === "rights" ? "Rights Issue" : "Bonus Issue"}{" "}
+                Mailing
               </div>
             </div>
           </div>
@@ -282,23 +382,10 @@ export function StickyLabelModal({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              onOpenChange(false);
-              toast.success("Downloading sticky labels as PDF…");
-            }}
-          >
+          <Button variant="outline" onClick={handleDownloadPDF}>
             <Download className="mr-2 h-4 w-4" /> Download PDF
           </Button>
-          <Button
-            onClick={() => {
-              onOpenChange(false);
-              toast.success(
-                `Print job sent — ${sheetsTotal} page${sheetsTotal !== 1 ? "s" : ""}, ${totalCount.toLocaleString()} labels.`
-              );
-            }}
-          >
+          <Button onClick={() => handlePrint()}>
             <Printer className="mr-2 h-4 w-4" /> Print Labels
           </Button>
         </DialogFooter>
@@ -307,10 +394,9 @@ export function StickyLabelModal({
   );
 }
 
-/* ─── Email Preview Modal ───────────────────────────────────────────────────── */
+/* ─── Email Preview Modal ------───────────────────── */
 
 function EmailBody({
-  s,
   isRights,
   companyName,
   offerName,
@@ -319,8 +405,9 @@ function EmailBody({
   issuePrice,
   allotDate,
   contactEmail,
+  headerImageUrl,
+  circularLinkUrl,
 }: {
-  s: OutreachShareholder;
   isRights: boolean;
   companyName: string;
   offerName: string;
@@ -329,12 +416,12 @@ function EmailBody({
   issuePrice?: string;
   allotDate?: string;
   contactEmail: string;
+  headerImageUrl?: string | null;
+  circularLinkUrl?: string;
 }) {
-  const denominator = parseFloat(ratio.split(":")[1]?.trim() || (isRights ? "7" : "4"));
-  const sharesDue   = Math.floor(s.holdings / denominator);
-  const amountDue   = issuePrice
-    ? `₦${(sharesDue * parseFloat(issuePrice)).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`
-    : "—";
+  const denominator = parseFloat(
+    ratio.split(":")[1]?.trim() || (isRights ? "7" : "4"),
+  );
 
   const baseFont: React.CSSProperties = {
     fontFamily: "Tahoma, Geneva, Arial, sans-serif",
@@ -357,45 +444,81 @@ function EmailBody({
     fontFamily: "Tahoma, Geneva, Arial, sans-serif",
     fontSize: "13px",
     fontWeight: 700,
-    color: "#111",
+    color: "#6b7280",
+    fontStyle: "italic",
   };
 
-  return (
-    <div
-      style={{
-        background: "#f0f2f5",
-        padding: "0",
-      }}
-    >
-      {/* ── Dark green Meristem header ── */}
-      <div style={{ background: "#004023", padding: "18px 32px", textAlign: "center" }}>
-        <div
-          style={{
-            fontFamily: "Arial, Helvetica, sans-serif",
-            fontWeight: 700,
-            fontSize: "15px",
-            color: "#ffffff",
-            letterSpacing: "0.05em",
-            textTransform: "uppercase",
-          }}
-        >
-          Meristem Registrars &amp; Probate Services Ltd
-        </div>
-        <div
-          style={{
-            fontFamily: "Arial, Helvetica, sans-serif",
-            fontSize: "11px",
-            color: "#86c9a3",
-            marginTop: "3px",
-            letterSpacing: "0.06em",
-          }}
-        >
-          213 Herbert Macaulay Way, Yaba, Lagos · info@meristemregistrars.com
-        </div>
-      </div>
+  const placeholderRows = isRights
+    ? [
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Rights Due", "[RIGHTS DUE]"],
+      ["Amount Payable", "[AMOUNT PAYABLE]"],
+    ]
+    : [
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Bonus Due", "[BONUS DUE]"],
+    ];
 
-      {/* ── Red offer banner ── */}
-      <div style={{ background: "#d91935", padding: "14px 32px", textAlign: "center" }}>
+  return (
+    <div style={{ background: "#f0f2f5", padding: "0" }}>
+      {/* ── Header: uploaded image or fallback dark green block ── */}
+      {headerImageUrl ? (
+        <img
+          src={headerImageUrl}
+          alt="Email header"
+          style={{
+            width: "100%",
+            display: "block",
+            maxHeight: "120px",
+            objectFit: "cover",
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            background: "#004023",
+            padding: "18px 32px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "Arial, Helvetica, sans-serif",
+              fontWeight: 700,
+              fontSize: "15px",
+              color: "#ffffff",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+            }}
+          >
+            Meristem Registrars &amp; Probate Services Ltd
+          </div>
+          <div
+            style={{
+              fontFamily: "Arial, Helvetica, sans-serif",
+              fontSize: "13px",
+              color: "#86c9a3",
+              marginTop: "3px",
+              letterSpacing: "0.06em",
+            }}
+          >
+            213 Herbert Macaulay Way, Yaba, Lagos · info@meristemregistrars.com
+          </div>
+        </div>
+      )}
+
+      {/* ── Green offer banner ── */}
+      <div
+        style={{
+          background: "#1a6b3c",
+          padding: "14px 32px",
+          textAlign: "center",
+        }}
+      >
         <div
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
@@ -411,14 +534,16 @@ function EmailBody({
         <div
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
-            fontSize: "11px",
-            color: "#ffccd4",
+            fontSize: "13px",
+            color: "#86c9a3",
             marginTop: "2px",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
           }}
         >
-          {isRights ? "Rights Issue — Now Open" : `${offerName} — Allotment Notice`}
+          {isRights
+            ? "Rights Issue — Now Open"
+            : `${offerName} — Allotment Notice`}
         </div>
       </div>
 
@@ -432,19 +557,19 @@ function EmailBody({
       >
         {/* Salutation */}
         <p style={{ ...baseFont, marginBottom: "16px" }}>
-          Dear <strong>{s.firstName} {s.lastName}</strong>,
+          Dear{" "}
+          <strong style={{ color: "#6b7280", fontStyle: "italic" }}>
+            [SHAREHOLDER NAME]
+          </strong>
+          ,
         </p>
 
         {/* Opening paragraph */}
         <p style={{ ...baseFont, textAlign: "justify", marginBottom: "14px" }}>
           {isRights ? (
             <>
-              The{" "}
-              <strong>
-                {companyName} Rights Issue is now open
-              </strong>{" "}
-              and will close on{" "}
-              <strong>{closeDate ?? "—"}</strong>.
+              The <strong>{companyName} Rights Issue is now open</strong> and
+              will close on <strong>{closeDate ?? "—"}</strong>.
             </>
           ) : (
             <>
@@ -459,8 +584,8 @@ function EmailBody({
         </p>
 
         <p style={{ ...baseFont, marginBottom: "16px" }}>
-          Kindly find below the details of your{" "}
-          {isRights ? "Rights" : "Bonus"} for your use:
+          Kindly find below the details of your {isRights ? "Rights" : "Bonus"}{" "}
+          for your use:
         </p>
 
         {/* ── Shareholder details card ── */}
@@ -474,17 +599,7 @@ function EmailBody({
             marginBottom: "22px",
           }}
         >
-          {[
-            ["Registrars Account Number", s.accountNumber],
-            ["Name", `${s.firstName} ${s.lastName}`],
-            ["Units Held", s.holdings.toLocaleString()],
-            ...(isRights
-              ? [
-                  ["Rights Due", sharesDue.toLocaleString()],
-                  ["Amount Payable", amountDue],
-                ]
-              : [["Bonus Due", sharesDue.toLocaleString()]]),
-          ].map(([label, value], i) => (
+          {placeholderRows.map(([label, value], i) => (
             <div
               key={label}
               style={{
@@ -501,12 +616,15 @@ function EmailBody({
           ))}
         </div>
 
-        {/* ── Red CTA button ── */}
+        {/* ── Green CTA button ── */}
         <div style={{ textAlign: "center", marginBottom: "22px" }}>
-          <span
+          <a
+            href={circularLinkUrl || "#"}
+            target="_blank"
+            rel="noreferrer"
             style={{
               display: "inline-block",
-              background: "#d91935",
+              background: "#004023",
               color: "#ffffff",
               fontFamily: "Arial, Helvetica, sans-serif",
               fontSize: "15px",
@@ -518,19 +636,33 @@ function EmailBody({
             }}
           >
             {isRights ? "Rights Issue Circular" : "Bonus Allotment Notice"}
-          </span>
+          </a>
         </div>
 
         {/* Body copy */}
-        <p style={{ ...baseFont, fontSize: "14px", textAlign: "justify", marginBottom: "12px" }}>
+        <p
+          style={{
+            ...baseFont,
+            fontSize: "14px",
+            textAlign: "justify",
+            marginBottom: "12px",
+          }}
+        >
           {isRights ? (
             <>
               The offer is on the basis of{" "}
-              <strong>1 new ordinary share for every {denominator} ordinary shares</strong>{" "}
-              held at the rate of <strong>₦{issuePrice ?? "—"} per share</strong> as at the close of
+              <strong>
+                1 new ordinary share for every {denominator} ordinary shares
+              </strong>{" "}
+              held at the rate of{" "}
+              <strong>₦{issuePrice ?? "—"} per share</strong> as at the close of
               business on the qualification date. Kindly visit{" "}
               <span
-                style={{ color: "#0077cc", textDecoration: "underline", cursor: "default" }}
+                style={{
+                  color: "#0077cc",
+                  textDecoration: "underline",
+                  cursor: "default",
+                }}
               >
                 myrightsdata.meristemregistrars.com
               </span>{" "}
@@ -539,14 +671,23 @@ function EmailBody({
           ) : (
             <>
               The bonus issue is on the basis of{" "}
-              <strong>1 new ordinary share for every {denominator} ordinary shares</strong>{" "}
-              held as at the qualification date. Your account has been credited with the
-              additional shares accordingly.
+              <strong>
+                1 new ordinary share for every {denominator} ordinary shares
+              </strong>{" "}
+              held as at the qualification date. Your account has been credited
+              with the additional shares accordingly.
             </>
           )}
         </p>
 
-        <p style={{ ...baseFont, fontSize: "14px", textAlign: "justify", marginBottom: "12px" }}>
+        <p
+          style={{
+            ...baseFont,
+            fontSize: "14px",
+            textAlign: "justify",
+            marginBottom: "12px",
+          }}
+        >
           Please note that all completed{" "}
           {isRights
             ? "subscription forms and corresponding payments"
@@ -554,23 +695,31 @@ function EmailBody({
           must be submitted through your stockbroker or the Registrar.
         </p>
 
-        <p style={{ ...baseFont, fontSize: "14px", textAlign: "justify", marginBottom: "22px" }}>
+        <p
+          style={{
+            ...baseFont,
+            fontSize: "14px",
+            textAlign: "justify",
+            marginBottom: "22px",
+          }}
+        >
           <strong>
-            It will be appreciated if you indicate your complete and valid CSCS details
-            (i.e. your CHN and stockbroker details) as this is where your{" "}
-            {isRights ? "purchased" : "allocated"} units, upon receipt of the requisite{" "}
-            {isRights ? "SEC approval after the Offer Closure" : "approval"}, will be
-            credited thereto.
+            It will be appreciated if you indicate your complete and valid CSCS
+            details (i.e. your CHN and stockbroker details) as this is where
+            your {isRights ? "purchased" : "allocated"} units, upon receipt of
+            the requisite{" "}
+            {isRights ? "SEC approval after the Offer Closure" : "approval"},
+            will be credited thereto.
           </strong>
         </p>
 
-        {/* ── Purple Subscribe button — rights only ── */}
+        {/* ── Green Subscribe button — rights only ── */}
         {isRights && (
           <div style={{ textAlign: "center", marginBottom: "22px" }}>
             <span
               style={{
                 display: "inline-block",
-                background: "#260d71",
+                background: "#1a6b3c",
                 color: "#ffffff",
                 fontFamily: "Arial, Helvetica, sans-serif",
                 fontSize: "15px",
@@ -589,11 +738,19 @@ function EmailBody({
         <div style={{ borderTop: "1px solid #e2e6ea", margin: "0 0 18px" }} />
 
         {/* Contact */}
-        <p style={{ ...baseFont, fontSize: "13px", color: "#6b7280", textAlign: "center" }}>
+        <p
+          style={{
+            ...baseFont,
+            fontSize: "13px",
+            color: "#6b7280",
+            textAlign: "center",
+          }}
+        >
           For enquiries or prompt assistance, please call us on{" "}
-          <strong style={{ color: "#3b3f44" }}>020&nbsp;1280&nbsp;9250</strong> or{" "}
-          <strong style={{ color: "#3b3f44" }}>020&nbsp;1280&nbsp;9251</strong>, or email{" "}
-          <span style={{ color: "#0077cc" }}>{contactEmail}</span>
+          <strong style={{ color: "#3b3f44" }}>020&nbsp;1280&nbsp;9250</strong>{" "}
+          or{" "}
+          <strong style={{ color: "#3b3f44" }}>020&nbsp;1280&nbsp;9251</strong>,
+          or email <span style={{ color: "#0077cc" }}>{contactEmail}</span>
         </p>
       </div>
 
@@ -610,7 +767,7 @@ function EmailBody({
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
             fontWeight: 700,
-            fontSize: "12px",
+            fontSize: "13px",
             color: "#ffffff",
             letterSpacing: "0.03em",
           }}
@@ -620,7 +777,7 @@ function EmailBody({
         <div
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
-            fontSize: "11px",
+            fontSize: "13px",
             color: "#86c9a3",
             marginTop: "4px",
           }}
@@ -630,7 +787,7 @@ function EmailBody({
         <div
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
-            fontSize: "10.5px",
+            fontSize: "13px",
             color: "#5aab7a",
             marginTop: "5px",
           }}
@@ -639,18 +796,25 @@ function EmailBody({
           <span style={{ color: "#86c9a3", textDecoration: "underline" }}>
             www.meristemng.com
           </span>{" "}
-          &nbsp;·&nbsp; Call 0700&nbsp;MERISTEM &nbsp;·&nbsp; info@meristemregistrars.com
+          &nbsp;·&nbsp; Call 0700&nbsp;MERISTEM &nbsp;·&nbsp;
+          info@meristemregistrars.com
         </div>
         <div
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
-            fontSize: "10px",
+            fontSize: "13px",
             color: "#3a7a54",
             marginTop: "8px",
           }}
         >
           You are receiving this because you are a registered shareholder.&nbsp;
-          <span style={{ color: "#5aab7a", textDecoration: "underline", cursor: "default" }}>
+          <span
+            style={{
+              color: "#5aab7a",
+              textDecoration: "underline",
+              cursor: "default",
+            }}
+          >
             Unsubscribe
           </span>
         </div>
@@ -663,6 +827,7 @@ function EmailBody({
 }
 
 export function EmailPreviewModal({
+  mode,
   open,
   onOpenChange,
   offerType,
@@ -673,108 +838,296 @@ export function EmailPreviewModal({
   issuePrice,
   allotDate,
   contactEmail,
-  shareholders,
   totalCount,
+  issueId,
 }: EmailPreviewModalProps) {
-  const [idx, setIdx] = useState(0);
-  const s = shareholders[Math.min(idx, shareholders.length - 1)];
+  const [step, setStep] = useState<1 | 2>(1);
+  const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
+  const [circularLinkUrl, setCircularLinkUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
 
-  if (!s) return null;
+  const { mutateAsync: emailShareholders, isPending } = useEmailShareholders();
+
+  const resetAndClose = (v: boolean) => {
+    if (!v) {
+      setStep(1);
+      setHeaderImageUrl(null);
+      setCircularLinkUrl("");
+    }
+    onOpenChange(v);
+  };
+
+  const emailBonusShareholdersMutation = useMutation({
+    mutationFn: EMAIL_SHAREHOLDERS,
+    onSuccess: () => {
+      toast.success("Emails sent to shareholders successfully");
+      resetAndClose(false);
+    },
+    onError: (error) => {
+      const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(
+        errorMessage?.message || "Failed to send emails. Please try again.",
+      );
+    },
+  });
+
+  const isLoading = emailBonusShareholdersMutation.isPending || isPending;
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+
+    try {
+      const urlResponse = await GetImageUrl(file, "emailHeaders");
+      if (urlResponse?.type === "success") {
+        setHeaderImageUrl(urlResponse.result);
+      } else {
+        toast.error(
+          urlResponse.result || "Failed to upload image. Please try again.",
+        );
+      }
+    } catch (error) {
+      const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(
+        errorMessage?.message || "Failed to upload image. Please try again.",
+      );
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleSend = async () => {
+    if (mode === "bonus") {
+      if (!issueId) {
+        toast.error("No issue ID available to send emails.");
+        return;
+      }
+      emailBonusShareholdersMutation.mutate({ declarationId: issueId });
+    } else if (mode === "right") {
+      if (!issueId) {
+        toast.error("No issue ID available to send emails.");
+        return;
+      }
+      try {
+        await emailShareholders(issueId);
+        toast.success("Emails sent to shareholders");
+        resetAndClose(false);
+      } catch (error) {
+        const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
+        toast.error(errorMessge?.message || "Failed to send emails");
+      }
+    }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) setIdx(0); onOpenChange(v); }}>
+    <Dialog open={open} onOpenChange={resetAndClose}>
       <DialogContent
-        className="max-h-[92vh] flex flex-col gap-0 p-0"
-        style={{ maxWidth: "680px" }}
+        className="h-[90vh] flex flex-col gap-0 p-0 overflow-hidden"
+        style={{ display: "flex", flexDirection: "column", maxWidth: "680px" }}
       >
         {/* ── Dialog header ── */}
         <DialogHeader className="px-6 pt-5 pb-4 border-b shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <DialogTitle className="text-[15px] font-bold tracking-tight">
-                Email Preview
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {isRights ? "Rights Issue Notification" : "Bonus Allotment Notification"}{" "}
-                &mdash;{" "}
-                <span className="font-semibold text-foreground">{companyName}</span>
-              </p>
-            </div>
-            <Badge className="bg-blue-100 text-blue-800 border-0 text-xs shrink-0">
+          <div className="flex items-center gap-2.5 pr-8">
+            <DialogTitle className="text-[15px] font-bold tracking-tight">
+              {step === 1 ? "Email Setup" : "Email Preview"}
+            </DialogTitle>
+            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px] font-normal shrink-0">
               {totalCount.toLocaleString()} recipients
             </Badge>
           </div>
+          <p className="text-[13px] text-muted-foreground mt-0.5">
+            Step {step} of 2 &mdash;{" "}
+            {step === 1
+              ? "Customise header & link"
+              : "Review template before sending"}{" "}
+            &middot;{" "}
+            <span className="font-semibold text-foreground">{companyName}</span>
+          </p>
 
-          {/* Shareholder navigator */}
-          {shareholders.length > 1 && (
-            <div className="flex items-center gap-3 mt-3 pt-3 border-t">
-              <div className="flex flex-col">
-                <span className="text-[11px] font-medium">
-                  {s.firstName} {s.lastName}
-                </span>
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  A/C {s.accountNumber} · {s.holdings.toLocaleString()} units
-                </span>
-              </div>
-              <div className="flex items-center gap-1 ml-auto">
-                <span className="text-xs text-muted-foreground mr-1">
-                  {idx + 1} / {shareholders.length}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  disabled={idx === 0}
-                  onClick={() => setIdx(i => i - 1)}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  disabled={idx === shareholders.length - 1}
-                  onClick={() => setIdx(i => i + 1)}
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+          {/* Step indicator */}
+          <div className="mt-3 pt-3 border-t flex items-center gap-2">
+            <div
+              className={`flex items-center gap-1.5 text-[13px] font-medium ${step === 1 ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              <span
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 1 ? "bg-[#004023] text-white" : "bg-muted text-muted-foreground"}`}
+              >
+                1
+              </span>
+              Header &amp; Link
             </div>
-          )}
+            <div className="flex-1 h-px bg-border mx-1" />
+            <div
+              className={`flex items-center gap-1.5 text-[13px] font-medium ${step === 2 ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              <span
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 2 ? "bg-[#004023] text-white" : "bg-muted text-muted-foreground"}`}
+              >
+                2
+              </span>
+              Preview &amp; Send
+            </div>
+          </div>
         </DialogHeader>
 
-        {/* ── Scrollable email preview ── */}
-        <div className="overflow-y-auto flex-1">
-          <EmailBody
-            s={s}
-            isRights={isRights}
-            companyName={companyName}
-            offerName={offerName}
-            ratio={ratio}
-            closeDate={closeDate}
-            issuePrice={issuePrice}
-            allotDate={allotDate}
-            contactEmail={contactEmail}
-          />
-        </div>
+        {/* ── Step 1: Setup ── */}
+        {step === 1 && (
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Header image */}
+            <div className="space-y-2">
+              <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Header Image{" "}
+                <span className="text-[12px] normal-case font-normal">
+                  (optional)
+                </span>
+              </label>
+              <p className="text-[13px] text-muted-foreground">
+                Upload a branded banner that will appear at the top of the
+                email. Recommended: 600×120 px. If omitted the default green
+                header is used.
+              </p>
+              <div
+                className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-[#004023]/50 hover:bg-muted/30 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {typeof headerImageUrl === "string" ? (
+                  <div className="space-y-3">
+                    <img
+                      src={headerImageUrl}
+                      alt="Header preview"
+                      className="max-h-24 mx-auto rounded object-cover"
+                    />
+                    <p className="text-[13px] text-muted-foreground">
+                      Click to replace image
+                    </p>
+                  </div>
+                ) : uploading ? (
+                  <div className="space-y-3">
+                    <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mx-auto" />
+                    <p className="text-[13px] font-medium text-muted-foreground">
+                      Uploading...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                    <p className="text-[13px] font-medium">
+                      Click to upload header image
+                    </p>
+                    <p className="text-[12px] text-muted-foreground">
+                      PNG, JPG or GIF · max 5 MB
+                    </p>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+              </div>
+              {headerImageUrl && (
+                <button
+                  className="text-[13px] text-muted-foreground hover:text-destructive transition-colors"
+                  onClick={() => {
+                    setHeaderImageUrl(null);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                >
+                  Remove image
+                </button>
+              )}
+            </div>
+
+            {/* Circular link */}
+            <div className="space-y-2">
+              <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {isRights
+                  ? "Rights Issue Circular URL"
+                  : "Bonus Allotment Notice URL"}{" "}
+                <span className="text-[12px] normal-case font-normal">
+                  (optional)
+                </span>
+              </label>
+              <p className="text-[13px] text-muted-foreground">
+                The URL shareholders click to view the full{" "}
+                {isRights ? "rights issue circular" : "allotment notice"}. Leave
+                blank to omit the link from the email.
+              </p>
+              <Input
+                placeholder="https://..."
+                value={circularLinkUrl}
+                onChange={(e) => setCircularLinkUrl(e.target.value)}
+                className="h-9 text-[13px] font-mono"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 2: Preview ── */}
+        {step === 2 && (
+          <div className="overflow-y-auto flex-1">
+            <div className="px-4 py-3 bg-amber-50 border-b text-[13px] text-amber-800 flex items-center gap-2">
+              <span className="font-semibold">Template preview</span> —
+              placeholders in <em>italics</em> will be replaced with each
+              shareholder&apos;s actual data when sent.
+            </div>
+            <EmailBody
+              isRights={isRights}
+              companyName={companyName}
+              offerName={offerName}
+              ratio={ratio}
+              closeDate={closeDate}
+              issuePrice={issuePrice}
+              allotDate={allotDate}
+              contactEmail={contactEmail}
+              headerImageUrl={headerImageUrl}
+              circularLinkUrl={circularLinkUrl}
+            />
+          </div>
+        )}
 
         {/* ── Footer ── */}
         <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => resetAndClose(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={() => {
-              onOpenChange(false);
-              toast.success(
-                `Email dispatch queued for ${totalCount.toLocaleString()} shareholders.`
-              );
-            }}
-          >
-            <Mail className="mr-2 h-4 w-4" />
-            Send to {totalCount.toLocaleString()} Shareholders
-          </Button>
+          {step === 1 ? (
+            <Button onClick={() => setStep(2)}>
+              Preview Email <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setStep(1)}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+              <Button
+                onClick={handleSend}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4" />
+                    Send to {totalCount.toLocaleString()} Shareholders
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

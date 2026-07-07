@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, X, CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { FileText, X, CheckCircle2, Loader2, ExternalLink } from "lucide-react";
+import { cn, getFileNameFromUrl } from "@/lib/utils";
 import { FILE_TYPE_ACCEPT, FILE_TYPE_COLORS } from "@/lib/mocks/doc-types";
+import { GetPDFUrl } from "@/lib/utils/get-file-url";
+import { GetImageUrl } from "@/lib/utils/get-image-url";
 
 interface DocUploadZoneProps {
   label: string;
@@ -12,6 +14,10 @@ interface DocUploadZoneProps {
   required?: boolean;
   compact?: boolean;
   className?: string;
+  onUploadSuccess?: (url: string) => void;
+  folderName?: string;
+  /** Pre-populate the preview with an already-uploaded URL (e.g. when editing an existing record). */
+  initialUrl?: string;
 }
 
 export function DocUploadZone({
@@ -21,29 +27,72 @@ export function DocUploadZone({
   required,
   compact,
   className,
+  onUploadSuccess,
+  folderName = "dematerialization",
+  initialUrl,
 }: DocUploadZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile]   = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(initialUrl ?? null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const accept = fileTypes
     .map(t => FILE_TYPE_ACCEPT[t] ?? "")
     .filter(Boolean)
     .join(",");
 
-  const handleFile = (f: File) => {
+  const handleFile = async (f: File) => {
     setError(null);
     if (f.size > maxSizeMB * 1024 * 1024) {
       setError(`File too large — max ${maxSizeMB} MB`);
       return;
     }
     setFile(f);
+    setIsUploading(true);
+
+    try {
+      const mimeType = f.type.toLowerCase();
+      const extension = f.name.split(".").pop()?.toLowerCase();
+
+      let response;
+      if (mimeType === "application/pdf" || extension === "pdf") {
+        response = await GetPDFUrl(f, folderName);
+      } else if (
+        ["image/jpeg", "image/png", "image/jpg"].includes(mimeType) ||
+        ["jpeg", "png", "jpg"].includes(extension || "")
+      ) {
+        response = await GetImageUrl(f, folderName);
+      } else {
+        setError("Unsupported file format. Please upload PDF, PNG, JPG, or JPEG.");
+        setFile(null);
+        setIsUploading(false);
+        return;
+      }
+
+      if (response?.type === "success") {
+        setUploadedUrl(response.result);
+        if (onUploadSuccess) {
+          onUploadSuccess(response.result);
+        }
+      } else {
+        setError((response?.result as string) || "Failed to upload file");
+        setFile(null);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to upload file");
+      setFile(null);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const clear = () => {
     setFile(null);
+    setUploadedUrl(null);
     setError(null);
+    if (onUploadSuccess) onUploadSuccess("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -82,13 +131,32 @@ export function DocUploadZone({
       />
 
       {/* Upload zone / file preview */}
-      {file ? (
+      {isUploading ? (
+        <div className="flex items-center gap-2.5 px-3 py-2.5 border border-primary/20 bg-primary/5 rounded-xl">
+          <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-primary truncate">Uploading {file?.name}...</p>
+          </div>
+        </div>
+      ) : file ? (
         <div className="flex items-center gap-2.5 px-3 py-2.5 border border-green-200 bg-green-50/60 rounded-xl">
           <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-green-800 truncate">{file.name}</p>
             <p className="text-[10px] text-green-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
           </div>
+          {uploadedUrl && (
+            <a
+              href={uploadedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100"
+              aria-label="Preview uploaded file"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Preview
+            </a>
+          )}
           <button
             type="button"
             onClick={clear}
@@ -141,4 +209,26 @@ export function DocUploadZone({
       )}
     </div>
   );
+}
+
+
+export function DocPreview({ url }: { url: string }) {
+  return (
+    <div className="flex items-center gap-2.5 px-3 py-2.5 border border-green-200 bg-green-50/60 rounded-xl">
+      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-green-800 truncate">{getFileNameFromUrl(url)}</p>
+      </div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100"
+        aria-label="Preview uploaded file"
+      >
+        <ExternalLink className="h-3 w-3" />
+        Preview
+      </a>
+    </div>
+  )
 }

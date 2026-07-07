@@ -1,55 +1,119 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useStore } from "@/lib/store";
-import { PlusCircle, BookOpen, AlertTriangle, MoreHorizontal, Pencil, Lock, Unlock, History, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+// import { useStore } from "@/lib/store";
+import {
+  PlusCircle,
+  // BookOpen,
+  // AlertTriangle,
+  MoreHorizontal,
+  Pencil,
+  Lock,
+  Unlock,
+  // History,
+  // Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RegisterForm } from "@/components/custom/register-form";
-import { toast } from "sonner";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Register } from "@/lib/types";
+import { Register } from "@/types/register";
+import { useGetRegisters, useGetRegisterStats } from "@/hooks/useRegisters";
+import { useDebounce } from "@/hooks/useDebounce";
+import { formatLargeNumber } from "@/lib/utils";
+import { useGetPrincipals } from "@/hooks/usePrincipal";
+import ToggleTransactionDialog from "@/components/custom/registers/toggle-transactions";
+import { PaginationBar } from "@/components/custom/pagination-bar";
+
+const PAGE_SIZE = 20;
 
 export default function RegistersPage() {
   const router = useRouter();
-  const { registers, principals, updateRegister, logAudit } = useStore();
+  // const { registers, principals, updateRegister, logAudit } = useStore();
+  const params = useSearchParams();
+
+  const principalIdParam = params.get("principalId");
+  const searchParam = params.get("search");
   const [search, setSearch] = useState("");
-  const [principalFilter, setPrincipalFilter] = useState("All");
-  const [typeFilter, setTypeFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  
+  const [principalFilter, setPrincipalFilter] = useState<string>(
+    principalIdParam || "",
+  );
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
+
+  // Synchronize principalFilter with URL param
+  useEffect(() => {
+    if (principalIdParam) {
+      //eslint-disable-next-line
+      setPrincipalFilter(principalIdParam);
+    }
+
+    if (searchParam) {
+      setSearch(searchParam);
+    }
+  }, [principalIdParam, searchParam]);
+
+  const handlePrincipalFilterChange = (value: string) => {
+    setPrincipalFilter(value);
+    const newParams = new URLSearchParams(params.toString());
+    if (value === null) {
+      newParams.delete("principalId");
+    } else {
+      newParams.set("principalId", value);
+    }
+    const queryString = newParams.toString();
+    router?.replace(`/setup/registers${queryString ? `?${queryString}` : ""}`, {
+      scroll: false,
+    });
+  };
+
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
-  const [selectedRegister, setSelectedRegister] = useState<Register | null>(null);
+  const [selectedRegister, setSelectedRegister] = useState<Register | null>(
+    null,
+  );
 
   const [confirmLockOpen, setConfirmLockOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
-  const filteredRegisters = registers.filter(r => {
-    const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase()) || r.symbol.toLowerCase().includes(search.toLowerCase());
-    const matchesPrincipal = principalFilter === "All" || r.principalId === principalFilter;
-    const matchesType = typeFilter === "All" || r.registerType === typeFilter;
-    const matchesStatus = statusFilter === "All" || r.status === statusFilter.toUpperCase().replace(" ", "_");
-    return matchesSearch && matchesPrincipal && matchesType && matchesStatus;
+  const debouncedSearch = useDebounce(search, 500);
+
+  const { data: registerStats, isLoading: statsLoading } =
+    useGetRegisterStats();
+
+  const { data: registers, isLoading } = useGetRegisters({
+    search: debouncedSearch !== "" ? debouncedSearch : undefined,
+    principalId: principalFilter !== "" ? principalFilter : undefined,
+    registerType: typeFilter !== "" ? typeFilter : undefined,
+    status: statusFilter !== "" ? statusFilter : undefined,
+    page: currentPage,
+    size: pageSize,
   });
 
-  const activeCount = registers.filter(r => r.status === "ACTIVE").length;
-  const disabledCount = registers.filter(r => r.status === "TRANSACTION_DISABLED").length;
-  const inactiveCount = registers.filter(r => r.status === "INACTIVE").length;
-  
-  const totalStock = registers.filter(r => r.status === "ACTIVE").reduce((sum, r) => sum + r.stockToday, 0);
+  const { data: principals, isLoading: principalsLoading } = useGetPrincipals({
+    size: 100,
+  });
 
-  const formatLargeNumber = (num: number) => {
-    if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)}B`;
-    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
-    return num.toLocaleString();
-  };
+  const pagedRows = registers?.content || [];
+  const total = registers?.pagination.total || 0;
+  const totalPages = registers?.pagination?.totalPages || 1;
 
   const handleEdit = (r: Register) => {
     setSelectedRegister(r);
@@ -63,25 +127,6 @@ export default function RegistersPage() {
     setFormOpen(true);
   };
 
-  const toggleLock = () => {
-    if (!selectedRegister) return;
-    const newStatus = selectedRegister.status === "TRANSACTION_DISABLED" ? "ACTIVE" : "TRANSACTION_DISABLED";
-
-    updateRegister(selectedRegister.id, { status: newStatus });
-    logAudit({
-      action: "REGISTER_LOCK_CHANGED",
-      entityType: "Register",
-      entityId: selectedRegister.id,
-      before: selectedRegister,
-      after: { ...selectedRegister, status: newStatus },
-      actor: "Current User",
-      actorId: "usr",
-      role: "ADMIN"
-    });
-    toast.success(`Register ${selectedRegister.symbol} has been ${newStatus === 'ACTIVE' ? 'unlocked' : 'locked'}.`);
-    setConfirmLockOpen(false);
-  };
-
   const openLockConfirm = (r: Register) => {
     setSelectedRegister(r);
     setConfirmLockOpen(true);
@@ -90,10 +135,12 @@ export default function RegistersPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Registers</h1>
-          <p className="text-sm text-muted-foreground mt-1">Official shareholder lists for each security managed by MRPSL</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Registers</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Official shareholder lists for each security managed by MRPSL
+          </p>
         </div>
         <Button onClick={handleCreate}>
           <PlusCircle className="mr-2 h-4 w-4" />
@@ -102,71 +149,145 @@ export default function RegistersPage() {
       </div>
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="mrpsl-section-title">Total Registers</div>
-          <div className="text-2xl font-bold font-mono mt-2">{registers.length}</div>
+          {statsLoading ? (
+            <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
+          ) : (
+            <div className="text-2xl font-bold font-mono mt-2">
+              {registerStats?.totalRegisters ?? 0}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="mrpsl-section-title">Active</div>
-          <div className="text-2xl font-bold font-mono mt-2 text-green-600">{activeCount}</div>
+          {statsLoading ? (
+            <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
+          ) : (
+            <div className="text-2xl font-bold font-mono mt-2 text-green-600">
+              {/* {registerStats?.activeRegisters ?? 0} */}
+              {registerStats?.activeRegisters ?? 0}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
-          <div className="mrpsl-section-title text-amber-700">Transaction Disabled</div>
-          <div className="text-2xl font-bold font-mono mt-2 text-amber-600">{disabledCount}</div>
+          <div className="mrpsl-section-title text-amber-700">
+            Transaction Disabled
+          </div>
+          {statsLoading ? (
+            <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
+          ) : (
+            <div className="text-2xl font-bold font-mono mt-2 text-amber-600">
+              {/* {registerStats?.transactionDisabledRegisters ?? 0} */}
+              {registerStats?.transactionDisabledRegisters ?? 0}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="mrpsl-section-title">Inactive</div>
-          <div className="text-2xl font-bold font-mono mt-2 text-muted-foreground">{inactiveCount}</div>
+          {statsLoading ? (
+            <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
+          ) : (
+            <div className="text-2xl font-bold font-mono mt-2 text-muted-foreground">
+              {/* {registerStats?.inactiveRegisters ?? 0} */}
+              {registerStats?.inactiveRegisters ?? 0}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="mrpsl-section-title">Total Stock in Issue</div>
-          <div className="text-xl font-bold font-mono mt-2">{formatLargeNumber(totalStock)} units</div>
+          {statsLoading ? (
+            <div className="w-10 h-8 bg-gray-200 animate-pulse rounded-lg" />
+          ) : (
+            <div className="text-xl font-bold font-mono mt-2">
+              {registerStats?.totalStockInIssue
+                ? formatLargeNumber(registerStats?.totalStockInIssue)
+                : "0"}
+              units
+            </div>
+          )}
         </Card>
       </div>
 
       {/* Filter Bar */}
-      <div className="flex gap-2 items-center">
-        <Input 
-          placeholder="Search registers..." 
+      <div className="flex flex-wrap gap-2 items-center">
+        <Input
+          placeholder="Search registers..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 mrpsl-input"
+          className="w-full sm:w-64 mrpsl-input"
         />
-        <Select value={principalFilter} onValueChange={(v) => setPrincipalFilter(v || "")}>
+        <Select
+          value={principalFilter}
+          onValueChange={(value) => handlePrincipalFilterChange(value || "")}
+        >
           <SelectTrigger className="w-48 mrpsl-input">
             <SelectValue placeholder="Principal" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All Principals</SelectItem>
-            {principals.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            <SelectGroup>
+              <SelectItem value="">All Principals</SelectItem>
+              {principals?.content.map((p) => (
+                <SelectItem key={p.principalId} value={p.principalId}>
+                  {p.principalName}
+                </SelectItem>
+              ))}
+              {principalsLoading && (
+                <SelectItem disabled>Loading....</SelectItem>
+              )}
+            </SelectGroup>
           </SelectContent>
         </Select>
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v || "")}>
+        <Select
+          value={typeFilter}
+          onValueChange={(v) => setTypeFilter(v || "")}
+        >
           <SelectTrigger className="w-36 mrpsl-input">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All Types</SelectItem>
-            <SelectItem value="ORDINARY">Ordinary</SelectItem>
-            <SelectItem value="PREFERENCE">Preference</SelectItem>
-            <SelectItem value="BOND">Bond</SelectItem>
-            <SelectItem value="FUND">Fund</SelectItem>
+            <SelectGroup>
+              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="ORDINARY">Ordinary</SelectItem>
+              <SelectItem value="PREFERENCE">Preference</SelectItem>
+              <SelectItem value="BOND">Bond</SelectItem>
+              <SelectItem value="FUND">Fund</SelectItem>
+              <SelectItem value="ETF">Etf</SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v || "")}>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => setStatusFilter(v || "")}
+        >
           <SelectTrigger className="w-48 mrpsl-input">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="All">All Status</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="Inactive">Inactive</SelectItem>
-            <SelectItem value="Transaction Disabled">Transaction Disabled</SelectItem>
+            <SelectGroup>
+              <SelectItem value="">All Status</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+              <SelectItem value="TRANSACTION_DISABLED">
+                Transaction Disabled
+              </SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
-        {(search || principalFilter !== "All" || typeFilter !== "All" || statusFilter !== "All") && (
-          <Button variant="ghost" onClick={() => { setSearch(""); setPrincipalFilter("All"); setTypeFilter("All"); setStatusFilter("All"); }}>
+        {(search !== "" ||
+          principalFilter !== "" ||
+          typeFilter !== "" ||
+          statusFilter !== "") && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setSearch("");
+              setPrincipalFilter("");
+              setTypeFilter("");
+              setStatusFilter("");
+            }}
+          >
             Clear
           </Button>
         )}
@@ -191,47 +312,77 @@ export default function RegistersPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredRegisters.map((r) => {
-                const principal = principals.find(p => p.id === r.principalId);
-                return (
-                  <tr key={r.id} className="mrpsl-table-row">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-foreground truncate max-w-[200px]">{r.name}</div>
-                      <div className="text-xs font-mono text-muted-foreground">{r.id}</div>
+              {isLoading ? (
+                <tr>
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <td key={i} className="px-4 py-3">
+                      <div className="h-5 bg-gray-300 animate-pulse rounded-md" />
                     </td>
-                    <td className="px-4 py-3 text-sm truncate max-w-[150px]">{principal?.name}</td>
+                  ))}
+                </tr>
+              ) : pagedRows?.length > 0 ? (
+                pagedRows?.map((r) => (
+                  <tr key={r?.registerId} className="mrpsl-table-row">
                     <td className="px-4 py-3">
-                      <Badge className={`border-0 text-xs ${
-                        r.registerType === "ORDINARY" ? "bg-blue-100 text-blue-800" :
-                        r.registerType === "PREFERENCE" ? "bg-violet-100 text-violet-800" :
-                        r.registerType === "BOND" ? "bg-amber-100 text-amber-800" :
-                        "bg-emerald-100 text-emerald-800"
-                      }`}>
-                        {r.registerType.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                      <div className="font-semibold text-foreground truncate max-w-50">
+                        {r?.registerName}
+                      </div>
+                      {/* <div className="text-xs font-mono text-muted-foreground">
+                        {r?.registerId}
+                      </div> */}
+                    </td>
+                    <td className="px-4 py-3 text-sm truncate max-w-37.5">
+                      {r?.principalName}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        className={`border-0 text-xs ${
+                          r?.registerType === "ORDINARY"
+                            ? "bg-blue-100 text-blue-800"
+                            : r?.registerType === "PREFERENCE"
+                              ? "bg-violet-100 text-violet-800"
+                              : r?.registerType === "BOND"
+                                ? "bg-amber-100 text-amber-800"
+                                : r?.registerType === "ETF"
+                                  ? "bg-cyan-100 text-cyan-800"
+                                  : "bg-emerald-100 text-emerald-800"
+                        }`}
+                      >
+                        {r?.registerType
+                          .toLowerCase()
+                          .replace(/\b\w/g, (c) => c.toUpperCase())}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-mono text-xs uppercase bg-muted px-1.5 py-0.5 rounded">{r.symbol}</span>
+                      <span className="font-mono text-xs uppercase bg-muted px-1.5 py-0.5 rounded">
+                        {r?.symbol}
+                      </span>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r.shareholdersAtSetup.toLocaleString()}
+                      {r?.shareholderSizeAtSetup?.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r.shareholdersToday.toLocaleString()}
+                      {r?.currentShareholdersSize?.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {formatLargeNumber(r.stockToday)}
+                      {formatLargeNumber(r?.currentStockInIssue)}
                     </td>
                     <td className="px-4 py-3 font-mono text-sm text-right">
-                      ₦{r.nominalValue.toFixed(2)}
+                      ₦{r?.nominalValue?.toFixed(2)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge className={`border-0 text-xs ${
-                        r.status === "ACTIVE" ? "bg-green-100 text-green-800" :
-                        r.status === "INACTIVE" ? "bg-gray-100 text-gray-600" :
-                        "bg-amber-100 text-amber-800"
-                      }`}>
-                        {r.status === "TRANSACTION_DISABLED" ? "Disabled" : r.status.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                      <Badge
+                        className={`border-0 text-xs capitalize ${
+                          r?.status === "ACTIVE"
+                            ? "bg-green-100 text-green-800"
+                            : r?.status === "INACTIVE"
+                              ? "bg-gray-100 text-gray-600"
+                              : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {r?.status === "TRANSACTION_DISABLED"
+                          ? "Disabled"
+                          : r?.status}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -242,70 +393,87 @@ export default function RegistersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/enquiry/holder?registerId=${r.id}`)}>
+                          {/* <DropdownMenuItem
+                            onClick={() =>
+                              router?.push(
+                                `/enquiry/holder?registerId=${r?.registerId}`,
+                              )
+                            }
+                          >
                             <Users className="mr-2 h-4 w-4" /> View Shareholders
-                          </DropdownMenuItem>
+                          </DropdownMenuItem> */}
                           <DropdownMenuItem onClick={() => handleEdit(r)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Register
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openLockConfirm(r)} className="text-amber-600">
-                            {r.status === "TRANSACTION_DISABLED" ? (
-                              <><Unlock className="mr-2 h-4 w-4" /> Unlock Transactions</>
+                          <DropdownMenuItem
+                            onClick={() => openLockConfirm(r)}
+                            className="text-amber-600"
+                          >
+                            {r?.status === "TRANSACTION_DISABLED" ? (
+                              <>
+                                <Unlock className="mr-2 h-4 w-4" /> Unlock
+                                Transactions
+                              </>
                             ) : (
-                              <><Lock className="mr-2 h-4 w-4" /> Lock Transactions</>
+                              <>
+                                <Lock className="mr-2 h-4 w-4" /> Lock
+                                Transactions
+                              </>
                             )}
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => toast.info("Audit log sheet coming soon")}>
+                          {/* <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() =>
+                              toast.info("Audit log sheet coming soon")
+                            }
+                          >
                             <History className="mr-2 h-4 w-4" /> Audit Log
-                          </DropdownMenuItem>
+                          </DropdownMenuItem> */}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
                   </tr>
-                );
-              })}
-              {filteredRegisters.length === 0 && (
+                ))
+              ) : (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground text-sm">
+                  <td
+                    colSpan={10}
+                    className="px-4 py-12 text-center text-muted-foreground text-sm"
+                  >
                     No registers found.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+
+          <PaginationBar
+            page={currentPage}
+            pageSize={pageSize}
+            totalPages={totalPages}
+            total={total}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </Card>
-      
-      <div className="text-sm text-muted-foreground">
-        Showing {filteredRegisters.length > 0 ? 1 : 0}–{filteredRegisters.length} of {filteredRegisters.length} registers
-      </div>
 
       {formOpen && (
-        <RegisterForm 
-          open={formOpen} 
-          onOpenChange={setFormOpen} 
-          mode={formMode} 
-          initialData={selectedRegister} 
+        <RegisterForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          mode={formMode}
+          initialData={selectedRegister}
         />
       )}
 
-      <Dialog open={confirmLockOpen} onOpenChange={setConfirmLockOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Action</DialogTitle>
-            <DialogDescription>
-              {selectedRegister?.status === "TRANSACTION_DISABLED" 
-                ? `Are you sure you want to unlock transactions for ${selectedRegister.symbol}?`
-                : `Are you sure you want to lock transactions for ${selectedRegister?.symbol}? This will block all dividend declarations, certificate operations, and KYC updates.`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmLockOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={toggleLock}>Confirm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {confirmLockOpen && (
+        <ToggleTransactionDialog
+          open={confirmLockOpen}
+          setOpen={setConfirmLockOpen}
+          selectedRegister={selectedRegister}
+        />
+      )}
     </div>
   );
 }

@@ -1,195 +1,655 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
-import { ClipboardCheck, ShieldX, Eye } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { GET_APPROVAL_SUMMARY } from "@/actions/approvalsAction";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  ShieldX,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  Check,
+  FileText,
+  Image,
+  Download,
+  ExternalLink,
+  ArrowUpRight,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { ApprovalItem } from "@/lib/types";
+import { GlobalQueue } from "./GlobalQueue";
+import { MyDesk } from "./MyDesk";
+
+function moduleUrl(module: string, transactionType: string): string {
+  if (module === "SETUP") {
+    if (transactionType.includes("Principal")) return "/setup/principals";
+    if (transactionType.includes("User")) return "/setup/users";
+    if (transactionType.includes("Register")) return "/setup/registers";
+    return "/setup/parameters";
+  }
+  if (module === "DIVIDENDS") {
+    if (transactionType.toLowerCase().includes("declaration"))
+      return "/dividends/declaration";
+    if (transactionType.toLowerCase().includes("payment"))
+      return "/dividends/payment";
+    if (
+      transactionType.toLowerCase().includes("mark-off") ||
+      transactionType.toLowerCase().includes("markoff")
+    )
+      return "/dividends/warrant-markoff";
+    if (transactionType.toLowerCase().includes("split"))
+      return "/dividends/split";
+    return "/dividends/declaration";
+  }
+  if (module === "CERTIFICATES") return "/certificates/transfer";
+  if (module === "ACCOUNT_MAINTENANCE") {
+    if (transactionType.toLowerCase().includes("kyc"))
+      return "/account-maintenance/kyc-update";
+    if (transactionType.toLowerCase().includes("consolidation"))
+      return "/account-maintenance/consolidation";
+    if (transactionType.toLowerCase().includes("admon"))
+      return "/account-maintenance/admon";
+    return "/account-maintenance/kyc-update";
+  }
+  return "/";
+}
 
 export default function ApprovalsPage() {
-  const { pendingApprovals, currentUser, updateApprovalItem, logAudit } = useStore();
-  const [search, setSearch] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const refParam = searchParams.get("ref");
+  const tabParam = searchParams.get("tab");
+  const {
+    currentUser,
+    updateApprovalItem,
+    logAudit,
+    addPrincipal,
+    updatePrincipal,
+    addUser,
+    updateUser,
+  } = useStore();
+  const currentUserRole = currentUser?.roles?.[0];
+  const [search, setSearch] = useState(refParam ?? "");
   const [moduleFilter, setModuleFilter] = useState("All");
-  const [tierFilter, setTierFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [queueTab, setQueueTab] = useState(refParam || tabParam === "global" ? "global" : "my-desk");
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewItem, setReviewItem] = useState<ApprovalItem | null>(null);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewReadOnly, setReviewReadOnly] = useState(false);
 
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ApprovalItem | null>(null);
-
-  const filtered = pendingApprovals.filter(a => {
-    const matchesSearch = a.description.toLowerCase().includes(search.toLowerCase()) || a.id.toLowerCase().includes(search.toLowerCase());
-    const matchesModule = moduleFilter === "All" || a.module === moduleFilter;
-    const matchesTier = tierFilter === "All" || a.tier?.toString() === tierFilter;
-    const matchesStatus = statusFilter === "All" || a.status === statusFilter;
-    return matchesSearch && matchesModule && matchesTier && matchesStatus;
+  const { data: summaryData, isLoading: summaryLoading } = useQuery({
+    queryKey: ["approval-summary", currentUser?.email],
+    queryFn: () =>
+      GET_APPROVAL_SUMMARY({ performedBy: currentUser?.email ?? "" }),
+    enabled: !!currentUser?.email,
   });
 
-  const myPendingCount = pendingApprovals.filter(a => a.status === "PENDING" && a.approvalSteps.some(s => s.role === currentUser?.role && !s.decision)).length;
-  const overdueCount = pendingApprovals.filter(a => a.status === "PENDING" && (new Date().getTime() - new Date(a.submittedAt).getTime()) > 14400000).length;
-  const allPendingCount = pendingApprovals.filter(a => a.status === "PENDING").length;
-  const approvedTodayCount = pendingApprovals.filter(a => a.status === "APPROVED" && new Date(a.submittedAt).toDateString() === new Date().toDateString()).length;
+  const myPendingCount = summaryData?.data?.myPendingCount ?? 0;
+  const overdueCount = summaryData?.data?.overdueCount ?? 0;
+  const allPendingCount = summaryData?.data?.allPendingCount ?? 0;
+  const myRejectedCount = summaryData?.data?.myRejectedCount ?? 0;
 
-  const handleReview = (item: ApprovalItem) => {
-    setSelectedItem(item);
-    setSheetOpen(true);
+  const handleReview = (item: ApprovalItem, readOnly = false) => {
+    setReviewItem(item);
+    setReviewComment("");
+    setReviewReadOnly(readOnly);
+    setReviewOpen(true);
   };
 
-  const getInitials = (name: string) => {
-    const parts = name.split(" ");
-    return `${parts[0]?.[0] || ""}${parts[1]?.[0] || ""}`.toUpperCase();
+  const handleApprove = () => {
+    if (!reviewItem || !currentUser || !currentUserRole) return;
+    if (!reviewItem.approvalSteps?.length) return;
+    const updatedSteps = reviewItem.approvalSteps.map((s) =>
+      s.roles?.[0] === currentUserRole && !s.decision
+        ? {
+            ...s,
+            decision: "APPROVED" as const,
+            comment: reviewComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
+        : s,
+    );
+    const allApproved = updatedSteps.every((s) => s.decision === "APPROVED");
+    updateApprovalItem(reviewItem.id, {
+      approvalSteps: updatedSteps,
+      status: allApproved ? "APPROVED" : "PENDING",
+    });
+    logAudit({
+      actor: `${currentUser.firstName} ${currentUser.lastName}`,
+      actorId: currentUser.id,
+      role: currentUserRole,
+      action: "APPROVE",
+      entityType: "APPROVAL",
+      entityId: reviewItem.id,
+      before: { status: reviewItem.status },
+      after: { status: allApproved ? "APPROVED" : "PENDING" },
+    });
+
+    // Apply SETUP changes to store when fully approved
+    if (allApproved && reviewItem.module === "SETUP" && reviewItem.payload) {
+      const p = reviewItem.payload;
+      const tt = reviewItem.transactionType;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (tt === "Create Principal") addPrincipal(p as any);
+      else if (tt === "Update Principal")
+        updatePrincipal(p.id as string, p.updates ?? p);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      else if (tt === "Create User") addUser(p as any);
+      else if (tt === "Update User") updateUser(p.id as string, p.updates ?? p);
+      toast.success(
+        `${reviewItem.transactionType} approved and applied to the system.`,
+      );
+    } else {
+      toast.success("Transaction approved and committed.");
+    }
+    setReviewOpen(false);
   };
 
-  const getAging = (submittedAt: string) => {
-    const ms = new Date().getTime() - new Date(submittedAt).getTime();
-    const hrs = ms / 3600000;
-    const pct = Math.min((hrs / 4) * 100, 100);
-    return { pct, text: hrs < 1 ? "Just now" : `${Math.floor(hrs)}h ago`, overdue: hrs > 4 };
+  const handleReject = () => {
+    if (!reviewItem || !currentUser || !currentUserRole) return;
+    if (!reviewComment.trim()) {
+      toast.error("A rejection comment is required.");
+      return;
+    }
+    if (!reviewItem.approvalSteps?.length) return;
+    const updatedSteps = reviewItem.approvalSteps.map((s) =>
+      s.roles?.[0] === currentUserRole && !s.decision
+        ? {
+            ...s,
+            decision: "REJECTED" as const,
+            comment: reviewComment,
+            decidedAt: new Date().toISOString(),
+            approverName: `${currentUser.firstName} ${currentUser.lastName}`,
+            approverId: currentUser.id,
+          }
+        : s,
+    );
+    updateApprovalItem(reviewItem.id, {
+      approvalSteps: updatedSteps,
+      status: "REJECTED",
+    });
+    logAudit({
+      actor: `${currentUser.firstName} ${currentUser.lastName}`,
+      actorId: currentUser.id,
+      role: currentUserRole,
+      action: "REJECT",
+      entityType: "APPROVAL",
+      entityId: reviewItem.id,
+      before: { status: "PENDING" },
+      after: { status: "REJECTED", comment: reviewComment },
+    });
+    toast.error("Transaction rejected and returned to initiator.");
+    setReviewOpen(false);
   };
+
+  if (!currentUser) return null;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Approvals Queue</h1>
-          <p className="text-sm text-muted-foreground mt-1">Review and action all pending transactions requiring authorisation</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Review and action all pending transactions requiring authorisation
+          </p>
         </div>
       </div>
 
+      {/* My Rejected alert banner */}
+      {myRejectedCount > 0 && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800">
+            {myRejectedCount} of your submission
+            {myRejectedCount !== 1 ? "s have" : " has"} been rejected
+          </AlertTitle>
+          <AlertDescription className="text-amber-700 flex items-center gap-3">
+            Review the rejection reason, edit the data, and resubmit for
+            approval.
+            <button
+              className="underline font-semibold text-amber-800 hover:text-amber-900 whitespace-nowrap"
+              onClick={() => setStatusFilter("REJECTED")}
+            >
+              Show rejected items →
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-4 gap-3">
-        <Card className={`p-4 ${myPendingCount > 0 ? 'bg-amber-50 border-amber-200' : 'mrpsl-card'}`}>
+        <Card
+          className={`p-4 ${myPendingCount > 0 ? "bg-amber-50 border-amber-200" : "mrpsl-card"}`}
+        >
           <div className="mrpsl-section-title">My Pending</div>
-          <div className={`text-2xl font-mono mt-1 font-bold ${myPendingCount > 0 ? 'text-amber-600' : ''}`}>{myPendingCount}</div>
+          {summaryLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
+            <div
+              className={`text-2xl font-mono mt-1 font-bold ${myPendingCount > 0 ? "text-amber-600" : ""}`}
+            >
+              {myPendingCount}
+            </div>
+          )}
         </Card>
-        <Card className={`p-4 ${overdueCount > 0 ? 'bg-red-50 border-red-200' : 'mrpsl-card'}`}>
+        <Card
+          className={`p-4 ${overdueCount > 0 ? "bg-red-50 border-red-200" : "mrpsl-card"}`}
+        >
           <div className="mrpsl-section-title">Overdue (&gt;4hrs)</div>
-          <div className={`text-2xl font-mono mt-1 font-bold ${overdueCount > 0 ? 'text-red-600' : ''}`}>{overdueCount}</div>
+          {summaryLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
+            <div
+              className={`text-2xl font-mono mt-1 font-bold ${overdueCount > 0 ? "text-red-600" : ""}`}
+            >
+              {overdueCount}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">All Pending</div>
-          <div className="text-2xl font-mono mt-1 font-bold">{allPendingCount}</div>
+          {summaryLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
+            <div className="text-2xl font-mono mt-1 font-bold">
+              {allPendingCount}
+            </div>
+          )}
         </Card>
-        <Card className="mrpsl-card p-4">
-          <div className="mrpsl-section-title">Approved Today</div>
-          <div className="text-2xl font-mono mt-1 font-bold text-green-600">{approvedTodayCount}</div>
-        </Card>
-      </div>
-
-      <div className="flex gap-2 items-center">
-        <Input placeholder="Search ref or description..." value={search} onChange={e=>setSearch(e.target.value)} className="w-64 mrpsl-input" />
-        <Select value={moduleFilter} onValueChange={(v) => setModuleFilter(v || "")}><SelectTrigger className="w-48 mrpsl-input"><SelectValue placeholder="Module" /></SelectTrigger><SelectContent><SelectItem value="All">All Modules</SelectItem><SelectItem value="DIVIDENDS">Dividends</SelectItem><SelectItem value="CERTIFICATES">Certificates</SelectItem><SelectItem value="ACCOUNT MAINTENANCE">Account Maintenance</SelectItem></SelectContent></Select>
-        <Select value={tierFilter} onValueChange={(v) => setTierFilter(v || "")}><SelectTrigger className="w-32 mrpsl-input"><SelectValue placeholder="Tier" /></SelectTrigger><SelectContent><SelectItem value="All">All Tiers</SelectItem><SelectItem value="1">Tier 1</SelectItem><SelectItem value="2">Tier 2</SelectItem><SelectItem value="3">Tier 3</SelectItem><SelectItem value="4">Tier 4</SelectItem></SelectContent></Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v || "")}><SelectTrigger className="w-36 mrpsl-input"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="All">All Status</SelectItem><SelectItem value="PENDING">Pending</SelectItem><SelectItem value="APPROVED">Approved</SelectItem><SelectItem value="REJECTED">Rejected</SelectItem></SelectContent></Select>
-      </div>
-
-      <Card className="mrpsl-card overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="mrpsl-table-header"><tr><th className="p-3">REFERENCE</th><th className="p-3">MODULE</th><th className="p-3">TYPE</th><th className="p-3">DESCRIPTION</th><th className="p-3 text-right">AMOUNT</th><th className="p-3">TIER</th><th className="p-3">SUBMITTED BY</th><th className="p-3">AGING</th><th className="p-3">STATUS</th><th className="p-3 text-right">ACTIONS</th></tr></thead>
-          <tbody className="divide-y text-xs">
-            {filtered.map(a => {
-              const aging = getAging(a.submittedAt);
-              const isMine = a.initiatorId === currentUser?.id;
-              const canAction = a.status === "PENDING" && a.approvalSteps.some(s => s.role === currentUser?.role && !s.decision);
-              
-              return (
-                <tr key={a.id} className="hover:bg-accent/5">
-                  <td className="p-3 font-mono text-xs text-muted-foreground">{a.id}</td>
-                  <td className="p-3"><Badge className="bg-gray-100 text-gray-800 border-0 text-xs">{a.module.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</Badge></td>
-                  <td className="p-3 font-medium text-sm">{a.transactionType}</td>
-                  <td className="p-3 truncate max-w-[200px]" title={a.description}>{a.description}</td>
-                  <td className="p-3 text-right font-mono font-bold">{a.amount ? `₦${a.amount.toLocaleString()}` : "—"}</td>
-                  <td className="p-3">{a.tier ? <Badge className={`border-0 text-xs ${a.tier===1?'bg-green-100 text-green-800':a.tier===2?'bg-blue-100 text-blue-800':a.tier===3?'bg-amber-100 text-amber-800':'bg-red-100 text-red-800'}`}>T{a.tier}</Badge> : "—"}</td>
-                  <td className="p-3"><div className="flex items-center gap-2"><div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><span className="text-xs font-bold text-primary">{getInitials(a.initiatorName)}</span></div><span>{a.initiatorName}</span></div></td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2 w-24">
-                      <Progress value={aging.pct} className="h-1.5" />
-                      <span className={`text-xs whitespace-nowrap ${aging.overdue ? 'text-red-600 font-bold' : 'text-muted-foreground'}`}>{aging.text}</span>
-                    </div>
-                  </td>
-                  <td className="p-3"><Badge className={`border-0 text-xs ${a.status==="PENDING"?"bg-amber-100 text-amber-800":a.status==="APPROVED"?"bg-green-100 text-green-800":"bg-red-100 text-red-700"}`}>{a.status.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</Badge></td>
-                  <td className="p-3 text-right">
-                    {a.status === "PENDING" ? (
-                      canAction ? <Button size="sm" onClick={() => handleReview(a)}>Review</Button> :
-                      isMine ? <Button size="sm" variant="ghost" className="text-red-600" onClick={()=>toast.success("Recalled successfully")}>Recall</Button> :
-                      <span className="text-muted-foreground">Locked</span>
-                    ) : (
-                      <Button size="sm" variant="ghost"><Eye className="mr-2 h-4 w-4"/> View</Button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-            {filtered.length === 0 && <tr><td colSpan={10} className="p-12 text-center text-muted-foreground">No approvals match your filters.</td></tr>}
-          </tbody>
-        </table>
-      </Card>
-
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent className="w-[720px] sm:max-w-[720px] overflow-y-auto">
-          {selectedItem && (
+        <Card
+          className={`p-4 cursor-pointer transition-colors ${myRejectedCount > 0 ? "bg-red-50 border-red-200 hover:bg-red-100" : "mrpsl-card"}`}
+          onClick={() => myRejectedCount > 0 && setStatusFilter("REJECTED")}
+        >
+          <div className="mrpsl-section-title">My Rejected</div>
+          {summaryLoading ? (
+            <Skeleton className="h-8 w-12 mt-1" />
+          ) : (
             <>
-              <SheetHeader className="border-b pb-4 mb-4">
-                <SheetTitle>{selectedItem.transactionType} Review</SheetTitle>
-                <div className="font-mono text-sm text-muted-foreground">{selectedItem.id}</div>
-              </SheetHeader>
+              <div
+                className={`text-2xl font-mono mt-1 font-bold ${myRejectedCount > 0 ? "text-red-600" : ""}`}
+              >
+                {myRejectedCount}
+              </div>
+              {myRejectedCount > 0 && (
+                <div className="text-[12px] text-red-500 mt-0.5">
+                  Click to review
+                </div>
+              )}
+            </>
+          )}
+        </Card>
+      </div>
 
-              <div className="space-y-6">
-                <div className="grid grid-cols-4 gap-4 p-4 bg-muted/20 border rounded-md">
-                  <div><div className="text-xs uppercase font-bold text-muted-foreground">Module</div><div className="font-medium text-sm mt-1">{selectedItem.module}</div></div>
-                  <div><div className="text-xs uppercase font-bold text-muted-foreground">Type</div><div className="font-medium text-sm mt-1">{selectedItem.transactionType}</div></div>
-                  <div><div className="text-xs uppercase font-bold text-muted-foreground">Amount</div><div className="font-medium text-sm mt-1 font-mono">{selectedItem.amount ? `₦${selectedItem.amount.toLocaleString()}` : "—"}</div></div>
-                  <div><div className="text-xs uppercase font-bold text-muted-foreground">Tier</div><div className="font-medium text-sm mt-1">{selectedItem.tier ? `Tier ${selectedItem.tier}` : "—"}</div></div>
-                  <div className="col-span-4 mt-2"><div className="text-xs uppercase font-bold text-muted-foreground mb-1">Description</div><p className="text-sm">{selectedItem.description}</p></div>
+      <Tabs value={queueTab} onValueChange={setQueueTab} className="space-y-4">
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
+          <TabsTrigger
+            value="my-desk"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            On My Desk
+            {myPendingCount > 0 && (
+              <Badge className="ml-2 h-5 min-w-5 px-1.5 text-[11px] bg-amber-500 text-white border-0">
+                {myPendingCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="global"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            Global Queue
+            <Badge
+              variant="outline"
+              className="ml-2 h-5 min-w-5 px-1.5 text-[11px]"
+            >
+              {allPendingCount}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── ON MY DESK ────────────────────────────────────────────────── */}
+        <TabsContent value="my-desk" className="mt-0">
+          <MyDesk
+            search={search}
+            setSearch={setSearch}
+            moduleFilter={moduleFilter}
+            setModuleFilter={setModuleFilter}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            onReview={handleReview}
+          />
+        </TabsContent>
+
+        <TabsContent value="global" className="mt-0">
+          <GlobalQueue
+            search={search}
+            setSearch={setSearch}
+            moduleFilter={moduleFilter}
+            setModuleFilter={setModuleFilter}
+            onReview={handleReview}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* ── Review Dialog (Approver / View) ──────────────────────────── */}
+      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {reviewItem && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center justify-between">
+                  <DialogTitle>{reviewItem.transactionType} Review</DialogTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 shrink-0 -translate-x-10 -translate-y-2"
+                    onClick={() => {
+                      setReviewOpen(false);
+                      router.push(
+                        moduleUrl(
+                          reviewItem.module,
+                          reviewItem.transactionType,
+                        ),
+                      );
+                    }}
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" /> Open in Module
+                  </Button>
+                </div>
+                <div className="font-mono text-sm text-muted-foreground">
+                  {reviewItem.id}
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-5 px-8 pb-8">
+                <div className="grid grid-cols-4 gap-4 p-4 bg-muted/20 border rounded-xl">
+                  <div>
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground">
+                      Module
+                    </div>
+                    <div className="font-medium text-sm mt-1">
+                      {reviewItem.module}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground">
+                      Type
+                    </div>
+                    <div className="font-medium text-sm mt-1">
+                      {reviewItem.transactionType}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground">
+                      Amount
+                    </div>
+                    <div className="font-medium text-sm mt-1 font-mono">
+                      {reviewItem.amount
+                        ? `₦${reviewItem.amount.toLocaleString()}`
+                        : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground">
+                      Tier
+                    </div>
+                    <div className="font-medium text-sm mt-1">
+                      {reviewItem.tier ? `Tier ${reviewItem.tier}` : "—"}
+                    </div>
+                  </div>
+                  <div className="col-span-4">
+                    <div className="text-[13px] uppercase font-bold text-muted-foreground mb-1">
+                      Description
+                    </div>
+                    <p className="text-sm">{reviewItem.description}</p>
+                  </div>
                 </div>
 
-                <div className="p-4 border rounded-md">
-                  <h4 className="text-sm font-bold border-b pb-2 mb-3">Approval Chain</h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-5 w-5 rounded-full bg-green-100 flex items-center justify-center"><div className="h-2 w-2 rounded-full bg-green-500"/></div>
-                      <div className="text-sm"><span className="font-semibold">{selectedItem.initiatorName} (Initiator)</span> <span className="text-muted-foreground">✓ Submitted</span></div>
+                {/* SETUP payload — show the exact data being approved */}
+                {reviewItem.module === "SETUP" && reviewItem.payload && (
+                  <div className="p-4 border border-primary/20 rounded-xl bg-primary/5">
+                    <h4 className="text-sm font-bold text-primary mb-3 border-b border-primary/20 pb-2">
+                      Data to be Applied
+                    </h4>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                      {Object.entries(reviewItem.payload)
+                        .filter(
+                          ([k]) => !["id", "action", "updates"].includes(k),
+                        )
+                        .map(([key, value]) => (
+                          <div key={key} className="flex flex-col">
+                            <span className="text-[11px] uppercase tracking-wide font-semibold text-muted-foreground">
+                              {key.replace(/([A-Z])/g, " $1").trim()}
+                            </span>
+                            <span className="text-sm font-medium mt-0.5 wrap-break-word">
+                              {typeof value === "boolean"
+                                ? value
+                                  ? "Yes"
+                                  : "No"
+                                : Array.isArray(value)
+                                  ? (value as string[]).join(", ") || "—"
+                                  : String(value ?? "—")}
+                            </span>
+                          </div>
+                        ))}
                     </div>
-                    {selectedItem.approvalSteps.map((s, idx) => (
-                      <div key={idx} className="flex items-center gap-3">
-                        <div className="h-5 w-5 rounded-full bg-amber-100 flex items-center justify-center animate-pulse"><div className="h-2 w-2 rounded-full bg-amber-500"/></div>
-                        <div className="text-sm"><span className="font-semibold">{s.role.replace(/_/g, ' ')}</span> <span className="text-amber-600">⏳ Pending</span></div>
+                  </div>
+                )}
+
+                {reviewItem.attachments &&
+                  reviewItem.attachments.length > 0 && (
+                    <div className="p-4 border rounded-xl">
+                      <h4 className="text-sm font-bold border-b pb-2 mb-3">
+                        Supporting Documents
+                      </h4>
+                      <div className="space-y-2">
+                        {reviewItem.attachments.map((doc, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/20 border"
+                          >
+                            {doc.fileType === "IMAGE" ? (
+                              // eslint-disable-next-line jsx-a11y/alt-text
+                              <Image className="h-4 w-4 text-blue-500 shrink-0" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                            )}
+                            <span className="text-sm flex-1 truncate font-medium">
+                              {doc.name}
+                            </span>
+                            <Badge
+                              variant="outline"
+                              className="text-[11px] font-mono shrink-0"
+                            >
+                              {doc.fileType}
+                            </Badge>
+                            <button
+                              className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                              title="Open"
+                              onClick={() => window.open(doc.url, "_blank")}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                              title="Download"
+                              onClick={() => {
+                                const a = document.createElement("a");
+                                a.href = doc.url;
+                                a.download = doc.name;
+                                a.click();
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                <div className="p-4 border rounded-xl">
+                  <h4 className="text-sm font-bold border-b pb-2 mb-3">
+                    Approval Chain
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                        <Check
+                          className="h-2.5 w-2.5 text-white"
+                          style={{ strokeWidth: 3 }}
+                        />
+                      </span>
+                      <div className="text-sm">
+                        <span className="font-semibold">
+                          {reviewItem.initiatorName}
+                        </span>{" "}
+                        <span className="text-muted-foreground">
+                          · Submitted
+                        </span>
+                      </div>
+                    </div>
+                    {(reviewItem.approvalSteps ?? []).map((s, idx) => (
+                      <div key={idx} className="flex items-start gap-3">
+                        {s.decision === "APPROVED" ? (
+                          <span className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center shrink-0 mt-0.5">
+                            <Check
+                              className="h-2.5 w-2.5 text-white"
+                              style={{ strokeWidth: 3 }}
+                            />
+                          </span>
+                        ) : s.decision === "REJECTED" ? (
+                          <XCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full border-2 border-amber-400 shrink-0 mt-0.5 animate-pulse" />
+                        )}
+                        <div className="text-sm">
+                          <span className="font-semibold">
+                            {s.roles?.[0]?.replace(/_/g, " ") ?? "Unknown Role"}
+                          </span>
+                          {s.decision ? (
+                            <span
+                              className={`ml-2 ${s.decision === "APPROVED" ? "text-green-600" : "text-red-600"}`}
+                            >
+                              {s.decision === "APPROVED"
+                                ? "Approved"
+                                : "Rejected"}
+                            </span>
+                          ) : (
+                            <span className="ml-2 text-amber-600">
+                              Awaiting
+                            </span>
+                          )}
+                          {s.approverName && (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · {s.approverName}
+                            </span>
+                          )}
+                          {s.comment && (
+                            <div className="text-muted-foreground mt-0.5 text-[13px] italic">
+                              &quot;{s.comment}&quot;
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {currentUser?.id === selectedItem.initiatorId && (
+                {reviewItem.status === "REJECTED" ? (
+                  <Alert variant="destructive">
+                    <XCircle className="h-4 w-4" />
+                    <AlertTitle>This transaction was rejected</AlertTitle>
+                    <AlertDescription>
+                      The initiator must edit and resubmit before further action
+                      is possible.
+                    </AlertDescription>
+                  </Alert>
+                ) : reviewItem.status === "APPROVED" ? (
+                  <Alert className="border-green-300 bg-green-50">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <AlertTitle className="text-green-800">
+                      Transaction fully approved
+                    </AlertTitle>
+                    <AlertDescription className="text-green-700">
+                      This transaction has been approved and committed.
+                    </AlertDescription>
+                  </Alert>
+                ) : currentUser.id === reviewItem.initiatorId ? (
                   <Alert variant="destructive">
                     <ShieldX className="h-4 w-4" />
                     <AlertTitle>Maker-Checker Rule Enforced</AlertTitle>
-                    <AlertDescription>You cannot approve a transaction you initiated. Another authorised user must action this item.</AlertDescription>
+                    <AlertDescription>
+                      You cannot approve a transaction you initiated. Another
+                      authorised user must action this item.
+                    </AlertDescription>
                   </Alert>
-                )}
+                ) : null}
 
-                <div className="space-y-2">
-                  <label className="mrpsl-label">Comment</label>
-                  <Textarea placeholder="Required for rejection, optional for approval" />
-                </div>
+                {reviewItem.status === "PENDING" &&
+                  currentUser.id !== reviewItem.initiatorId &&
+                  !reviewReadOnly && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="mrpsl-label">Comment</label>
+                        <Textarea
+                          placeholder="Required for rejection, optional for approval"
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          className="resize-none"
+                          rows={3}
+                        />
+                      </div>
 
-                <div className="flex gap-4 pt-4 border-t">
-                  <Button variant="ghost" className="mr-auto">Delegate to Colleague</Button>
-                  <Button variant="destructive" disabled={currentUser?.id === selectedItem.initiatorId} onClick={() => { toast.error("Transaction rejected"); setSheetOpen(false); }}>Reject</Button>
-                  <Button disabled={currentUser?.id === selectedItem.initiatorId} onClick={() => { toast.success("Transaction fully authorised and committed."); setSheetOpen(false); }}>Approve</Button>
-                </div>
+                      <div className="flex gap-3 pt-2 border-t">
+                        <Button
+                          variant="ghost"
+                          className="mr-auto"
+                          onClick={() =>
+                            toast.success("Delegated to colleague")
+                          }
+                        >
+                          Delegate
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          disabled={currentUser.id === reviewItem.initiatorId}
+                          onClick={handleReject}
+                        >
+                          Reject
+                        </Button>
+                        <Button
+                          disabled={currentUser.id === reviewItem.initiatorId}
+                          onClick={handleApprove}
+                        >
+                          Approve
+                        </Button>
+                      </div>
+                    </>
+                  )}
               </div>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

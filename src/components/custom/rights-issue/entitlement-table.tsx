@@ -1,0 +1,113 @@
+"use client";
+
+import { Checkbox } from "@/components/ui/checkbox";
+import { Shareholder } from "@/types/rights";
+
+export function ShholderTableHead({
+  allSelected,
+  toggleSelectAll,
+  visibleIds = [],
+}: {
+  allSelected?: boolean;
+  toggleSelectAll?: (ids: string[] | number[]) => void;
+  visibleIds?: string[] | number[];
+}) {
+  return (
+    <thead className="mrpsl-table-header">
+      <tr>
+        {toggleSelectAll && visibleIds && <th className="p-3 w-12">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={() =>
+              toggleSelectAll?.(visibleIds)
+            }
+          />
+        </th>}
+        <th className="px-3 py-2.5 text-left">#</th>
+        <th className="px-3 py-2.5 text-left">SHAREHOLDER NAME</th>
+        <th className="px-3 py-2.5 text-left">CHN</th>
+        <th className="px-3 py-2.5 text-left">STOCKBROKER CODE</th>
+        <th className="px-3 py-2.5 text-left">ADDRESS</th>
+        <th className="px-3 py-2.5 text-left">BANK NAME</th>
+        <th className="px-3 py-2.5 text-left">BANK ACCOUNT NO</th>
+        <th className="px-3 py-2.5 text-right">UNITS HELD</th>
+        <th className="px-3 py-2.5 text-center">RIGHTS RATIO</th>
+        <th className="px-3 py-2.5 text-right">RIGHTS DUE</th>
+        <th className="px-3 py-2.5 text-right">AMOUNT DUE (₦)</th>
+      </tr>
+    </thead>
+  );
+}
+
+export function ShholderRows({
+  rows,
+  pageStart = 0,
+  selectedIds,
+  toggleSelect,
+}: {
+  rows: Shareholder[];
+  pageStart?: number;
+  selectedIds?: Set<string | number>;
+  toggleSelect?: (id: string | number) => void;
+}) {
+  return (
+    <>
+      {rows.map((s, i) => {
+        return (
+          <tr key={s.shareholderId} className="mrpsl-table-row">
+            {toggleSelect && selectedIds && <td><Checkbox
+              checked={selectedIds?.has(s.shareholderId)}
+              onCheckedChange={() => toggleSelect?.(s.shareholderId)}
+            /></td>}
+            <td className="px-3 py-2.5 text-muted-foreground">{pageStart + i + 1}</td>
+            <td className="px-3 py-2.5 font-medium">{s.name}</td>
+            <td className="px-3 py-2.5 font-mono text-xs">{s.chn}</td>
+            <td className="px-3 py-2.5 font-mono">{s.brokerCode}</td>
+            <td className="px-3 py-2.5 text-muted-foreground truncate max-w-[160px]">
+              {s.address}
+            </td>
+            <td className="px-3 py-2.5">{s.bankName}</td>
+            <td className="px-3 py-2.5 font-mono">{s.bankAccount}</td>
+            <td className="px-3 py-2.5 text-right font-mono">{s.unitsHeld}</td>
+            <td className="px-3 py-2.5 text-center font-mono text-muted-foreground">
+              {s.rightsRatio}
+            </td>
+            <td className="px-3 py-2.5 text-right font-mono font-semibold text-blue-600">
+              {s.rightsDue}
+            </td>
+            <td className="px-3 py-2.5 text-right font-mono font-bold">
+              ₦{s.amountPayable}
+            </td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
+export function ShholderTfoot({
+  rows,
+  total,
+}: {
+  rows: Shareholder[];
+  total: number;
+}) {
+  return (
+    <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-xs">
+      <tr>
+        <td
+          colSpan={9}
+          className="px-3 py-2.5 text-right text-muted-foreground"
+        >
+          PAGE TOTALS ({total.toLocaleString()} total shareholders)
+        </td>
+        <td className="px-3 py-2.5 text-right text-blue-600">
+          {rows.reduce((a, r) => a + r.rightsDue, 0).toLocaleString()}
+        </td>
+        <td className="px-3 py-2.5 text-right">
+          ₦{rows.reduce((a, r) => a + r.amountPayable, 0).toLocaleString()}
+        </td>
+      </tr>
+    </tfoot>
+  );
+}
