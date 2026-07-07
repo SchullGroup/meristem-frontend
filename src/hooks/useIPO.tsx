@@ -93,16 +93,8 @@ export const ipoKeys = {
   },
 };
 
-export interface TransformedIPO {
-  content: IPO[];
-  pagination: {
-    total: number;
-    page: number;
-    totalPages: number;
-  };
-}
-export interface TransformedSubscribers {
-  content: IPOSubscriber[];
+export interface TransformedResponse<T> {
+  content: T[];
   pagination: {
     total: number;
     page: number;
@@ -110,10 +102,11 @@ export interface TransformedSubscribers {
   };
 }
 
+
 export const useGetPendingApprovals = (
   params?: PendingApprovalParams,
   options?: Omit<
-    UseQueryOptions<ContentPaginatedResponse<IPO>, Error, TransformedIPO>,
+    UseQueryOptions<ContentPaginatedResponse<IPO>, Error, TransformedResponse<IPO>>,
     "queryKey" | "queryFn"
   >,
 ) => {
@@ -138,7 +131,7 @@ export const useGetIcuApprovals = (
   params?: PendingApprovalParams,
 
   options?: Omit<
-    UseQueryOptions<ContentPaginatedResponse<IPO>, Error, TransformedIPO>,
+    UseQueryOptions<ContentPaginatedResponse<IPO>, Error, TransformedResponse<IPO>>,
     "queryKey" | "queryFn"
   >,
 ) => {
@@ -286,7 +279,7 @@ export const useGetIpoBatchSubscribers = (
     UseQueryOptions<
       ContentPaginatedResponse<IPOSubscriber>,
       Error,
-      TransformedSubscribers
+      TransformedResponse<IPOSubscriber>
     >,
     "queryKey" | "queryFn"
   >,
@@ -329,7 +322,7 @@ export const useGetIpoBatchLodgment = (
 export const useGetIpoBatchesLodgment = (
   params?: PendingApprovalParams,
   options?: Omit<
-    UseQueryOptions<ContentPaginatedResponse<IPO>, Error, TransformedIPO>,
+    UseQueryOptions<ContentPaginatedResponse<IPO>, Error, TransformedResponse<IPO>>,
     "queryKey" | "queryFn"
   >,
 ) => {
@@ -671,13 +664,9 @@ export const useGetRefundEligibleSubscribers = (
   params?: RefundEligibleParams,
   options?: Omit<
     UseQueryOptions<
-      ApiResponse<
-        ContentPaginatedResponse<IpoRefundSubscriber>
-      >,
+      ApiResponse<ContentPaginatedResponse<IpoRefundSubscriber>>,
       Error,
-      ApiResponse<
-        ContentPaginatedResponse<IpoRefundSubscriber>
-      >
+      TransformedResponse<IpoRefundSubscriber>
     >,
     "queryKey" | "queryFn"
   >,
@@ -694,6 +683,16 @@ export const useGetRefundEligibleSubscribers = (
         params,
       ),
     enabled: !!batchRef,
+    select: (data) => {
+      return {
+        content: data?.data?.content,
+        pagination: {
+          total: data?.data?.totalElements,
+          page: data?.data?.page,
+          totalPages: data?.data?.totalPages,
+        }
+      }
+    },
     refetchOnWindowFocus: false,
     ...options,
   });

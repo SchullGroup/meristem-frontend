@@ -9,7 +9,9 @@ export const principalSchema = z.object({
   sector: z.string().min(1, "Sector is required"),
   officialEmail: z.email("Invalid email address"),
   phoneNumber: z.string().min(5, "Phone number is required"),
-  tin: z.string().min(1, "Tax identification number is required"),
+  tin: z.string()
+    .min(8, "Tax identification number must be at least 8 characters")
+    .max(12, "Tax identification number must not be more than 12 characters"),
   rcNumber: z.string().min(1, "Registration number is required"),
   companySecretary: z.string().min(1, "Company secretary is required"),
   companySecretaryPhone: z

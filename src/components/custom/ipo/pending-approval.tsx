@@ -273,11 +273,8 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                     <>
                       <SelectItem value="all">All Register</SelectItem>
                       {activeRegisters?.content?.map((r) => (
-                        <SelectItem key={r.registerId} value={r.registerId}>
-                          <span className="font-bold">{r.registerName}</span> -{" "}
-                          <span className="text-xs translate-y-0.5">
-                            {r.symbol}
-                          </span>
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          {r.registerName} - {r.symbol}
                         </SelectItem>
                       ))}
                     </>
@@ -537,9 +534,9 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
             className={cn(
               "mrpsl-card p-3",
               s.tab &&
-                "cursor-pointer hover:border-primary/40 transition-colors",
+              "cursor-pointer hover:border-primary/40 transition-colors",
               s.tab === reviewTab &&
-                "border-primary ring-1 ring-primary/20 bg-primary/5",
+              "border-primary ring-1 ring-primary/20 bg-primary/5",
             )}
             onClick={() => {
               if (s.tab) {
@@ -645,7 +642,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
                 </thead>
                 <tbody className="divide-y divide-border/60">
                   {subscribersData?.content &&
-                  subscribersData.content.length > 0 ? (
+                    subscribersData.content.length > 0 ? (
                     subscribersData.content.map((r, i) => (
                       <tr key={i} className="mrpsl-table-row">
                         <td className="px-4 py-2.5 text-muted-foreground">

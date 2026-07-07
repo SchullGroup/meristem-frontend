@@ -34,9 +34,14 @@ export default function RegisterSelect({
 
   return (
     <div className="">
-      {label && <label className="mrpsl-label">{label}</label>}
+      {label && (
+        <label htmlFor="register-select" className="mrpsl-label">
+          {label}
+        </label>
+      )}
 
       <Select
+        name="register-select"
         value={value}
         onValueChange={(v) => {
           onChange(v ?? "");
@@ -55,8 +60,7 @@ export default function RegisterSelect({
               <SelectItem value="">All Registers</SelectItem>
               {registers?.content?.map((r) => (
                 <SelectItem key={r.registerId} value={r.symbol}>
-                  <span className="font-bold">{r.registerName}</span> -{" "}
-                  <span className="text-xs translate-y-1">{r.symbol}</span>
+                  {r.registerName} - {r.symbol}
                 </SelectItem>
               ))}
             </>

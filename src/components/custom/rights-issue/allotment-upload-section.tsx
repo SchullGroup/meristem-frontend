@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, FileCheck2, FileX2, AlertCircle } from "lucide-react";
+import { X, FileCheck2, FileX2, AlertCircle, Eye } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -10,6 +10,8 @@ import { returnErrorMessage, ErrorLike } from "@/utils/errorManager";
 import { RightsIssue } from "@/types/rights";
 import { downloadCsvTemplate } from "@/lib/utils/csv-template";
 import { allottmentTemplateFields } from "@/lib/utils/constants";
+import { cn } from "@/lib/utils";
+import { openFileInNewWindow } from "@/utils/helperFunctions";
 
 interface AllotmentUploadSectionProps {
   allotReviewing: RightsIssue;
@@ -26,6 +28,11 @@ export function AllotmentUploadSection({
     null,
   );
   const [allotInvalidFile, setAllotInvalidFile] = useState<File | null>(null);
+
+  // Drag states
+  const [isDragApproved, setIsDragApproved] = useState(false);
+  const [isDragDisapproved, setIsDragDisapproved] = useState(false);
+  const [isDragInvalid, setIsDragInvalid] = useState(false);
 
   // Mutation
   const processMutation = useProcessAllotment();
@@ -86,6 +93,14 @@ export function AllotmentUploadSection({
                 </span>
                 <button
                   type="button"
+                  onClick={() => openFileInNewWindow(allotApprovedFile)}
+                  className="rounded-full hover:bg-green-100 p-0.5"
+                  title="Preview file"
+                >
+                  <Eye className="h-3.5 w-3.5 text-green-700" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setAllotApprovedFile(null)}
                   className="rounded-full hover:bg-green-100 p-0.5"
                 >
@@ -93,7 +108,29 @@ export function AllotmentUploadSection({
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+              <label
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors",
+                  isDragApproved && "border-primary bg-primary/5 text-primary"
+                )}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragApproved(true);
+                }}
+                onDragLeave={() => setIsDragApproved(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragApproved(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    if (file.name.endsWith(".csv")) {
+                      setAllotApprovedFile(file);
+                    } else {
+                      toast.error("Please upload a CSV file");
+                    }
+                  }
+                }}
+              >
                 Drop CSV here or click to browse
                 <input
                   type="file"
@@ -140,6 +177,14 @@ export function AllotmentUploadSection({
                 </span>
                 <button
                   type="button"
+                  onClick={() => openFileInNewWindow(allotDisapprovedFile)}
+                  className="rounded-full hover:bg-amber-100 p-0.5"
+                  title="Preview file"
+                >
+                  <Eye className="h-3.5 w-3.5 text-amber-700" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setAllotDisapprovedFile(null)}
                   className="rounded-full hover:bg-amber-100 p-0.5"
                 >
@@ -147,7 +192,29 @@ export function AllotmentUploadSection({
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+              <label
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors",
+                  isDragDisapproved && "border-primary bg-primary/5 text-primary"
+                )}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragDisapproved(true);
+                }}
+                onDragLeave={() => setIsDragDisapproved(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragDisapproved(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    if (file.name.endsWith(".csv")) {
+                      setAllotDisapprovedFile(file);
+                    } else {
+                      toast.error("Please upload a CSV file");
+                    }
+                  }
+                }}
+              >
                 Drop CSV here or click to browse
                 <input
                   type="file"
@@ -194,6 +261,14 @@ export function AllotmentUploadSection({
                 </span>
                 <button
                   type="button"
+                  onClick={() => openFileInNewWindow(allotInvalidFile)}
+                  className="rounded-full hover:bg-red-100 p-0.5"
+                  title="Preview file"
+                >
+                  <Eye className="h-3.5 w-3.5 text-red-600" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setAllotInvalidFile(null)}
                   className="rounded-full hover:bg-red-100 p-0.5"
                 >
@@ -201,7 +276,29 @@ export function AllotmentUploadSection({
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+              <label
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors",
+                  isDragInvalid && "border-primary bg-primary/5 text-primary"
+                )}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragInvalid(true);
+                }}
+                onDragLeave={() => setIsDragInvalid(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragInvalid(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    if (file.name.endsWith(".csv")) {
+                      setAllotInvalidFile(file);
+                    } else {
+                      toast.error("Please upload a CSV file");
+                    }
+                  }
+                }}
+              >
                 Drop CSV here or click to browse
                 <input
                   type="file"
