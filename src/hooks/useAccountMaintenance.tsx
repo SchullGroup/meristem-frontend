@@ -37,7 +37,7 @@ import {
   rejectHolderKycDocument,
   getHolderSignature,
 } from "@/actions/accountMaintenanceActions";
-import { ApiResponse, ContentPaginatedResponse } from "@/types";
+import { ApiResponse } from "@/types";
 import {
   useMutation,
   UseMutationOptions,

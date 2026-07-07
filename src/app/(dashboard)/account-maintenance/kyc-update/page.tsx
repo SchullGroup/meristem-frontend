@@ -89,7 +89,7 @@ export default function KYCUpdatePage() {
     );
   const pendingChanges = pendingChangesData?.data?.data ?? [];
 
-  const handleFieldSubmit = (
+  const handleFieldSubmit = async (
     accountNumber: string,
     changeType: string,
     field: string,
@@ -97,8 +97,8 @@ export default function KYCUpdatePage() {
     reason: string,
   ) => {
     if (!currentUser) return;
-    createKycMutation.mutate(
-      {
+    try {
+      await createKycMutation.mutateAsync({
         accountNumber,
         data: {
           changeType,
@@ -109,17 +109,15 @@ export default function KYCUpdatePage() {
           initiatedBy: currentUser.email,
           reason,
         },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Change submitted for approval");
-          refetchPendingChanges();
-        },
-        onError: (err: Error) => {
-          toast.error(err.message || "Failed to submit change");
-        },
-      },
-    );
+      });
+      toast.success("Change submitted for approval");
+      refetchPendingChanges();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to submit change",
+      );
+      throw err; // Re-throw so the EditableField knows it failed
+    }
   };
 
   return (

@@ -26,7 +26,7 @@ interface EditableFieldProps {
   pendingChange: KycChange | null;
   readOnly?: boolean;
   extraInput?: React.ReactNode;
-  onSubmit: (newValue: string, reason: string) => void;
+  onSubmit: (newValue: string, reason: string) => Promise<void>;
   isSubmitting?: boolean;
 }
 
@@ -39,12 +39,14 @@ export function EditableField({
   readOnly = false,
   extraInput,
   onSubmit,
-  isSubmitting = false,
+  isSubmitting: _isSubmitting = false, // kept for parent-driven loading if needed
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newValue, setNewValue] = useState("");
   const [reason, setReason] = useState("");
+  const [localSubmitting, setLocalSubmitting] = useState(false);
 
+  const isSubmitting = localSubmitting || _isSubmitting;
   const hasPending = !!pendingChange;
   const isDisabled = hasPending || readOnly;
 
@@ -61,12 +63,19 @@ export function EditableField({
     setReason("");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!reason.trim() || !newValue.trim()) return;
-    onSubmit(newValue.trim(), reason.trim());
-    setIsEditing(false);
-    setNewValue("");
-    setReason("");
+    setLocalSubmitting(true);
+    try {
+      await onSubmit(newValue.trim(), reason.trim());
+      setIsEditing(false);
+      setNewValue("");
+      setReason("");
+    } catch {
+      // Error toast already shown by parent — keep editing open so user can retry
+    } finally {
+      setLocalSubmitting(false);
+    }
   };
 
   const canSubmit = newValue.trim().length > 0 && reason.trim().length > 0;
