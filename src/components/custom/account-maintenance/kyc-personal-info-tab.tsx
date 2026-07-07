@@ -25,7 +25,7 @@ interface KycPersonalInfoTabProps {
     field: string,
     newValue: string,
     reason: string,
-  ) => void;
+  ) => Promise<void>;
   onSupportingDocsChange: (docs: { name: string; url: string }[]) => void;
 }
 

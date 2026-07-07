@@ -17,7 +17,7 @@ interface KycBankDetailsTabProps {
     field: string,
     newValue: string,
     reason: string,
-  ) => void;
+  ) => Promise<void>;
 }
 
 export function KycBankDetailsTab({

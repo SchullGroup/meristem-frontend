@@ -14,7 +14,7 @@ interface KycContactInfoTabProps {
     field: string,
     newValue: string,
     reason: string,
-  ) => void;
+  ) => Promise<void>;
 }
 
 export function KycContactInfoTab({
