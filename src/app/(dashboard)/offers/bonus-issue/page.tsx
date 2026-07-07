@@ -2871,7 +2871,7 @@ export default function BonusIssuePage() {
                     <h3 className="font-semibold text-sm text-foreground">
                       Ready to generate
                     </h3>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
+                    <p className="text-xs text-muted-foreground mt-1 max-w-70">
                       Configure your parameters above and click &quot;Generate
                       Report&quot; to view results.
                     </p>

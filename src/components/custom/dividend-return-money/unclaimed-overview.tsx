@@ -2,16 +2,36 @@
 
 import { useState } from "react";
 import {
-  Loader2, AlertCircle, ArrowUpRight, Building2, Landmark,
-  CheckCircle2, XCircle, Clock, ShieldCheck,
+  Loader2,
+  AlertCircle,
+  ArrowUpRight,
+  Building2,
+  Landmark,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  ShieldCheck,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useStore } from "@/lib/store";
@@ -24,22 +44,57 @@ import {
 import { formatNaira } from "@/lib/utils/format";
 import { toast } from "sonner";
 import type {
-  DividendReturnRecord, RecipientType, ReturnStatus,
-  ReturnInitiation, ReturnInitiationStatus,
+  DividendReturnRecord,
+  RecipientType,
+  ReturnStatus,
+  ReturnInitiation,
+  ReturnInitiationStatus,
 } from "@/types/dividend-return-money";
 
-const STATUS_META: Record<ReturnStatus, { label: string; className: string }> = {
-  PENDING_RETURN: { label: "Pending Return", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  RETURNED: { label: "Returned", className: "bg-green-50 text-green-700 border-green-200" },
-  PARTIALLY_CLAIMED: { label: "Partially Claimed", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  EXHAUSTED: { label: "Withheld Exhausted", className: "bg-red-50 text-red-700 border-red-200" },
-};
+const STATUS_META: Record<ReturnStatus, { label: string; className: string }> =
+  {
+    PENDING_RETURN: {
+      label: "Pending Return",
+      className: "bg-amber-50 text-amber-700 border-amber-200",
+    },
+    RETURNED: {
+      label: "Returned",
+      className: "bg-green-50 text-green-700 border-green-200",
+    },
+    PARTIALLY_CLAIMED: {
+      label: "Partially Claimed",
+      className: "bg-blue-50 text-blue-700 border-blue-200",
+    },
+    EXHAUSTED: {
+      label: "Withheld Exhausted",
+      className: "bg-red-50 text-red-700 border-red-200",
+    },
+  };
 
-const INITIATION_META: Record<ReturnInitiationStatus, { label: string; className: string; icon: React.ElementType }> = {
-  PENDING_APPROVAL: { label: "Pending Approval", className: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
-  ICU_APPROVED: { label: "ICU Approved", className: "bg-blue-50 text-blue-700 border-blue-200", icon: CheckCircle2 },
-  PROCESSED: { label: "Processed", className: "bg-green-50 text-green-700 border-green-200", icon: CheckCircle2 },
-  REJECTED: { label: "Rejected", className: "bg-red-50 text-red-700 border-red-200", icon: XCircle },
+const INITIATION_META: Record<
+  ReturnInitiationStatus,
+  { label: string; className: string; icon: React.ElementType }
+> = {
+  PENDING_APPROVAL: {
+    label: "Pending Approval",
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+    icon: Clock,
+  },
+  ICU_APPROVED: {
+    label: "ICU Approved",
+    className: "bg-blue-50 text-blue-700 border-blue-200",
+    icon: CheckCircle2,
+  },
+  PROCESSED: {
+    label: "Processed",
+    className: "bg-green-50 text-green-700 border-green-200",
+    icon: CheckCircle2,
+  },
+  REJECTED: {
+    label: "Rejected",
+    className: "bg-red-50 text-red-700 border-red-200",
+    icon: XCircle,
+  },
 };
 
 export function UnclaimedOverviewTab() {
@@ -49,23 +104,32 @@ export function UnclaimedOverviewTab() {
   const [statusFilter, setStatusFilter] = useState<ReturnStatus | "">("");
 
   // Initiate dialog state
-  const [initiateRecord, setInitiateRecord] = useState<DividendReturnRecord | null>(null);
+  const [initiateRecord, setInitiateRecord] =
+    useState<DividendReturnRecord | null>(null);
   const [recipientType, setRecipientType] = useState<RecipientType>("COMPANY");
   const [secAmount, setSecAmount] = useState("");
   const [narration, setNarration] = useState("");
 
   // Review initiation dialog state
-  const [reviewTarget, setReviewTarget] = useState<ReturnInitiation | null>(null);
-  const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<ReturnInitiation | null>(
+    null,
+  );
+  const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(
+    null,
+  );
   const [reviewComment, setReviewComment] = useState("");
 
-  const { data: registersData } = useGetRegisters({ size: 100, status: "ACTIVE" });
+  const { data: registersData } = useGetRegisters({
+    size: 100,
+    status: "ACTIVE",
+  });
   const { data, isLoading } = useReturnRecords({
     registerSymbol: registerFilter || undefined,
     returnStatus: statusFilter || undefined,
     size: 50,
   });
-  const { data: initiationsData, isLoading: initiationsLoading } = useReturnInitiations();
+  const { data: initiationsData, isLoading: initiationsLoading } =
+    useReturnInitiations();
 
   const createInitiation = useCreateReturnInitiation();
   const reviewInitiation = useReviewReturnInitiation();
@@ -77,7 +141,10 @@ export function UnclaimedOverviewTab() {
   );
 
   const totalUnclaimed = records.reduce((s, r) => s + r.totalUnclaimed, 0);
-  const totalReturned = records.reduce((s, r) => r.returnStatus !== "PENDING_RETURN" ? s + r.returnAmount : s, 0);
+  const totalReturned = records.reduce(
+    (s, r) => (r.returnStatus !== "PENDING_RETURN" ? s + r.returnAmount : s),
+    0,
+  );
   const totalWithheld = records.reduce((s, r) => s + r.withheldAmount, 0);
 
   const parsedSecAmount = parseFloat(secAmount) || 0;
@@ -85,9 +152,15 @@ export function UnclaimedOverviewTab() {
   function handleSubmitInitiation() {
     if (!initiateRecord) return;
     if (recipientType === "SEC") {
-      if (parsedSecAmount <= 0) { toast.error("Enter the amount to remit to SEC."); return; }
+      if (parsedSecAmount <= 0) {
+        toast.error("Enter the amount to remit to SEC.");
+        return;
+      }
       if (parsedSecAmount > initiateRecord.totalUnclaimed) {
-        toast.error(`Amount cannot exceed total unclaimed of ${formatNaira(initiateRecord.totalUnclaimed)}.`); return;
+        toast.error(
+          `Amount cannot exceed total unclaimed of ${formatNaira(initiateRecord.totalUnclaimed)}.`,
+        );
+        return;
       }
     }
     createInitiation.mutate(
@@ -101,7 +174,9 @@ export function UnclaimedOverviewTab() {
       },
       {
         onSuccess: () => {
-          toast.success(`Return initiation submitted for ${initiateRecord.paymentNumber}. Awaiting approval.`);
+          toast.success(
+            `Return initiation submitted for ${initiateRecord.paymentNumber}. Awaiting approval.`,
+          );
           closeInitiateDialog();
         },
         onError: (err) => toast.error(err.message),
@@ -116,14 +191,19 @@ export function UnclaimedOverviewTab() {
       return;
     }
     reviewInitiation.mutate(
-      { id: reviewTarget.id, action: reviewAction, comment: reviewComment.trim() || undefined },
+      {
+        id: reviewTarget.id,
+        action: reviewAction,
+        comment: reviewComment.trim() || undefined,
+      },
       {
         onSuccess: () => {
-          const label = reviewAction === "reject"
-            ? "Initiation rejected."
-            : reviewTarget.status === "PENDING_APPROVAL"
-            ? `ICU approval granted for ${reviewTarget.paymentNumber}.`
-            : `Return processed for ${reviewTarget.paymentNumber}.`;
+          const label =
+            reviewAction === "reject"
+              ? "Initiation rejected."
+              : reviewTarget.status === "PENDING_APPROVAL"
+                ? `ICU approval granted for ${reviewTarget.paymentNumber}.`
+                : `Return processed for ${reviewTarget.paymentNumber}.`;
           toast.success(label);
           closeReviewDialog();
         },
@@ -151,18 +231,34 @@ export function UnclaimedOverviewTab() {
       <div className="grid grid-cols-3 gap-4">
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title mb-1">Total Unclaimed</div>
-          <div className="text-2xl font-bold font-mono">{formatNaira(totalUnclaimed)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Across all declarations</div>
+          <div className="text-2xl font-bold font-mono">
+            {formatNaira(totalUnclaimed)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Across all declarations
+          </div>
         </Card>
         <Card className="mrpsl-card p-4 border-l-4 border-l-green-500">
-          <div className="mrpsl-section-title mb-1 text-green-700">Returned (Company / SEC)</div>
-          <div className="text-2xl font-bold font-mono text-green-600">{formatNaira(totalReturned)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Processed returns</div>
+          <div className="mrpsl-section-title mb-1 text-green-700">
+            Returned (Company / SEC)
+          </div>
+          <div className="text-2xl font-bold font-mono text-green-600">
+            {formatNaira(totalReturned)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Processed returns
+          </div>
         </Card>
         <Card className="mrpsl-card p-4 border-l-4 border-l-amber-500">
-          <div className="mrpsl-section-title mb-1 text-amber-700">10% Withheld</div>
-          <div className="text-2xl font-bold font-mono text-amber-600">{formatNaira(totalWithheld)}</div>
-          <div className="text-xs text-muted-foreground mt-1">Reserved for shareholder claims</div>
+          <div className="mrpsl-section-title mb-1 text-amber-700">
+            10% Withheld
+          </div>
+          <div className="text-2xl font-bold font-mono text-amber-600">
+            {formatNaira(totalWithheld)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Reserved for shareholder claims
+          </div>
         </Card>
       </div>
 
@@ -170,8 +266,13 @@ export function UnclaimedOverviewTab() {
       <div className="flex gap-3 items-end">
         <div className="space-y-1.5">
           <label className="mrpsl-label">Register</label>
-          <Select value={registerFilter || "all"} onValueChange={(v) => setRegisterFilter(!v || v === "all" ? "" : v)}>
-            <SelectTrigger className="mrpsl-input w-48"><SelectValue placeholder="All Registers" /></SelectTrigger>
+          <Select
+            value={registerFilter || "all"}
+            onValueChange={(v) => setRegisterFilter(!v || v === "all" ? "" : v)}
+          >
+            <SelectTrigger className="mrpsl-input w-48">
+              <SelectValue placeholder="All Registers" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Registers</SelectItem>
               {registersData?.content?.map((r) => (
@@ -185,13 +286,22 @@ export function UnclaimedOverviewTab() {
         </div>
         <div className="space-y-1.5">
           <label className="mrpsl-label">Status</label>
-          <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : (v as ReturnStatus))}>
-            <SelectTrigger className="mrpsl-input w-48"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+          <Select
+            value={statusFilter || "all"}
+            onValueChange={(v) =>
+              setStatusFilter(v === "all" ? "" : (v as ReturnStatus))
+            }
+          >
+            <SelectTrigger className="mrpsl-input w-48">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="PENDING_RETURN">Pending Return</SelectItem>
               <SelectItem value="RETURNED">Returned</SelectItem>
-              <SelectItem value="PARTIALLY_CLAIMED">Partially Claimed</SelectItem>
+              <SelectItem value="PARTIALLY_CLAIMED">
+                Partially Claimed
+              </SelectItem>
               <SelectItem value="EXHAUSTED">Withheld Exhausted</SelectItem>
             </SelectContent>
           </Select>
@@ -220,13 +330,20 @@ export function UnclaimedOverviewTab() {
             <tbody className="divide-y font-mono text-[13px]">
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i}>{Array.from({ length: 11 }).map((__, j) => (
-                    <td key={j} className="p-3"><Skeleton className="h-4 w-20" /></td>
-                  ))}</tr>
+                  <tr key={i}>
+                    {Array.from({ length: 11 }).map((__, j) => (
+                      <td key={j} className="p-3">
+                        <Skeleton className="h-4 w-20" />
+                      </td>
+                    ))}
+                  </tr>
                 ))
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-12 text-center text-muted-foreground font-sans">
+                  <td
+                    colSpan={11}
+                    className="p-12 text-center text-muted-foreground font-sans"
+                  >
                     <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     No unclaimed dividend records found.
                   </td>
@@ -235,60 +352,112 @@ export function UnclaimedOverviewTab() {
                 records.map((rec) => {
                   const statusMeta = STATUS_META[rec.returnStatus];
                   const hasPendingInitiation = !!rec.pendingInitiationId;
-                  const canInitiate = rec.returnStatus === "PENDING_RETURN" && !hasPendingInitiation;
+                  const canInitiate =
+                    rec.returnStatus === "PENDING_RETURN" &&
+                    !hasPendingInitiation;
                   return (
                     <tr key={rec.id} className="hover:bg-accent/5">
-                      <td className="p-3 font-bold text-primary">{rec.paymentNumber}</td>
-                      <td className="p-3 font-sans font-medium">{rec.registerSymbol}</td>
+                      <td className="p-3 font-bold text-primary">
+                        {rec.paymentNumber}
+                      </td>
+                      <td className="p-3 font-sans font-medium">
+                        {rec.registerSymbol}
+                      </td>
                       <td className="p-3">
                         {rec.recipientType ? (
-                          <Badge variant="outline" className={`text-[11px] gap-1 ${
-                            rec.recipientType === "SEC"
-                              ? "bg-purple-50 text-purple-700 border-purple-200"
-                              : "bg-blue-50 text-blue-700 border-blue-200"
-                          }`}>
-                            {rec.recipientType === "SEC" ? <Landmark className="h-3 w-3" /> : <Building2 className="h-3 w-3" />}
+                          <Badge
+                            variant="outline"
+                            className={`text-[11px] gap-1 ${
+                              rec.recipientType === "SEC"
+                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                : "bg-blue-50 text-blue-700 border-blue-200"
+                            }`}
+                          >
+                            {rec.recipientType === "SEC" ? (
+                              <Landmark className="h-3 w-3" />
+                            ) : (
+                              <Building2 className="h-3 w-3" />
+                            )}
                             {rec.recipientType === "SEC" ? "SEC" : "Company"}
                           </Badge>
-                        ) : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="p-3 text-right">{rec.shareholderCount.toLocaleString()}</td>
-                      <td className="p-3 text-right font-bold">{formatNaira(rec.totalUnclaimed)}</td>
-                      <td className="p-3 text-right text-green-600">
-                        {formatNaira(rec.returnAmount)}
-                        {rec.returnPercentage > 0 && rec.recipientType === "COMPANY" && (
-                          <div className="text-[11px] text-muted-foreground">{rec.returnPercentage}%</div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
+                      <td className="p-3 text-right">
+                        {rec.shareholderCount.toLocaleString()}
+                      </td>
+                      <td className="p-3 text-right font-bold">
+                        {formatNaira(rec.totalUnclaimed)}
+                      </td>
+                      <td className="p-3 text-right text-green-600">
+                        {formatNaira(rec.returnAmount)}
+                        {rec.returnPercentage > 0 &&
+                          rec.recipientType === "COMPANY" && (
+                            <div className="text-[11px] text-muted-foreground">
+                              {rec.returnPercentage}%
+                            </div>
+                          )}
+                      </td>
                       <td className="p-3 text-right text-amber-600">
-                        {rec.recipientType === "SEC"
-                          ? <span className="text-muted-foreground text-[11px]">N/A</span>
-                          : <>{formatNaira(rec.withheldAmount)}<div className="text-[11px] text-muted-foreground">{rec.withheldPercentage}%</div></>}
+                        {rec.recipientType === "SEC" ? (
+                          <span className="text-muted-foreground text-[11px]">
+                            N/A
+                          </span>
+                        ) : (
+                          <>
+                            {formatNaira(rec.withheldAmount)}
+                            <div className="text-[11px] text-muted-foreground">
+                              {rec.withheldPercentage}%
+                            </div>
+                          </>
+                        )}
                       </td>
                       <td className="p-3 text-right text-blue-600">
-                        {rec.recipientType === "SEC"
-                          ? <span className="text-muted-foreground text-[11px]">N/A</span>
-                          : formatNaira(rec.totalPaidToShareholders)}
+                        {rec.recipientType === "SEC" ? (
+                          <span className="text-muted-foreground text-[11px]">
+                            N/A
+                          </span>
+                        ) : (
+                          formatNaira(rec.totalPaidToShareholders)
+                        )}
                       </td>
-                      <td className={`p-3 text-right font-bold ${rec.remainingBalance <= 0 ? "text-red-600" : "text-green-600"}`}>
-                        {rec.recipientType === "SEC"
-                          ? <span className="text-muted-foreground text-[11px]">N/A</span>
-                          : formatNaira(rec.remainingBalance)}
+                      <td
+                        className={`p-3 text-right font-bold ${rec.remainingBalance <= 0 ? "text-red-600" : "text-green-600"}`}
+                      >
+                        {rec.recipientType === "SEC" ? (
+                          <span className="text-muted-foreground text-[11px]">
+                            N/A
+                          </span>
+                        ) : (
+                          formatNaira(rec.remainingBalance)
+                        )}
                       </td>
                       <td className="p-3">
-                        <Badge variant="outline" className={`text-[11px] ${statusMeta.className}`}>
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] ${statusMeta.className}`}
+                        >
                           {statusMeta.label}
                         </Badge>
                       </td>
                       <td className="p-3">
                         {canInitiate && (
-                          <Button size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => setInitiateRecord(rec)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => setInitiateRecord(rec)}
+                          >
                             <ArrowUpRight className="h-3 w-3" />
                             Initiate Return
                           </Button>
                         )}
                         {hasPendingInitiation && (
-                          <Badge variant="outline" className="text-[11px] gap-1 bg-amber-50 text-amber-700 border-amber-200">
+                          <Badge
+                            variant="outline"
+                            className="text-[11px] gap-1 bg-amber-50 text-amber-700 border-amber-200"
+                          >
                             <Clock className="h-3 w-3" />
                             Awaiting Approval
                           </Badge>
@@ -304,12 +473,19 @@ export function UnclaimedOverviewTab() {
       </Card>
 
       {/* Return Initiation Requests panel */}
-      {(initiationsLoading || pendingInitiations.length > 0 || allInitiations.length > 0) && (
+      {(initiationsLoading ||
+        pendingInitiations.length > 0 ||
+        allInitiations.length > 0) && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold">Return Initiation Requests</h3>
+            <h3 className="text-sm font-semibold">
+              Return Initiation Requests
+            </h3>
             {pendingInitiations.length > 0 && (
-              <Badge variant="outline" className="text-[11px] bg-amber-50 text-amber-700 border-amber-200">
+              <Badge
+                variant="outline"
+                className="text-[11px] bg-amber-50 text-amber-700 border-amber-200"
+              >
                 {pendingInitiations.length} pending
               </Badge>
             )}
@@ -333,13 +509,20 @@ export function UnclaimedOverviewTab() {
                 <tbody className="divide-y font-mono text-[13px]">
                   {initiationsLoading ? (
                     Array.from({ length: 3 }).map((_, i) => (
-                      <tr key={i}>{Array.from({ length: 9 }).map((__, j) => (
-                        <td key={j} className="p-3"><Skeleton className="h-4 w-20" /></td>
-                      ))}</tr>
+                      <tr key={i}>
+                        {Array.from({ length: 9 }).map((__, j) => (
+                          <td key={j} className="p-3">
+                            <Skeleton className="h-4 w-20" />
+                          </td>
+                        ))}
+                      </tr>
                     ))
                   ) : allInitiations.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-muted-foreground font-sans text-[13px]">
+                      <td
+                        colSpan={9}
+                        className="p-8 text-center text-muted-foreground font-sans text-[13px]"
+                      >
                         No return initiations yet.
                       </td>
                     </tr>
@@ -347,19 +530,34 @@ export function UnclaimedOverviewTab() {
                     allInitiations.map((init) => {
                       const meta = INITIATION_META[init.status];
                       const Icon = meta.icon;
-                      const canReview = init.status === "PENDING_APPROVAL" || init.status === "ICU_APPROVED";
+                      const canReview =
+                        init.status === "PENDING_APPROVAL" ||
+                        init.status === "ICU_APPROVED";
                       return (
                         <tr key={init.id} className="hover:bg-accent/5">
-                          <td className="p-3 text-muted-foreground">{init.initiatedDate}</td>
-                          <td className="p-3 font-bold text-primary">{init.paymentNumber}</td>
-                          <td className="p-3 font-sans font-medium">{init.registerSymbol}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {init.initiatedDate}
+                          </td>
+                          <td className="p-3 font-bold text-primary">
+                            {init.paymentNumber}
+                          </td>
+                          <td className="p-3 font-sans font-medium">
+                            {init.registerSymbol}
+                          </td>
                           <td className="p-3">
-                            <Badge variant="outline" className={`text-[11px] gap-1 ${
-                              init.recipientType === "SEC"
-                                ? "bg-purple-50 text-purple-700 border-purple-200"
-                                : "bg-blue-50 text-blue-700 border-blue-200"
-                            }`}>
-                              {init.recipientType === "SEC" ? <Landmark className="h-3 w-3" /> : <Building2 className="h-3 w-3" />}
+                            <Badge
+                              variant="outline"
+                              className={`text-[11px] gap-1 ${
+                                init.recipientType === "SEC"
+                                  ? "bg-purple-50 text-purple-700 border-purple-200"
+                                  : "bg-blue-50 text-blue-700 border-blue-200"
+                              }`}
+                            >
+                              {init.recipientType === "SEC" ? (
+                                <Landmark className="h-3 w-3" />
+                              ) : (
+                                <Building2 className="h-3 w-3" />
+                              )}
                               {init.recipientType === "SEC" ? "SEC" : "Company"}
                             </Badge>
                           </td>
@@ -370,15 +568,19 @@ export function UnclaimedOverviewTab() {
                           </td>
                           <td className="p-3 font-sans">{init.initiatedBy}</td>
                           <td className="p-3">
-                            <Badge variant="outline" className={`text-[11px] gap-1 ${meta.className}`}>
+                            <Badge
+                              variant="outline"
+                              className={`text-[11px] gap-1 ${meta.className}`}
+                            >
                               <Icon className="h-3 w-3" />
                               {meta.label}
                             </Badge>
-                            {init.status === "REJECTED" && init.rejectionComment && (
-                              <div className="text-[10px] text-red-600 mt-1 max-w-32 truncate font-sans">
-                                {init.rejectionComment}
-                              </div>
-                            )}
+                            {init.status === "REJECTED" &&
+                              init.rejectionComment && (
+                                <div className="text-[10px] text-red-600 mt-1 max-w-32 truncate font-sans">
+                                  {init.rejectionComment}
+                                </div>
+                              )}
                           </td>
                           <td className="p-3">
                             {canReview && (
@@ -404,7 +606,12 @@ export function UnclaimedOverviewTab() {
       )}
 
       {/* Initiate Return Dialog */}
-      <Dialog open={!!initiateRecord} onOpenChange={(open) => { if (!open) closeInitiateDialog(); }}>
+      <Dialog
+        open={!!initiateRecord}
+        onOpenChange={(open) => {
+          if (!open) closeInitiateDialog();
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -412,7 +619,8 @@ export function UnclaimedOverviewTab() {
               Initiate Return — {initiateRecord?.paymentNumber}
             </DialogTitle>
             <DialogDescription>
-              This creates a return initiation request that goes through approval before any funds are transferred.
+              This creates a return initiation request that goes through
+              approval before any funds are transferred.
             </DialogDescription>
           </DialogHeader>
 
@@ -420,28 +628,46 @@ export function UnclaimedOverviewTab() {
             <div className="space-y-4 px-8 py-2">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="bg-muted/40 rounded-lg p-3 space-y-1">
-                  <div className="text-xs text-muted-foreground font-medium uppercase">Total Unclaimed</div>
-                  <div className="font-mono font-bold text-base">{formatNaira(initiateRecord.totalUnclaimed)}</div>
+                  <div className="text-xs text-muted-foreground font-medium uppercase">
+                    Total Unclaimed
+                  </div>
+                  <div className="font-mono font-bold text-base">
+                    {formatNaira(initiateRecord.totalUnclaimed)}
+                  </div>
                 </div>
                 <div className="bg-muted/40 rounded-lg p-3 space-y-1">
-                  <div className="text-xs text-muted-foreground font-medium uppercase">Shareholders</div>
-                  <div className="font-mono font-bold text-base">{initiateRecord.shareholderCount.toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground font-medium uppercase">
+                    Shareholders
+                  </div>
+                  <div className="font-mono font-bold text-base">
+                    {initiateRecord.shareholderCount.toLocaleString()}
+                  </div>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="mrpsl-label">Recipient Type *</label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setRecipientType("COMPANY")}
+                  <button
+                    type="button"
+                    onClick={() => setRecipientType("COMPANY")}
                     className={`flex items-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors ${
-                      recipientType === "COMPANY" ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
-                    }`}>
+                      recipientType === "COMPANY"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
                     <Building2 className="h-4 w-4" /> Company (90/10)
                   </button>
-                  <button type="button" onClick={() => setRecipientType("SEC")}
+                  <button
+                    type="button"
+                    onClick={() => setRecipientType("SEC")}
                     className={`flex items-center gap-2 rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors ${
-                      recipientType === "SEC" ? "border-purple-500 bg-purple-50 text-purple-700" : "border-border text-muted-foreground hover:border-purple-300"
-                    }`}>
+                      recipientType === "SEC"
+                        ? "border-purple-500 bg-purple-50 text-purple-700"
+                        : "border-border text-muted-foreground hover:border-purple-300"
+                    }`}
+                  >
                     <Landmark className="h-4 w-4" /> SEC (Government)
                   </button>
                 </div>
@@ -451,17 +677,29 @@ export function UnclaimedOverviewTab() {
                 <div className="rounded-lg border divide-y">
                   <div className="flex justify-between items-center p-3">
                     <div>
-                      <div className="font-medium text-sm">90% — Returned to Company</div>
-                      <div className="text-xs text-muted-foreground">Paid out on final approval</div>
+                      <div className="font-medium text-sm">
+                        90% — Returned to Company
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Paid out on final approval
+                      </div>
                     </div>
-                    <div className="font-mono font-bold text-green-600">{formatNaira(initiateRecord.returnAmount)}</div>
+                    <div className="font-mono font-bold text-green-600">
+                      {formatNaira(initiateRecord.returnAmount)}
+                    </div>
                   </div>
                   <div className="flex justify-between items-center p-3">
                     <div>
-                      <div className="font-medium text-sm">10% — Withheld by MRPSL</div>
-                      <div className="text-xs text-muted-foreground">Reserved for shareholder claims</div>
+                      <div className="font-medium text-sm">
+                        10% — Withheld by MRPSL
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Reserved for shareholder claims
+                      </div>
                     </div>
-                    <div className="font-mono font-bold text-amber-600">{formatNaira(initiateRecord.withheldAmount)}</div>
+                    <div className="font-mono font-bold text-amber-600">
+                      {formatNaira(initiateRecord.withheldAmount)}
+                    </div>
                   </div>
                 </div>
               )}
@@ -473,24 +711,47 @@ export function UnclaimedOverviewTab() {
                     SEC remittances are a fixed amount — no 90/10 split applies.
                   </div>
                   <div className="space-y-1.5">
-                    <label className="mrpsl-label">Amount to Remit to SEC *</label>
-                    <Input type="number" className="mrpsl-input font-mono" placeholder="0.00" value={secAmount} onChange={(e) => setSecAmount(e.target.value)} />
-                    <div className="text-[11px] text-muted-foreground">Max: {formatNaira(initiateRecord.totalUnclaimed)}</div>
+                    <label className="mrpsl-label">
+                      Amount to Remit to SEC *
+                    </label>
+                    <Input
+                      type="number"
+                      className="mrpsl-input font-mono"
+                      placeholder="0.00"
+                      value={secAmount}
+                      onChange={(e) => setSecAmount(e.target.value)}
+                    />
+                    <div className="text-[11px] text-muted-foreground">
+                      Max: {formatNaira(initiateRecord.totalUnclaimed)}
+                    </div>
                   </div>
                 </div>
               )}
 
               <div className="space-y-1.5">
                 <label className="mrpsl-label">Narration (optional)</label>
-                <Textarea className="mrpsl-input resize-none" rows={2} placeholder="Add a note for audit purposes..." value={narration} onChange={(e) => setNarration(e.target.value)} />
+                <Textarea
+                  className="mrpsl-input resize-none"
+                  rows={2}
+                  placeholder="Add a note for audit purposes..."
+                  value={narration}
+                  onChange={(e) => setNarration(e.target.value)}
+                />
               </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={closeInitiateDialog}>Cancel</Button>
-            <Button onClick={handleSubmitInitiation} disabled={createInitiation.isPending}>
-              {createInitiation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button variant="outline" onClick={closeInitiateDialog}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitInitiation}
+              disabled={createInitiation.isPending}
+            >
+              {createInitiation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Submit for Approval
             </Button>
           </DialogFooter>
@@ -498,7 +759,12 @@ export function UnclaimedOverviewTab() {
       </Dialog>
 
       {/* Review Initiation Dialog */}
-      <Dialog open={!!reviewTarget} onOpenChange={(open) => { if (!open) closeReviewDialog(); }}>
+      <Dialog
+        open={!!reviewTarget}
+        onOpenChange={(open) => {
+          if (!open) closeReviewDialog();
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -517,22 +783,32 @@ export function UnclaimedOverviewTab() {
               <div className="rounded-lg border divide-y text-sm">
                 <div className="flex justify-between items-center p-3">
                   <span className="text-muted-foreground">Declaration</span>
-                  <span className="font-bold">{reviewTarget.paymentNumber}</span>
+                  <span className="font-bold">
+                    {reviewTarget.paymentNumber}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center p-3">
                   <span className="text-muted-foreground">Register</span>
-                  <span className="font-mono">{reviewTarget.registerSymbol}</span>
+                  <span className="font-mono">
+                    {reviewTarget.registerSymbol}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center p-3">
                   <span className="text-muted-foreground">Recipient</span>
                   <span className="font-medium">
-                    {reviewTarget.recipientType === "SEC" ? "SEC (Government)" : "Company (90/10 split)"}
+                    {reviewTarget.recipientType === "SEC"
+                      ? "SEC (Government)"
+                      : "Company (90/10 split)"}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3">
                   <span className="text-muted-foreground">Amount</span>
                   <span className="font-mono font-bold text-green-600">
-                    {formatNaira(reviewTarget.recipientType === "SEC" ? (reviewTarget.secAmount ?? 0) : reviewTarget.returnAmount)}
+                    {formatNaira(
+                      reviewTarget.recipientType === "SEC"
+                        ? (reviewTarget.secAmount ?? 0)
+                        : reviewTarget.returnAmount,
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between items-center p-3">
@@ -541,8 +817,13 @@ export function UnclaimedOverviewTab() {
                 </div>
                 <div className="flex justify-between items-center p-3">
                   <span className="text-muted-foreground">Current step</span>
-                  <Badge variant="outline" className={`text-[11px] ${INITIATION_META[reviewTarget.status].className}`}>
-                    {reviewTarget.status === "PENDING_APPROVAL" ? "Awaiting ICU Approval" : "Awaiting Final Approval"}
+                  <Badge
+                    variant="outline"
+                    className={`text-[11px] ${INITIATION_META[reviewTarget.status].className}`}
+                  >
+                    {reviewTarget.status === "PENDING_APPROVAL"
+                      ? "Awaiting ICU Approval"
+                      : "Awaiting Final Approval"}
                   </Badge>
                 </div>
               </div>
@@ -554,7 +835,11 @@ export function UnclaimedOverviewTab() {
                 <Textarea
                   className={`mrpsl-input resize-none ${reviewAction === "reject" ? "border-red-200 focus:border-red-400" : ""}`}
                   rows={2}
-                  placeholder={reviewAction === "reject" ? "State the reason for rejection..." : "Add a comment for the audit trail..."}
+                  placeholder={
+                    reviewAction === "reject"
+                      ? "State the reason for rejection..."
+                      : "Add a comment for the audit trail..."
+                  }
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
                 />
@@ -566,19 +851,34 @@ export function UnclaimedOverviewTab() {
             <Button
               variant="outline"
               className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
-              onClick={() => { setReviewAction("reject"); handleReview(); }}
-              disabled={reviewInitiation.isPending || (reviewAction === "reject" && !reviewComment.trim())}
+              onClick={() => {
+                setReviewAction("reject");
+                handleReview();
+              }}
+              disabled={
+                reviewInitiation.isPending ||
+                (reviewAction === "reject" && !reviewComment.trim())
+              }
             >
-              {reviewInitiation.isPending && reviewAction === "reject" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {reviewInitiation.isPending && reviewAction === "reject" && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Reject
             </Button>
             <Button
-              className={`flex-1 ${reviewTarget?.status === "PENDING_APPROVAL" ? "" : "bg-green-600 hover:bg-green-700"}`}
-              onClick={() => { setReviewAction("approve"); handleReview(); }}
+              className={`flex-1 ${reviewTarget?.status === "PENDING_APPROVAL" ? "" : "bg-primary"}`}
+              onClick={() => {
+                setReviewAction("approve");
+                handleReview();
+              }}
               disabled={reviewInitiation.isPending}
             >
-              {reviewInitiation.isPending && reviewAction === "approve" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {reviewTarget?.status === "PENDING_APPROVAL" ? "ICU Approve" : "Final Approve"}
+              {reviewInitiation.isPending && reviewAction === "approve" && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {reviewTarget?.status === "PENDING_APPROVAL"
+                ? "ICU Approve"
+                : "Final Approve"}
             </Button>
           </DialogFooter>
         </DialogContent>
