@@ -80,6 +80,7 @@ export interface Role {
   description: string;
   isBuiltIn: boolean;
   permissions: string[];
+  userCount?: number;
 }
 
 export interface Shareholder {

@@ -93,7 +93,7 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
         </div>
       )}
 
-      <div className="flex gap-2 items-center flex-wrap">
+      <div className="flex gap-2 items-end flex-wrap">
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -145,7 +145,7 @@ export default function UpdateReconciliation({ tab }: { tab: string }) {
                   <th className="px-4 py-3">CHN</th>
                   <th className="px-4 py-3">Holder Name</th>
                   <th className="px-4 py-3">Register</th>
-                  <th className="px-4 py-3">Flagged Date</th>
+                  <th className="px-4 py-3">Transaction Date</th>
                   <th className="px-4 py-3">Attempted Sell</th>
                   <th className="px-4 py-3">Holdings At Flag</th>
                   <th className="px-4 py-3">Shortfall</th>

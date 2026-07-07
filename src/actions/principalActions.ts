@@ -10,22 +10,33 @@ import {
 } from "@/types/principal";
 import { ApiResponse, PaginatedResponse } from "@/types";
 import api from "@/services/api";
+import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 
 export const getAllPrincipals = async (params?: GetPrincipalsParams) => {
-  const response = await api.get<PaginatedResponse<Principal>>("/principals", {
-    params,
-  });
+  try {
+    const response = await api.get<PaginatedResponse<Principal>>("/principals", {
+      params,
+    });
 
-  return response.data?.data;
+    return response.data?.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };
 
 export const createPrincipal = async (payload: CreatePrincipalPayload) => {
-  const response = await api.post<ApiResponse<Principal>>(
-    "/principals",
-    payload,
-  );
+  try {
+    const response = await api.post<ApiResponse<Principal>>(
+      "/principals",
+      payload,
+    );
 
-  return response.data?.data;
+    return response.data?.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };
 
 export const updatePrincipal = async ({
@@ -35,42 +46,67 @@ export const updatePrincipal = async ({
   principalId: string;
   payload: UpdatePrincipalPayload;
 }) => {
-  const response = await api.put<ApiResponse<Principal>>(
-    `/principals/${principalId}`,
-    payload,
-  );
+  try {
+    const response = await api.put<ApiResponse<Principal>>(
+      `/principals/${principalId}`,
+      payload,
+    );
 
-  return response.data?.data;
+    return response.data?.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };
 
 export const deletePrincipal = async (principalId: string) => {
-  const response = await api.delete(`/principals/${principalId}`);
+  try {
+    const response = await api.delete(`/principals/${principalId}`);
 
-  return response.data?.data;
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };
 
 export const getPrincipals = async (params?: GetPrincipalsParams) => {
-  const response = await api.get<PaginatedResponse<Principal>>("/principals", {
-    params,
-  });
+  try {
+    const response = await api.get<PaginatedResponse<Principal>>("/principals", {
+      params,
+    });
 
-  return response.data;
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };
 
 export const getPrincipalById = async (principalId: string) => {
-  const response = await api.get<ApiResponse<Principal>>(
-    `/principals/code/${principalId}`,
-  );
+  try {
+    const response = await api.get<ApiResponse<Principal>>(
+      `/principals/code/${principalId}`,
+    );
 
-  return response.data?.data;
+    return response.data?.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };
 
 export const getPrincipalsByStatus = async (status: string) => {
-  const response = await api.get<ApiResponse<Principal[]>>(
-    `/principals/status/${status}`,
-  );
+  try {
+    const response = await api.get<ApiResponse<Principal[]>>(
+      `/principals/status/${status}`,
+    );
 
-  return response.data?.data;
+    return response.data?.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };
 
 export const updatePrincipalStatus = async ({
@@ -80,17 +116,27 @@ export const updatePrincipalStatus = async ({
   principalId: string;
   payload: UpdatePrincipalStatusPayload;
 }) => {
-  const response = await api.patch<ApiResponse<Principal>>(
-    `/principals/${principalId}/status`,
-    payload,
-  );
+  try {
+    const response = await api.patch<ApiResponse<Principal>>(
+      `/principals/${principalId}/status`,
+      payload,
+    );
 
-  return response.data?.data;
+    return response.data?.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };
 
 export const getPrincipalStats = async () => {
-  const response =
-    await api.get<ApiResponse<PrincipalStats>>(`/principals/stats`);
+  try {
+    const response =
+      await api.get<ApiResponse<PrincipalStats>>(`/principals/stats`);
 
-  return response.data?.data;
+    return response.data?.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
 };

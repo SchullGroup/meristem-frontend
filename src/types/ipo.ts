@@ -193,7 +193,7 @@ export interface RefundReviewRequest {
   approved: boolean;
   reviewedBy: string;
   remark: string;
-  subscriberIds?: string[];
+  subscriberIds: string[];
 }
 
 export interface IpoRefundSubscriber {
@@ -246,5 +246,6 @@ export interface RefundEligibleParams {
   | "ICU_REJECTED"
   | "ELIGIBLE_FOR_REFUND";
   page?: number;
+  type?: string;
   size?: number;
 }

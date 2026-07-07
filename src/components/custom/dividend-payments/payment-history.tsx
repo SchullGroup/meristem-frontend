@@ -2,13 +2,6 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -24,20 +17,15 @@ import { DateRangePicker } from "../date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
-import { useGetRegisters } from "@/hooks/useRegisters";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import { PaymentRun } from "@/actions/dividendPayments";
 import { PaginationBar } from "../pagination-bar";
 import StatusBadge from "../status-badge";
+import RegisterSelect from "../register-select";
 
 
 
 export const PaymentHistory = ({ tab }: { tab: string }) => {
-
-    const { data: activeRegisters } = useGetRegisters({
-        size: 100,
-        status: "ACTIVE",
-    });
 
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(20);
@@ -88,12 +76,13 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
             {
                 onSuccess: (data) => {
                     const blob = new Blob([data], {
-                        type: "application/pdf",
+                        // type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type: "text/csv;charset=utf-8;",
                     });
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `payment-run-receipt-${paymentRun?.ref || ""}.pdf`;
+                    a.download = `payment-run-receipt-${paymentRun?.ref || ""}.csv`;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
@@ -117,27 +106,8 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
             <Card className="mrpsl-card p-5">
                 <div className="flex gap-3 items-end flex-wrap">
                     {/* Register */}
-                    <div className="space-y-1.5">
-                        <label className="mrpsl-label">Register</label>
-                        <Select
-                            value={selectedRegister}
-                            onValueChange={(v) => {
-                                setSelectedRegister(v ?? "");
-                            }}
-                        >
-                            <SelectTrigger className="mrpsl-input">
-                                <SelectValue placeholder="All Registers" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="">All Registers</SelectItem>
-                                {activeRegisters?.content?.map((r) => (
-                                    <SelectItem key={r.registerId} value={r.symbol}>
-                                        {r.symbol}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+
+                    <RegisterSelect value={selectedRegister} onChange={(v) => setSelectedRegister(v)} label="REGISTER" />
 
 
                     {/* Date range */}

@@ -54,12 +54,23 @@ export interface ManualMarkoffRequest {
     submittedBy: string
 }
 
-export interface BulkWarrantMarkoffRequest {
+export interface EnblocWarrantMarkoffRequest {
     warrantIds: [
         string
     ],
     reason: string;
     submittedBy: string
+}
+export interface BulkWarrantMarkoffRequest {
+    rows: [
+        {
+            register: string,
+            dividendNumber: string,
+            accountNumber: string
+        }
+    ],
+    submittedBy: string,
+    reason: string
 }
 
 export interface BatchRequest {
@@ -137,7 +148,7 @@ export const getUnpaidWarrantMarkoff = async (params: WarrantMarkOffParams) => {
 
 
 //Submit en-bloc mark-off
-export const submitBulkWarrantMarkoff = async (data: BulkWarrantMarkoffRequest) => {
+export const submitEnblocWarrantMarkoff = async (data: EnblocWarrantMarkoffRequest) => {
     try {
         const res = await api.post<ApiResponse<WarrantStatusResponse>>(`/dividend/warrant-markoff/en-bloc`, data);
         return res.data;
@@ -146,6 +157,68 @@ export const submitBulkWarrantMarkoff = async (data: BulkWarrantMarkoffRequest) 
         throw new Error(returnErrorMessage(err));
     }
 };
+
+//Submit bulk warrant mark-off for approval
+export const submitBulkWarrantMarkoff = async (data: BulkWarrantMarkoffRequest) => {
+    try {
+        const res = await api.post<ApiResponse<{
+            submitted: number,
+            skipped: number,
+            total: number,
+            approvalRef: string,
+            errors: string[]
+        }>>(`/dividend/warrant-markoff/bulk/submit`, data);
+        return res.data;
+    } catch (error) {
+        const err = error as ErrorLike;
+        throw new Error(returnErrorMessage(err));
+    }
+};
+
+//Submit bulk warrant mark-off
+export const uploadBulkMarkoffFile = async (data: FormData) => {
+    try {
+        const res = await api.post<ApiResponse<{
+            totalRows: number,
+            matched: number,
+            unmatched: number,
+            rows: [
+                {
+                    rowNumber: number,
+                    register: string,
+                    dividendNumber: string,
+                    accountNumber: string,
+                    holderName: string,
+                    netAmount: number,
+                    status: string,
+                    reason: string
+                }
+            ]
+        }>>(`/dividend/warrant-markoff/bulk/preview`, data, {
+            headers: {
+                "Content-Type":
+                    "multipart/form-data",
+            },
+        });
+        return res.data;
+    } catch (error) {
+        const err = error as ErrorLike;
+        throw new Error(returnErrorMessage(err));
+    }
+};
+
+// Download template for bulk warrant mark-off
+export const downloadBulkMarkoffTemplate = async () => {
+    try {
+        const res = await api.get<ApiResponse<string>>(`/dividend/warrant-markoff/bulk/template`);
+        return res.data;
+    } catch (error) {
+        const err = error as ErrorLike;
+        throw new Error(returnErrorMessage(err));
+    }
+};
+
+
 
 
 // Batch reject mark-offs
