@@ -238,7 +238,7 @@ export function PreviewHolders({
                             <>
                                 <SelectItem value="All">All Registers</SelectItem>
                                 {activeRegisters?.content?.map((r) => (
-                                    <SelectItem key={r.registerId} value={r.registerId}>
+                                    <SelectItem key={r.registerId} value={r.symbol}>
                                         <span className="font-bold">{r.registerName}</span>{" "}
                                         -{" "}
                                         <span className="text-xs translate-y-0.5">{r.symbol}</span>

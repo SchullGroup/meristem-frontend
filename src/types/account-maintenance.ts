@@ -138,17 +138,21 @@ export interface ShareholderAccount {
 
   gender: string;
   holderType: string;
+  dob?: string;
+  nationality?: string;
 
   email: string;
   phone: string;
   phone2: string;
 
   address: string;
+  altAddress?: string;
   state: string;
 
   bvn: string;
   nin: string;
   chn: string;
+  tin?: string;
 
   bankName: string;
   bankAccountNumber: string;
@@ -158,6 +162,9 @@ export interface ShareholderAccount {
   status: string;
   cautionReason: string;
   noTax: boolean;
+
+  lastKycUpdate?: string;
+  updatedAt?: string;
 }
 
 export interface AccountListResponse {
@@ -201,10 +208,17 @@ export interface KycChange {
   authorisedBy: string;
   rejectionComment: string;
 
-  supportingDocUrl: string;
-
+  supportingDocuments: Array<{
+    name: string;
+    url: string;
+  }>;
   createdAt: string;
   decidedAt: string;
+
+  // Added for KYC Approvals Queue
+  priority?: string;
+  icuApprovedBy?: string;
+  reason?: string;
 }
 
 export interface KycFieldChange {
@@ -218,6 +232,7 @@ export interface CreateKycChangeRequest {
   supportingDocUrl?: string;
   supportingDocuments?: { name: string; url: string }[];
   initiatedBy: string;
+  reason?: string;
 }
 
 export interface KycDecisionRequest {

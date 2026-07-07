@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ArrowLeft, Download, Search, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
@@ -75,15 +75,9 @@ export function RejectedRightsTab() {
     page: listPage,
     pageSize: listPageSize,
     search: debouncedListSearch !== "" ? debouncedListSearch : undefined,
+    status: "PENDING_AUTH"
   });
 
-  // Filter for rejected declarations
-  const filteredList = useMemo(() => {
-    if (!rightsList?.content) return [];
-    return rightsList?.content.filter((r) => {
-      return r.status === "AUTH_REJECTED" || r.status === "ICU_REJECTED";
-    });
-  }, [rightsList?.content]);
 
   // Review mode details
   const {
@@ -217,12 +211,12 @@ export function RejectedRightsTab() {
             <div className="p-12 flex flex-col items-center justify-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground font-medium">
-                Loading rejected rights issues...
+                Loading rights declarations...
               </p>
             </div>
           ) : listError ? (
             <DataErrorState
-              message="Failed to load rejected rights issues"
+              message="Failed to load rights declarations"
               onRetry={refetchList}
             />
           ) : (
@@ -243,73 +237,73 @@ export function RejectedRightsTab() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filteredList.map((issue: RightsIssue) => {
-                    return (
-                      <tr key={issue.id} className="mrpsl-table-row">
-                        <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                          {issue.ref}
-                        </td>
-                        <td className="px-4 py-3 font-semibold">
-                          {issue.registerName}
-                        </td>
-                        <td className="px-4 py-3 text-sm">{issue.offerName}</td>
-                        <td className="px-4 py-3 text-muted-foreground text-[13px]">
-                          {issue.qualificationDate
-                            ? format(
+                  {rightsList?.content && rightsList?.content?.length > 0 ?
+                    rightsList?.content?.map((issue: RightsIssue) => {
+                      return (
+                        <tr key={issue.id} className="mrpsl-table-row">
+                          <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                            {issue.ref}
+                          </td>
+                          <td className="px-4 py-3 font-semibold">
+                            {issue.registerName}
+                          </td>
+                          <td className="px-4 py-3 text-sm">{issue.offerName}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-[13px]">
+                            {issue.qualificationDate
+                              ? format(
                                 new Date(issue.qualificationDate),
                                 "dd MMM yyyy",
                               )
-                            : "----"}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-right">
-                          {issue.totalEntitlements?.toLocaleString() || "0"}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-right text-red-600 font-semibold">
-                          {issue.totalEntitlements?.toLocaleString() || "0"}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-right">
-                          ₦{issue.totalAmount?.toLocaleString() || "0"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-[13px] font-medium">
-                            {issue.submittedByName}
-                          </div>
-                          <div className="text-[13px] text-muted-foreground">
-                            {issue.submittedAt
-                              ? formatDate(issue.submittedAt)
                               : "----"}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
-                            {issue.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setReviewingBatch(issue);
-                              setAuthPage(1);
-                            }}
-                          >
-                            Review
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {filteredList.length === 0 && (
+                          </td>
+                          <td className="px-4 py-3 font-mono text-right">
+                            {issue.totalEntitlements?.toLocaleString() || "0"}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-right text-red-600 font-semibold">
+                            {issue.totalEntitlements?.toLocaleString() || "0"}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-right">
+                            ₦{issue.totalAmount?.toLocaleString() || "0"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-[13px] font-medium">
+                              {issue.submittedByName}
+                            </div>
+                            <div className="text-[13px] text-muted-foreground">
+                              {issue.submittedAt
+                                ? formatDate(issue.submittedAt)
+                                : "----"}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
+                              {issue.status}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setReviewingBatch(issue);
+                                setAuthPage(1);
+                              }}
+                            >
+                              Review
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    }) :
                     <tr>
                       <td
                         colSpan={11}
                         className="px-4 py-12 text-center text-sm text-muted-foreground italic"
                       >
-                        No rejected rights declarations found.
+                        No rights declarations found.
                       </td>
                     </tr>
-                  )}
+                  }
                 </tbody>
               </table>
             </div>
@@ -317,7 +311,8 @@ export function RejectedRightsTab() {
 
           <PaginationBar
             page={listPage}
-            total={filteredList.length}
+            totalPages={rightsList?.pagination?.totalPages || 1}
+            total={rightsList?.pagination?.total || 0}
             pageSize={listPageSize}
             onPageChange={setListPage}
             onPageSizeChange={setListPageSize}

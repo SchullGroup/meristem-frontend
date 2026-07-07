@@ -46,9 +46,9 @@ export default function CreateRightsDeclaration() {
   const [newRightsIssue, setNewRightsIssue] = useState({
     registerId: "",
     issueName: "",
-    issuePrice: 0.01,
-    ratioNew: 1,
-    ratioExisting: 1,
+    issuePrice: "0.01",
+    ratioNew: "1",
+    ratioExisting: "2",
     allotmentDate: new Date(),
     closureDate: new Date(),
     qualificationDate: new Date(),
@@ -99,8 +99,8 @@ export default function CreateRightsDeclaration() {
     const payload: CreateRightsIssue = {
       registerId: newRightsIssue.registerId,
       offerName: newRightsIssue.issueName,
-      ratio: `${newRightsIssue.ratioNew}:${newRightsIssue.ratioExisting}`,
-      issuePrice: newRightsIssue.issuePrice,
+      ratio: `${newRightsIssue.ratioNew || "0"}:${newRightsIssue.ratioExisting || "0"}`,
+      issuePrice: Number(newRightsIssue.issuePrice) || 0,
       qualificationDate: format(newRightsIssue.qualificationDate, "yyyy-MM-dd"),
       closureDate: format(newRightsIssue.closureDate, "yyyy-MM-dd"),
       allotmentDate: format(newRightsIssue.allotmentDate, "yyyy-MM-dd"), // Default or add another field
@@ -126,9 +126,9 @@ export default function CreateRightsDeclaration() {
     setNewRightsIssue({
       registerId: "",
       issueName: "",
-      issuePrice: 0.01,
-      ratioNew: 1,
-      ratioExisting: 2,
+      issuePrice: "0.01",
+      ratioNew: "1",
+      ratioExisting: "2",
       allotmentDate: new Date(),
       closureDate: new Date(),
       qualificationDate: new Date(),
@@ -151,9 +151,9 @@ export default function CreateRightsDeclaration() {
         setNewRightsIssue({
           registerId: "",
           issueName: "",
-          issuePrice: 0.01,
-          ratioNew: 1,
-          ratioExisting: 2,
+          issuePrice: "0.01",
+          ratioNew: "1",
+          ratioExisting: "2",
           allotmentDate: new Date(),
           closureDate: new Date(),
           qualificationDate: new Date(),
@@ -231,29 +231,33 @@ export default function CreateRightsDeclaration() {
           <div className="flex items-center gap-3">
             <Input
               value={newRightsIssue.ratioNew}
-              onChange={(e) =>
-                setNewRightsIssue({
-                  ...newRightsIssue,
-                  ratioNew: +e.target.value,
-                })
-              }
-              min={1}
-              type="number"
-              defaultValue="1"
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "" || /^\d*$/.test(val)) {
+                  setNewRightsIssue({
+                    ...newRightsIssue,
+                    ratioNew: val,
+                  });
+                }
+              }}
+              type="text"
+              inputMode="numeric"
               className="w-20 font-mono mrpsl-input"
             />
             <span className="text-sm font-medium">for</span>
             <Input
               value={newRightsIssue.ratioExisting}
-              onChange={(e) =>
-                setNewRightsIssue({
-                  ...newRightsIssue,
-                  ratioExisting: +e.target.value,
-                })
-              }
-              min={1}
-              type="number"
-              defaultValue="2"
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "" || /^\d*$/.test(val)) {
+                  setNewRightsIssue({
+                    ...newRightsIssue,
+                    ratioExisting: val,
+                  });
+                }
+              }}
+              type="text"
+              inputMode="numeric"
               className="w-20 font-mono mrpsl-input"
             />
             <span className="text-sm text-muted-foreground ml-2 italic">
@@ -298,15 +302,17 @@ export default function CreateRightsDeclaration() {
             <label className="mrpsl-label">Issue Price (₦) *</label>
             <Input
               value={newRightsIssue.issuePrice}
-              type="number"
-              step="0.01"
-              min={0}
-              onChange={(e) =>
-                setNewRightsIssue({
-                  ...newRightsIssue,
-                  issuePrice: +e.target.value,
-                })
-              }
+              type="text"
+              inputMode="decimal"
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                  setNewRightsIssue({
+                    ...newRightsIssue,
+                    issuePrice: val,
+                  });
+                }
+              }}
               className="mrpsl-input font-mono"
             />
           </div>

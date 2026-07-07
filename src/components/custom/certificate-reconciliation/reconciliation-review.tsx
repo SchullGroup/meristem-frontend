@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ArrowLeft, HelpCircle, Loader2, Plus } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCheck, HelpCircle, Loader2, Plus, X } from "lucide-react";
 import { useGetReconciliations } from "@/hooks/useCscs";
 import { formatDate, formatNumber } from "@/lib/utils/format";
 import { CscsReconciliationRecord, ReconciliationFlaggedTransaction } from "@/types/cscs";
 import { PaginationBar } from "../pagination-bar";
 import DiscrepancyResolutionForm from "./discrepancy-resolution";
+import { CREATE_CSCS_TRANSACTION } from "@/actions/cscsActions";
+import { useStore } from "@/lib/store";
+import { useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { toast } from "sonner";
 
 
 export interface ReconciliationReviewProps {
@@ -19,6 +24,8 @@ export interface ReconciliationReviewProps {
 }
 
 export const ReconciliationView = ({ selectedTransaction, open, setOpen }: ReconciliationReviewProps) => {
+  const currentUser = useStore((s) => s.currentUser);
+  const queryClient = useQueryClient();
   const [mrpslPage, setMrpslPage] = useState(0);
   const [cscsPage, setCscsPage] = useState(0);
   const [mrpslPageSize, setMrpslPageSize] = useState(20);
@@ -27,6 +34,10 @@ export const ReconciliationView = ({ selectedTransaction, open, setOpen }: Recon
   // Add state for missing list pagination
   const [missingPage, setMissingPage] = useState(1);
   const [missingPageSize, setMissingPageSize] = useState(5); // default 5 items per page
+
+  // batch-insert state
+  const [isBatchInserting, setIsBatchInserting] = useState(false);
+  const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
 
   // open discrepancy modal
   const [selectedMissing, setSelectedMissing] = useState<CscsReconciliationRecord | null>(null)
@@ -45,6 +56,55 @@ export const ReconciliationView = ({ selectedTransaction, open, setOpen }: Recon
   const handleCloseModal = () => {
     setInsertModalOpen(false);
     setSelectedMissing(null);
+  };
+
+  /**
+   * Batch-insert all missing transactions in parallel.
+   * Uses Promise.all so that if ANY request fails the entire
+   * operation is treated as rolled back — no partial inserts are
+   * silently accepted.
+   */
+  const handleInsertAllMissing = async () => {
+    if (!currentUser) {
+      toast.error("Your session has expired. Please log in to continue.");
+      return;
+    }
+    if (!missingDataList.length) return;
+
+    setIsBatchInserting(true);
+    setBatchConfirmOpen(false);
+
+    const payloads = missingDataList.map((item) => ({
+      chn: selectedTransaction.chn,
+      register: selectedTransaction.register,
+      units: item.units,
+      transactionDate: format(new Date(item.transactionDate), "yyyy-MM-dd"),
+      transferNo: item.transferNo ?? "",
+      type: item.type,
+      transStatus: "PENDING" as const,
+      processedBy: currentUser.email,
+    }));
+
+    try {
+      await Promise.all(payloads.map((payload) => CREATE_CSCS_TRANSACTION(payload)));
+
+      // Invalidate relevant queries so the UI reflects the inserts
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-flagged-transactions"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["reconciliations"], exact: false });
+
+      toast.success(
+        `Successfully inserted ${missingDataList.length} missing transaction${missingDataList.length !== 1 ? "s" : ""}.`
+      );
+    } catch (err: any) {
+      // Any failure means we surface the error; Promise.all already
+      // rejected on the first failure so no further requests ran.
+      toast.error(
+        err?.message ||
+        "One or more inserts failed. No changes were saved — please try again."
+      );
+    } finally {
+      setIsBatchInserting(false);
+    }
   };
 
   // FETCH SIDE-BY-SIDE LEDGERS 
@@ -125,9 +185,51 @@ export const ReconciliationView = ({ selectedTransaction, open, setOpen }: Recon
 
       {/* DISCREPANCY IDENTIFICATION BLOCK (Renders isolated missingData values) */}
       <Card className="border border-red-200 bg-red-50/20 overflow-hidden shadow-sm">
-        <div className="px-4 py-2 bg-red-100/60 border-b border-red-200 text-xs font-bold uppercase tracking-wider text-red-800 flex items-center gap-1.5">
-          <HelpCircle className="h-3.5 w-3.5 text-red-600" />
-          Missing Transactions ({missingDataList.length})
+        <div className="px-4 py-2 bg-red-100/60 border-b border-red-200 text-xs font-bold uppercase tracking-wider text-red-800 flex items-center justify-between gap-1.5">
+          <span className="flex items-center gap-1.5">
+            <HelpCircle className="h-3.5 w-3.5 text-red-600" />
+            Missing Transactions ({missingDataList.length})
+          </span>
+
+          {/* Batch insert — two-step confirm to avoid accidental fires */}
+          {missingDataList.length > 1 && (
+            batchConfirmOpen ? (
+              <span className="flex items-center gap-1.5">
+                <span className="text-[11px] font-normal text-red-700 normal-case">Insert all {missingDataList.length} transactions?</span>
+                <Button
+                  size="sm"
+                  className="h-6 px-2 text-[11px] bg-red-600 hover:bg-red-700 text-white"
+                  disabled={isBatchInserting}
+                  onClick={handleInsertAllMissing}
+                >
+                  {isBatchInserting ? (
+                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Inserting...</>
+                  ) : (
+                    <><CheckCheck className="h-3 w-3 mr-1" />Confirm</>)}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-200"
+                  disabled={isBatchInserting}
+                  onClick={() => setBatchConfirmOpen(false)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-200 normal-case font-semibold"
+                disabled={isBatchInserting}
+                onClick={() => setBatchConfirmOpen(true)}
+              >
+                <CheckCheck className="h-3 w-3 mr-1" />
+                Insert All
+              </Button>
+            )
+          )}
         </div>
         <div className="p-3 bg-background divide-y divide-border/40 text-xs">
           {isLoadingLedger ? (

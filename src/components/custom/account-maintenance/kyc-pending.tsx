@@ -164,6 +164,7 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
                 setSelectedIds(new Set());
                 setRejectComment("");
                 refetchPending();
+                queryClient.invalidateQueries({ queryKey: ["accounts"] });
             },
 
 
@@ -320,6 +321,7 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
                 if (!open) {
                     queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
                     queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+                    queryClient.invalidateQueries({ queryKey: ["accounts"] });
                 }
             }}
             selected={selectedChange}

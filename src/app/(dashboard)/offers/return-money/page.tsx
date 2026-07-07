@@ -4,38 +4,32 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RejectedRightsTab } from "@/components/custom/ipo/return-money/rejected-rights";
 import { RejectedBonusesTab } from "@/components/custom/ipo/return-money/rejected-bonuses";
-import { InvalidAccountsTab } from "@/components/custom/ipo/return-money/invalid-accounts";
-import { DisapprovedAccountsTab } from "@/components/custom/ipo/return-money/disapproved-accounts";
-import { Coins, FileText, AlertTriangle, Ban } from "lucide-react";
+import { Coins, FileText, RefreshCcw } from "lucide-react";
+import { IPOBatchSubscribersTab } from "@/components/custom/ipo/return-money/ipo-batch-subscribers-tab";
 
 export default function ReturnMoneyPage() {
-  const [activeTab, setActiveTab] = useState("rejected-rights");
+  const [activeTab, setActiveTab] = useState("refund-rights");
 
   const tabsConfig = [
     {
-      id: "rejected-rights",
-      label: "Rejected Rights",
+      id: "refund-rights",
+      label: "Refund Rights",
       icon: FileText,
       component: RejectedRightsTab,
     },
     {
-      id: "rejected-bonuses",
-      label: "Rejected Bonuses",
+      id: "refund-bonuses",
+      label: "Refund Bonuses",
       icon: Coins,
       component: RejectedBonusesTab,
     },
     {
-      id: "disapproved-accounts",
-      label: "Disapproved Accounts",
-      icon: Ban,
-      component: DisapprovedAccountsTab,
+      id: "refund-eligible",
+      label: "Refund Eligible Subscribers",
+      icon: RefreshCcw,
+      component: IPOBatchSubscribersTab,
     },
-    {
-      id: "invalid-accounts",
-      label: "Invalid Accounts",
-      icon: AlertTriangle,
-      component: InvalidAccountsTab,
-    },
+
   ];
 
   return (
@@ -52,7 +46,7 @@ export default function ReturnMoneyPage() {
 
       {/* Tabs Layout */}
       <Tabs
-        defaultValue="rejected-rights"
+        defaultValue="refund-rights"
         value={activeTab}
         onValueChange={setActiveTab}
         className="w-full space-y-4"
@@ -76,7 +70,7 @@ export default function ReturnMoneyPage() {
         {tabsConfig.map((tab) => {
           const TabComponent = tab.component;
           return (
-            <TabsContent key={tab.id} value={tab.id} className="outline-none">
+            <TabsContent key={tab.id} value={tab.id} className="outline-none text-sm sm:text-lg">
               <TabComponent />
             </TabsContent>
           );

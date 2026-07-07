@@ -87,3 +87,9 @@ export function formatDate(dateString: any) {
 
   return `${year}-${month}-${day}`;
 }
+
+export const openFileInNewWindow = (file: File) => {
+  const url = URL.createObjectURL(file);
+  window.open(url, "_blank");
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};

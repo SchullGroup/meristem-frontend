@@ -38,6 +38,7 @@ import {
 } from "@/actions/divNewMandate";
 import { GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS } from "@/actions/divDeclarationActions";
 import { useStore } from "@/lib/store";
+import { formatDate } from "@/lib/utils/format";
 
 type MandateApproval = {
   id: string;
@@ -357,7 +358,7 @@ export default function NewMandatePage() {
   function toggleIcuAppr(id: string) {
     setIcuApprIds((prev) => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) { n.delete(id) } else { n.add(id) };
       return n;
     });
   }
@@ -845,12 +846,12 @@ export default function NewMandatePage() {
                             />
                           </td>
                           <td className="p-3 text-muted-foreground">
-                            {row.date}
+                            {formatDate(row.submittedDate)}
                           </td>
-                          <td className="p-3 font-mono">{row.account}</td>
+                          <td className="p-3 font-mono">{row.accountNumber}</td>
                           <td className="p-3 font-medium">{row.holderName}</td>
                           <td className="p-3">{row.newBank}</td>
-                          <td className="p-3 font-mono">{row.accountNumber}</td>
+                          <td className="p-3 font-mono">{row.newAccountNumber}</td>
                           <td className="p-3 font-mono text-muted-foreground">
                             {row.dividendNumber}
                           </td>
@@ -1231,13 +1232,12 @@ export default function NewMandatePage() {
                   {approvalChainSteps(selected, isIcu).map((step, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${
-                          step.done
-                            ? "bg-green-100"
-                            : step.pending
-                              ? "bg-amber-200 animate-pulse"
-                              : "border-2 border-muted bg-background"
-                        }`}
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done
+                          ? "bg-green-100"
+                          : step.pending
+                            ? "bg-amber-200 animate-pulse"
+                            : "border-2 border-muted bg-background"
+                          }`}
                       >
                         {step.done && (
                           <Check className="h-3 w-3 text-green-600" />
