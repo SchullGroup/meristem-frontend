@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -69,6 +70,7 @@ export default function CurrencyParameters({
       code: c.code,
       name: c.name,
       symbol: c.symbol,
+      exchangeRate: c.exchangeRate,
     });
     setCurrNote("");
     setCurrOpen(true);
@@ -82,6 +84,7 @@ export default function CurrencyParameters({
           code: pickedCurr.code,
           name: pickedCurr.name,
           symbol: pickedCurr.symbol,
+          exchangeRate: pickedCurr.exchangeRate,
           reasonForChange: currNote || "Added new currency",
         },
         {
@@ -101,6 +104,7 @@ export default function CurrencyParameters({
             code: pickedCurr.code,
             name: pickedCurr.name,
             symbol: pickedCurr.symbol,
+            exchangeRate: pickedCurr.exchangeRate,
             reasonForChange: currNote || "Updated currency",
           },
         },
@@ -138,6 +142,7 @@ export default function CurrencyParameters({
               <th className="px-5 py-3">Name</th>
               <th className="px-5 py-3">Code</th>
               <th className="px-5 py-3">Symbol</th>
+              <th className="px-5 py-3 text-right">Rate</th>
               <th className="px-5 py-3 text-right">Actions</th>
             </tr>
           </thead>
@@ -155,6 +160,9 @@ export default function CurrencyParameters({
                     <Skeleton className="h-8 w-10" />
                   </td>
                   <td className="px-5 py-3 text-right">
+                    <Skeleton className="h-6 w-12 ml-auto" />
+                  </td>
+                  <td className="px-5 py-3 text-right">
                     <Skeleton className="h-8 w-16 ml-auto" />
                   </td>
                 </tr>
@@ -162,7 +170,7 @@ export default function CurrencyParameters({
             ) : currencies.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={5}
                   className="px-5 py-10 text-center text-muted-foreground"
                 >
                   No currencies found.
@@ -181,6 +189,9 @@ export default function CurrencyParameters({
                     <div className="h-8 w-10 rounded-lg border border-border/60 flex items-center justify-center font-bold text-sm bg-muted/30">
                       {cur.symbol}
                     </div>
+                  </td>
+                  <td className="px-5 py-3 text-right font-mono text-sm">
+                    {cur.exchangeRate ?? "-"}
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center gap-1 justify-end">
@@ -265,6 +276,16 @@ export default function CurrencyParameters({
                       read-only
                     </span>
                   </div>
+                </div>
+                <div className="space-y-1.5 col-span-2">
+                  <label className={labelClass}>Exchange Rate</label>
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    placeholder="Enter exchange rate (e.g. 1.0)"
+                    value={pickedCurr.exchangeRate ?? ""}
+                    onChange={(e) => setPickedCurr(prev => prev ? { ...prev, exchangeRate: parseFloat(e.target.value) || undefined } : null)}
+                  />
                 </div>
               </div>
             )}

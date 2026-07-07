@@ -7,6 +7,7 @@ export interface Currency {
   code: string;
   name: string;
   symbol: string;
+  exchangeRate?: number;
   reasonForChange: string;
   createdAt: string;
   updatedAt: string;
@@ -16,6 +17,7 @@ export interface CreateCurrencyPayload {
   code: string;
   name: string;
   symbol: string;
+  exchangeRate?: number;
   reasonForChange: string;
 }
 
@@ -23,6 +25,7 @@ export interface UpdateCurrencyPayload {
   code: string;
   name: string;
   symbol: string;
+  exchangeRate?: number;
   reasonForChange: string;
 }
 
