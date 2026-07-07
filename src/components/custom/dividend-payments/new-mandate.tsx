@@ -15,9 +15,9 @@ import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useBatchPushMandateQueueToNibss, useGetDividendDeclarations, useGetMandatePayments, usePushMandateQueueToNibss } from "@/hooks/useDividendPayment";
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
-import { useGetRegisters } from "@/hooks/useRegisters";
 import { formatNumber } from "@/lib/utils/format";
 import { PaginationBar } from "../pagination-bar";
+import RegisterSelect from "../register-select";
 
 const statusBadge = (status: string) => {
     if (status === "PAID")
@@ -48,11 +48,6 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
     // const [mandateStatus, setMandateStatus] = useState("all");
     const [mandateSelIds, setMandateSelIds] = useState<Set<string>>(new Set());
 
-    const { data: activeRegisters } = useGetRegisters({
-        size: 100,
-        status: "ACTIVE",
-    });
-
     const { data: dividendNumbersData } = useGetDividendDeclarations({
         size: 100,
     });
@@ -70,7 +65,6 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
     const total = mandateData?.data?.totalElements || 0;
     const totalPages = mandateData?.data?.totalPages || 1;
 
-    const registers = activeRegisters?.content || [];
     const dividendNumbers = dividendNumbersData?.data?.content || [];
 
     const singlePushToNibssMutation = usePushMandateQueueToNibss();
@@ -90,7 +84,10 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
     };
 
     const batchPushToNibss = () => {
-        if (!mandateSelIds.size) return toast.error("Select records to push");
+        if (!mandateSelIds.size) {
+            toast.error("Select records to push");
+            return;
+        };
 
 
         batchPushToNibssMutation.mutate({
@@ -107,7 +104,10 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
     };
 
     const pushToNibss = (id: string) => {
-        if (!id) return toast.error("Invalid record ID");
+        if (!id) {
+            toast.error("Invalid record ID");
+            return;
+        };
 
         singlePushToNibssMutation.mutate(
             Number(id)
@@ -133,45 +133,35 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
     return (
         <>
             <div className="flex gap-3 items-end flex-wrap">
-                <Select
-                    value={mandateRegister}
-                    onValueChange={(v) => {
-                        setMandateRegister(v ?? "");
-                        setPage(0);
-                    }}
-                >
-                    <SelectTrigger className="w-48 mrpsl-input">
-                        <SelectValue placeholder="All Registers" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="">All Registers</SelectItem>
-                        {registers.map((r) => (
-                            <SelectItem key={r.registerId} value={r.symbol}>
-                                {r.symbol}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
 
-                <Select
-                    value={mandateDividend}
-                    onValueChange={(v) => {
-                        setMandateDividend(v ?? "");
-                        setPage(0);
-                    }}
-                >
-                    <SelectTrigger className="w-48 mrpsl-input">
-                        <SelectValue placeholder="All Dividends" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="">All Dividends</SelectItem>
-                        {dividendNumbers.map((d) => (
-                            <SelectItem key={d.paymentNumber} value={d.paymentNumber}>
-                                {d.paymentNumber}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+
+                <RegisterSelect value={mandateRegister} onChange={(val) => { setMandateRegister(val); setPage(0) }}
+                    label="Registers"
+
+                />
+
+                <div className="space-y-1 5">
+                    <label className="mrpsl-label">Dividend Number</label>
+                    <Select
+                        value={mandateDividend}
+                        onValueChange={(v) => {
+                            setMandateDividend(v ?? "");
+                            setPage(0);
+                        }}
+                    >
+                        <SelectTrigger className="w-48 mrpsl-input">
+                            <SelectValue placeholder="All Dividends" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">All Dividends</SelectItem>
+                            {dividendNumbers.map((d) => (
+                                <SelectItem key={d.paymentNumber} value={d.paymentNumber}>
+                                    {d.paymentNumber}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select></div>
+
 
                 {/* <Select
                     value={mandateStatus}

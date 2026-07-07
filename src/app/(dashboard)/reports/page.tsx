@@ -1,4 +1,4 @@
-"use client"
+"use client";
 // pages/ReportsPage.tsx
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { useGetReportMetadata, useRunReport } from "@/hooks/useReports";
 import { ReportsSidebar } from "@/components/custom/reports/report-sidebar";
 import { ReportFilters } from "@/components/custom/reports/report-filters";
 import { ReportTable } from "@/components/custom/reports/report-table";
+import { toast } from "sonner";
 
 const buildCleanedFilters = (filterValues: Record<string, any>) => {
   const cleaned: Record<string, any> = {};
@@ -24,7 +25,9 @@ const buildCleanedFilters = (filterValues: Record<string, any>) => {
 
 export default function ReportsPage() {
   // ─── state ─────────────────────────────────────────────
-  const [selectedReportCode, setSelectedReportCode] = useState<string | null>(null);
+  const [selectedReportCode, setSelectedReportCode] = useState<string | null>(
+    null,
+  );
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
@@ -32,12 +35,12 @@ export default function ReportsPage() {
   const [totalElements, setTotalElements] = useState(0);
   const [isGenerated, setIsGenerated] = useState(false);
 
-  // ─── data fetching 
+  // ─── data fetching
   const { data: meta } = useGetReportMetadata(selectedReportCode ?? "", {
     enabled: !!selectedReportCode,
   });
 
-  // ─── reset when report changes 
+  // ─── reset when report changes
 
   useEffect(() => {
     //eslint-disable-next-line
@@ -49,7 +52,6 @@ export default function ReportsPage() {
     setIsGenerated(false);
   }, [selectedReportCode]);
 
-
   // ─── run report mutation (sync) ────────────────────────
   const runReportMutation = useRunReport({
     onSuccess: (response) => {
@@ -57,6 +59,12 @@ export default function ReportsPage() {
       setTableData(payload.rows ?? []);
       setTotalElements(payload.totalRecords ?? 0);
       setIsGenerated(true);
+    },
+    onError: (error) => {
+      setTableData([]);
+      setTotalElements(0);
+      setIsGenerated(false);
+      toast.error(error?.message || "Failed to run report. Please try again.");
     },
   });
 
@@ -77,7 +85,7 @@ export default function ReportsPage() {
   const reportDefinition = meta?.data;
   const availableFormats = reportDefinition?.availableFormats ?? [];
 
-  console.log(selectedReportCode)
+  console.log(selectedReportCode);
   // ─── UI ────────────────────────────────────────────────
   return (
     <div className="flex h-[calc(100vh-3.5rem-1px)] -m-6">
@@ -157,7 +165,15 @@ export default function ReportsPage() {
 }
 
 // Small helper
-function EmptyState({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+}) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
       {icon}

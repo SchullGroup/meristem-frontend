@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { UserForm } from "@/components/custom/user-form";
 import { Button } from "@/components/ui/button";
@@ -56,8 +57,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRoles } from "@/hooks/useRoles";
 
 export default function UsersPage() {
+  const router = useRouter();
+  const { currentUser, users, setUsers } = useStore();
+  const isSuperAdmin = currentUser?.roles?.includes("SUPER_ADMIN") ?? false;
+
+  useEffect(() => {
+    if (currentUser && !isSuperAdmin) {
+      toast.error("You do not have permission to access this page.");
+      router.replace("/");
+    }
+  }, [currentUser, isSuperAdmin, router]);
+
   const queryClient = useQueryClient();
-  const { users, setUsers } = useStore();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [deptFilter, setDeptFilter] = useState("All");

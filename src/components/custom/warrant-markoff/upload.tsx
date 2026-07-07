@@ -7,84 +7,149 @@ import {
   Download,
   CheckCircle2,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
-
-const BULK_PREVIEW_ROWS = [
-  {
-    register: "DANGCEM",
-    dividend: "DIV-2025-001",
-    account: "DANGCEM-10029",
-    holder: "Adaeze Okonkwo",
-    matched: true,
-  },
-  {
-    register: "DANGCEM",
-    dividend: "DIV-2025-001",
-    account: "DANGCEM-10045",
-    holder: "Lukman Bello",
-    matched: true,
-  },
-  {
-    register: "ZENITH",
-    dividend: "DIV-2025-001",
-    account: "ZENITH-9921",
-    holder: "Fatima Abdullahi",
-    matched: true,
-  },
-  {
-    register: "DANGCEM",
-    dividend: "DIV-2025-002",
-    account: "DANGCEM-99999",
-    holder: "—",
-    matched: false,
-  },
-];
+import { cn } from "@/lib/utils";
+import {
+  useDownloadBulkMarkoffTemplate,
+  useSubmitBulkWarrantMarkoff,
+  useUploadBulkMarkoffFile,
+} from "@/hooks/useWarrantMarkoff";
 
 export default function UploadMarkoff() {
-  const { currentUser, addApprovalItem } = useStore();
+  const currentUser = useStore((state) => state.currentUser);
   const [bulkFileName, setBulkFileName] = useState("");
   const [bulkParsed, setBulkParsed] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  function downloadBulkTemplate() {
-    const csv = [
-      "register_id,dividend_number,shareholder_account_number",
-      "DANGCEM,DIV-2025-001,DANGCEM-10029",
-    ].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "markoff_upload_template.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  // States for response data
+  const [previewRows, setPreviewRows] = useState<any[]>([]);
+  const [matchedCount, setMatchedCount] = useState(0);
+  const [unmatchedCount, setUnmatchedCount] = useState(0);
 
-  function handleBulkSubmit() {
-    const matched = BULK_PREVIEW_ROWS.filter((r) => r.matched).length;
-    const seq = Math.floor(1000 + Math.random() * 9000);
-    addApprovalItem({
-      id: `APPR-BULK-MARKOFF-${seq}`,
-      module: "DIVIDENDS",
-      transactionType: "Bulk Mark-Off",
-      description: `Bulk mark-off upload — ${bulkFileName} · ${matched} matched records`,
-      tier: 1,
-      entityId: `BULK-MO-${seq}`,
-      initiatorId: currentUser?.id ?? "USR-0001",
-      initiatorName: currentUser
-        ? `${currentUser.firstName} ${currentUser.lastName}`
-        : "System",
-      submittedAt: new Date().toISOString(),
-      status: "PENDING",
-      approvalSteps: [],
-      payload: { file: bulkFileName, matchedRows: matched },
+  // Hooks
+  const downloadTemplateMutation = useDownloadBulkMarkoffTemplate();
+  const uploadFileMutation = useUploadBulkMarkoffFile();
+  const submitMarkoffMutation = useSubmitBulkWarrantMarkoff();
+
+  const handleDownloadTemplate = () => {
+    downloadTemplateMutation.mutate(undefined, {
+      onSuccess: (response) => {
+        const fileContent = typeof response === "string" ? response : (response as any)?.data;
+        if (!fileContent) {
+          toast.error("Template is empty");
+          return;
+        }
+
+        let blob: Blob;
+        if (fileContent.startsWith("data:")) {
+          const a = document.createElement("a");
+          a.href = fileContent;
+          a.download = "warrant_markoff_template.csv";
+          a.click();
+          return;
+        } else {
+          blob = new Blob([fileContent], { type: "text/csv;charset=utf-8;" });
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "warrant_markoff_template.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Template downloaded successfully");
+      },
+      onError: (err) => {
+        toast.error(err.message || "Failed to download template");
+      },
     });
-    toast.success(`${matched} mark-off records submitted to approvals queue.`);
-    setBulkFileName("");
-    setBulkParsed(false);
-  }
+  };
+
+  const processFile = (file: File) => {
+    setBulkFileName(file.name);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    uploadFileMutation.mutate(formData, {
+      onSuccess: (res) => {
+        const data = res.data;
+        if (data) {
+          setPreviewRows(data.rows || []);
+          setMatchedCount(data.matched || 0);
+          setUnmatchedCount(data.unmatched || 0);
+          setBulkParsed(true);
+          toast.success("File parsed successfully");
+        }
+      },
+      onError: (err) => {
+        toast.error(err.message || "Failed to parse file");
+        setBulkFileName("");
+        setBulkParsed(false);
+        setPreviewRows([]);
+      },
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+    e.target.value = "";
+  };
+
+  const handleBulkSubmit = () => {
+    const matchedRows = previewRows.filter(
+      (r) =>
+        r.status?.toUpperCase() === "MATCHED" ||
+        r.status?.toUpperCase() === "SUCCESS"
+    );
+
+    if (matchedRows.length === 0) {
+      toast.error("No matched records to submit");
+      return;
+    }
+
+    const payload = {
+      rows: matchedRows.map((r) => ({
+        register: r.register,
+        dividendNumber: r.dividendNumber,
+        accountNumber: r.accountNumber,
+      })),
+      submittedBy: currentUser?.email || "system",
+      reason: `Bulk warrant mark-off upload: ${bulkFileName}`,
+    };
+
+    submitMarkoffMutation.mutate(payload as any, {
+      onSuccess: (res) => {
+        toast.success(
+          `Successfully submitted ${res.data?.submitted || matchedRows.length} records for approval.`
+        );
+        // Clear state
+        setBulkFileName("");
+        setBulkParsed(false);
+        setPreviewRows([]);
+        setMatchedCount(0);
+        setUnmatchedCount(0);
+      },
+      onError: (err) => {
+        toast.error(err.message || "Failed to submit records");
+      },
+    });
+  };
+
+  const isRowMatched = (row: any) => {
+    return (
+      row.status?.toUpperCase() === "MATCHED" ||
+      row.status?.toUpperCase() === "SUCCESS" ||
+      row.matched === true
+    );
+  };
 
   return (
     <div>
@@ -113,45 +178,77 @@ export default function UploadMarkoff() {
               variant="outline"
               size="sm"
               className="gap-2 shrink-0"
-              onClick={downloadBulkTemplate}
+              disabled={downloadTemplateMutation.isPending}
+              onClick={handleDownloadTemplate}
             >
-              <Download className="h-4 w-4" /> Download Template
+              {downloadTemplateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Download Template
             </Button>
           </div>
 
-          <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border rounded-xl py-10 cursor-pointer hover:bg-muted/30 transition-colors">
-            <Upload className="h-8 w-8 text-muted-foreground opacity-40" />
-            {bulkFileName ? (
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">
-                  {bulkFileName}
-                </p>
-                <p className="text-[13px] text-muted-foreground mt-0.5">
-                  Click to replace
-                </p>
+          <label
+            className={cn(
+              "flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border rounded-xl py-10 cursor-pointer hover:bg-muted/30 transition-colors",
+              isDragging && "border-primary bg-primary/5 text-primary"
+            )}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) {
+                const ext = file.name.split(".").pop()?.toLowerCase();
+                if (ext !== "csv" && ext !== "xlsx") {
+                  toast.error("Please upload a CSV or Excel (.xlsx) file");
+                  return;
+                }
+                processFile(file);
+              }
+            }}
+          >
+            {uploadFileMutation.isPending ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm font-medium text-foreground">Parsing file...</p>
               </div>
             ) : (
-              <div className="text-center">
-                <p className="text-sm font-medium text-foreground">
-                  Click to upload or drag &amp; drop
-                </p>
-                <p className="text-[13px] text-muted-foreground mt-0.5">
-                  .xlsx or .csv files only
-                </p>
-              </div>
+              <>
+                <Upload className="h-8 w-8 text-muted-foreground opacity-40" />
+                {bulkFileName ? (
+                  <div className="text-center">
+                    <p className="text-sm font-semibold text-foreground">
+                      {bulkFileName}
+                    </p>
+                    <p className="text-[13px] text-muted-foreground mt-0.5">
+                      Click to replace
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-foreground">
+                      Click to upload or drag &amp; drop
+                    </p>
+                    <p className="text-[13px] text-muted-foreground mt-0.5">
+                      .xlsx or .csv files only
+                    </p>
+                  </div>
+                )}
+              </>
             )}
             <input
               type="file"
               accept=".xlsx,.csv"
               className="sr-only"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setBulkFileName(file.name);
-                  setBulkParsed(true);
-                }
-                e.target.value = "";
-              }}
+              disabled={uploadFileMutation.isPending}
+              onChange={handleFileChange}
             />
           </label>
         </Card>
@@ -163,11 +260,10 @@ export default function UploadMarkoff() {
               <div>
                 <p className="font-semibold text-sm">Upload Preview</p>
                 <p className="text-[13px] text-muted-foreground mt-0.5">
-                  {BULK_PREVIEW_ROWS.filter((r) => r.matched).length} matched ·{" "}
-                  {BULK_PREVIEW_ROWS.filter((r) => !r.matched).length} unmatched
+                  {matchedCount} matched · {unmatchedCount} unmatched
                 </p>
               </div>
-              {BULK_PREVIEW_ROWS.some((r) => !r.matched) && (
+              {unmatchedCount > 0 && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[13px] text-amber-800">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   Unmatched rows will be skipped
@@ -187,41 +283,49 @@ export default function UploadMarkoff() {
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
-                  {BULK_PREVIEW_ROWS.map((row, i) => (
-                    <tr
-                      key={i}
-                      className={`mrpsl-table-row ${row.matched ? "" : "bg-red-50/40"}`}
-                    >
-                      <td className="p-3 font-mono">{row.register}</td>
-                      <td className="p-3 text-muted-foreground">
-                        {row.dividend}
-                      </td>
-                      <td className="p-3 font-mono">{row.account}</td>
-                      <td className="p-3 font-medium">{row.holder}</td>
-                      <td className="p-3">
-                        {row.matched ? (
-                          <span className="inline-flex items-center gap-1.5 text-green-700 font-medium">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Matched
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-red-600 font-medium">
-                            <AlertCircle className="h-3.5 w-3.5" /> No match
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {previewRows.map((row, i) => {
+                    const matched = isRowMatched(row);
+                    return (
+                      <tr
+                        key={i}
+                        className={`mrpsl-table-row ${matched ? "" : "bg-red-50/40"}`}
+                      >
+                        <td className="p-3 font-mono">{row.register}</td>
+                        <td className="p-3 text-muted-foreground">
+                          {row.dividendNumber}
+                        </td>
+                        <td className="p-3 font-mono">{row.accountNumber}</td>
+                        <td className="p-3 font-medium">{row.holderName || "—"}</td>
+                        <td className="p-3">
+                          {matched ? (
+                            <span className="inline-flex items-center gap-1.5 text-green-700 font-medium">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Matched
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-red-600 font-medium" title={row.reason}>
+                              <AlertCircle className="h-3.5 w-3.5" /> No match
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </Card>
 
             <Button
               className="w-full"
-              disabled={BULK_PREVIEW_ROWS.filter((r) => r.matched).length === 0}
+              disabled={matchedCount === 0 || submitMarkoffMutation.isPending}
               onClick={handleBulkSubmit}
             >
-              Submit {BULK_PREVIEW_ROWS.filter((r) => r.matched).length} Records
-              for Approval
+              {submitMarkoffMutation.isPending ? (
+                <span className="flex items-center gap-2 justify-center">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Submitting...
+                </span>
+              ) : (
+                `Submit ${matchedCount} Records for Approval`
+              )}
             </Button>
           </div>
         )}

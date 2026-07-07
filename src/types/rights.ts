@@ -75,7 +75,7 @@ export interface Shareholder {
 export interface RightsIssueParams {
   id?: string;
   registerId?: string;
-  status?: string;
+  status?: string | "PENDING_AUTH" | "DRAFT" | "ICU_REJECTED" | "AUTH_REJECTED" | "ICU_APPROVED" | "PENDING_ICU" | "ALLOTTED" | "LODGED";
   search?: string;
   page?: number;
   pageSize?: number;

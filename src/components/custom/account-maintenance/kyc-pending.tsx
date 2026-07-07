@@ -84,9 +84,9 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
         },
         { enabled: !!selectedShareholder && tab === "pending" }
     );
-    const pendingChanges = pendingKycData?.data?.data || [];
-    const pendingTotal = pendingKycData?.data?.total || 0;
-    const pendingTotalPages = pendingKycData?.data?.totalPages || 1;
+    const pendingChanges = pendingKycData?.data || [];
+    const pendingTotal = pendingKycData?.total || 0;
+    const pendingTotalPages = pendingKycData?.totalPages || 1;
 
 
 
@@ -164,6 +164,7 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
                 setSelectedIds(new Set());
                 setRejectComment("");
                 refetchPending();
+                queryClient.invalidateQueries({ queryKey: ["accounts"] });
             },
 
 
@@ -320,6 +321,7 @@ export default function PendingKYC({ tab, setTab, selectedShareholder }: Pending
                 if (!open) {
                     queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
                     queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+                    queryClient.invalidateQueries({ queryKey: ["accounts"] });
                 }
             }}
             selected={selectedChange}
