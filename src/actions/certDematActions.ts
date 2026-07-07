@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 const getXUserHeader = () => {
   const currentUser = useStore.getState().currentUser;
   return {
-    "X-User": currentUser?.username || `${currentUser?.email}` || "ADMIN",
+    "X-User": currentUser?.email,
   };
 };
 
@@ -33,7 +33,8 @@ export interface DematParams {
 export interface Certificate {
   id: string; // uuid
   dematRecord: string;
-  certNo: string;
+  certNo?: string;
+  certNumber?: string;
   units: number;
   certDate: string; // date (ISO format YYYY-MM-DD)
 }

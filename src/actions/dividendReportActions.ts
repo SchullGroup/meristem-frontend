@@ -248,7 +248,15 @@ export const getDeclarationSummaryReport = async (
 // GET ALL DIVIDEND NUMBERS (BELONGS IN DIVIDEND DECLARATION ACTIONS)
 export const getDividendNumbers = async (params?: {
   registerId?: string;
-  status?: string;
+  status?:
+    | "DRAFT"
+    | "PENDING_TIER2"
+    | "PENDING_TIER3"
+    | "PENDING_TIER4"
+    | "AUTHORIZED"
+    | "PAID"
+    | "REJECTED"
+    | "RECALLED";
 }) => {
   try {
     const res = await api.get<ApiResponse<string[]>>(

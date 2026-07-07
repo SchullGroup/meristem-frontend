@@ -32,7 +32,7 @@ export function AllotmentDetailsView({
   allotReviewing,
 }: AllotmentDetailsViewProps) {
   // Page size & local paging/tab states
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [allotTab, setAllotTab] = useState<
     "approved" | "disapproved" | "invalid"
   >("approved");
@@ -76,20 +76,14 @@ export function AllotmentDetailsView({
     if (!outreachShareholders?.content) return [];
 
     return outreachShareholders.content.map((s) => {
-      const parts = s.shareholderName
-        ? s.shareholderName.trim().split(/\s+/)
-        : [""];
-      const firstName = parts[0] || "";
-      const lastName = parts.slice(1).join(" ") || "";
+
       return {
         id: s?.shareholderId,
         accountNumber: s?.accountNumber,
-        firstName,
-        lastName,
-        address: s?.address || "No address on record",
+        name: s?.shareholderName,
+        address: s?.address || "No address on record Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?",
         // state: s?.state || "---",
-        state: "---",
-        holdings: 0,
+        // holdings: 0,
       };
     });
   }, [outreachShareholders]);
@@ -178,9 +172,15 @@ export function AllotmentDetailsView({
             onClick={() => "tab" in s && s.tab && setAllotTab(s.tab)}
           >
             <div className="mrpsl-section-title">{s.label}</div>
-            <div className={cn("text-xl font-mono font-bold mt-1", s.color)}>
-              {s.value}
-            </div>
+            {allotmentLoading ? (
+              <div className="h-6 w-24 bg-muted rounded-lg animate-pulse"></div>
+            ) : (
+              <div
+                className={cn("text-xl font-mono font-bold mt-1", s.color)}
+              >
+                {s.value}
+              </div>
+            )}
           </Card>
         ))}
       </div>
@@ -193,7 +193,7 @@ export function AllotmentDetailsView({
               key={t}
               onClick={() => {
                 setAllotTab(t);
-                setAllotPage(1);
+                setAllotPage(0);
               }}
               className={cn(
                 "px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors capitalize",
@@ -417,16 +417,14 @@ export function AllotmentDetailsView({
       />
 
       <EmailPreviewModal
+        mode="right"
         open={emailPreviewOpen}
         onOpenChange={setEmailPreviewOpen}
         offerType="rights"
-        companyName={
-          allotReviewing.registerName ||
-          "Neimeth International Pharmaceuticals Plc"
-        }
+        companyName={allotReviewing?.registerName ?? ""}
         issueId={allotReviewing?.id}
         offerName={allotReviewing.offerName || "Rights Issue"}
-        ratio={allotReviewing.ratio || "1 : 7"}
+        ratio={allotReviewing.ratio}
         closeDate={
           allotReviewing.closureDate
             ? format(new Date(allotReviewing.closureDate), "dd MMM yyyy")

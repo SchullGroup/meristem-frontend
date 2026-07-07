@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
     Select,
@@ -11,30 +11,13 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Download, Play, Eye, RotateCcw, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useStore } from "@/lib/store";
-import { usePagination } from "@/lib/use-pagination";
-import { TablePagination } from "@/components/custom/table-pagination";
-import { useBatchPushMandateQueueToNibss, useDownloadPaymentRunReceipt, useGetDividendDeclarations, useGetMandatePayments, useListPaymentRuns, usePushMandateQueueToNibss } from "@/hooks/useDividendPayment";
-import { DateRangePicker } from "../date-range-picker";
-import { DateRange } from "react-day-picker";
-import { format } from "date-fns";
+import { useBatchPushMandateQueueToNibss, useGetDividendDeclarations, useGetMandatePayments, usePushMandateQueueToNibss } from "@/hooks/useDividendPayment";
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { useGetRegisters } from "@/hooks/useRegisters";
-import { formatDate, formatNumber } from "@/lib/utils/format";
+import { formatNumber } from "@/lib/utils/format";
 import { PaginationBar } from "../pagination-bar";
-import { PaymentRun } from "@/actions/dividendPayments";
 
 const statusBadge = (status: string) => {
     if (status === "PAID")
@@ -85,7 +68,7 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
 
     const filteredMandateQueue = mandateData?.data?.content || [];
     const total = mandateData?.data?.totalElements || 0;
-    const paged = usePagination(filteredMandateQueue)
+    const totalPages = mandateData?.data?.totalPages || 1;
 
     const registers = activeRegisters?.content || [];
     const dividendNumbers = dividendNumbersData?.data?.content || [];
@@ -163,7 +146,7 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
                     <SelectContent>
                         <SelectItem value="">All Registers</SelectItem>
                         {registers.map((r) => (
-                            <SelectItem key={r.registerId} value={r.registerId}>
+                            <SelectItem key={r.registerId} value={r.symbol}>
                                 {r.symbol}
                             </SelectItem>
                         ))}
@@ -305,13 +288,11 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
                         </table>
                     </div>
                 )}
-                <TablePagination
+                <PaginationBar
                     page={page}
                     pageSize={size}
-                    totalPages={paged.totalPages}
+                    totalPages={totalPages}
                     total={total}
-                    from={paged.from}
-                    to={paged.to}
                     onPageChange={setPage}
                     onPageSizeChange={setSize}
                 />

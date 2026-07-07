@@ -13,7 +13,7 @@ export interface PaymentRun {
   totalRecords: number;
   totalAmount: number;
   dateRun: string; // "2026-06-04"
-  status: string;
+  status?: "PENDING_ICU" | "PROCESSING" | "PAID" | "FAILED";
   paidRecords: number;
   failedRecords: number;
 }
@@ -39,7 +39,7 @@ export interface RepushResponse {
 // List query parameters
 export interface ListPaymentRunsParams {
   registerId?: string;
-  status?: string;
+  status?: "PENDING_ICU" | "PROCESSING" | "PAID" | "FAILED";
   gateway?: string;
   dateFrom?: string; // ISO date string
   dateTo?: string;
@@ -278,7 +278,7 @@ export const repushPaymentRunRequest = async (id: number) => {
   }
 };
 
-// POST /api/v1/dividend/payment-runs/{id}/approve – ICU approve payment run
+// POST /api/v1/dividend/payment-runs/{id}/approve
 export const approvePaymentRunRequest = async (
   id: number,
   body: ApprovePaymentRunRequest,

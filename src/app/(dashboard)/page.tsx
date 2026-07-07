@@ -11,132 +11,154 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useGetPrincipalStats } from "@/hooks/usePrincipal";
+import { formatNaira } from "@/lib/utils/format";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { useGetDividendDeclarations } from "@/hooks/useDividendPayment";
+import { GET_APPROVAL_SUMMARY, GET_APPROVALS } from "@/actions/approvalsAction";
+import { ApprovalItem } from "@/lib/types";
+import { EntitlementTableSkeleton } from "@/components/custom/rights-issue/loaders";
+import {
+  DataErrorState,
+  PendingListSkeleton,
+} from "@/components/custom/ipo/loaders";
+
+const getDivStatusBadge = (status: string) => {
+  switch (status) {
+    case "DRAFT":
+      return (
+        <Badge className="bg-gray-100      text-gray-600   border-0 text-[13px]">
+          Draft
+        </Badge>
+      );
+    case "PENDING_TIER2":
+      return (
+        <Badge className="bg-amber-100     text-amber-800  border-0 text-[13px]">
+          Pending Tier 2
+        </Badge>
+      );
+    case "PENDING_TIER3":
+      return (
+        <Badge className="bg-orange-100    text-orange-800 border-0 text-[13px]">
+          Pending Tier 3
+        </Badge>
+      );
+    case "PENDING_TIER4":
+      return (
+        <Badge className="bg-yellow-100    text-yellow-800 border-0 text-[13px]">
+          Pending Tier 4
+        </Badge>
+      );
+    case "AUTHORIZED":
+      return (
+        <Badge className="bg-blue-100      text-blue-800   border-0 text-[13px]">
+          Authorized
+        </Badge>
+      );
+    case "PAID":
+      return (
+        <Badge className="bg-green-100     text-green-800  border-0 text-[13px]">
+          Paid
+        </Badge>
+      );
+    case "REJECTED":
+      return (
+        <Badge className="bg-red-100       text-red-700    border-0 text-[13px]">
+          Rejected
+        </Badge>
+      );
+    default:
+      return (
+        <Badge className="bg-gray-100      text-gray-700   border-0 text-[13px]">
+          {status}
+        </Badge>
+      );
+  }
+};
+
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "ACTIVE":
+      return (
+        <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
+          Active
+        </Badge>
+      );
+    case "TRANSACTION_DISABLED":
+      return (
+        <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
+          Disabled
+        </Badge>
+      );
+    case "INACTIVE":
+      return (
+        <Badge className="bg-gray-100 text-gray-600 border-0 text-[13px]">
+          Inactive
+        </Badge>
+      );
+    default:
+      return <Badge className="text-[13px]">{status}</Badge>;
+  }
+};
 
 export default function DashboardHome() {
-  const {
-    currentUser,
-    principals,
-    registers,
-    pendingApprovals,
-    dividendDeclarations,
-  } = useStore();
+  const { currentUser } = useStore();
   const router = useRouter();
 
+  const { data: principalStats, isLoading: principalStatsLoading } =
+    useGetPrincipalStats();
+
+  const { data: registers, isLoading: activeRegistersLoading } =
+    useGetRegisters({
+      status: "ACTIVE",
+      size: 5,
+    });
+
+  const {
+    data: dividendDeclarations,
+    isLoading: declarationsLoading,
+    isError: declarationError,
+    refetch: refetchDecl,
+    error: declarationErrorMsg,
+  } = useGetDividendDeclarations({
+    size: 5,
+    status: "AUTHORIZED",
+  });
+
+  const { data: summaryData, isLoading: summaryLoading } = useQuery({
+    queryKey: ["approval-summary", currentUser?.email],
+    queryFn: () =>
+      GET_APPROVAL_SUMMARY({ performedBy: currentUser?.email ?? "" }),
+    enabled: !!currentUser?.email,
+  });
+
+  const { data: globalApprovalsData, isLoading: globalApprovalsLoading } =
+    useQuery({
+      queryKey: ["approvals-global-dashboard", currentUser?.email],
+      queryFn: () =>
+        GET_APPROVALS({
+          scope: "GLOBAL",
+          size: 3,
+          page: 0,
+          performedBy: currentUser?.email,
+        }),
+      enabled: !!currentUser?.email,
+    });
+
+  const totalPrincipals = principalStats?.totalPrincipals || 0;
+  const activeRegisters = registers?.pagination?.total || 0;
+  const allPendingCount: number = summaryData?.data?.allPendingCount ?? 0;
+  const topPending = globalApprovalsData?.data?.content ?? [];
+
   if (!currentUser) return null;
-
-  const totalPrincipals = principals.length;
-  const activeRegisters = registers.filter((r) => r.status === "ACTIVE").length;
-  const pendingCount = pendingApprovals.filter(
-    (a) => a.status === "PENDING",
-  ).length;
-  const declaredYTD = dividendDeclarations.filter(
-    (d) => d.status === "AUTHORIZED",
-  ).length;
-
-  const recentDividends = [...dividendDeclarations]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    )
-    .slice(0, 5);
-
-  const topPending = [...pendingApprovals]
-    .filter((a) => a.status === "PENDING")
-    .sort(
-      (a, b) =>
-        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
-    )
-    .slice(0, 5);
-
-  const formatNaira = (num: number) => {
-    if (num >= 1_000_000_000) return `₦${(num / 1_000_000_000).toFixed(1)}B`;
-    if (num >= 1_000_000) return `₦${(num / 1_000_000).toFixed(1)}M`;
-    return `₦${num.toLocaleString()}`;
-  };
-
-  const getDivStatusBadge = (status: string) => {
-    switch (status) {
-      case "DRAFT":
-        return (
-          <Badge className="bg-gray-100      text-gray-600   border-0 text-[13px]">
-            Draft
-          </Badge>
-        );
-      case "PENDING_TIER2":
-        return (
-          <Badge className="bg-amber-100     text-amber-800  border-0 text-[13px]">
-            Pending Tier 2
-          </Badge>
-        );
-      case "PENDING_TIER3":
-        return (
-          <Badge className="bg-orange-100    text-orange-800 border-0 text-[13px]">
-            Pending Tier 3
-          </Badge>
-        );
-      case "PENDING_TIER4":
-        return (
-          <Badge className="bg-yellow-100    text-yellow-800 border-0 text-[13px]">
-            Pending Tier 4
-          </Badge>
-        );
-      case "AUTHORIZED":
-        return (
-          <Badge className="bg-blue-100      text-blue-800   border-0 text-[13px]">
-            Authorized
-          </Badge>
-        );
-      case "PAID":
-        return (
-          <Badge className="bg-green-100     text-green-800  border-0 text-[13px]">
-            Paid
-          </Badge>
-        );
-      case "REJECTED":
-        return (
-          <Badge className="bg-red-100       text-red-700    border-0 text-[13px]">
-            Rejected
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-gray-100      text-gray-700   border-0 text-[13px]">
-            {status}
-          </Badge>
-        );
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "ACTIVE":
-        return (
-          <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
-            Active
-          </Badge>
-        );
-      case "TRANSACTION_DISABLED":
-        return (
-          <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-            Disabled
-          </Badge>
-        );
-      case "INACTIVE":
-        return (
-          <Badge className="bg-gray-100 text-gray-600 border-0 text-[13px]">
-            Inactive
-          </Badge>
-        );
-      default:
-        return <Badge className="text-[13px]">{status}</Badge>;
-    }
-  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
           Good morning, {currentUser?.firstName ?? currentUser?.username}.
         </h1>
         <p className="text-sm text-muted-foreground">
@@ -148,19 +170,27 @@ export default function DashboardHome() {
       </div>
 
       {/* Row 1: Stat Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="flex items-start justify-between">
             <span className="mrpsl-section-title">Total Principals</span>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-bold tabular-nums">
-              {totalPrincipals}
-            </span>
-            <div className="text-[13px] text-green-600 mt-1 font-medium">
-              +1 this month
-            </div>
+            {principalStatsLoading ? (
+              <div className="h-12 w-14 animate-pulse bg-muted rounded-sm tabular-nums" />
+            ) : (
+              <span className="text-3xl font-bold tabular-nums">
+                {totalPrincipals}
+              </span>
+            )}
+            {principalStatsLoading ? (
+              <Skeleton className="h-3.5 w-20 mt-1" />
+            ) : (
+              <div className="text-[13px] text-green-600 mt-1 font-medium">
+                +1 this month
+              </div>
+            )}
           </div>
         </Card>
 
@@ -170,12 +200,20 @@ export default function DashboardHome() {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-bold tabular-nums">
-              {activeRegisters}
-            </span>
-            <div className="text-[13px] text-muted-foreground mt-1">
-              Across all principals
-            </div>
+            {activeRegistersLoading ? (
+              <div className="h-12 w-14 animate-pulse bg-muted rounded-sm tabular-nums" />
+            ) : (
+              <span className="text-3xl font-bold tabular-nums">
+                {activeRegisters}
+              </span>
+            )}
+            {activeRegistersLoading ? (
+              <Skeleton className="h-3.5 w-28 mt-1" />
+            ) : (
+              <div className="text-[13px] text-muted-foreground mt-1">
+                Across all principals
+              </div>
+            )}
           </div>
         </Card>
 
@@ -183,18 +221,26 @@ export default function DashboardHome() {
           <div className="flex items-start justify-between">
             <span className="mrpsl-section-title">Pending Approvals</span>
             <ClipboardCheck
-              className={`h-4 w-4 ${pendingCount > 0 ? "text-destructive" : "text-muted-foreground"}`}
+              className={`h-4 w-4 ${allPendingCount > 0 ? "text-destructive" : "text-muted-foreground"}`}
             />
           </div>
           <div className="mt-2">
-            <span
-              className={`text-3xl font-bold tabular-nums ${pendingCount > 0 ? "text-destructive" : ""}`}
-            >
-              {pendingCount}
-            </span>
-            <div className="text-[13px] text-muted-foreground mt-1">
-              Items awaiting action
-            </div>
+            {summaryLoading ? (
+              <div className="h-12 w-14 animate-pulse bg-muted rounded-sm tabular-nums" />
+            ) : (
+              <span
+                className={`text-3xl font-bold tabular-nums ${allPendingCount > 0 ? "text-destructive" : ""}`}
+              >
+                {allPendingCount}
+              </span>
+            )}
+            {summaryLoading ? (
+              <Skeleton className="h-3.5 w-32 mt-1" />
+            ) : (
+              <div className="text-[13px] text-muted-foreground mt-1">
+                Items awaiting action
+              </div>
+            )}
           </div>
         </Card>
 
@@ -204,46 +250,62 @@ export default function DashboardHome() {
             <Coins className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-bold tabular-nums">
-              {declaredYTD}
-            </span>
-            <div className="text-[13px] text-muted-foreground mt-1">
-              Authorized payouts
-            </div>
+            {declarationsLoading ? (
+              <div className="h-12 w-14 animate-pulse bg-muted rounded-sm tabular-nums" />
+            ) : (
+              <span className="text-3xl font-bold tabular-nums">
+                {dividendDeclarations?.data?.totalElements || 0}
+              </span>
+            )}
+            {declarationsLoading ? (
+              <Skeleton className="h-3.5 w-24 mt-1" />
+            ) : (
+              <div className="text-[13px] text-muted-foreground mt-1">
+                Authorized payouts
+              </div>
+            )}
           </div>
         </Card>
       </div>
 
       {/* Row 2: Two Columns */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="col-span-1 lg:col-span-2 space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">
             Recent Dividend Declarations
           </h2>
           <Card className="mrpsl-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="px-4 py-3">Register</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Rate</th>
-                    <th className="px-4 py-3">Gross Liability</th>
-                    <th className="px-4 py-3">Tier</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentDividends.length > 0 ? (
-                    recentDividends.map((div) => {
-                      const register = registers.find(
-                        (r) => r.id === div.registerId,
-                      );
-                      return (
+            {declarationsLoading ? (
+              <EntitlementTableSkeleton />
+            ) : declarationError ? (
+              <DataErrorState
+                message={
+                  declarationErrorMsg?.message ||
+                  "Failed to fetch dividend declarations"
+                }
+                onRetry={refetchDecl}
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="px-4 py-3">Register</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3">Rate</th>
+                      <th className="px-4 py-3">Gross Liability</th>
+                      <th className="px-4 py-3">Tier</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dividendDeclarations?.data?.content?.length &&
+                    dividendDeclarations?.data?.content?.length > 0 ? (
+                      dividendDeclarations.data?.content?.map((div) => (
                         <tr key={div.id} className="mrpsl-table-row">
                           <td className="px-4 py-3 font-medium">
-                            {register?.symbol || div.registerId}
+                            {div.registerSymbol}
                           </td>
                           <td className="px-4 py-3">{div.dividendType}</td>
                           <td className="px-4 py-3 text-right tabular-nums">
@@ -273,21 +335,21 @@ export default function DashboardHome() {
                             </Button>
                           </td>
                         </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={7}
-                        className="px-4 py-8 text-center text-muted-foreground text-sm"
-                      >
-                        No recent declarations found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-8 text-center text-muted-foreground text-sm"
+                        >
+                          No recent declarations found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
         </div>
 
@@ -296,41 +358,64 @@ export default function DashboardHome() {
             Pending Approvals Queue
           </h2>
           <Card className="mrpsl-card">
-            {topPending.length > 0 ? (
+            {globalApprovalsLoading ? (
               <div className="divide-y divide-border">
-                {topPending.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 flex flex-col gap-2 hover:bg-accent/5 transition-colors"
-                  >
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm font-medium line-clamp-1 flex-1 pr-4">
-                        {item.description}
-                      </span>
-                      {item.tier && (
-                        <Badge
-                          variant="outline"
-                          className="text-[13px] shrink-0"
-                        >
-                          T{item.tier}
-                        </Badge>
-                      )}
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="p-4 flex flex-col gap-2">
+                    <div className="flex justify-between items-start gap-4">
+                      <Skeleton className="h-4 flex-1" />
+                      <Skeleton className="h-5 w-8 shrink-0" />
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[13px] text-muted-foreground">
-                        3h ago
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-[13px]"
-                        onClick={() => router.push("/approvals")}
-                      >
-                        Review
-                      </Button>
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-7 w-16" />
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : topPending.length > 0 ? (
+              <div className="divide-y divide-border">
+                {topPending.map((item: ApprovalItem) => {
+                  const agingText =
+                    (item.agingHours ?? 0) < 1
+                      ? "Just now"
+                      : `${Math.floor(item.agingHours ?? 0)}h ago`;
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 flex flex-col gap-2 hover:bg-accent/5 transition-colors"
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="text-sm font-medium line-clamp-1 flex-1 pr-4">
+                          {item.description}
+                        </span>
+                        {item.tier && (
+                          <Badge
+                            variant="outline"
+                            className="text-[13px] shrink-0"
+                          >
+                            T{item.tier}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span
+                          className={`text-[13px] ${item.overdue ? "text-destructive font-medium" : "text-muted-foreground"}`}
+                        >
+                          {agingText}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[13px]"
+                          onClick={() => router.push("/approvals?tab=global")}
+                        >
+                          Review
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="p-8 text-center flex flex-col items-center">
@@ -341,14 +426,14 @@ export default function DashboardHome() {
               </div>
             )}
             {topPending.length > 0 && (
-              <div className="p-2 border-t bg-muted/20">
+              <div className="p-1.5 border-t bg-muted/20">
                 <Button
                   variant="ghost"
                   size="sm"
                   className="w-full text-[13px] text-muted-foreground"
-                  onClick={() => router.push("/approvals")}
+                  onClick={() => router.push("/approvals?tab=global")}
                 >
-                  View all {pendingCount} pending items
+                  View all {allPendingCount} pending items
                 </Button>
               </div>
             )}
@@ -376,56 +461,66 @@ export default function DashboardHome() {
                 </tr>
               </thead>
               <tbody>
-                {registers
-                  .filter((r) => r.status === "ACTIVE")
-                  .map((reg) => {
-                    const principal = principals.find(
-                      (p) => p.id === reg.principalId,
-                    );
-                    return (
-                      <tr key={reg.id} className="mrpsl-table-row">
-                        <td className="px-4 py-3">
-                          <div className="font-semibold">{reg.symbol}</div>
-                          <div className="text-[13px] text-muted-foreground truncate max-w-[200px]">
-                            {reg.name}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-[13px]">
-                          {principal?.name || "Unknown"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline" className="text-[13px]">
-                            {reg.registerType.replace(/\b\w/g, (c) =>
-                              c.toUpperCase(),
-                            )}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {reg.shareholdersToday.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {reg.stockToday.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          {getStatusBadge(reg.status)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-[13px]"
-                            onClick={() =>
-                              router.push(
-                                `/setup/registers?search=${reg.symbol}`,
-                              )
-                            }
-                          >
-                            View
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                {activeRegistersLoading ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <PendingListSkeleton cols={7} />
+                    </td>
+                  </tr>
+                ) : registers?.content && registers?.content?.length > 0 ? (
+                  registers?.content?.map((reg) => (
+                    <tr key={reg?.registerId} className="mrpsl-table-row">
+                      <td className="px-4 py-3">
+                        <div className="font-semibold">{reg?.symbol}</div>
+                        <div className="text-[13px] text-muted-foreground truncate max-w-50">
+                          {reg?.registerName}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[13px]">
+                        {reg?.registerType}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant="outline" className="text-[13px]">
+                          {reg.registerType.replace(/\b\w/g, (c) =>
+                            c.toUpperCase(),
+                          )}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {reg?.currentShareholdersSize?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {reg?.currentStockInIssue?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        {getStatusBadge(reg.status)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-[13px]"
+                          onClick={() =>
+                            router.push(
+                              `/setup/registers?search=${reg?.symbol}`,
+                            )
+                          }
+                        >
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-3 text-center tabular-nums"
+                    >
+                      <p>No active registers</p>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -49,7 +49,7 @@ import {
 } from "./loaders";
 import { PaginationBar } from "../pagination-bar";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export default function IcuApprovalIPO({ tab }: { tab: string }) {
   const { currentUser } = useStore();
@@ -72,15 +72,16 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
   );
 
   // Queries
-  const { data: activeRegisters } = useGetRegisters(
-    {
-      size: 1000,
-      status: "ACTIVE",
-    },
-    {
-      enabled: tab === "icu",
-    },
-  );
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters(
+      {
+        size: 100,
+        status: "ACTIVE",
+      },
+      {
+        enabled: tab === "icu",
+      },
+    );
 
   const {
     data: icuData,
@@ -122,7 +123,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
       batchRef: reviewingBatch || "",
       type: reviewTab,
       page: subscribersPage,
-      size: PAGE_SIZE,
+      size: subscribersPageSize,
     },
     { enabled: !!reviewingBatch },
   );
@@ -131,15 +132,22 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
   const icuReviewMutation = useIcuReviewIpo();
 
   // Handlers
-  const handleFinalReview = (approved: boolean) => {
+  const handleFinalReview = () => {
     if (!reviewingBatch) return;
 
-    if (!approved && !reviewComment.trim()) {
+    if (approvalModal?.action === "return" && !reviewComment.trim()) {
       toast.error(
         "Please provide a reason for returning the batch to Operations.",
       );
       return;
     }
+
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
+    const approved = approvalModal?.action === "approve";
 
     icuReviewMutation.mutate(
       {
@@ -147,8 +155,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         payload: {
           approved,
           comment: reviewComment,
-          reviewedBy:
-            currentUser?.email || currentUser?.username || "ICU-ADMIN",
+          reviewedBy: currentUser?.email,
         },
       },
       {
@@ -225,7 +232,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         {/* Filters */}
         <Card className="mrpsl-card p-5">
           <div className="flex-1 flex gap-4">
-            <div className="space-y-1.5">
+            <div className="">
               <label className="mrpsl-label">Register</label>
               <Select
                 value={icuRegister}
@@ -235,24 +242,36 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Registers</SelectItem>
-                  {activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.registerId}>
-                      {r.registerName} · {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {registersLoading ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="All">All Register</SelectItem>
+                      {activeRegisters?.content?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="">
               <label className="mrpsl-label">Date Range</label>
               <DateRangePicker date={icuDateRange} setDate={setIcuDateRange} />
             </div>
             <Button
               variant="ghost"
               onClick={resetFilters}
-              className="self-center"
+              size="xl"
+              className="self-end"
             >
               Reset
             </Button>
@@ -358,7 +377,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={icuData?.pagination?.totalPages || 0}
+            totalPages={icuData?.pagination?.totalPages || 1}
             total={icuData?.pagination?.total || 0}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
@@ -697,11 +716,11 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           )}
         </div>
         <PaginationBar
-          page={currentPage}
+          page={subscribersPage}
           pageSize={subscribersPageSize}
-          totalPages={subscribersData?.pagination?.totalPages || 0}
+          totalPages={subscribersData?.pagination?.totalPages || 1}
           total={subscribersData?.pagination?.total || 0}
-          onPageChange={setCurrentPage}
+          onPageChange={setSubscribersPage}
           onPageSizeChange={setSubscribersPageSize}
         />
       </Card>
@@ -766,9 +785,12 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                 className="flex-1"
                 disabled={icuReviewMutation.isPending}
                 onClick={() => {
-                  handleFinalReview(approvalModal?.action === "approve");
+                  handleFinalReview();
                 }}
               >
+                {icuReviewMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                )}
                 Confirm{" "}
                 {approvalModal?.action === "approve" ? "Approval" : "Return"}
               </Button>

@@ -41,16 +41,17 @@ export function SplitReviewDialog({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         id: selected?.splitId,
         data: {
           comment,
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -75,16 +76,17 @@ export function SplitReviewDialog({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     rejectMutation.mutate(
       {
         id: selected?.splitId,
         data: {
           comment,
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -219,11 +221,12 @@ export function SplitReviewDialog({
                 variant="destructive"
                 className="flex-1"
                 onClick={handleReject}
+                disabled={approveMutation.isPending || rejectMutation.isPending}
               >
-                Reject
+                {rejectMutation.isPending ? "Rejecting..." : "Reject"}
               </Button>
-              <Button className="flex-1" onClick={handleApprove}>
-                Approve Split
+              <Button className="flex-1" onClick={handleApprove} disabled={approveMutation.isPending || rejectMutation.isPending}>
+                {approveMutation.isPending ? "Approving..." : "Approve Split"}
               </Button>
             </div>
           </div>

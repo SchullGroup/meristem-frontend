@@ -39,10 +39,9 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { formatLargeNumber } from "@/lib/utils";
 import { useGetPrincipals } from "@/hooks/usePrincipal";
 import ToggleTransactionDialog from "@/components/custom/registers/toggle-transactions";
-import { usePagination } from "@/lib/use-pagination";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export default function RegistersPage() {
   const router = useRouter();
@@ -50,6 +49,7 @@ export default function RegistersPage() {
   const params = useSearchParams();
 
   const principalIdParam = params.get("principalId");
+  const searchParam = params.get("search");
   const [search, setSearch] = useState("");
   const [principalFilter, setPrincipalFilter] = useState<string>(
     principalIdParam || "",
@@ -63,7 +63,11 @@ export default function RegistersPage() {
       //eslint-disable-next-line
       setPrincipalFilter(principalIdParam);
     }
-  }, [principalIdParam]);
+
+    if (searchParam) {
+      setSearch(searchParam);
+    }
+  }, [principalIdParam, searchParam]);
 
   const handlePrincipalFilterChange = (value: string) => {
     setPrincipalFilter(value);
@@ -74,7 +78,7 @@ export default function RegistersPage() {
       newParams.set("principalId", value);
     }
     const queryString = newParams.toString();
-    router.replace(`/setup/registers${queryString ? `?${queryString}` : ""}`, {
+    router?.replace(`/setup/registers${queryString ? `?${queryString}` : ""}`, {
       scroll: false,
     });
   };
@@ -103,13 +107,13 @@ export default function RegistersPage() {
     size: pageSize,
   });
 
-  const { data: principals } = useGetPrincipals({
-    size: 1000,
+  const { data: principals, isLoading: principalsLoading } = useGetPrincipals({
+    size: 100,
   });
 
   const pagedRows = registers?.content || [];
   const total = registers?.pagination.total || 0;
-  const paged = usePagination(pagedRows);
+  const totalPages = registers?.pagination?.totalPages || 1;
 
   const handleEdit = (r: Register) => {
     setSelectedRegister(r);
@@ -131,9 +135,9 @@ export default function RegistersPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Registers</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Registers</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Official shareholder lists for each security managed by MRPSL
           </p>
@@ -145,7 +149,7 @@ export default function RegistersPage() {
       </div>
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="mrpsl-section-title">Total Registers</div>
           {statsLoading ? (
@@ -207,12 +211,12 @@ export default function RegistersPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex gap-2 items-center">
+      <div className="flex flex-wrap gap-2 items-center">
         <Input
           placeholder="Search registers..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 mrpsl-input"
+          className="w-full sm:w-64 mrpsl-input"
         />
         <Select
           value={principalFilter}
@@ -229,6 +233,9 @@ export default function RegistersPage() {
                   {p.principalName}
                 </SelectItem>
               ))}
+              {principalsLoading && (
+                <SelectItem disabled>Loading....</SelectItem>
+              )}
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -268,10 +275,10 @@ export default function RegistersPage() {
             </SelectGroup>
           </SelectContent>
         </Select>
-        {(search ||
-          principalFilter !== null ||
-          typeFilter !== null ||
-          statusFilter !== null) && (
+        {(search !== "" ||
+          principalFilter !== "" ||
+          typeFilter !== "" ||
+          statusFilter !== "") && (
           <Button
             variant="ghost"
             onClick={() => {
@@ -313,69 +320,69 @@ export default function RegistersPage() {
                     </td>
                   ))}
                 </tr>
-              ) : registers?.content && registers?.content?.length > 0 ? (
-                registers?.content?.map((r) => (
-                  <tr key={r.registerId} className="mrpsl-table-row">
+              ) : pagedRows?.length > 0 ? (
+                pagedRows?.map((r) => (
+                  <tr key={r?.registerId} className="mrpsl-table-row">
                     <td className="px-4 py-3">
                       <div className="font-semibold text-foreground truncate max-w-50">
-                        {r.registerName}
+                        {r?.registerName}
                       </div>
-                      <div className="text-xs font-mono text-muted-foreground">
-                        {r.registerId}
-                      </div>
+                      {/* <div className="text-xs font-mono text-muted-foreground">
+                        {r?.registerId}
+                      </div> */}
                     </td>
                     <td className="px-4 py-3 text-sm truncate max-w-37.5">
-                      {r.principalName}
+                      {r?.principalName}
                     </td>
                     <td className="px-4 py-3">
                       <Badge
                         className={`border-0 text-xs ${
-                          r.registerType === "ORDINARY"
+                          r?.registerType === "ORDINARY"
                             ? "bg-blue-100 text-blue-800"
-                            : r.registerType === "PREFERENCE"
+                            : r?.registerType === "PREFERENCE"
                               ? "bg-violet-100 text-violet-800"
-                              : r.registerType === "BOND"
+                              : r?.registerType === "BOND"
                                 ? "bg-amber-100 text-amber-800"
-                                : r.registerType === "ETF"
+                                : r?.registerType === "ETF"
                                   ? "bg-cyan-100 text-cyan-800"
                                   : "bg-emerald-100 text-emerald-800"
                         }`}
                       >
-                        {r.registerType
+                        {r?.registerType
                           .toLowerCase()
                           .replace(/\b\w/g, (c) => c.toUpperCase())}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs uppercase bg-muted px-1.5 py-0.5 rounded">
-                        {r.symbol}
+                        {r?.symbol}
                       </span>
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r.shareholderSizeAtSetup.toLocaleString()}
+                      {r?.shareholderSizeAtSetup?.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {r.currentShareholdersSize.toLocaleString()}
+                      {r?.currentShareholdersSize?.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-sm text-right">
-                      {formatLargeNumber(r.currentStockInIssue)}
+                      {formatLargeNumber(r?.currentStockInIssue)}
                     </td>
                     <td className="px-4 py-3 font-mono text-sm text-right">
-                      ₦{r.nominalValue.toFixed(2)}
+                      ₦{r?.nominalValue?.toFixed(2)}
                     </td>
                     <td className="px-4 py-3">
                       <Badge
                         className={`border-0 text-xs capitalize ${
-                          r.status === "ACTIVE"
+                          r?.status === "ACTIVE"
                             ? "bg-green-100 text-green-800"
-                            : r.status === "INACTIVE"
+                            : r?.status === "INACTIVE"
                               ? "bg-gray-100 text-gray-600"
                               : "bg-amber-100 text-amber-800"
                         }`}
                       >
-                        {r.status === "TRANSACTION_DISABLED"
+                        {r?.status === "TRANSACTION_DISABLED"
                           ? "Disabled"
-                          : r.status}
+                          : r?.status}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -388,8 +395,8 @@ export default function RegistersPage() {
                         <DropdownMenuContent align="end">
                           {/* <DropdownMenuItem
                             onClick={() =>
-                              router.push(
-                                `/enquiry/holder?registerId=${r.registerId}`,
+                              router?.push(
+                                `/enquiry/holder?registerId=${r?.registerId}`,
                               )
                             }
                           >
@@ -402,7 +409,7 @@ export default function RegistersPage() {
                             onClick={() => openLockConfirm(r)}
                             className="text-amber-600"
                           >
-                            {r.status === "TRANSACTION_DISABLED" ? (
+                            {r?.status === "TRANSACTION_DISABLED" ? (
                               <>
                                 <Unlock className="mr-2 h-4 w-4" /> Unlock
                                 Transactions
@@ -443,7 +450,7 @@ export default function RegistersPage() {
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={paged.totalPages}
+            totalPages={totalPages}
             total={total}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}

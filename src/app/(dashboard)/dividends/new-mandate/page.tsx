@@ -22,7 +22,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Check, AlertCircle, X, Download, Loader2 } from "lucide-react";
-import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,89 +52,18 @@ type MandateApproval = {
   tier: number;
 };
 
-const INITIAL_PENDING: MandateApproval[] = [
-  {
-    id: "MA1",
-    date: "05 May 2026",
-    account: "DANGCEM-10045",
-    holder: "Lukman Bello",
-    bank: "UBA",
-    accountNo: "0029384812",
-    dividendNo: "DIV-2025-001",
-    amount: 45000,
-    submittedBy: "Chidinma Nwosu",
-    tier: 2,
-  },
-  {
-    id: "MA2",
-    date: "04 May 2026",
-    account: "ZENITH-9921",
-    holder: "Fatima Abdullahi",
-    bank: "First Bank",
-    accountNo: "3012849001",
-    dividendNo: "DIV-2025-001",
-    amount: 128500,
-    submittedBy: "Garba Musa",
-    tier: 3,
-  },
-  {
-    id: "MA3",
-    date: "04 May 2026",
-    account: "DANGCEM-10102",
-    holder: "Emeka Eze",
-    bank: "GTBank",
-    accountNo: "0045612378",
-    dividendNo: "DIV-2025-002",
-    amount: 62000,
-    submittedBy: "Chidinma Nwosu",
-    tier: 2,
-  },
-];
-
-const INITIAL_ICU: MandateApproval[] = [
-  {
-    id: "IM1",
-    date: "03 May 2026",
-    account: "DANGCEM-10200",
-    holder: "Olumide Adeyemi",
-    bank: "Access Bank",
-    accountNo: "0076123490",
-    dividendNo: "DIV-2025-001",
-    amount: 950000,
-    submittedBy: "Emeka Obiora",
-    tier: 4,
-  },
-  {
-    id: "IM2",
-    date: "02 May 2026",
-    account: "ACCESS-00553",
-    holder: "Ngozi Eze",
-    bank: "Zenith Bank",
-    accountNo: "2012341290",
-    dividendNo: "DIV-2025-003",
-    amount: 1200000,
-    submittedBy: "Emeka Obiora",
-    tier: 4,
-  },
-];
-
 export default function NewMandatePage() {
   const queryClient = useQueryClient();
   const { currentUser } = useStore();
-  const { data: registersData } = useGetRegisters({
-    size: 1000,
+  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
+    size: 100,
+    status: "ACTIVE",
   });
 
-  const registerList = registersData?.content;
-
-  const [queueRegister, setQueueRegister] = useState("all");
-  const [queueDividend, setQueueDividend] = useState("all");
+  const [queueRegister, setQueueRegister] = useState("");
+  const [queueDividend, setQueueDividend] = useState("");
   const [queueLoaded, setQueueLoaded] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  const [pendingMandate, setPendingMandate] =
-    useState<MandateApproval[]>(INITIAL_PENDING);
-  const [icuMandate, setIcuMandate] = useState<MandateApproval[]>(INITIAL_ICU);
 
   const [pendingApprIds, setPendingApprIds] = useState<Set<string>>(new Set());
   const [icuApprIds, setIcuApprIds] = useState<Set<string>>(new Set());
@@ -154,23 +82,23 @@ export default function NewMandatePage() {
   const [isIcu, setIsIcu] = useState(false);
   const [rejectComment, setRejectComment] = useState("");
 
-  const icuPg = usePagination(icuMandate);
-
   const { data, isLoading: mandateQueueLoading } = useQuery({
     queryKey: ["loaded-mandate-queue", queueRegister, queueDividend, 0, 20],
     queryFn: GET_LOADED_MANDATE_QUEUES,
-    enabled: !!queueRegister && !!queueDividend,
   });
 
   const mandateQueue = data?.data?.content;
 
-  const { data: declarationData } = useQuery({
-    queryKey: ["all-declarations-numbers"],
-    queryFn: GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS,
+  const { data: declarationData, isLoading: loadingDivNumbers } = useQuery({
+    queryKey: ["all-declarations-numbers", queueRegister],
+    queryFn: () =>
+      GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS(
+        queueRegister ? { registerId: queueRegister } : undefined,
+      ),
   });
 
   const [pendingPage, setPendingPage] = useState(0);
-  const [pendingPageSize, setPendingPageSize] = useState(10);
+  const [pendingPageSize, setPendingPageSize] = useState(20);
 
   const {
     data: pendingMandatePaymentsData,
@@ -181,7 +109,7 @@ export default function NewMandatePage() {
   });
 
   const [icuPage, setIcuPage] = useState(0);
-  const [icuPageSize, setIcuPageSize] = useState(10);
+  const [icuPageSize, setIcuPageSize] = useState(20);
 
   const {
     data: icuMandatePaymentsData,
@@ -413,7 +341,11 @@ export default function NewMandatePage() {
   function togglePendingAppr(id: string) {
     setPendingApprIds((prev) => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
       return n;
     });
   }
@@ -588,43 +520,78 @@ export default function NewMandatePage() {
             )}
 
             <div className="flex gap-3 items-end">
-              <Select
-                value={queueRegister}
-                onValueChange={(v) => setQueueRegister(v ?? "all")}
-              >
-                <SelectTrigger className="w-48 mrpsl-input">
-                  <SelectValue placeholder="All Registers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Registers</SelectItem>
-                  {registerList
-                    ?.filter((r) => r?.status === "ACTIVE")
-                    .map((r) => (
-                      <SelectItem key={r?.registerId} value={r?.registerId}>
-                        {r?.symbol} - {r?.registerId}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col">
+                <label className="mrpsl-label">Register</label>
+                <Select
+                  value={queueRegister}
+                  onValueChange={(v) => {
+                    setQueueRegister(!v || v === "ALL" ? "" : v);
+                    setQueueDividend("");
+                  }}
+                >
+                  <SelectTrigger className="w-48 mrpsl-input">
+                    <SelectValue placeholder="All Registers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingRegisters ? (
+                      <div className="flex justify-center items-center py-10">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="ALL">All Registers</SelectItem>
+                        {registersData?.content?.map((r) => (
+                          <SelectItem
+                            key={r?.registerId}
+                            value={r?.symbol ?? ""}
+                          >
+                            <span className="font-bold">{r?.registerName}</span>{" "}
+                            -{" "}
+                            <span className="text-xs translate-y-0.5">
+                              {r?.symbol}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select
-                value={queueDividend}
-                onValueChange={(v) => setQueueDividend(v ?? "all")}
-              >
-                <SelectTrigger className="w-52 mrpsl-input">
-                  <SelectValue placeholder="All Dividends" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Dividend Numbers</SelectItem>
-                  {approvedDivNum?.map((d: string) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col">
+                <label className="mrpsl-label">Dividend Number</label>
+                <Select
+                  value={queueDividend}
+                  onValueChange={(v) =>
+                    setQueueDividend(!v || v === "ALL" ? "" : v)
+                  }
+                >
+                  <SelectTrigger className="w-52 mrpsl-input">
+                    <SelectValue placeholder="All Dividends" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {loadingDivNumbers ? (
+                      <div className="flex justify-center items-center py-10">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="ALL">
+                          All Dividend Numbers
+                        </SelectItem>
+                        {approvedDivNum?.map((d: string) => (
+                          <SelectItem key={d} value={d}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <Button
+                size="xl"
                 onClick={() => {
                   loadAccountMutation.mutate();
                 }}
@@ -659,8 +626,8 @@ export default function NewMandatePage() {
                         <th className="p-3">NEW BANK</th>
                         <th className="p-3">NEW ACCOUNT NO</th>
                         <th className="p-3">DIVIDEND NO</th>
-                        <th className="p-3">AMOUNT (₦)</th>
-                        <th className="p-3">SOURCE</th>
+                        <th className="p-3 text-right">AMOUNT (₦)</th>
+                        <th className="p-3 text-center">SOURCE</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -712,7 +679,7 @@ export default function NewMandatePage() {
                               <td className="p-3 font-mono text-right text-[13px]">
                                 {q?.amount.toLocaleString()}.00
                               </td>
-                              <td className="p-3">
+                              <td className="p-3 text-center">
                                 <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
                                   KYC Update
                                 </Badge>
@@ -726,7 +693,7 @@ export default function NewMandatePage() {
                 </Card>
 
                 {selectedIds.size > 0 && (
-                  <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-6 py-4 flex items-center justify-between shadow-lg">
+                  <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 px-6 py-4 flex items-center justify-between shadow-lg">
                     <div className="text-sm text-muted-foreground">
                       <span className="font-semibold text-foreground">
                         {selectedIds.size}
@@ -802,13 +769,15 @@ export default function NewMandatePage() {
                         <Checkbox
                           checked={
                             visiblePendingPayments.length > 0 &&
-                            visiblePendingPayments.every((r: any) =>
+                            visiblePendingPayments.every((r: { id: string }) =>
                               pendingApprIds.has(r.id),
                             )
                           }
                           onCheckedChange={() =>
                             togglePendingApprAll(
-                              visiblePendingPayments.map((r: any) => r.id),
+                              visiblePendingPayments.map(
+                                (r: { id: string }) => r.id,
+                              ),
                             )
                           }
                         />
@@ -988,13 +957,15 @@ export default function NewMandatePage() {
                         <Checkbox
                           checked={
                             visibleIcuPayments.length > 0 &&
-                            visibleIcuPayments.every((r: any) =>
+                            visibleIcuPayments.every((r: { id: string }) =>
                               icuApprIds.has(r.id),
                             )
                           }
                           onCheckedChange={() =>
                             toggleIcuApprAll(
-                              visibleIcuPayments.map((r: any) => r.id),
+                              visibleIcuPayments.map(
+                                (r: { id: string }) => r.id,
+                              ),
                             )
                           }
                         />
@@ -1260,12 +1231,13 @@ export default function NewMandatePage() {
                   {approvalChainSteps(selected, isIcu).map((step, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${
+                          step.done
                             ? "bg-green-100"
                             : step.pending
                               ? "bg-amber-200 animate-pulse"
                               : "border-2 border-muted bg-background"
-                          }`}
+                        }`}
                       >
                         {step.done && (
                           <Check className="h-3 w-3 text-green-600" />

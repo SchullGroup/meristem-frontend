@@ -18,24 +18,25 @@ import {
   ArrowLeft,
   ArrowRight,
   ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useStore } from "@/lib/store";
 import { useReactToPrint } from "react-to-print";
-import Image from "next/image";
-import { emailShareholders } from "@/actions/rightsActions";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { GetImageUrl } from "@/lib/utils/get-image-url";
+import { useEmailShareholders } from "@/hooks/useRights";
+import { useMutation } from "@tanstack/react-query";
+import { EMAIL_SHAREHOLDERS } from "@/actions/bonusIssuesAction";
 
-/* ─── shared types ─────────────────────────────────────────────────────────── */
+/* ─── shared types ------─────────────────────────── */
 
 export interface OutreachShareholder {
   id: string;
   accountNumber: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   address: string;
-  state: string;
-  holdings: number;
+  state?: string;
+  holdings?: number;
 }
 
 export interface StickyLabelModalProps {
@@ -64,20 +65,21 @@ export interface EmailPreviewModalProps {
   shareholders: OutreachShareholder[];
   totalCount: number;
   issueId?: string;
+  mode: string;
 }
 
-/* ─── Sticky Label Preview Modal ────────────────────────────────────────────── */
+/* ─── Sticky Label Preview Modal ------────────────── */
 
 function StickyLabel({
-  s,
+  holder,
   companyName,
 }: {
-  s: OutreachShareholder;
+  holder: OutreachShareholder;
   companyName: string;
 }) {
   /* Break address into lines at commas or natural splits to match PDF */
-  const addrLines = s.address.split(/,\s*/).filter(Boolean);
-  const stateCity = s.state.toUpperCase();
+  const addrLines = holder?.address.split(/,\s*/).filter(Boolean);
+  const stateCity = holder?.state?.toUpperCase();
 
   return (
     <div
@@ -104,7 +106,6 @@ function StickyLabel({
             alignItems: "flex-start",
             gap: "6px",
             marginBottom: "5px",
-            overflow: "hidden",
           }}
         >
           <span
@@ -137,7 +138,7 @@ function StickyLabel({
               textOverflow: "ellipsis",
             }}
           >
-            A/C.: {s.accountNumber}
+            A/C.: {holder?.accountNumber}
           </span>
         </div>
 
@@ -155,7 +156,7 @@ function StickyLabel({
             marginBottom: "4px",
           }}
         >
-          {s.lastName} {s.firstName}
+          {holder?.name}
         </div>
 
         {/* Address lines */}
@@ -165,10 +166,14 @@ function StickyLabel({
             textTransform: "uppercase",
             color: "#2c2c2c",
             lineHeight: 1.4,
+            WebkitLineClamp: 3,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
           }}
         >
-          {addrLines.map((line, i) => (
-            <div key={i}>{line.trim()}</div>
+          {addrLines?.map((line, i) => (
+            <div key={i}>{line?.trim()}</div>
           ))}
         </div>
       </div>
@@ -346,8 +351,8 @@ export function StickyLabelModal({
                       className="bg-gray-200 animate-pulse h-20 rounded"
                     />
                   ))}
-                {shareholders.map((s, i) => (
-                  <StickyLabel key={i} s={s} companyName={companyName} />
+                {shareholders.map((holder, i) => (
+                  <StickyLabel key={i} holder={holder} companyName={companyName} />
                 ))}
               </div>
 
@@ -389,7 +394,7 @@ export function StickyLabelModal({
   );
 }
 
-/* ─── Email Preview Modal ───────────────────────────────────────────────────── */
+/* ─── Email Preview Modal ------───────────────────── */
 
 function EmailBody({
   isRights,
@@ -445,24 +450,24 @@ function EmailBody({
 
   const placeholderRows = isRights
     ? [
-        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-        ["Name", "[SHAREHOLDER NAME]"],
-        ["Units Held", "[UNITS HELD]"],
-        ["Rights Due", "[RIGHTS DUE]"],
-        ["Amount Payable", "[AMOUNT PAYABLE]"],
-      ]
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Rights Due", "[RIGHTS DUE]"],
+      ["Amount Payable", "[AMOUNT PAYABLE]"],
+    ]
     : [
-        ["Registrars Account Number", "[ACCOUNT NUMBER]"],
-        ["Name", "[SHAREHOLDER NAME]"],
-        ["Units Held", "[UNITS HELD]"],
-        ["Bonus Due", "[BONUS DUE]"],
-      ];
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Held", "[UNITS HELD]"],
+      ["Bonus Due", "[BONUS DUE]"],
+    ];
 
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>
       {/* ── Header: uploaded image or fallback dark green block ── */}
       {headerImageUrl ? (
-        <Image
+        <img
           src={headerImageUrl}
           alt="Email header"
           style={{
@@ -822,6 +827,7 @@ function EmailBody({
 }
 
 export function EmailPreviewModal({
+  mode,
   open,
   onOpenChange,
   offerType,
@@ -838,8 +844,11 @@ export function EmailPreviewModal({
   const [step, setStep] = useState<1 | 2>(1);
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
   const [circularLinkUrl, setCircularLinkUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
+
+  const { mutateAsync: emailShareholders, isPending } = useEmailShareholders();
 
   const resetAndClose = (v: boolean) => {
     if (!v) {
@@ -850,28 +859,70 @@ export function EmailPreviewModal({
     onOpenChange(v);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const emailBonusShareholdersMutation = useMutation({
+    mutationFn: EMAIL_SHAREHOLDERS,
+    onSuccess: () => {
+      toast.success("Emails sent to shareholders successfully");
+      resetAndClose(false);
+    },
+    onError: (error) => {
+      const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(
+        errorMessage?.message || "Failed to send emails. Please try again.",
+      );
+    },
+  });
+
+  const isLoading = emailBonusShareholdersMutation.isPending || isPending;
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setHeaderImageUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
+
+    setUploading(true);
+
+    try {
+      const urlResponse = await GetImageUrl(file, "emailHeaders");
+      if (urlResponse?.type === "success") {
+        setHeaderImageUrl(urlResponse.result);
+      } else {
+        toast.error(
+          urlResponse.result || "Failed to upload image. Please try again.",
+        );
+      }
+    } catch (error) {
+      const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(
+        errorMessage?.message || "Failed to upload image. Please try again.",
+      );
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   const handleSend = async () => {
-    if (!issueId) {
-      toast.error("No issue ID available to send emails.");
-      return;
-    }
-    try {
-      const res = await emailShareholders(issueId);
-      if (res.data) {
-        toast.success("Emails sent to shareholders");
+    if (mode === "bonus") {
+      if (!issueId) {
+        toast.error("No issue ID available to send emails.");
+        return;
       }
-      resetAndClose(false);
-    } catch (error) {
-      const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
-      toast.error(errorMessge?.message || "Failed to send emails");
+      emailBonusShareholdersMutation.mutate({ declarationId: issueId });
+    } else if (mode === "right") {
+      if (!issueId) {
+        toast.error("No issue ID available to send emails.");
+        return;
+      }
+      try {
+        await emailShareholders(issueId);
+        toast.success("Emails sent to shareholders");
+        resetAndClose(false);
+      } catch (error) {
+        const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
+        toast.error(errorMessge?.message || "Failed to send emails");
+      }
     }
   };
 
@@ -946,9 +997,9 @@ export function EmailPreviewModal({
                 className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-[#004023]/50 hover:bg-muted/30 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
               >
-                {headerImageUrl ? (
+                {typeof headerImageUrl === "string" ? (
                   <div className="space-y-3">
-                    <Image
+                    <img
                       src={headerImageUrl}
                       alt="Header preview"
                       className="max-h-24 mx-auto rounded object-cover"
@@ -957,8 +1008,15 @@ export function EmailPreviewModal({
                       Click to replace image
                     </p>
                   </div>
+                ) : uploading ? (
+                  <div className="space-y-3">
+                    <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mx-auto" />
+                    <p className="text-[13px] font-medium text-muted-foreground">
+                      Uploading...
+                    </p>
+                  </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground/50" />
                     <p className="text-[13px] font-medium">
                       Click to upload header image
@@ -1051,9 +1109,22 @@ export function EmailPreviewModal({
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
-              <Button onClick={handleSend}>
-                <Mail className="mr-2 h-4 w-4" />
-                Send to {totalCount.toLocaleString()} Shareholders
+              <Button
+                onClick={handleSend}
+                disabled={isLoading}
+                className="flex items-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4" />
+                    Send to {totalCount.toLocaleString()} Shareholders
+                  </>
+                )}
               </Button>
             </>
           )}

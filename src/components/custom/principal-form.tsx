@@ -79,7 +79,7 @@ export function PrincipalForm({
           companySecretaryPhone: initialData.companySecretaryPhone || "",
           tin: initialData.tin || "",
           rcNumber: initialData.rcNumber || "",
-          shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
+          // shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
           sector: initialData.sector || "",
           status: initialData.status || "ACTIVE",
         }
@@ -95,7 +95,7 @@ export function PrincipalForm({
           rcNumber: "",
           companySecretary: "",
           companySecretaryPhone: "",
-          shareHoldersAtSetUp: 0,
+          // shareHoldersAtSetUp: 0,
           sector: "",
           status: "ACTIVE",
         },
@@ -110,7 +110,7 @@ export function PrincipalForm({
     const payload = {
       ...values,
       dateListedOnNgx: values.dateListedOnNgx.toISOString(),
-      shareHoldersAtSetUp: Number(values.shareHoldersAtSetUp),
+      // shareHoldersAtSetUp: Number(values.shareHoldersAtSetUp),
     };
 
     if (mode === "create") {
@@ -147,53 +147,6 @@ export function PrincipalForm({
       );
     }
   };
-
-  // const handleConfirm = () => {
-  //   if (!values) return;
-
-  //   const payload = {
-  //     ...pendingValues,
-  //     dateListedOnNgx: pendingValues.dateListedOnNgx.toISOString(),
-  //     shareHoldersAtSetUp: Number(pendingValues.shareHoldersAtSetUp),
-  //   };
-
-  //   if (mode === "create") {
-  //     createPrincipal.mutate(payload, {
-  //       onSuccess: () => {
-  //         toast.success(
-  //           `Principal ${payload.principalName} has been created successfully.`,
-  //         );
-
-  //       },
-  //       onError: (error) => {
-  //         toast.error(error.message);
-  //       },
-  //     });
-  //   } else if (mode === "edit" && initialData) {
-  //     updatePrincipal.mutate(
-  //       {
-  //         principalId: initialData.principalId,
-  //         payload,
-  //       },
-  //       {
-  //         onSuccess: () => {
-  //           toast.success(
-  //             `Principal ${pendingValues.principalName} has been updated successfully.`,
-  //           );
-
-  //         },
-  //         onError: (error) => {
-  //           toast.error(error.message);
-  //         },
-  //       },
-  //     );
-  //   }
-
-  //   setConfirmOpen(false);
-  //   onOpenChange(false);
-  //   form.reset();
-
-  // };
 
   return (
     <>
@@ -264,6 +217,12 @@ export function PrincipalForm({
                               <SelectItem value="A">Category A</SelectItem>
                               <SelectItem value="B">Category B</SelectItem>
                               <SelectItem value="C">Category C</SelectItem>
+                              <SelectItem value="MUTUAL_FUND">
+                                Mutual Fund
+                              </SelectItem>
+                              <SelectItem value="ETF">ETF</SelectItem>
+                              <SelectItem value="DEBT">DEBT</SelectItem>
+                              <SelectItem value="EQUITY">EQUITY</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage className="text-[10px] text-destructive mt-1" />
@@ -519,7 +478,7 @@ export function PrincipalForm({
                       )}
                     />
 
-                    <FormField
+                    {/* <FormField
                       control={form.control}
                       name="shareHoldersAtSetUp"
                       render={({ field }) => (
@@ -538,7 +497,7 @@ export function PrincipalForm({
                           <FormMessage className="text-[10px] text-destructive mt-1" />
                         </FormItem>
                       )}
-                    />
+                    /> */}
                   </div>
                 </div>
 

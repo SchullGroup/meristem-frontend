@@ -6,6 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatLargeNumber(num: number) {
+  if (!num || num === null) return "0"
   if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)}B`;
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
   return num.toLocaleString();
@@ -47,3 +48,7 @@ export function downloadCSVString(filename: string, csvContent: string) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export function getFileNameFromUrl(url: string): string {
+  return url.split("/").pop()?.split("?")[0] ?? "";
+};

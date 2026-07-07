@@ -12,16 +12,16 @@ import {
   DataErrorState,
 } from "@/components/custom/ipo/loaders";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { TablePagination } from "../table-pagination";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, UploadCloud } from "lucide-react";
+import { FileText, Loader2, UploadCloud } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PaginationBar } from "../pagination-bar";
 
 export default function LodgeDemat({ tab }: { tab: string }) {
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rinType, setRinType] = useState<"RIN_AT_CSCS" | "RIN_NOT_AT_CSCS">(
     "RIN_AT_CSCS",
@@ -38,7 +38,8 @@ export default function LodgeDemat({ tab }: { tab: string }) {
     },
   );
 
-  const { mutate: lodgetDemat } = useLodgetDematRequest();
+  const { mutate: lodgetDemat, isPending: lodgetPending } =
+    useLodgetDematRequest();
 
   if (isLoading) return <PendingListSkeleton />;
 
@@ -279,6 +280,9 @@ export default function LodgeDemat({ tab }: { tab: string }) {
                           }}
                         >
                           <UploadCloud className="h-3 w-3" /> Push
+                          {lodgetPending && (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          )}
                         </Button>
                       </div>
                     </td>
@@ -298,15 +302,13 @@ export default function LodgeDemat({ tab }: { tab: string }) {
             </table>
           </Card>
 
-          <TablePagination
+          <PaginationBar
             page={page}
             pageSize={pageSize}
             total={data?.totalElements || 0}
-            totalPages={data?.totalPages || 0}
+            totalPages={data?.totalPages || 1}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
-            from={(page - 1) * pageSize + 1}
-            to={Math.min(page * pageSize, data?.totalElements || 0)}
           />
         </div>
       )}

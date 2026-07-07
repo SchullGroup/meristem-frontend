@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { CertificateConsolidation } from "@/types/cscs";
 import { useStore } from "@/lib/store";
 import {
@@ -47,16 +47,17 @@ export const ReviewConsolidation = ({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     rejectMutation.mutate(
       {
         approvalId: selected.id,
         data: {
           comment: comment,
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -66,7 +67,7 @@ export const ReviewConsolidation = ({
           setReviewOpen(false);
           onSuccess?.();
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error.message || "Consolidation rejection failed.");
         },
       },
@@ -79,16 +80,17 @@ export const ReviewConsolidation = ({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         approvalId: selected.id,
         data: {
           comment: comment,
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -98,7 +100,7 @@ export const ReviewConsolidation = ({
           setReviewOpen(false);
           onSuccess?.();
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error.message || "Consolidation approval failed.");
         },
       },
@@ -258,11 +260,16 @@ export const ReviewConsolidation = ({
                 variant="destructive"
                 className="flex-1"
                 onClick={handleReject}
+                disabled={approveMutation.isPending || rejectMutation.isPending}
               >
-                Reject
+                {rejectMutation?.isPending ? "Rejecting..." : "Reject"}
               </Button>
-              <Button className="flex-1" onClick={handleApprove}>
-                Approve Consolidation
+              <Button
+                disabled={approveMutation.isPending || rejectMutation.isPending}
+                className="flex-1"
+                onClick={handleApprove}
+              >
+                {approveMutation?.isPending ? "Approving..." : "Approve Consolidation"}
               </Button>
             </div>
           </div>
@@ -299,16 +306,17 @@ export const RejectConsolidation = ({
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     batchRejectMutation.mutate(
       {
         approveIds: [],
         rejectIds: selectedIds,
         rejectComment: batchComment,
-        authorisedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "ADMIN",
+        authorisedBy: currentUser?.email,
       },
       {
         onSuccess: () => {
@@ -317,7 +325,7 @@ export const RejectConsolidation = ({
           setBatchComment("");
           toast.success("Consolidations rejected successfully");
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error?.message || "Failed to reject consolidations");
         },
       },
@@ -355,6 +363,7 @@ export const RejectConsolidation = ({
               variant="ghost"
               className="flex-1"
               onClick={() => setBatchRejectOpen(false)}
+              disabled={batchRejectMutation.isPending}
             >
               Cancel
             </Button>
@@ -362,8 +371,12 @@ export const RejectConsolidation = ({
               variant="destructive"
               className="flex-1"
               onClick={handleBatchReject}
+              disabled={batchRejectMutation.isPending}
             >
               Confirm Rejection
+              {batchRejectMutation.isPending && (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              )}
             </Button>
           </div>
         </div>

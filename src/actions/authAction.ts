@@ -35,3 +35,25 @@ export const REQUEST_OTP = async (data: unknown) => {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const REQUEST_PASSWORD_RESET = async (data: unknown) => {
+  try {
+    const res = await api.post(`/password/forgot-password`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const CHANGE_PASSWORD = async (data: unknown) => {
+  try {
+    const res = await api.post(`/password/change-password`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+
+    throw new Error(returnErrorMessage(err));
+  }
+};

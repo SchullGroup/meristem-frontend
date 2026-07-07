@@ -19,7 +19,7 @@ export default function CalloverDemat({ tab }: { tab: string }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<Demat | null>(null);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading, isError, refetch } = useGetAllCertificateDemat(
     {
@@ -32,8 +32,19 @@ export default function CalloverDemat({ tab }: { tab: string }) {
     },
   );
 
-  const { mutate: submitForCallover } = useSubmitForCalloverDematRequest();
-  const { mutate: rejectDemat } = useRejectDematRequest();
+  const {
+    mutate: submitForCallover,
+    isSuccess: submitSuccess,
+    isPending: submitPending,
+  } = useSubmitForCalloverDematRequest();
+  const {
+    mutate: rejectDemat,
+    isSuccess: rejectSuccess,
+    isPending: rejectPending,
+  } = useRejectDematRequest();
+
+  const isPending = submitPending || rejectPending;
+  const success = submitSuccess || rejectSuccess;
 
   if (isLoading) return <PendingListSkeleton />;
   if (isError)
@@ -87,13 +98,15 @@ export default function CalloverDemat({ tab }: { tab: string }) {
         page={page}
         pageSize={pageSize}
         total={data?.totalElements || 0}
-        totalPages={data?.totalPages || 0}
+        totalPages={data?.totalPages || 1}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         approveLabel="Submit for Callover"
       />
 
       <ViewDematRecord
+        isPending={isPending}
+        success={success}
         selected={selected}
         open={reviewOpen}
         onOpenChange={setReviewOpen}

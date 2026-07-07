@@ -22,8 +22,8 @@ import {
   BatchRejectSplits,
   DividendSplit,
 } from "@/actions/dividendSplitActions";
-import { TablePagination } from "../table-pagination";
 import { SplitReviewDialog } from "./split-review-dialog";
+import { PaginationBar } from "../pagination-bar";
 
 export function PendingSplitsTable() {
   const { currentUser } = useStore();
@@ -33,7 +33,7 @@ export function PendingSplitsTable() {
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchComment, setBatchComment] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const {
     data: pendingResponse,
@@ -83,22 +83,22 @@ export function PendingSplitsTable() {
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     batchApproveMutation.mutate(
       {
         ids: Array.from(selectedIds),
         comment: "Batch approved",
-        authorisedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "SYSTEM",
+        authorisedBy: currentUser?.email,
       } as BatchRejectSplits,
       {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.success(
-              `${selectedIds.size} split${
-                selectedIds.size !== 1 ? "s" : ""
+              `${selectedIds.size} split${selectedIds.size !== 1 ? "s" : ""
               } approved successfully.`,
             );
             setSelectedIds(new Set());
@@ -121,22 +121,22 @@ export function PendingSplitsTable() {
       return;
     }
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     batchRejectMutation.mutate(
       {
         ids: Array.from(selectedIds),
         comment: batchComment.trim(),
-        authorisedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "SYSTEM",
+        authorisedBy: currentUser?.email,
       },
       {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.error(
-              `${selectedIds.size} split${
-                selectedIds.size !== 1 ? "s" : ""
+              `${selectedIds.size} split${selectedIds.size !== 1 ? "s" : ""
               } rejected.`,
             );
             setSelectedIds(new Set());
@@ -155,9 +155,6 @@ export function PendingSplitsTable() {
       },
     );
   }
-
-  const from = totalElements === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, totalElements);
 
   return (
     <>
@@ -275,18 +272,14 @@ export function PendingSplitsTable() {
           </tbody>
         </table>
       </Card>
-      <TablePagination
+      <PaginationBar
         page={page}
         pageSize={pageSize}
         totalPages={totalPages}
-        from={from}
-        to={to}
         total={totalElements}
         onPageChange={setPage}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-        }}
+        onPageSizeChange={setPageSize}
+        pageBase={1}
       />
 
       <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>

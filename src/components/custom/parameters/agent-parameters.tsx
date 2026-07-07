@@ -30,7 +30,7 @@ export default function AgentParameters({ confirmDelete }: AgentParametersProps)
   const { agentTypes, addAgentType, updateAgentType, removeAgentType } =
     useStore();
 
-  // ── Agent type dialog ────────────────────────────────────────
+  // ── Agent type dialog --//
   const [atOpen, setAtOpen] = useState(false);
   const [atMode, setAtMode] = useState<"add" | "edit">("add");
   const [editAt, setEditAt] = useState<AgentType | null>(null);

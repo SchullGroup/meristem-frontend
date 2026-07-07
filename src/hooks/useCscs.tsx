@@ -3,6 +3,7 @@ import {
   useMutation,
   useQueryClient,
   UseQueryOptions,
+  UseMutationOptions,
 } from "@tanstack/react-query";
 
 import {
@@ -10,24 +11,33 @@ import {
   GET_CSCS_FLAGGED_TRANSACTIONS_HISTORY,
   GET_CSCS_PROCESSED_LOGS,
   GET_CSCS_PROCESSING_QUEUE,
-  RESOLVE_CSCS_FLAGGED_TRANSACTION,
   UPLOAD_CSCS_FILE,
   INJECT_CSCS_ZIP_FILE,
   GET_HOLDERS,
   UPDATE_HOLDER_STATES,
   GET_CSCS_RECONCILIATION_FLAGGED_TRANSACTIONS,
   GET_CSCS_RECONCILIATIONS,
+  GET_CSCS_TRANSACTION_LOG_BATCHES,
+  GET_CSCS_INJECT_STATUS,
+  GET_CSCS_SHAREHOLDER_TRANSACTIONS,
+  UPLOAD_CSCS_HISTORY,
+  UPDATE_CSCS_TRANSACTION,
+  CREATE_CSCS_TRANSACTION,
 } from "@/actions/cscsActions";
 import {
   ProcessedLogsResponse,
   FlaggedTransaction,
-  FlaggedTransactionsResponse,
   ProcessingQueueResponse,
   Holder,
   ReconciliationFlaggedTransaction,
   ReconciliationResponse,
+  TransactionBatch,
+  CscsPosition,
+  ProcessedTransaction,
+  CscsInjectStatus,
+  CscsReconciliationRecord,
 } from "@/types/cscs";
-import { ContentPaginatedResponse, PaginatedResponse } from "@/types";
+import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
 export const useGetCscsProcessedLogs = (
   params?: {
@@ -47,6 +57,28 @@ export const useGetCscsProcessedLogs = (
   return useQuery({
     queryKey: ["cscs-processed-logs", params],
     queryFn: () => GET_CSCS_PROCESSED_LOGS(params),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+export const useGetCscsTransactionBatchLogs = (
+  params?: {
+    batchRef?: string;
+    register?: string;
+    status?: "COMPLETE" | "PARTIAL";
+    dateFilter?: "TODAY" | "THIS_WEEK" | "THIS_MONTH";
+    page?: number;
+    size?: number;
+  },
+  options?: Omit<
+    UseQueryOptions<PaginatedResponse<TransactionBatch>, Error, PaginatedResponse<TransactionBatch>>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["cscs-transaction-batch-logs", params],
+    queryFn: () => GET_CSCS_TRANSACTION_LOG_BATCHES(params),
     refetchOnWindowFocus: false,
     ...options,
   });
@@ -85,37 +117,22 @@ export const useUploadCscsFile = () => {
   });
 };
 
-export const useResolveCscsFlaggedTransaction = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: {
-      id: string;
-      data: { resolvedBy: string; resolutionNote: string };
-    }) => RESOLVE_CSCS_FLAGGED_TRANSACTION(data.id, data.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cscs-processed-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["cscs-processing-queue"] });
-    },
-  });
-};
 
 export const useGetCscsFlaggedTransactions = (
   params?: {
     search?: string;
     register?: string;
-    type?: "BUY" | "SELL";
-    status?: "PENDING" | "RESOLVED" | "FORCE_COMMITTED";
-    fromDate?: string;
-    toDate?: string;
+    status?: "PENDING" | "RESOLVED";
+    startDate?: string;
+    endDate?: string;
     page?: number;
     size?: number;
   },
   options?: Omit<
     UseQueryOptions<
-      FlaggedTransactionsResponse,
+      PaginatedResponse<FlaggedTransaction>,
       Error,
-      FlaggedTransactionsResponse
+      PaginatedResponse<FlaggedTransaction>
     >,
     "queryKey" | "queryFn"
   >,
@@ -155,12 +172,35 @@ export const useInjectCscsFile = () => {
   });
 };
 
+/**
+ * Poll the CSCS inject background job status.
+ * Enable only when a batchRef is available and the job is not yet done.
+ * The caller controls polling interval via `refetchInterval` in options.
+ */
+export const useGetCscsInjectStatus = (
+  batchRef: string | null,
+  options?: Omit<
+    UseQueryOptions<CscsInjectStatus, Error, CscsInjectStatus>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["cscs-inject-status", batchRef],
+    queryFn: () => GET_CSCS_INJECT_STATUS(batchRef!),
+    enabled: !!batchRef,
+    refetchInterval: 5000,
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
 export const useGetHolders = (
   params?: {
     name?: string;
     email?: string;
     chn?: string;
     registerId?: string;
+    batchRef?: string;
     page?: number;
     size?: number;
   },
@@ -196,14 +236,16 @@ export const useUpdateHolderStates = () => {
 export const useGetReconciliations = (
   params: {
     register: string;
-    from?: string;
-    to?: string;
+    startDate?: string;
+    endDate?: string;
     chn?: string;
-    page?: number; // 0 indexed
-    size?: number;
+    mrpslPage?: number; // 0 indexed
+    mrpslPageSize?: number;
+    cscsPage?: number; // 0 indexed
+    cscsPageSize?: number;
   },
   options?: Omit<
-    UseQueryOptions<ReconciliationResponse, Error, ReconciliationResponse>,
+    UseQueryOptions<ReconciliationResponse["data"], Error, ReconciliationResponse["data"]>,
     "queryKey" | "queryFn"
   >,
 ) => {
@@ -239,5 +281,93 @@ export const useReconciliationFlaggedTransactions = (
     queryFn: () => GET_CSCS_RECONCILIATION_FLAGGED_TRANSACTIONS(params),
     refetchOnWindowFocus: false,
     ...options,
+  });
+};
+
+export const useGetCscsShareholderTransactions = (
+  params?: {
+    chn?: string;
+    register?: string;
+  },
+  options?: Omit<
+    UseQueryOptions<
+      ApiResponse<unknown>,
+      Error,
+      ApiResponse<unknown>["data"]
+    >,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["shareholder-transactions", params],
+    queryFn: () => GET_CSCS_SHAREHOLDER_TRANSACTIONS(params),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+
+export const useUploadCscsHistory = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<CscsPosition[]>,
+      Error,
+      { register: string, data: FormData }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ register, data }: { register: string, data: FormData }) =>
+      UPLOAD_CSCS_HISTORY(register, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-flagged-transactions"], exact: false });
+    },
+    ...options
+  });
+};
+
+export const useUpdateCscsTransaction = (
+  options?: Omit<
+    UseMutationOptions<
+      ProcessedTransaction,
+      Error,
+      { id: string, data: Partial<ProcessedTransaction> }>,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string, data: Partial<ProcessedTransaction> }) =>
+      UPDATE_CSCS_TRANSACTION(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-flagged-transactions"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["reconciliations"], exact: false });
+    },
+    ...options
+  });
+};
+
+export const useCreateCscsTransaction = (
+  options?: Omit<
+    UseMutationOptions<
+      CscsReconciliationRecord,
+      Error,
+      { data: Omit<ProcessedTransaction, "holderName" | "batchRef" | "id" | "balanceAfter"> & { transStatus: string } }>,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ data }: { data: Omit<ProcessedTransaction, "holderName" | "batchRef" | "id" | "balanceAfter"> & { transStatus: string } }) =>
+      CREATE_CSCS_TRANSACTION(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reconciliation-flagged-transactions"], exact: false });
+      queryClient.invalidateQueries({ queryKey: ["reconciliations"], exact: false });
+    },
+    ...options
   });
 };

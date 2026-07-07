@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Loader2,
   AlertCircle,
@@ -13,18 +13,16 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { TablePagination } from "@/components/custom/table-pagination";
-import { usePagination } from "@/lib/use-pagination";
 import { useGetPaymentStatusReport } from "@/hooks/useDividendReport";
-import { ReportFilters as DividendReportFilters } from "@/actions/dividendReportActions";
+import { PaginatedReportFilters } from "@/actions/dividendReportActions";
 import { useExportDividendReport } from "@/hooks/useDividendReport";
-
 import { formatCurrency, formatDate, formatNaira } from "@/lib/utils/format";
 import { printPaymentStatusReport } from "@/lib/utils/printDividendReport";
 
 interface PaymentStatusReportProps {
-  filters: DividendReportFilters;
+  filters: PaginatedReportFilters;
   generated: boolean;
+  onTotalChange?: (total: number) => void;
 }
 
 function statusBadgeClass(s: string) {
@@ -37,6 +35,7 @@ function statusBadgeClass(s: string) {
 export default function PaymentStatusReport({
   filters,
   generated,
+  onTotalChange,
 }: PaymentStatusReportProps) {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -49,20 +48,14 @@ export default function PaymentStatusReport({
 
   const report = data?.data;
   const rows = report?.paymentStatusRows ?? [];
+  const total = report?.totalElements ?? 0;
+
+  // Surface total to parent for PaginationBar
+  useEffect(() => {
+    if (total > 0) onTotalChange?.(total);
+  }, [total, onTotalChange]);
 
   const { mutateAsync: exportDividendReport } = useExportDividendReport();
-
-  const {
-    page,
-    pageSize,
-    totalPages,
-    paged,
-    from,
-    to,
-    total,
-    setPage,
-    setPageSize,
-  } = usePagination(rows);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -121,6 +114,10 @@ export default function PaymentStatusReport({
       </Card>
     );
   }
+
+  const pageSize = filters.size ?? 10;
+  const page = filters.page ?? 0;
+  const from = total === 0 ? 0 : page * pageSize + 1;
 
   return (
     <div className="space-y-4 animate-in fade-in">
@@ -218,19 +215,21 @@ export default function PaymentStatusReport({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {paged.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="px-4 py-8 text-center text-muted-foreground"
                   >
                     No declarations found for the selected filters.
                   </td>
                 </tr>
               ) : (
-                paged.map((entry, i) => (
+                rows.map((entry, i) => (
                   <tr key={i} className="mrpsl-table-row">
-                    <td className="px-4 py-2.5">{entry?.serial}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
+                      {from + i}
+                    </td>
                     <td className="px-4 py-2.5">
                       {entry?.paymentNumber || "N/A"}
                     </td>
@@ -276,7 +275,7 @@ export default function PaymentStatusReport({
             {rows.length > 0 && (
               <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
                 <tr>
-                  <td colSpan={4} className="px-4 py-2.5 text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-2.5 text-muted-foreground">
                     TOTALS ({report?.totalDeclarations ?? 0} declarations)
                   </td>
                   <td className="px-4 py-2.5 text-right">
@@ -289,22 +288,11 @@ export default function PaymentStatusReport({
                     {formatCurrency(report?.totalNetPayout ?? 0)}
                   </td>
                   <td />
+                  <td />
                 </tr>
               </tfoot>
             )}
           </table>
-        </div>
-        <div className="px-4 py-3 border-t">
-          <TablePagination
-            page={page}
-            pageSize={pageSize}
-            totalPages={totalPages}
-            from={from}
-            to={to}
-            total={total}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
         </div>
       </Card>
     </div>

@@ -19,7 +19,7 @@ export default function IcuApproveDemat({ tab }: { tab: string }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<Demat | null>(null);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading, isError, refetch } = useGetAllCertificateDemat(
     {
@@ -32,8 +32,19 @@ export default function IcuApproveDemat({ tab }: { tab: string }) {
     },
   );
 
-  const { mutate: icuApproveDemat } = useIcuApproveDematRequest();
-  const { mutate: rejectDemat } = useRejectDematRequest();
+  const {
+    mutate: icuApproveDemat,
+    isPending: icuPending,
+    isSuccess: icuSuccess,
+  } = useIcuApproveDematRequest();
+  const {
+    mutate: rejectDemat,
+    isPending: rejectPending,
+    isSuccess: rejectSuccess,
+  } = useRejectDematRequest();
+
+  const isPending = icuPending || rejectPending;
+  const success = icuSuccess || rejectSuccess;
 
   if (isLoading) return <PendingListSkeleton />;
   if (isError)
@@ -86,13 +97,15 @@ export default function IcuApproveDemat({ tab }: { tab: string }) {
         page={page}
         pageSize={pageSize}
         total={data?.totalElements || 0}
-        totalPages={data?.totalPages || 0}
+        totalPages={data?.totalPages || 1}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         approveLabel="Approve for Lodgment"
       />
 
       <ViewDematRecord
+        success={success}
+        isPending={isPending}
         selected={selected}
         open={reviewOpen}
         onOpenChange={setReviewOpen}

@@ -118,7 +118,7 @@ export function UserForm({
           email: initialData.email,
           phone: initialData.phoneNumber ?? "",
           department: initialData.department ?? "",
-          role: initialData.roles[0],
+          role: initialData.role || initialData.roles[0] || "",
           secondaryRole: initialData.secondaryRole || "",
           certificateTransactionLimit: initialData.certTransactionLimit ?? 0,
           dividendTransactionLimit: initialData.divTransactionLimit ?? 0,
@@ -158,13 +158,10 @@ export function UserForm({
         userData: {
           firstName: values.firstName,
           lastName: values.lastName,
-          email: values.email,
           phone: values.phone,
           department: values.department,
-          roles: [values.role],
-          secondaryRole: values.secondaryRole
-            ? values.secondaryRole
-            : undefined,
+          role: values.role,
+          secondaryRole: values.secondaryRole || undefined,
           certificateTransactionLimit: values.certificateTransactionLimit,
           dividendTransactionLimit: values.dividendTransactionLimit,
           status: values?.status?.toUpperCase(),
@@ -313,7 +310,7 @@ export function UserForm({
                         </FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="mrpsl-input h-11">
@@ -342,7 +339,7 @@ export function UserForm({
                         </FormLabel>
                         <Select
                           onValueChange={field.onChange}
-                          defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="mrpsl-input h-11">

@@ -3,9 +3,20 @@
 import api from "@/services/api";
 import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
 
-export const GET_DECLARATIONS = async () => {
+export const GET_DECLARATIONS = async (params?: {
+  id?: string;
+  registerId?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDir?: string;
+  from?: string;
+  to?: string;
+}) => {
   try {
-    const res = await api.get(`/offers/bonus-issue/declarations`);
+    const res = await api.get(`/offers/bonus-issue/declarations`, { params });
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
@@ -204,6 +215,22 @@ export const RETURN_DECLARATION_TO_OPS = async ({
     const res = await api.post(
       `/offers/bonus-issue/declarations/${declarationId}/icu-return`,
       payload,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const EMAIL_SHAREHOLDERS = async ({
+  declarationId,
+}: {
+  declarationId: string | number | null;
+}) => {
+  try {
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/${declarationId}/email-shareholders`,
     );
     return res.data;
   } catch (error) {

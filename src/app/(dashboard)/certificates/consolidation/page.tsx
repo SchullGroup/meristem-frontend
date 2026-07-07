@@ -6,52 +6,6 @@ import NewConsolidation from "@/components/custom/certificate-consolidation/new-
 import PendingConsolidationApprovals from "@/components/custom/certificate-consolidation/pending-approval";
 import { ApprovedConsolidations } from "@/components/custom/certificate-consolidation/approved-consolidations";
 
-type ConsolCert = { num: string; units: number; issueDate: string };
-
-type PendingConsol = {
-  id: string;
-  date: string;
-  account: string;
-  holder: string;
-  register: string;
-  certCount: number;
-  totalUnits: number;
-  submittedBy: string;
-  certs: ConsolCert[];
-};
-
-const PENDING_CONSOLS: PendingConsol[] = [
-  {
-    id: "CO1",
-    date: "28 Apr 2026",
-    account: "DANGCEM-10015",
-    holder: "Binta Lawal",
-    register: "Dangote Cement — DANGCEM",
-    certCount: 2,
-    totalUnits: 20000,
-    submittedBy: "Chidi Okafor",
-    certs: [
-      { num: "CERT-DANGCEM-10015-01", units: 12000, issueDate: "01 Jan 2024" },
-      { num: "CERT-DANGCEM-10015-02", units: 8000, issueDate: "15 Mar 2025" },
-    ],
-  },
-  {
-    id: "CO2",
-    date: "27 Apr 2026",
-    account: "ACCESS-00553",
-    holder: "Ngozi Eze",
-    register: "Access Bank — ACCESS",
-    certCount: 3,
-    totalUnits: 35000,
-    submittedBy: "Ngozi Eze",
-    certs: [
-      { num: "CERT-ACCESS-00553-01", units: 10000, issueDate: "12 Feb 2023" },
-      { num: "CERT-ACCESS-00553-02", units: 15000, issueDate: "01 Apr 2024" },
-      { num: "CERT-ACCESS-00553-03", units: 10000, issueDate: "20 Jan 2026" },
-    ],
-  },
-];
-
 export default function ConsolidationPage() {
   const [activeTab, setActiveTab] = useState("new");
 

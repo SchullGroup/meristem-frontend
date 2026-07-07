@@ -1,14 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CheckCircle2, XCircle, Clock, Mail, FileText, AlertTriangle,
-  RefreshCw, Bell, Check
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Mail,
+  FileText,
+  AlertTriangle,
+  RefreshCw,
+  Bell,
+  Check,
+  Loader2,
+  AlertCircle,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useGetNotifications, useGetNotificationSummary, useMarkAllNotificationsRead, useMarkNotificationRead } from "@/hooks/useNotifications";
+import { useStore } from "@/lib/store";
+import { NotificationsParams } from "@/actions/notificationActions";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PaginationBar } from "@/components/custom/pagination-bar";
 
 type NotifType =
   | "approval_pending"
@@ -19,147 +36,58 @@ type NotifType =
   | "transfer_complete"
   | "system_alert";
 
-interface Notification {
-  id: string;
-  type: NotifType;
-  title: string;
-  body: string;
-  module: string;
-  timestamp: string;
-  read: boolean;
-  actionHref?: string;
-  comment?: string;
-}
+const TYPE_CONFIG: Record<
+  NotifType,
+  { icon: React.ElementType; iconClass: string; dotClass: string }
+> = {
+  approval_pending: {
+    icon: Clock,
+    iconClass: "text-amber-500",
+    dotClass: "bg-amber-500",
+  },
+  approval_approved: {
+    icon: CheckCircle2,
+    iconClass: "text-green-600",
+    dotClass: "bg-green-500",
+  },
+  approval_rejected: {
+    icon: XCircle,
+    iconClass: "text-red-500",
+    dotClass: "bg-red-500",
+  },
+  cscs_batch: {
+    icon: RefreshCw,
+    iconClass: "text-blue-500",
+    dotClass: "bg-blue-500",
+  },
+  email_dispatch: {
+    icon: Mail,
+    iconClass: "text-primary",
+    dotClass: "bg-primary",
+  },
+  transfer_complete: {
+    icon: FileText,
+    iconClass: "text-primary",
+    dotClass: "bg-primary",
+  },
+  system_alert: {
+    icon: AlertTriangle,
+    iconClass: "text-orange-500",
+    dotClass: "bg-orange-500",
+  },
+};
 
-const DUMMY_NOTIFICATIONS: Notification[] = [
-  {
-    id: "n1",
-    type: "approval_rejected",
-    title: "Dematerialisation Request Rejected",
-    body: "Your dematerialisation request for WAPCO-00443 has been rejected by the Compliance Officer.",
-    module: "Certificate Management",
-    timestamp: "2026-05-15T08:14:00Z",
-    read: false,
-    actionHref: "/approvals",
-    comment: "Certificate number could not be verified against CSCS records. Please re-submit with a valid CSCS reference.",
-  },
-  {
-    id: "n2",
-    type: "approval_pending",
-    title: "Transfer Request Awaiting Your Approval",
-    body: "A share transfer for Adaeze Okafor (ZENITH-00812) is pending Tier-1 approval.",
-    module: "Certificate Management",
-    timestamp: "2026-05-15T07:52:00Z",
-    read: false,
-    actionHref: "/approvals",
-  },
-  {
-    id: "n3",
-    type: "approval_approved",
-    title: "Dividend Declaration Approved",
-    body: "Your Q1 2026 dividend declaration for ACCESS BANK PLC has been fully approved and is ready for payment processing.",
-    module: "Dividend Management",
-    timestamp: "2026-05-14T16:30:00Z",
-    read: false,
-    actionHref: "/dividends/declaration",
-  },
-  {
-    id: "n4",
-    type: "email_dispatch",
-    title: "Email Dispatch Complete — ACCESS BANK PLC",
-    body: "Annual General Meeting notice sent to 48,204 shareholders. 47,891 delivered, 313 bounced.",
-    module: "Offer Administration",
-    timestamp: "2026-05-14T14:05:00Z",
-    read: true,
-  },
-  {
-    id: "n5",
-    type: "approval_pending",
-    title: "Bonus Issue Awaiting Your Approval",
-    body: "A bonus issue allocation for DANGOTE CEMENT PLC is pending Tier-2 approval.",
-    module: "Offer Administration",
-    timestamp: "2026-05-14T11:20:00Z",
-    read: false,
-    actionHref: "/approvals",
-  },
-  {
-    id: "n6",
-    type: "cscs_batch",
-    title: "CSCS Batch Upload Processed",
-    body: "325 CSCS update records from the GTB Principal register have been validated and applied successfully.",
-    module: "Certificate Management",
-    timestamp: "2026-05-14T09:00:00Z",
-    read: true,
-    actionHref: "/certificates/cscs-updates",
-  },
-  {
-    id: "n7",
-    type: "approval_rejected",
-    title: "KYC Update Request Rejected",
-    body: "Your KYC update request for Chukwuemeka Adeyemi has been rejected by the Data Manager.",
-    module: "Account Maintenance",
-    timestamp: "2026-05-13T15:44:00Z",
-    read: true,
-    actionHref: "/approvals",
-    comment: "Uploaded NIN slip is illegible. Please provide a clear scan of the document.",
-  },
-  {
-    id: "n8",
-    type: "transfer_complete",
-    title: "Share Transfer Completed",
-    body: "Transfer of 5,000 units from Ngozi Eze to Emeka Obi (FIRSTBANK-00291) has been completed and certificate issued.",
-    module: "Certificate Management",
-    timestamp: "2026-05-13T13:10:00Z",
-    read: true,
-    actionHref: "/certificates/transfer",
-  },
-  {
-    id: "n9",
-    type: "approval_approved",
-    title: "Account Consolidation Approved",
-    body: "Consolidation of 3 accounts for Mrs. Funke Adeleke (GTBANK-00154) has been approved and processed.",
-    module: "Account Maintenance",
-    timestamp: "2026-05-13T10:30:00Z",
-    read: true,
-  },
-  {
-    id: "n10",
-    type: "system_alert",
-    title: "System Maintenance Scheduled",
-    body: "The CPA system will undergo scheduled maintenance on Saturday 17 May 2026 from 00:00 – 04:00 WAT. All pending operations should be completed before this window.",
-    module: "System",
-    timestamp: "2026-05-12T17:00:00Z",
-    read: true,
-  },
-  {
-    id: "n11",
-    type: "email_dispatch",
-    title: "Email Dispatch Complete — ZENITH BANK PLC",
-    body: "Rights issue application notice sent to 91,330 shareholders. 90,112 delivered, 1,218 bounced.",
-    module: "Offer Administration",
-    timestamp: "2026-05-12T12:20:00Z",
-    read: true,
-  },
-  {
-    id: "n12",
-    type: "cscs_batch",
-    title: "CSCS Batch Upload — Validation Errors",
-    body: "14 records in the latest WAPCO batch failed CSCS validation and have been flagged for review.",
-    module: "Certificate Management",
-    timestamp: "2026-05-11T09:45:00Z",
-    read: true,
-    actionHref: "/certificates/cscs-updates",
-  },
-];
-
-const TYPE_CONFIG: Record<NotifType, { icon: React.ElementType; iconClass: string; dotClass: string }> = {
-  approval_pending:  { icon: Clock,         iconClass: "text-amber-500",  dotClass: "bg-amber-500"  },
-  approval_approved: { icon: CheckCircle2,  iconClass: "text-green-600",  dotClass: "bg-green-500"  },
-  approval_rejected: { icon: XCircle,       iconClass: "text-red-500",    dotClass: "bg-red-500"    },
-  cscs_batch:        { icon: RefreshCw,     iconClass: "text-blue-500",   dotClass: "bg-blue-500"   },
-  email_dispatch:    { icon: Mail,          iconClass: "text-primary",    dotClass: "bg-primary"    },
-  transfer_complete: { icon: FileText,      iconClass: "text-primary",    dotClass: "bg-primary"    },
-  system_alert:      { icon: AlertTriangle, iconClass: "text-orange-500", dotClass: "bg-orange-500" },
+const normalizeType = (type: string): NotifType => {
+  const mapping: Record<string, NotifType> = {
+    APPROVAL_PENDING: "approval_pending",
+    APPROVAL_APPROVED: "approval_approved",
+    APPROVAL_REJECTED: "approval_rejected",
+    CSCS_BATCH: "cscs_batch",
+    EMAIL_DISPATCH: "email_dispatch",
+    TRANSFER_COMPLETE: "transfer_complete",
+    SYSTEM_ALERT: "system_alert",
+  };
+  return mapping[type] || "system_alert"; // fallback
 };
 
 function formatTime(iso: string): string {
@@ -172,36 +100,128 @@ function formatTime(iso: string): string {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 type FilterTab = "all" | "unread" | "approvals" | "email" | "system";
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>(DUMMY_NOTIFICATIONS);
+  const currentUser = useStore((state) => state.currentUser)
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [page, setPage] = useState(0)
+  const [size, setSize] = useState(20)
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const queryParams = useMemo<NotificationsParams>(() => {
+    const base = { performedBy: currentUser?.email };
+    switch (activeTab) {
+      case "unread":
+        return { ...base, read: false };
+      case "approvals":
+        return { ...base, type: "APPROVAL_PENDING" };
+      case "email":
+        return { ...base, type: "EMAIL_DISPATCH" };
+      case "system":
+        return { ...base, type: "SYSTEM_ALERT" };
+      default: // "all"
+        return base;
+    }
+  }, [activeTab, currentUser?.email]);
 
-  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  const markRead = (id: string) => setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
 
-  const filtered = notifications.filter(n => {
-    if (activeTab === "unread")    return !n.read;
-    if (activeTab === "approvals") return n.type.startsWith("approval");
-    if (activeTab === "email")     return n.type === "email_dispatch";
-    if (activeTab === "system")    return n.type === "system_alert" || n.type === "cscs_batch";
-    return true;
-  });
+  const {
+    data: notificationsData,
+    isLoading: notificationsLoading,
+    error: notificationsError,
+  } = useGetNotifications(
+    {
+      ...queryParams,
+      page,
+      size,
+    },
+  );
+
+  const { data: summaryData } = useGetNotificationSummary(currentUser?.email);
+
+  // Mutations
+  const markReadMutation = useMarkNotificationRead();
+  const markAllReadMutation = useMarkAllNotificationsRead();
+
+  const unreadCount = summaryData?.data?.unreadCount ?? 0;
+
+  // Transform API notifications to our UI format
+  const notifications = (notificationsData?.data?.content || []).map((n) => ({
+    ...n,
+    type: normalizeType(n.type),
+    actionHref: n.actionUrl || undefined,
+    timestamp: n.createdAt,
+  }));
+
 
   const tabs: { key: FilterTab; label: string }[] = [
-    { key: "all",       label: "All" },
-    { key: "unread",    label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` },
+    { key: "all", label: "All" },
+    {
+      key: "unread",
+      label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}`,
+    },
     { key: "approvals", label: "Approvals" },
-    { key: "email",     label: "Email" },
-    { key: "system",    label: "System" },
+    { key: "email", label: "Email" },
+    { key: "system", label: "System" },
   ];
+
+  const resolveUrl = (url?: string) => {
+    if (!url) return url;
+    const match = url.match(/^\/approvals\/(.+)$/);
+    if (match) return `/approvals?ref=${encodeURIComponent(match[1])}`;
+    return url;
+  };
+
+  // Handlers
+  const handleMarkRead = (id: string, actionUrl?: string) => {
+    const notif = notifications.find((n) => n.id === id);
+    const resolvedUrl = resolveUrl(actionUrl);
+    // If already read, just navigate
+    if (notif?.read) {
+      if (resolvedUrl) router.push(resolvedUrl);
+      return;
+    }
+
+    if (!currentUser?.email) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
+    setLoadingId(id);
+    markReadMutation.mutate(
+      { id, performedBy: currentUser?.email },
+      {
+        onSuccess: () => {
+          toast.success("Notification marked as read");
+          if (resolvedUrl) router.push(resolvedUrl);
+          else setLoadingId(null);
+        },
+        onError: () => {
+          toast.error("Failed to mark notification as read");
+          setLoadingId(null);
+        },
+      }
+    );
+  };
+
+  const handleMarkAllRead = () => {
+    markAllReadMutation.mutate({ performedBy: currentUser?.email }, {
+      onSuccess: () => {
+        toast.success("Notifications marked as read")
+      },
+      onError: () => {
+        toast.error("Failed to mark notifications as read")
+      }
+    });
+  };
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-5">
@@ -210,20 +230,27 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-xl font-bold">Notifications</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}` : "All caught up"}
+            {unreadCount > 0
+              ? `${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}`
+              : "All caught up"}
           </p>
         </div>
         {unreadCount > 0 && (
-          <Button variant="outline" size="sm" className="gap-2 text-sm" onClick={markAllRead}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-sm"
+            onClick={handleMarkAllRead}
+            disabled={markAllReadMutation.isPending}        >
             <Check className="h-3.5 w-3.5" />
-            Mark all as read
+            {markAllReadMutation.isPending ? "Processing..." : "Mark all as read"}
           </Button>
         )}
       </div>
 
       {/* Tab filter */}
       <div className="flex gap-1 border-b">
-        {tabs.map(tab => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -231,7 +258,7 @@ export default function NotificationsPage() {
               "px-4 py-2 text-[13px] font-medium transition-colors border-b-2 -mb-px",
               activeTab === tab.key
                 ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {tab.label}
@@ -240,85 +267,145 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notification list */}
-      {filtered.length === 0 ? (
-        <div className="py-16 text-center">
-          <Bell className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">No notifications</p>
-          <p className="text-[13px] text-muted-foreground/60 mt-1">Nothing here yet for this filter</p>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {filtered.map(notif => {
-            const cfg = TYPE_CONFIG[notif.type];
-            const Icon = cfg.icon;
-
-            return (
-              <div
-                key={notif.id}
-                onClick={() => {
-                  markRead(notif.id);
-                  if (notif.actionHref) router.push(notif.actionHref);
-                }}
-                className={cn(
-                  "flex gap-4 px-4 py-4 rounded-xl border transition-colors cursor-pointer group",
-                  notif.read
-                    ? "bg-background border-border/50 hover:bg-muted/30"
-                    : "bg-primary/[0.02] border-primary/15 hover:bg-primary/[0.04]"
-                )}
-              >
-                {/* Icon */}
-                <div className={cn(
-                  "h-9 w-9 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                  notif.read ? "bg-muted" : "bg-muted/60"
-                )}>
-                  <Icon className={cn("h-4 w-4", cfg.iconClass)} />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
+      {
+        notificationsLoading ? (
+          <div className="space-y-1">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex gap-4 px-4 py-4 rounded-xl border bg-background border-border/50">
+                <Skeleton className="h-9 w-9 rounded-full shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {!notif.read && (
-                        <span className={cn("h-2 w-2 rounded-full shrink-0", cfg.dotClass)} />
-                      )}
-                      <p className={cn(
-                        "text-[13px] leading-snug truncate",
-                        notif.read ? "font-medium text-foreground" : "font-semibold text-foreground"
-                      )}>
-                        {notif.title}
-                      </p>
-                    </div>
-                    <span className="text-[12px] text-muted-foreground shrink-0 mt-px">
-                      {formatTime(notif.timestamp)}
-                    </span>
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-16 shrink-0" />
                   </div>
-
-                  <p className="text-[13px] text-muted-foreground mt-1 line-clamp-2">
-                    {notif.body}
-                  </p>
-
-                  {notif.comment && (
-                    <p className="text-[12px] text-red-600 italic mt-1.5 line-clamp-2">
-                      &ldquo;{notif.comment}&rdquo;
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="secondary" className="text-[11px] h-5 px-2 rounded-md font-normal">
-                      {notif.module}
-                    </Badge>
-                    {notif.actionHref && (
-                      <span className="text-[12px] text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                        View details →
-                      </span>
-                    )}
-                  </div>
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                  <Skeleton className="h-5 w-20 rounded-md" />
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : notificationsError ? (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Notifications Fetch Failed</AlertTitle>
+            <AlertDescription>
+              {notificationsError instanceof Error ? notificationsError.message : "Could not retrieve notifications."}
+            </AlertDescription>
+          </Alert>
+        ) :
+          notificationsData?.data?.content && notificationsData?.data?.content.length > 0 ?
+            (
+              <div className="space-y-1">
+                {notifications.map((notif) => {
+                  const cfg = TYPE_CONFIG[notif.type as NotifType] || TYPE_CONFIG.system_alert;
+                  const Icon = cfg.icon;
+
+                  return (
+                    <div
+                      key={notif.id}
+                      className={cn(
+                        "flex gap-4 px-4 py-4 rounded-xl border transition-colors group",
+                        notif.read
+                          ? "bg-background border-border/50 hover:bg-muted/30"
+                          : "bg-primary/2 border-primary/15 hover:bg-primary/4"
+                      )}
+                    >
+                      {/* Icon */}
+                      <div
+                        className={cn(
+                          "h-9 w-9 rounded-full flex items-center justify-center shrink-0 mt-0.5",
+                          notif.read ? "bg-muted" : "bg-muted/60"
+                        )}
+                      >
+                        <Icon className={cn("h-4 w-4", cfg.iconClass)} />
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {!notif.read && (
+                              <span
+                                className={cn(
+                                  "h-2 w-2 rounded-full shrink-0",
+                                  cfg.dotClass
+                                )}
+                              />
+                            )}
+                            <p
+                              className={cn(
+                                "text-[13px] leading-snug truncate",
+                                notif.read
+                                  ? "font-medium text-foreground"
+                                  : "font-semibold text-foreground"
+                              )}
+                            >
+                              {notif.title}
+                            </p>
+                          </div>
+                          <span className="text-[12px] text-muted-foreground shrink-0 mt-px">
+                            {formatTime(notif.timestamp)}
+                          </span>
+                        </div>
+
+                        <p className="text-[13px] text-muted-foreground mt-1 line-clamp-2">
+                          {notif.body}
+                        </p>
+
+                        {notif.comment && (
+                          <p className="text-[12px] text-red-600 italic mt-1.5 line-clamp-2">
+                            &ldquo;{notif.comment}&rdquo;
+                          </p>
+                        )}
+
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          <Badge
+                            variant="secondary"
+                            className="text-[11px] h-5 px-2 rounded-md font-normal"
+                          >
+                            {notif.module}
+                          </Badge>
+
+                          {notif.actionable && notif.actionHref && (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto p-0 text-primary text-[12px] font-medium gap-1"
+                              disabled={loadingId === notif.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkRead(notif.id, notif.actionHref);
+                              }}
+                            >
+                              View details {loadingId === notif.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowRight className="h-3 w-3" />}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>) :
+            (
+              <div className="py-16 text-center">
+                <Bell className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  No notifications
+                </p>
+                <p className="text-[13px] text-muted-foreground/60 mt-1">
+                  Nothing here yet for this filter
+                </p>
+              </div>)}
+
+      {notificationsData && notificationsData?.data?.totalPages > 1 && <PaginationBar
+        page={page}
+        pageSize={size}
+        totalPages={notificationsData?.data?.totalPages || 1}
+        onPageChange={setPage}
+        onPageSizeChange={setSize}
+        total={notificationsData?.data?.totalElements || 0}
+      />}
     </div>
   );
 }

@@ -20,6 +20,7 @@ import { EntitlementTableSkeleton } from "../rights-issue/loaders";
 import { ReviewDecideDialog, BatchRejectDialog } from "./dialogs";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { PaginationBar } from "../pagination-bar";
 
 interface PendingApprovalsProps {
   onReject: (id: string, comment: string) => void;
@@ -61,8 +62,8 @@ function tierBadgeClass(tier: string | number | undefined) {
 
 export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const { currentUser } = useStore();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
 
   // Queries & Mutations
   const {
@@ -72,7 +73,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
     error: pendingError,
     refetch: refetchPending,
   } = useGetPendingMarkOffApprovals({
-    page: page - 1,
+    page: page,
     size: pageSize,
   });
 
@@ -91,7 +92,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
 
   const pendingList = pendingResponse?.data?.content || [];
   const totalElements = pendingResponse?.data?.totalElements || 0;
-  const totalPages = pendingResponse?.data?.totalPages || 0;
+  const totalPages = pendingResponse?.data?.totalPages || 1;
 
   // Toggle helpers
   const toggleAuthSel = (id: number) => {
@@ -133,14 +134,17 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const handleSingleApprove = (comment: string) => {
     if (!selected) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     approveMutation.mutate(
       {
         id: selected.id,
         data: {
           comment: comment.trim(),
-          authorisedBy: currentUser?.email || currentUser?.username ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            "System",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -163,16 +167,17 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const handleSingleReject = (comment: string) => {
     if (!selected) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     rejectMutation.mutate(
       {
         id: selected.id,
         data: {
           comment: comment.trim(),
-          authorisedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          authorisedBy: currentUser?.email,
         },
       },
       {
@@ -195,15 +200,16 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const handleBatchApprove = () => {
     if (authSelIds.size === 0) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     batchApproveMutation.mutate(
       {
         ids: Array.from(authSelIds).map((id) => id.toString()) as any,
         comment: "Batch approved",
-        authorisedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "System",
+        authorisedBy: currentUser?.email,
       },
       {
         onSuccess: (res) => {
@@ -226,15 +232,16 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   };
 
   const handleBatchRejectConfirm = (comment: string) => {
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
     batchRejectMutation.mutate(
       {
         ids: Array.from(authSelIds).map((id) => id.toString()) as any,
         comment: comment.trim(),
-        authorisedBy:
-          currentUser?.username ||
-          `${currentUser?.firstName} ${currentUser?.lastName}` ||
-          currentUser?.email ||
-          "System",
+        authorisedBy: currentUser?.email,
       },
       {
         onSuccess: (res) => {
@@ -381,12 +388,11 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
             </table>
           </Card>
 
-          <TablePagination
+          <PaginationBar
             page={page}
             pageSize={pageSize}
             totalPages={totalPages}
-            from={(page - 1) * pageSize + 1}
-            to={Math.min(page * pageSize, totalElements)}
+
             total={totalElements}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}

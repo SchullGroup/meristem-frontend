@@ -15,7 +15,9 @@ export function formatNumber(num?: number): string {
   return num.toLocaleString();
 }
 
-export function formatDate(dateString: string): string {
+export function formatDate(dateString?: string): string {
+  if (!dateString) return "—";
+
   try {
     return format(new Date(dateString), "dd MMM yyyy");
   } catch {

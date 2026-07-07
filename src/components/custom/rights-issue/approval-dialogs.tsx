@@ -95,7 +95,7 @@ export function ApproveRightsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Approve Rights Issue</DialogTitle>
           <DialogDescription>
@@ -115,7 +115,7 @@ export function ApproveRightsDialog({
             Cancel
           </Button>
           <Button onClick={handleApprove} disabled={approveMutation.isPending}>
-            {approveMutation.isPending && (
+            {(approveMutation.isPending || approveIcuMutation.isPending) && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
             Confirm Approval
@@ -207,7 +207,7 @@ export function RejectRightsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-red-600">
             Reject Rights Issue
@@ -234,7 +234,7 @@ export function RejectRightsDialog({
             onClick={handleReject}
             disabled={rejectMutation.isPending}
           >
-            {rejectMutation.isPending && (
+            {(rejectMutation.isPending || rejectIcuMutation.isPending) && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
             Reject Declaration
@@ -263,6 +263,11 @@ export function LodgeRightsDialog({
   const handleProcessLodgment = () => {
     if (!rightsIssueDetails?.id) return;
 
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again");
+      return;
+    }
+
     lodgeMutation.mutate(
       {
         id: rightsIssueDetails?.id,
@@ -270,11 +275,7 @@ export function LodgeRightsDialog({
           lodgmentDate: format(new Date(), "yyyy-MM-dd"),
           lodgmentRef: rightsIssueDetails?.ref,
           notes,
-          processedBy:
-            currentUser?.email ||
-            `${currentUser?.firstName} ${currentUser?.lastName}` ||
-            currentUser?.username ||
-            "ADMIN",
+          processedBy: currentUser?.email,
         },
       },
       {
@@ -292,7 +293,7 @@ export function LodgeRightsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-green-600">
             Lodge Rights Issue ({rightsIssueDetails?.ref})

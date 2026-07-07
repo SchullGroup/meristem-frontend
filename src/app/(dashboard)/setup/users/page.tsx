@@ -204,7 +204,7 @@ export default function UsersPage() {
           <Skeleton className="h-10 w-28" />
         </div>
 
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-24 w-full" />
           ))}
@@ -249,9 +249,9 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Users</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Users</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage system users, roles, and authorization limits
           </p>
@@ -267,7 +267,7 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">Total Users</div>
           <div className="text-2xl font-bold font-mono mt-1">
@@ -294,12 +294,12 @@ export default function UsersPage() {
         </Card>
       </div>
 
-      <div className="flex gap-2 items-center">
+      <div className="flex flex-wrap gap-2 items-center">
         <Input
           placeholder="Search users..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-64 mrpsl-input"
+          className="w-full sm:w-64 mrpsl-input"
         />
         <Select
           value={roleFilter}
@@ -385,7 +385,7 @@ export default function UsersPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1 flex-wrap max-w-[150px]">
+                    <div className="flex gap-1 flex-wrap max-w-37.5">
                       {u?.roles?.length > 0 && (
                         // <Badge variant="outline" className="text-xs">
 

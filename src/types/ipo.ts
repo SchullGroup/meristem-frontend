@@ -24,14 +24,33 @@ export interface PendingApprovalParams {
 }
 
 export interface IPOSubscriber {
-  subscriberName: string;
   accountNumber: string;
-  chn: string;
-  units: number;
+  address: string | null;
   amount: number;
-  bank?: string;
-  broker?: string;
-  remark?: string;
+  bank: string;
+  broker: string;
+  certNo: string;
+  chn: string;
+  country: string | null;
+  cscsAccountNo: string;
+  dateOfBirth: string | null; // or Date | null depending on your data parsing
+  email: string | null;
+  firstName: string | null;
+  id: string; // UUID
+  lastName: string | null;
+  lga: string | null;
+  middleName: string | null;
+  nextOfKinName: string | null;
+  nextOfKinPhone: string | null;
+  nin: string | null;
+  phoneNumber: string | null;
+  remark: string | null;
+  state: string;
+  stockbrokerCode: string;
+  subscriberName: string;
+  symbol: string;
+  type: IPOBatchType;
+  units: number;
 }
 
 export interface LodgementResponse {
@@ -168,4 +187,64 @@ export interface ApplicationOfferSummaryResponse {
   totalInvalid: number;
   grandTotalUnits: number;
   grandTotalAmount: number;
+}
+
+export interface RefundReviewRequest {
+  approved: boolean;
+  reviewedBy: string;
+  remark: string;
+  subscriberIds?: string[];
+}
+
+export interface IpoRefundSubscriber {
+  id: string;
+  type: string;
+  subscriberName: string;
+  firstName: string;
+  lastName: string;
+  middleName: string;
+  dateOfBirth: string;
+  address: string;
+  country: string;
+  state: string;
+  lga: string;
+  phoneNumber: string;
+  accountNumber: string;
+  nin: string;
+  chn: string;
+  nextOfKinName: string;
+  nextOfKinPhone: string;
+  broker: string;
+  bank: string;
+  units: number;
+  stockbrokerCode: string;
+  certNo: string;
+  cscsAccountNo: string;
+  symbol: string;
+  email: string;
+  amount: number;
+  remark: string;
+  refundStatus: string;
+  refundOpsReviewedBy: string;
+  refundOpsReviewedAt: string;
+  refundIcuReviewedBy: string;
+  refundIcuReviewedAt: string;
+  refundRemark: string;
+}
+
+export interface RefundBatchReviewResponse {
+  updated: number;
+  newStatus: string;
+  message: string;
+}
+
+export interface RefundEligibleParams {
+  refundStatus?:
+  | "PENDING_OPS_REVIEW"
+  | "PENDING_ICU_REVIEW"
+  | "OPS_REJECTED"
+  | "ICU_REJECTED"
+  | "ELIGIBLE_FOR_REFUND";
+  page?: number;
+  size?: number;
 }

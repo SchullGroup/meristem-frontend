@@ -77,9 +77,9 @@ function SelectContent({
   children,
   side = "bottom",
   sideOffset = 4,
-  align = "center",
+  align = "start",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
@@ -123,6 +123,21 @@ function SelectContent({
     });
   };
 
+  const countSelectItems = (nodes: React.ReactNode): number => {
+    let n = 0;
+    React.Children.forEach(nodes, (child) => {
+      if (!React.isValidElement(child)) return;
+      const el = child as React.ReactElement<{ children?: React.ReactNode }>;
+      if (el.type === SelectItem) {
+        n++;
+      } else if (el.props.children) {
+        n += countSelectItems(el.props.children);
+      }
+    });
+    return n;
+  };
+  const showSearch = countSelectItems(children) > 7;
+
   const filtered = filterChildren(children);
   const hasResults = !q || React.Children.toArray(filtered).length > 0;
 
@@ -140,52 +155,54 @@ function SelectContent({
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            "relative isolate z-50 max-h-(--available-height) w-(--anchor-width) w-auto min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "relative isolate z-50 max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className,
           )}
           {...props}
         >
           {/* Sticky search input */}
-          <div className="sticky top-0 z-10 bg-popover px-2 pt-2 pb-1.5 border-b border-border/50">
-            <div className="flex items-center gap-1.5 rounded-md border border-input bg-muted/30 px-2.5 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/30 transition-all">
-              <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <input
-                ref={inputRef}
-                className="flex-1 py-1.5 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
-                placeholder="Search..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  // Block Base UI's type-ahead from stealing keystrokes.
-                  // Escape is intentionally allowed through so it closes the dropdown.
-                  if (e.key !== "Escape") {
-                    e.stopPropagation();
-                  }
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const first = listRef.current?.querySelector(
-                      '[data-slot="select-item"]:not([data-disabled])',
-                    ) as HTMLElement | null;
-                    first?.click();
-                    setSearch("");
-                  }
-                }}
-              />
-              {search && (
-                <button
-                  tabIndex={-1}
-                  className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setSearch("");
-                    inputRef.current?.focus();
+          {showSearch && (
+            <div className="sticky top-0 z-10 bg-popover px-2 pt-2 pb-1.5 border-b border-border/50">
+              <div className="flex items-center gap-1.5 rounded-md border border-input bg-muted/30 px-2.5 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/30 transition-all">
+                <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <input
+                  ref={inputRef}
+                  className="flex-1 py-1.5 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+                  placeholder="Search..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Block Base UI's type-ahead from stealing keystrokes.
+                    // Escape is intentionally allowed through so it closes the dropdown.
+                    if (e.key !== "Escape") {
+                      e.stopPropagation();
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const first = listRef.current?.querySelector(
+                        '[data-slot="select-item"]:not([data-disabled])',
+                      ) as HTMLElement | null;
+                      first?.click();
+                      setSearch("");
+                    }
                   }}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
+                />
+                {search && (
+                  <button
+                    tabIndex={-1}
+                    className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setSearch("");
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
           <SelectScrollUpButton />
           <div ref={listRef}>
             <SelectPrimitive.List className="p-1">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -109,6 +110,15 @@ export default function SplitPage() {
     enabled: !!activeSearchTerm,
   });
 
+  const [lookUpDataState, setLookUpDataState] = useState<any>(null);
+
+  useEffect(() => {
+    if (lookUpData?.data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLookUpDataState(lookUpData?.data);
+    }
+  }, [lookUpData]);
+
   const handleSearch = () => {
     if (!searchTerm.trim()) {
       toast.error("Search term is required");
@@ -117,6 +127,19 @@ export default function SplitPage() {
     setActiveSearchTerm(searchTerm);
     setCertFound(true);
   };
+
+  // Prefill + auto-search when navigated from the certificate enquiry page
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const search = searchParams.get("search");
+    if (search) {
+      //eslint-disable-next-line
+      setSearchTerm(search);
+      setActiveSearchTerm(search);
+      setCertFound(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: splitsData } = useQuery({
     queryKey: ["pending-splits"],
@@ -205,6 +228,10 @@ export default function SplitPage() {
       setPartUnits([""]);
       setNumParts("1");
       setSplitReason("");
+      setActiveCert(null);
+      setLookUpDataState(null);
+      setActiveSearchTerm("");
+      setSearchTerm("");
     },
     onError: (error) => {
       toast.error(error.message || "Failed to submit split request");
@@ -269,7 +296,7 @@ export default function SplitPage() {
   }
 
   const handleSubmit = () => {
-    if (!activeCert?.id) {
+    if (!activeCert?.certificateId) {
       toast.error("Please select a certificate");
       return;
     }
@@ -290,7 +317,6 @@ export default function SplitPage() {
       reason: splitReason,
       submittedBy: user?.email,
     };
-
     sumbitForApprovalMutation.mutate({ payload });
   };
 
@@ -356,8 +382,9 @@ export default function SplitPage() {
     setBatchRejectOpen(false);
   }
 
-  const pendingSplits = mappedSplits
-    .filter((row) => row.status === "PENDING" && !rejectedIds.has(row.id));
+  const pendingSplits = mappedSplits.filter(
+    (row) => row.status === "PENDING" && !rejectedIds.has(row.id),
+  );
   const approvedSplits = mappedSplits.filter(
     (row) => row.status === "APPROVED",
   );
@@ -427,11 +454,10 @@ export default function SplitPage() {
                     <Card
                       key={split.id}
                       onClick={handleEditRejected}
-                      className={`mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer transition-shadow ${
-                        isEditingThis
+                      className={`mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer transition-shadow ${isEditingThis
                           ? "ring-2 ring-red-400 shadow-md"
                           : "hover:shadow-md"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start gap-3">
                         <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -512,23 +538,22 @@ export default function SplitPage() {
                     <div className="mt-4 pt-4 border-t text-center py-6">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </div>
-                  ) : lookUpData?.data?.length > 0 ? (
+                  ) : lookUpDataState?.length > 0 ? (
                     <div className="mt-4 pt-4 border-t animate-in fade-in space-y-4 max-h-[400px] overflow-y-auto">
-                      {lookUpData?.data?.map((item: any) => (
+                      {lookUpDataState?.map((item: any) => (
                         <div
                           key={item.id}
                           onClick={() => setActiveCert(item)}
-                          className={`space-y-2 cursor-pointer p-4 rounded-xl border transition-colors ${
-                            activeCert?.id === item.id
+                          className={`space-y-2 cursor-pointer p-4 rounded-xl border transition-colors ${activeCert?.id === item.id
                               ? "bg-primary/5 border-primary"
                               : "hover:bg-muted/50 border-transparent"
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="font-mono text-lg font-bold">
                               {item?.registerName}
                             </div>
-                            {item.status === "APPROVED" && (
+                            {item.status === "ACTIVE" && (
                               <Badge className="bg-green-100 text-green-700 border-0 text-[12px]">
                                 ACTIVE
                               </Badge>
@@ -567,7 +592,7 @@ export default function SplitPage() {
                 <h3 className="font-semibold text-sm text-muted-foreground">
                   Configure Split
                 </h3>
-                {activeCert?.id ? (
+                {activeCert?.certificateId ? (
                   <Card className="mrpsl-card p-6 space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -939,46 +964,46 @@ export default function SplitPage() {
                     pending?: boolean;
                     time?: string | null;
                   }> => [
-                    {
-                      label: `Submitted by ${selected.submittedBy}`,
-                      done: selected.submittedBy ? true : false,
-                      time: selected.date,
-                    },
-                    {
-                      label: `Authorised by ${selected.authorizedBy} (${selected.authorizerRole})`,
-                      done: selected.authorizedBy !== "-" ? true : false,
-                      time: selected.authorizedAt,
-                    },
-                    // {
-                    //   label: "ICU Final Review — Approved",
-                    //   done: true,
-                    //   time: selected.date + ", 14:00",
-                    // },
-                  ])().map(
-                    (step, i) =>
-                      step.done && (
-                        <div key={i} className="flex items-start gap-3">
-                          <div
-                            className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
-                          >
-                            {step.done && (
-                              <Check
-                                className="h-3 w-3 text-white"
-                                style={{ strokeWidth: 3 }}
-                              />
-                            )}
+                      {
+                        label: `Submitted by ${selected.submittedBy}`,
+                        done: selected.submittedBy ? true : false,
+                        time: selected.date,
+                      },
+                      {
+                        label: `Authorised by ${selected.authorizedBy} (${selected.authorizerRole})`,
+                        done: selected.authorizedBy !== "-" ? true : false,
+                        time: selected.authorizedAt,
+                      },
+                      // {
+                      //   label: "ICU Final Review — Approved",
+                      //   done: true,
+                      //   time: selected.date + ", 14:00",
+                      // },
+                    ])().map(
+                      (step, i) =>
+                        step.done && (
+                          <div key={i} className="flex items-start gap-3">
+                            <div
+                              className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                            >
+                              {step.done && (
+                                <Check
+                                  className="h-3 w-3 text-white"
+                                  style={{ strokeWidth: 3 }}
+                                />
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-sm">{step.label}</div>
+                              {step.time && (
+                                <div className="text-[11px] text-muted-foreground mt-0.5">
+                                  {step.time}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-sm">{step.label}</div>
-                            {step.time && (
-                              <div className="text-[11px] text-muted-foreground mt-0.5">
-                                {step.time}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ),
-                  )}
+                        ),
+                    )}
                 </div>
               </div>
 
