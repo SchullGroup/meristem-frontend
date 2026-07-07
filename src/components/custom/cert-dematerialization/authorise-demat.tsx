@@ -19,7 +19,7 @@ export default function AuthoriseDemat({ tab }: { tab: string }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<Demat | null>(null);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading, isError, refetch } = useGetAllCertificateDemat(
     {
@@ -32,8 +32,19 @@ export default function AuthoriseDemat({ tab }: { tab: string }) {
     },
   );
 
-  const { mutate: authorizeDemat } = useAuthorizeDematRequest();
-  const { mutate: rejectDemat } = useRejectDematRequest();
+  const {
+    mutate: authorizeDemat,
+    isSuccess: submitSuccess,
+    isPending: submitPending,
+  } = useAuthorizeDematRequest();
+  const {
+    mutate: rejectDemat,
+    isSuccess: rejectSuccess,
+    isPending: rejectPending,
+  } = useRejectDematRequest();
+
+  const isPending = submitPending || rejectPending;
+  const success = submitSuccess || rejectSuccess;
 
   if (isLoading) return <PendingListSkeleton />;
   if (isError)
@@ -85,13 +96,15 @@ export default function AuthoriseDemat({ tab }: { tab: string }) {
         page={page}
         pageSize={pageSize}
         total={data?.totalElements || 0}
-        totalPages={data?.totalPages || 0}
+        totalPages={data?.totalPages || 1}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
         approveLabel="Authorise Selected"
       />
 
       <ViewDematRecord
+        isPending={isPending}
+        success={success}
         selected={selected}
         open={reviewOpen}
         onOpenChange={setReviewOpen}

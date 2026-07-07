@@ -47,10 +47,11 @@ export function SplitFormPanel() {
   const [splitReason, setSplitReason] = useState("");
   const [reasonError, setReasonError] = useState(false);
 
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: isRegisterLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   const {
     data: lookUpData,
@@ -235,12 +236,17 @@ export function SplitFormPanel() {
               <SelectValue placeholder="Register" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Select Register</SelectItem>
-              {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.registerId}>
-                  {r.symbol}
-                </SelectItem>
-              ))}
+              {isRegisterLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              ) : (
+                activeRegisters?.content?.map((r) => (
+                  <SelectItem key={r.registerId} value={r.symbol}>
+                    {r.symbol}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
 
@@ -326,11 +332,10 @@ export function SplitFormPanel() {
           <div className="flex justify-between">
             <span className="text-sm text-muted-foreground">Status</span>
             <span
-              className={`text-[13px] px-2 rounded ${
-                selectedDividendMeta?.eligible
+              className={`text-[13px] px-2 rounded ${selectedDividendMeta?.eligible
                   ? "bg-emerald-100 text-emerald-800"
                   : "bg-amber-100 text-amber-800"
-              }`}
+                }`}
             >
               {selectedDividendMeta?.status ?? "Select dividend"}
             </span>

@@ -17,7 +17,6 @@ import {
   useSubmitBulkWarrantMarkoff,
 } from "@/hooks/useWarrantMarkoff";
 import { WarrantMarkOffParams } from "@/actions/warrantMarkoffActions";
-import { TablePagination } from "@/components/custom/table-pagination";
 import { DataErrorState } from "../ipo/loaders";
 import { EntitlementTableSkeleton } from "../rights-issue/loaders";
 import { EnBlocConfirmDialog } from "./dialogs";
@@ -25,9 +24,10 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import DateInput from "@/components/ui/date-input";
 import { format } from "date-fns";
+import { PaginationBar } from "../pagination-bar";
 
 export default function EnBlocMarkoff() {
-  const { currentUser, registers: storeRegisters } = useStore();
+  const { currentUser } = useStore();
 
   // Active registers from API
   const { data: activeRegisters, isLoading: loadingRegisters } =
@@ -36,8 +36,8 @@ export default function EnBlocMarkoff() {
   const [registerId, setRegisterId] = useState("");
   const [dateFrom, setDateFrom] = useState(new Date());
   const [dateTo, setDateTo] = useState(new Date());
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
 
   // Active filter settings used for the loaded query
   const [loadedFilters, setLoadedFilters] = useState<{
@@ -80,7 +80,7 @@ export default function EnBlocMarkoff() {
       dateTo: format(dateTo, "yyyy-MM-dd"),
     };
     setLoadedFilters(filters);
-    setPage(1);
+    setPage(0);
     setSelectedIds(new Set());
     setQueryParams({
       registerId,
@@ -96,7 +96,7 @@ export default function EnBlocMarkoff() {
     setPage(newPage);
     setQueryParams({
       ...loadedFilters,
-      page: newPage - 1,
+      page: newPage,
       size: pageSize,
     });
   };
@@ -104,7 +104,7 @@ export default function EnBlocMarkoff() {
   const handlePageSizeChange = (newSize: number) => {
     if (!loadedFilters) return;
     setPageSize(newSize);
-    setPage(1);
+    setPage(0);
     setQueryParams({
       ...loadedFilters,
       page: 0,
@@ -114,7 +114,7 @@ export default function EnBlocMarkoff() {
 
   const warrants = response?.data?.content || [];
   const totalElements = response?.data?.totalElements || 0;
-  const totalPages = response?.data?.totalPages || 0;
+  const totalPages = response?.data?.totalPages || 1;
 
   const allChecked =
     warrants.length > 0 && warrants.every((w) => selectedIds.has(w.id));
@@ -176,8 +176,7 @@ export default function EnBlocMarkoff() {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.success(
-              `${selectedIds.size} warrant${
-                selectedIds.size !== 1 ? "s" : ""
+              `${selectedIds.size} warrant${selectedIds.size !== 1 ? "s" : ""
               } submitted for 1st level approval.`,
             );
             setSelectedIds(new Set());
@@ -193,15 +192,6 @@ export default function EnBlocMarkoff() {
       },
     );
   };
-
-  // Get registers list from query fallback to store and map to unified format
-  const registersList = (activeRegisters?.content || storeRegisters || []).map(
-    (r: any) => ({
-      id: String(r.registerId || r.id),
-      symbol: r.symbol,
-      status: r.status,
-    }),
-  );
 
   return (
     <div className="space-y-4">
@@ -222,15 +212,11 @@ export default function EnBlocMarkoff() {
                     Loading...
                   </SelectItem>
                 )}
-                {registersList
-                  .filter((r) => r.status === "ACTIVE")
-                  .map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
-                {registersList.filter((r) => r.status === "ACTIVE").length ===
-                  0 && <SelectItem value="DANGCEM">DANGCEM</SelectItem>}
+                {activeRegisters?.content?.map((r) => (
+                  <SelectItem key={r.registerId} value={r.symbol}>
+                    {r.registerName} - {r.symbol}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -303,9 +289,8 @@ export default function EnBlocMarkoff() {
                   {warrants.map((w) => (
                     <tr
                       key={w.id}
-                      className={`mrpsl-table-row ${
-                        selectedIds.has(w.id) ? "bg-primary/5" : ""
-                      }`}
+                      className={`mrpsl-table-row ${selectedIds.has(w.id) ? "bg-primary/5" : ""
+                        }`}
                     >
                       <td className="p-3">
                         <input
@@ -330,12 +315,10 @@ export default function EnBlocMarkoff() {
               </table>
             </Card>
 
-            <TablePagination
+            <PaginationBar
               page={page}
               pageSize={pageSize}
               totalPages={totalPages}
-              from={(page - 1) * pageSize + 1}
-              to={Math.min(page * pageSize, totalElements)}
               total={totalElements}
               onPageChange={handlePageChange}
               onPageSizeChange={handlePageSizeChange}

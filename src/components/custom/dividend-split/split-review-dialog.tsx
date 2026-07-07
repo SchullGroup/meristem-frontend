@@ -221,11 +221,12 @@ export function SplitReviewDialog({
                 variant="destructive"
                 className="flex-1"
                 onClick={handleReject}
+                disabled={approveMutation.isPending || rejectMutation.isPending}
               >
-                Reject
+                {rejectMutation.isPending ? "Rejecting..." : "Reject"}
               </Button>
-              <Button className="flex-1" onClick={handleApprove}>
-                Approve Split
+              <Button className="flex-1" onClick={handleApprove} disabled={approveMutation.isPending || rejectMutation.isPending}>
+                {approveMutation.isPending ? "Approving..." : "Approve Split"}
               </Button>
             </div>
           </div>

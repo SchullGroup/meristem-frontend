@@ -2,47 +2,46 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Info, CheckCircle2, XCircle } from "lucide-react";
-import { useGetRegisters } from "@/hooks/useRegisters";
 import { useGetReconciliations } from "@/hooks/useCscs";
 import { PaginationBar } from "../pagination-bar";
 import { formatNumber } from "@/lib/utils/format";
 import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { DateRangePicker } from "../date-range-picker";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
+import RegisterSelect from "../register-select";
 
 export default function GeneralCertificateReconciliation() {
-  const { data: activeRegisters } = useGetRegisters({
-    status: "ACTIVE",
-    size: 100,
-  });
+  const [mrpslPage, setMrpslPage] = useState(0);
+  const [cscsPage, setCscsPage] = useState(0);
+  const [mrpslPageSize, setMrpslPageSize] = useState(10);
+  const [cscsPageSize, setCscsPageSize] = useState(10);
 
   const [selectedReg, setSelectedReg] = useState("");
   const [scopeMode, setScopeMode] = useState("all");
   const [specificChn, setSpecificChn] = useState("");
   const [reconciled, setReconciled] = useState(false);
-  // ✅ Shared pagination state
-  const [page, setPage] = useState(0);        // 0‑based
-  const [pageSize, setPageSize] = useState(10);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   const { data, isLoading, isError, error, refetch, isFetching } =
     useGetReconciliations(
       {
         register: selectedReg,
         chn: scopeMode === "spec" ? specificChn : undefined,
-        page: page,
-        size: pageSize,
+        startDate: dateRange?.from
+          ? format(dateRange.from, "yyyy-MM-dd")
+          : undefined,
+        endDate: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
+        mrpslPage,
+        mrpslPageSize,
+        cscsPage,
+        cscsPageSize,
       },
       {
         enabled:
@@ -53,33 +52,21 @@ export default function GeneralCertificateReconciliation() {
       },
     );
 
-  const {
-    data: cscsData,
-    isLoading: cscsLoading,
-    isFetching: cscsFetching,
-  } = useGetReconciliations(
-    {
-      register: selectedReg,
-      chn: scopeMode === "spec" ? specificChn : undefined,
-      page: page,
-      size: pageSize,
-    },
-    {
-      enabled:
-        reconciled &&
-        !!selectedReg &&
-        (scopeMode === "all" ||
-          (scopeMode === "spec" && specificChn.trim().length >= 4)),
-    },
-  );
+  const isRunning = isFetching;
 
-  // ✅ Single handler for page size change
-  const handlePageSizeChange = (value: number) => {
-    setPageSize(value);
-    setPage(0);       // reset to first page
-  };
+  // mrpsl table
+  const mrpslRawList = data?.mrpsl?.content || [];
+  const mrpslTotal = data?.mrpsl?.totalElements || 0;
+  const mrpslPageCount = data?.mrpsl?.totalPages || 1;
 
-  const isRunning = isLoading || isFetching || cscsLoading || cscsFetching;
+  // cscs table
+  const cscsRawList = data?.cscs?.content || [];
+  const cscsTotal = data?.cscs?.totalElements || 0;
+  const cscsPageCount = data?.cscs?.totalPages || 1;
+
+  const missingDataList = data?.missingData || [];
+
+  const missingRecordsCount = missingDataList.length;
 
   const runReconciliation = () => {
     if (!selectedReg) {
@@ -90,46 +77,34 @@ export default function GeneralCertificateReconciliation() {
       toast.error("Please enter a CHN to reconcile.");
       return;
     }
-    setPage(0);
+    setMrpslPage(0);
+    setCscsPage(0);
     setReconciled(true);
   };
-
-  const mrpslList = data?.mrpslPositions?.content || [];
-  const cscsList = cscsData?.cscsPositions?.content || [];
-
-  // NOTE: Discrepancies are calculated per page, not globally
-  // To show true total discrepancies, the backend should return a discrepancy count
-  const discrepancies = mrpslList.filter((item) => {
-    const cscsItem = cscsList.find((c) => c.chn === item.chn);
-    return (cscsItem?.units || 0) !== item.units;
-  });
-
-  const mrpslTotal = data?.mrpslTotalUnits || 0;
-  const cscsTotal = cscsData?.cscsTotalUnits || 0;
 
   return (
     <>
       <Card className="mrpsl-card p-4">
         <div className="flex flex-wrap items-center gap-4">
-          <Select
+          <RegisterSelect
             value={selectedReg}
-            onValueChange={(v) => {
+            label="Select Register"
+            onChange={(v) => {
               setSelectedReg(v || "");
               setReconciled(false);
-              setPage(0);
+              setMrpslPage(0);
+              setCscsPage(0);
             }}
-          >
-            <SelectTrigger className="w-64 mrpsl-input">
-              <SelectValue placeholder="Select Register" />
-            </SelectTrigger>
-            <SelectContent>
-              {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.symbol}>
-                  {r.registerName} - {r.symbol}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
+
+          <div className="space-y-1.5">
+            <label className="mrpsl-label">DATE RANGE</label>
+            <DateRangePicker
+              className="mt-0"
+              date={dateRange}
+              setDate={setDateRange}
+            />
+          </div>
 
           <RadioGroup
             value={scopeMode}
@@ -137,7 +112,8 @@ export default function GeneralCertificateReconciliation() {
               setScopeMode(v || "all");
               setReconciled(false);
               setSpecificChn("");
-              setPage(0);
+              setMrpslPage(0);
+              setCscsPage(0);
             }}
             className="flex gap-5 items-center"
           >
@@ -163,7 +139,8 @@ export default function GeneralCertificateReconciliation() {
               onChange={(e) => {
                 setSpecificChn(e.target.value);
                 setReconciled(false);
-                setPage(0);
+                setMrpslPage(0);
+                setCscsPage(0);
               }}
             />
           )}
@@ -188,26 +165,29 @@ export default function GeneralCertificateReconciliation() {
       </div>
 
       {/* Discrepancy summary banner — only when reconciled and there are issues */}
-      {reconciled && discrepancies.length > 0 && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-          <XCircle className="h-4 w-4 text-red-600 shrink-0" />
-          <span className="text-sm font-medium text-red-800">
-            {discrepancies.length} discrepanc
-            {discrepancies.length === 1 ? "y" : "ies"} found — MRPSL is short by{" "}
-            {(cscsTotal - mrpslTotal).toLocaleString()} units versus CSCS.
-          </span>
-        </div>
-      )}
-      {reconciled && discrepancies.length === 0 && (
-        <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-          <span className="text-sm font-medium text-green-800">
-            All positions reconcile. No discrepancies found.
-          </span>
-        </div>
+      {reconciled && !isLoading && !isFetching && !isError && (
+        <>
+          {missingRecordsCount > 0 ? (
+            <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              <XCircle className="h-4 w-4 text-red-600 shrink-0" />
+              <span className="text-sm font-medium text-red-800">
+                Ledger Variance Found: {missingRecordsCount} unmapped historical
+                ledger transaction records isolated from systemic sync logs.
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+              <span className="text-sm font-medium text-green-800">
+                All positions match perfectly. No unmapped transaction records
+                detected.
+              </span>
+            </div>
+          )}
+        </>
       )}
 
-      {reconciled && (isLoading || cscsLoading) ? (
+      {reconciled && (isLoading || isFetching) ? (
         <div className="py-8">
           <PendingListSkeleton cols={9} />
         </div>
@@ -220,190 +200,129 @@ export default function GeneralCertificateReconciliation() {
         </div>
       ) : (
         <>
-          {/* Position comparison — full width, two equal columns */}
+          {/* SIDE-BY-SIDE DOUBLE COMPARISON VIEW BLOCKS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* MRPSL Register Position */}
+            {/* MRPSL MATRIX LIST CARD */}
             <Card className="mrpsl-card overflow-hidden">
               <div className="px-4 py-3 bg-muted/30 border-b border-border/60 flex items-center justify-between">
-                <h3 className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
-                  MRPSL Register Position
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  MRPSL Register Balances
                 </h3>
-                {reconciled && (
-                  <span className="text-[13px] font-mono font-semibold tabular-nums">
-                    {formatNumber(data?.mrpslTotalUnits)} units
-                  </span>
-                )}
+                <span className="text-xs font-mono font-bold text-foreground">
+                  Records: {formatNumber(mrpslTotal)}
+                </span>
               </div>
-              {!reconciled ? (
-                <div className="p-4 text-sm text-muted-foreground text-center py-10">
-                  Run a reconciliation to see MRPSL position data.
-                </div>
-              ) : (
-                <table className="w-full text-left text-[13px]">
-                  <thead className="mrpsl-table-header">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/20 text-muted-foreground text-[10px] uppercase font-bold tracking-wider border-b border-border">
                     <tr>
-                      <th className="px-4 py-2.5">CHN / ACCOUNT</th>
-                      <th className="px-4 py-2.5">HOLDER NAME</th>
-                      <th className="px-4 py-2.5">UNITS</th>
-                      <th className="px-4 py-2.5">STATUS</th>
+                      <th className="px-4 py-2.5 text-left">CHN / Account</th>
+                      <th className="px-4 py-2.5 text-left">Holder Name</th>
+                      <th className="px-4 py-2.5 text-right">Units</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {mrpslList.map((row) => {
-                      const cscsItem = cscsList.find((c) => c.chn === row.chn);
-                      const hasDiscrepancy =
-                        (cscsItem?.units || 0) !== row.units;
-                      return (
-                        <tr
-                          key={row.id}
-                          className={`transition-colors ${hasDiscrepancy ? "bg-red-50/60" : "hover:bg-muted/30"}`}
-                        >
-                          <td className="px-4 py-2.5">
-                            <div className="font-mono text-[12px] text-muted-foreground">
-                              {row.chn}
-                            </div>
-                            <div className="text-[12px] text-muted-foreground/70">
-                              {row.accountNo}
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 font-medium">
-                            {row.name}
-                          </td>
-                          <td
-                            className={`px-4 py-2.5 text-right tabular-nums font-semibold ${hasDiscrepancy ? "text-red-600" : ""}`}
-                          >
-                            {row.units.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            {hasDiscrepancy ? (
-                              <Badge className="bg-red-100 text-red-800 border-0 text-[13px]">
-                                Mismatch
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-gray-100 text-gray-700 border-0 text-[13px]">
-                                Match
-                              </Badge>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-border bg-muted/20">
-                      <td
-                        colSpan={2}
-                        className="px-4 py-2.5 text-[13px] font-bold text-muted-foreground uppercase tracking-wide"
+                    {mrpslRawList?.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="hover:bg-muted/20 transition-colors"
                       >
-                        Total
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-bold">
-                        {mrpslTotal.toLocaleString()}
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
+                        <td className="px-4 py-2.5 font-mono font-medium text-muted-foreground">
+                          {row.chn}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium">
+                          {row.holderName}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                          {formatNumber(row?.units)}
+                        </td>
+                      </tr>
+                    ))}
+                    {mrpslRawList.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="text-center py-8 text-muted-foreground italic"
+                        >
+                          No historical aggregate rows indexed.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
                 </table>
-              )}
+
+                {/* Pagination */}
+                <PaginationBar
+                  page={mrpslPage}
+                  pageSize={mrpslPageSize}
+                  onPageSizeChange={setMrpslPageSize}
+                  totalPages={mrpslPageCount}
+                  total={mrpslTotal}
+                  onPageChange={(value) => setMrpslPage(value)}
+                />
+              </div>
             </Card>
 
-            {/* CSCS Position */}
+            {/* CSCS MATRIX LIST CARD */}
             <Card className="mrpsl-card overflow-hidden">
               <div className="px-4 py-3 bg-muted/30 border-b border-border/60 flex items-center justify-between">
-                <h3 className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
-                  CSCS Position
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  CSCS Cleared Balances
                 </h3>
-                {reconciled && (
-                  <span className="text-[13px] font-mono font-semibold tabular-nums">
-                    {formatNumber(cscsData?.cscsTotalUnits)} units
-                  </span>
-                )}
+                <span className="text-xs font-mono font-bold text-foreground">
+                  Records: {formatNumber(cscsTotal)}
+                </span>
               </div>
-              {!reconciled ? (
-                <div className="p-4 text-sm text-muted-foreground text-center py-10">
-                  Run a reconciliation to see CSCS position data.
-                </div>
-              ) : (
-                <table className="w-full text-left text-[13px]">
-                  <thead className="mrpsl-table-header">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/20 text-muted-foreground text-[10px] uppercase font-bold tracking-wider border-b border-border">
                     <tr>
-                      <th className="px-4 py-2.5">CHN / ACCOUNT</th>
-                      <th className="px-4 py-2.5">HOLDER NAME</th>
-                      <th className="px-4 py-2.5">UNITS</th>
-                      <th className="px-4 py-2.5">STATUS</th>
+                      <th className="px-4 py-2.5 text-left">CHN / Account</th>
+                      <th className="px-4 py-2.5 text-left">Holder Name</th>
+                      <th className="px-4 py-2.5 text-right">Units</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {cscsList.map((row) => {
-                      const mrpslItem = mrpslList.find(
-                        (m) => m.chn === row.chn,
-                      );
-                      const hasDiscrepancy =
-                        (mrpslItem?.units || 0) !== row.units;
-                      return (
-                        <tr
-                          key={row.id}
-                          className={`transition-colors ${hasDiscrepancy ? "bg-amber-50/60" : "hover:bg-muted/30"}`}
-                        >
-                          <td className="px-4 py-2.5">
-                            <div className="font-mono text-[12px] text-muted-foreground">
-                              {row.chn}
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 font-medium">
-                            {row.holderName}
-                          </td>
-                          <td
-                            className={`px-4 py-2.5 text-right tabular-nums font-semibold ${hasDiscrepancy ? "text-amber-700" : ""}`}
-                          >
-                            {row.units.toLocaleString()}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            {hasDiscrepancy ? (
-                              <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-                                Mismatch
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-gray-100 text-gray-700 border-0 text-[13px]">
-                                Match
-                              </Badge>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t border-border bg-muted/20">
-                      <td
-                        colSpan={2}
-                        className="px-4 py-2.5 text-[13px] font-bold text-muted-foreground uppercase tracking-wide"
+                    {cscsRawList.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="hover:bg-muted/20 transition-colors"
                       >
-                        Total
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-bold">
-                        {cscsTotal.toLocaleString()}
-                      </td>
-                      <td />
-                    </tr>
-                  </tfoot>
+                        <td className="px-4 py-2.5 font-mono font-medium text-muted-foreground">
+                          {row.chn}
+                        </td>
+                        <td className="px-4 py-2.5 font-medium">
+                          {row.holderName}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                          {formatNumber(row?.units)}
+                        </td>
+                      </tr>
+                    ))}
+                    {cscsRawList.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="text-center py-8 text-muted-foreground italic"
+                        >
+                          No clearing ledger items recovered.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
                 </table>
-              )}
-            </Card>
-          </div>
 
-          {/* ✅ Single pagination bar */}
-          <div className="mt-4">
-            <PaginationBar
-              page={page}
-              pageSize={pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={handlePageSizeChange}
-              total={data?.mrpslPositions?.totalElements || 0}
-              totalPages={data?.mrpslPositions?.totalPages || 0}
-            // If both tables have the same total count, use either.
-            // If they differ, you may want to show the max or a note.
-            />
+                {/* Pagination */}
+                <PaginationBar
+                  page={cscsPage}
+                  pageSize={cscsPageSize}
+                  onPageSizeChange={setCscsPageSize}
+                  totalPages={cscsPageCount}
+                  total={cscsTotal}
+                  onPageChange={setCscsPage}
+                />
+              </div>
+            </Card>
           </div>
         </>
       )}

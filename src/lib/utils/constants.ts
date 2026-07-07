@@ -814,7 +814,7 @@ export const MOCK_ICU_SUBMISSIONS = [
   },
 ];
 
-// ── Types ─────────────────────────────────────────────────────────
+// ── Types ------─────────────────────────
 
 type AddressRecord = {
   id: string;
@@ -830,7 +830,7 @@ type AddressRecord = {
   confirmedState: string | null; // null = unconfirmed
 };
 
-// ── Mock data ─────────────────────────────────────────────────────
+// ── Mock data ------─────────────────────
 
 export const INITIAL_RECORDS: AddressRecord[] = [
   {
@@ -999,3 +999,5 @@ export const PROCESSING_STAGES: [number, string][] = [
   [90, "Grouping by register…"],
   [100, "Ready for review"],
 ];
+
+

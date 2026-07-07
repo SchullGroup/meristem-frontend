@@ -47,13 +47,13 @@ interface CautionParametersProps {
   confirmDelete: (label: string, onConfirm: () => void) => void;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 export default function CautionParameters({
   tab,
   confirmDelete,
 }: CautionParametersProps) {
-  // ── Caution dialog ───────────────────────────────────────────
+  // ── Caution dialog ------───────────
   const [cautOpen, setCautOpen] = useState(false);
   const [cautMode, setCautMode] = useState<"add" | "edit">("add");
   const [editCaut, setEditCaut] = useState<CautionReason | null>(null);
@@ -65,7 +65,7 @@ export default function CautionParameters({
   // const [sortBy, setSortBy] = useState("createdAt");
   // const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  // ── Caution Reasons ─────────────────────────────────────────
+  // ── Caution Reasons --//
   const { data: cautionsData, isLoading: cautionsLoading } =
     useGetCautionReasons(
       {
@@ -151,7 +151,7 @@ export default function CautionParameters({
   };
 
   const total = cautionsData?.pagination?.total || 0;
-  const totalPages = cautionsData?.pagination?.totalPages || 0;
+  const totalPages = cautionsData?.pagination?.totalPages || 1;
 
   return (
     <>

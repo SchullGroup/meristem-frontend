@@ -13,6 +13,7 @@ import {
   Mail,
   AlertCircle,
   Loader2,
+  Search,
 } from "lucide-react";
 import { EmailPreviewModal } from "@/components/custom/shareholder-outreach-modals";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -70,6 +71,8 @@ import { getUser } from "@/services/AuthServices";
 import { useUserDetails } from "@/hooks/useUserDetails";
 import { formatCustomDate, formatDateOnly } from "@/utils/helperFunctions";
 import ExportToExcel from "@/components/custom/ExportToExcel";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export interface BonusDeclaration {
   id: string;
@@ -94,11 +97,13 @@ export interface BonusDeclaration {
   authorizedReason?: string;
   submittedByName?: string;
   submittedAt?: string;
+  totalCertificatedHolders?: number;
+  totalCscsHolders?: number;
 }
 
 /* ─── constants & helpers ─── */
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 const BONUS_REPORT_TYPES = [
   "Bonus Entitlement Register",
@@ -119,20 +124,50 @@ function PaginationBar({
   page,
   total,
   onPageChange,
+  pageSize = PAGE_SIZE,
+  onPageSizeChange,
 }: {
   page: number;
   total: number;
   onPageChange: (p: number) => void;
+  pageSize?: number;
+  onPageSizeChange?: (s: number) => void;
 }) {
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const visible = getVisiblePages(page, totalPages);
-  const start = (page - 1) * PAGE_SIZE + 1;
-  const end = Math.min(page * PAGE_SIZE, total);
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = total === 0 ? 0 : Math.min(page * pageSize, total);
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/10 text-[13px]">
-      <span className="text-muted-foreground">
-        Showing {start}–{end} of {total.toLocaleString()}
-      </span>
+      <div className="flex items-center gap-3">
+        <span className="text-muted-foreground">
+          Showing {start}–{end} of {total.toLocaleString()}
+        </span>
+        {onPageSizeChange && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">Show</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => {
+                onPageSizeChange(Number(v));
+                onPageChange(1);
+              }}
+            >
+              <SelectTrigger className="h-6 w-16 text-[13px] px-2 py-0 border-border/60">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50, 100].map((n) => (
+                  <SelectItem key={n} value={String(n)} className="text-[13px]">
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-muted-foreground">rows</span>
+          </div>
+        )}
+      </div>
       <div className="flex items-center gap-1">
         <Button
           variant="outline"
@@ -192,49 +227,6 @@ function BonusTableHead() {
     </thead>
   );
 }
-
-// function BonusTableRows({
-//   rows,
-//   startIdx,
-// }: {
-//   rows: {
-//     holdings: number;
-//     accountNumber: string;
-//     firstName: string;
-//     lastName: string;
-//     id: string;
-//   }[];
-//   startIdx: number;
-// }) {
-//   return (
-//     <>
-//       {rows.map((s, i) => {
-//         const bonus = Math.floor(s.holdings / 4);
-//         const frac = s.holdings / 4 - bonus;
-//         return (
-//           <tr key={s.id} className="mrpsl-table-row font-mono text-[13px]">
-//             <td className="px-4 py-2.5 text-muted-foreground">
-//               {startIdx + i + 1}
-//             </td>
-//             <td className="px-4 py-2.5">{s.accountNumber}</td>
-//             <td className="px-4 py-2.5 font-sans font-medium">
-//               {s.firstName} {s.lastName}
-//             </td>
-//             <td className="px-4 py-2.5 text-right">
-//               {s.holdings.toLocaleString()}
-//             </td>
-//             <td className="px-4 py-2.5 text-right text-green-600 font-bold">
-//               {bonus.toLocaleString()}
-//             </td>
-//             <td className="px-4 py-2.5 text-right text-amber-600">
-//               {frac.toFixed(4)}
-//             </td>
-//           </tr>
-//         );
-//       })}
-//     </>
-//   );
-// }
 
 function EntitlementTableRows({
   rows,
@@ -403,7 +395,8 @@ function DeclDetailCard({
 /* ─── main component ─── */
 
 export default function BonusIssuePage() {
-  const { data: registersData } = useGetRegisters();
+  const { data: registersData, isLoading: loadingRegisters } =
+    useGetRegisters();
   const queryClient = useQueryClient();
   const user = getUser();
   const registerList = registersData?.content;
@@ -429,9 +422,6 @@ export default function BonusIssuePage() {
   const [authComment, setAuthComment] = useState("");
   const [authPage, setAuthPage] = useState(1);
 
-  // Rejection flow
-  const [pendingBatchDismissed, setPendingBatchDismissed] = useState(false);
-
   // Approval modal
   const [approvalModal, setApprovalModal] = useState<{
     action: "approve" | "reject";
@@ -449,9 +439,33 @@ export default function BonusIssuePage() {
   const [allotPage, setAllotPage] = useState(1);
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
   const [allotReviewing, setAllotReviewing] = useState<string | null>(null);
+  const [allotReviewingRow, setAllotReviewingRow] =
+    useState<BonusDeclaration | null>(null);
   const [allotmentProcessedMap, setAllotmentProcessedMap] = useState<
     Record<string, boolean>
   >({});
+
+  // Auth tab list filters
+  const [authListPage, setAuthListPage] = useState(1);
+  const [authListPageSize, setAuthListPageSize] = useState(PAGE_SIZE);
+  const [authListSearch, setAuthListSearch] = useState("");
+  const [authListRegister, setAuthListRegister] = useState("");
+  const debouncedAuthSearch = useDebounce(authListSearch, 500);
+
+  // ICU tab list filters
+  const [icuListPage, setIcuListPage] = useState(1);
+  const [icuListPageSize, setIcuListPageSize] = useState(PAGE_SIZE);
+  const [icuListSearch, setIcuListSearch] = useState("");
+  const [icuListRegister, setIcuListRegister] = useState("");
+  const debouncedIcuSearch = useDebounce(icuListSearch, 500);
+
+  // Allotment tab list filters
+  const [allotListPage, setAllotListPage] = useState(1);
+  const [allotListPageSize, setAllotListPageSize] = useState(PAGE_SIZE);
+  const [allotListSearch, setAllotListSearch] = useState("");
+  const [allotListRegister, setAllotListRegister] = useState("");
+  const [allotListStatus, setAllotListStatus] = useState("ICU_APPROVED");
+  const debouncedAllotSearch = useDebounce(allotListSearch, 500);
 
   // Reports
   const [selectedReport, setSelectedReport] = useState(BONUS_REPORT_TYPES[0]);
@@ -483,24 +497,86 @@ export default function BonusIssuePage() {
   const [resTotalFractionalRemainder, setResTotalFractionalRemainder] =
     useState<number>(0);
 
-  const { data: declarationsData } = useQuery({
-    queryKey: ["bonus-declarations"],
-    queryFn: GET_DECLARATIONS,
+  // Rejected banner (declaration tab) — lightweight, no pagination needed
+  const { data: rejectedBannerData } = useQuery({
+    queryKey: ["bonus-declarations", "banner"],
+    queryFn: () => GET_DECLARATIONS({ pageSize: 50 }),
   });
-
-  const declarationList = declarationsData?.data?.content;
-
-  const rejectedList = declarationList?.filter(
+  const rejectedList = rejectedBannerData?.data?.content?.filter(
     (declaration: { status: string }) =>
       declaration.status === "AUTH_REJECTED" ||
       declaration.status === "ICU_REJECTED",
   );
 
-  const icuApprovedList = declarationList?.filter(
-    (declaration: { status: string }) =>
-      declaration.status === "ICU_APPROVED" ||
-      declaration.status === "ALLOTTED",
-  );
+  // Auth tab — paginated, filterable
+  const { data: authDeclarationsData, isLoading: isAuthDeclarationsLoading } =
+    useQuery({
+      queryKey: [
+        "bonus-declarations",
+        "auth",
+        authListPage,
+        authListPageSize,
+        debouncedAuthSearch,
+        authListRegister,
+      ],
+      queryFn: () =>
+        GET_DECLARATIONS({
+          page: authListPage,
+          pageSize: authListPageSize,
+          search: debouncedAuthSearch || undefined,
+          registerId: authListRegister || undefined,
+          status: "PENDING_AUTH",
+        }),
+    });
+  const authDeclarationList = authDeclarationsData?.data?.content;
+  const authDeclarationTotal = authDeclarationsData?.data?.totalElements ?? 0;
+
+  // ICU tab — paginated, status fixed to PENDING_ICU
+  const { data: icuDeclarationsData, isLoading: isIcuDeclarationsLoading } =
+    useQuery({
+      queryKey: [
+        "bonus-declarations",
+        "icu",
+        icuListPage,
+        icuListPageSize,
+        debouncedIcuSearch,
+        icuListRegister,
+      ],
+      queryFn: () =>
+        GET_DECLARATIONS({
+          page: icuListPage,
+          pageSize: icuListPageSize,
+          search: debouncedIcuSearch || undefined,
+          registerId: icuListRegister || undefined,
+          status: "PENDING_ICU",
+        }),
+    });
+  const icuDeclarationList = icuDeclarationsData?.data?.content;
+  const icuDeclarationTotal = icuDeclarationsData?.data?.totalElements ?? 0;
+
+  // Allotment tab — paginated, filterable
+  const { data: allotDeclarationsData, isLoading: isAllotDeclarationsLoading } =
+    useQuery({
+      queryKey: [
+        "bonus-declarations",
+        "allotment",
+        allotListPage,
+        allotListPageSize,
+        debouncedAllotSearch,
+        allotListRegister,
+        allotListStatus,
+      ],
+      queryFn: () =>
+        GET_DECLARATIONS({
+          page: allotListPage,
+          pageSize: allotListPageSize,
+          search: debouncedAllotSearch || undefined,
+          registerId: allotListRegister || undefined,
+          status: allotListStatus,
+        }),
+    });
+  const allotDeclarationList = allotDeclarationsData?.data?.content;
+  const allotDeclarationTotal = allotDeclarationsData?.data?.totalElements ?? 0;
   const currentReviewingId =
     activeTab === "auth" ? authReviewing : icuReviewing;
 
@@ -516,9 +592,7 @@ export default function BonusIssuePage() {
 
   const activeReview = activeReviewData?.data;
 
-  const activeAllotment = allotReviewing
-    ? icuApprovedList?.find((r: { id: string }) => r.id === allotReviewing)
-    : activeReview;
+  const activeAllotment = allotReviewing ? allotReviewingRow : activeReview;
 
   const {
     userName,
@@ -1151,7 +1225,7 @@ export default function BonusIssuePage() {
                   >
                     <div className="flex items-start gap-3">
                       <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0 max-w-[400px]">
+                      <div className="flex-1 min-w-0 max-w-1003">
                         <p className="text-sm font-semibold text-red-800">
                           Declaration Rejected — Ref: {declaration?.ref}
                         </p>
@@ -1190,14 +1264,29 @@ export default function BonusIssuePage() {
                             <SelectValue placeholder="Select Register" />
                           </SelectTrigger>
                           <SelectContent>
-                            {registerList?.map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r.registerId}
-                              >
-                                {r.registerName} - {r.symbol}
-                              </SelectItem>
-                            ))}
+                            {loadingRegisters ? (
+                              <div className="py-10 flex items-center justify-center">
+                                <Loader2 className="animate-spin w-4 h-4" />
+                              </div>
+                            ) : (
+                              <>
+                                <SelectItem value="">All Register</SelectItem>
+                                {registerList?.map((r) => (
+                                  <SelectItem
+                                    key={r.registerId}
+                                    value={r.symbol}
+                                  >
+                                    <span className="font-bold">
+                                      {r.registerName}
+                                    </span>{" "}
+                                    -{" "}
+                                    <span className="text-xs translate-y-0.5">
+                                      {r.symbol}
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -1383,11 +1472,25 @@ export default function BonusIssuePage() {
                     </thead>
                     <tbody className="divide-y font-mono text-[13px]">
                       {isComputeLoading ? (
-                        <tr>
-                          <td colSpan={5} className="py-10 text-center">
-                            <Loader2 className="h-6 w-6 animate-spin mx-auto opacity-50" />
-                          </td>
-                        </tr>
+                        Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                          <tr key={i}>
+                            <td className="p-3">
+                              <Skeleton className="h-4 w-28" />
+                            </td>
+                            <td className="p-3">
+                              <Skeleton className="h-4 w-36" />
+                            </td>
+                            <td className="p-3">
+                              <Skeleton className="h-4 w-20 ml-auto" />
+                            </td>
+                            <td className="p-3">
+                              <Skeleton className="h-4 w-16 ml-auto" />
+                            </td>
+                            <td className="p-3">
+                              <Skeleton className="h-4 w-14 ml-auto" />
+                            </td>
+                          </tr>
+                        ))
                       ) : (
                         <EntitlementTableRows rows={computeEntitlementList} />
                       )}
@@ -1419,110 +1522,171 @@ export default function BonusIssuePage() {
           {/* ── Approval ── */}
           <TabsContent value="auth" className="space-y-4">
             {authReviewing === null ? (
-              <Card className="mrpsl-card overflow-hidden">
-                <table className="w-full text-left text-sm">
-                  <thead className="mrpsl-table-header">
-                    <tr>
-                      <th className="px-4 py-3">DECLARATION REF</th>
-                      <th className="px-4 py-3">REGISTER</th>
-                      <th className="px-4 py-3">BONUS NAME</th>
-                      <th className="px-4 py-3 text-center">RATIO</th>
-                      <th className="px-4 py-3">QUAL DATE</th>
-                      <th className="px-4 py-3">ALLOTMENT DATE</th>
-                      <th className="px-4 py-3 text-right">ELIGIBLE SHs</th>
-                      <th className="px-4 py-3 text-right">NEW SHARES</th>
-                      <th className="px-4 py-3">SUBMITTED BY</th>
-                      <th className="px-4 py-3">STATUS</th>
-                      <th className="px-4 py-3 text-right">ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {!declarationList ||
-                    declarationList.filter(
-                      (d: { status: string }) =>
-                        d.status === "DRAFT" || d.status === "PENDING_AUTH",
-                    ).length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={11}
-                          className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
-                        >
-                          No declarations awaiting approval
-                        </td>
-                      </tr>
-                    ) : !pendingBatchDismissed ? (
-                      declarationList
-                        ?.filter(
-                          (d: { status: string }) =>
-                            d.status === "DRAFT" || d.status === "PENDING_AUTH",
-                        )
-                        .map((declaration: BonusDeclaration) => (
-                          <tr key={declaration?.id} className="mrpsl-table-row">
-                            <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                              {declaration?.ref}
-                            </td>
-                            <td className="px-4 py-3 font-semibold">
-                              {declaration?.registerName}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              {declaration?.bonusName}
-                            </td>
-                            <td className="px-4 py-3 text-center font-mono">
-                              {declaration?.ratio}
-                            </td>
-                            <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                              {formatDateOnly(declaration?.qualificationDate)}
-                            </td>
-                            <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                              {formatDateOnly(declaration?.allotmentDate)}
-                            </td>
-                            <td className="px-4 py-3 font-mono text-right">
-                              {declaration?.totalShareholders?.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
-                              {declaration?.totalBonusShares?.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="text-[13px] font-medium">
-                                {declaration?.submittedByName}
-                              </div>
-                              <div className="text-[13px] text-muted-foreground">
-                                {formatCustomDate(declaration?.submittedAt)}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-                                {declaration?.status}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setAuthPage(1);
-                                  setAuthReviewing(declaration?.id);
-                                  setIcuReviewing(null);
-                                }}
+              <>
+                {/* Filters */}
+                <Card className="mrpsl-card p-4">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search ref or bonus name..."
+                        value={authListSearch}
+                        onChange={(e) => {
+                          setAuthListSearch(e.target.value);
+                          setAuthListPage(1);
+                        }}
+                        className="pl-9 mrpsl-input"
+                      />
+                    </div>
+                    <Select
+                      value={authListRegister || "all"}
+                      onValueChange={(v) => {
+                        setAuthListRegister(v === "all" ? "" : (v ?? ""));
+                        setAuthListPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="mrpsl-input w-48">
+                        <SelectValue placeholder="All Registers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingRegisters ? (
+                          <div className="py-10 flex items-center justify-center">
+                            <Loader2 className="animate-spin w-4 h-4" />
+                          </div>
+                        ) : (
+                          <>
+                            <SelectItem value="all">All Registers</SelectItem>
+                            {registerList?.map((r) => (
+                              <SelectItem
+                                key={r.registerId}
+                                value={r.registerId}
                               >
-                                Review
-                              </Button>
-                            </td>
+                                <span className="font-bold">
+                                  {r.registerName}
+                                </span>{" "}
+                                -{" "}
+                                <span className="text-xs translate-y-0.5">
+                                  {r.symbol}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+
+                <Card className="mrpsl-card overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="mrpsl-table-header">
+                      <tr>
+                        <th className="px-4 py-3">DECLARATION REF</th>
+                        <th className="px-4 py-3">REGISTER</th>
+                        <th className="px-4 py-3">BONUS NAME</th>
+                        <th className="px-4 py-3 text-center">RATIO</th>
+                        <th className="px-4 py-3">QUAL DATE</th>
+                        <th className="px-4 py-3">ALLOTMENT DATE</th>
+                        <th className="px-4 py-3 text-right">ELIGIBLE SHs</th>
+                        <th className="px-4 py-3 text-right">NEW SHARES</th>
+                        <th className="px-4 py-3">SUBMITTED BY</th>
+                        <th className="px-4 py-3">STATUS</th>
+                        <th className="px-4 py-3 text-right">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {isAuthDeclarationsLoading ? (
+                        Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                          <tr key={i}>
+                            {Array.from({ length: 11 }).map((__, j) => (
+                              <td key={j} className="px-4 py-3">
+                                <Skeleton className="h-4 w-24" />
+                              </td>
+                            ))}
                           </tr>
                         ))
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan={11}
-                          className="px-4 py-8 text-center text-sm text-muted-foreground"
-                        >
-                          No pending approvals
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </Card>
+                      ) : !authDeclarationList ||
+                        authDeclarationList.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={11}
+                            className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
+                          >
+                            No declarations found
+                          </td>
+                        </tr>
+                      ) : (
+                        authDeclarationList.map(
+                          (declaration: BonusDeclaration) => (
+                            <tr
+                              key={declaration?.id}
+                              className="mrpsl-table-row"
+                            >
+                              <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                                {declaration?.ref}
+                              </td>
+                              <td className="px-4 py-3 font-semibold">
+                                {declaration?.registerName}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                {declaration?.bonusName}
+                              </td>
+                              <td className="px-4 py-3 text-center font-mono">
+                                {declaration?.ratio}
+                              </td>
+                              <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                                {formatDateOnly(declaration?.qualificationDate)}
+                              </td>
+                              <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                                {formatDateOnly(declaration?.allotmentDate)}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-right">
+                                {declaration?.totalShareholders?.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
+                                {declaration?.totalBonusShares?.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-[13px] font-medium">
+                                  {declaration?.submittedByName}
+                                </div>
+                                <div className="text-[13px] text-muted-foreground">
+                                  {formatCustomDate(declaration?.submittedAt)}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
+                                  {declaration?.status}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setAuthPage(1);
+                                    setAuthReviewing(declaration?.id);
+                                    setIcuReviewing(null);
+                                  }}
+                                >
+                                  Review
+                                </Button>
+                              </td>
+                            </tr>
+                          ),
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                  <PaginationBar
+                    page={authListPage}
+                    total={authDeclarationTotal}
+                    onPageChange={setAuthListPage}
+                    pageSize={authListPageSize}
+                    onPageSizeChange={setAuthListPageSize}
+                  />
+                </Card>
+              </>
             ) : isActiveReviewLoading ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50 mx-auto" />
@@ -1621,11 +1785,15 @@ export default function BonusIssuePage() {
                       <BonusTableHead />
                       <tbody className="divide-y">
                         {isEntitlementLoading ? (
-                          <tr>
-                            <td colSpan={6} className="py-10 text-center">
-                              <Loader2 className="h-6 w-6 animate-spin mx-auto opacity-50" />
-                            </td>
-                          </tr>
+                          Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                            <tr key={i}>
+                              {Array.from({ length: 6 }).map((__, j) => (
+                                <td key={j} className="px-4 py-2.5">
+                                  <Skeleton className="h-4 w-20" />
+                                </td>
+                              ))}
+                            </tr>
+                          ))
                         ) : (
                           <EntitlementTableRows
                             rows={entitlementList}
@@ -1693,98 +1861,170 @@ export default function BonusIssuePage() {
           {/* ── ICU Approval ── */}
           <TabsContent value="icu" className="space-y-4">
             {icuReviewing === null ? (
-              <Card className="mrpsl-card overflow-hidden">
-                <table className="w-full text-left text-sm">
-                  <thead className="mrpsl-table-header">
-                    <tr>
-                      <th className="px-4 py-3">DECLARATION REF</th>
-                      <th className="px-4 py-3">REGISTER</th>
-                      <th className="px-4 py-3">BONUS NAME</th>
-                      <th className="px-4 py-3 text-center">RATIO</th>
-                      <th className="px-4 py-3">QUAL DATE</th>
-                      <th className="px-4 py-3">ALLOTMENT DATE</th>
-                      <th className="px-4 py-3 text-right">ELIGIBLE SHs</th>
-                      <th className="px-4 py-3 text-right">NEW SHARES</th>
-                      <th className="px-4 py-3">OPS APPROVAL</th>
-                      <th className="px-4 py-3">STATUS</th>
-                      <th className="px-4 py-3 text-right">ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {!declarationList ||
-                    declarationList.filter(
-                      (d: { status: string }) => d.status === "PENDING_ICU",
-                    ).length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={11}
-                          className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
-                        >
-                          No declarations awaiting ICU approval
-                        </td>
-                      </tr>
-                    ) : (
-                      declarationList
-                        ?.filter(
-                          (d: { status: string }) => d.status === "PENDING_ICU",
-                        )
-                        .map((declaration: BonusDeclaration, i: number) => (
-                          <tr key={i} className="mrpsl-table-row">
-                            <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                              {declaration?.ref}
-                            </td>
-                            <td className="px-4 py-3 font-semibold">
-                              {declaration?.registerName}
-                            </td>
-                            <td className="px-4 py-3 text-sm">
-                              {declaration?.bonusName}
-                            </td>
-                            <td className="px-4 py-3 text-center font-mono">
-                              {declaration?.ratio}
-                            </td>
-                            <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                              {declaration?.qualificationDate}
-                            </td>
-                            <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                              {declaration?.allotmentDate}
-                            </td>
-                            <td className="px-4 py-3 font-mono text-right">
-                              {declaration?.totalShareholders?.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
-                              {declaration?.totalBonusShares?.toLocaleString()}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="text-[13px] font-medium">
-                                {declaration?.submittedByName}
-                              </div>
-                              <div className="text-[13px] text-muted-foreground">
-                                {formatCustomDate(declaration?.submittedAt)}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
-                                {declaration?.status}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setIcuPage(1);
-                                  setIcuReviewing(declaration?.id);
-                                  setAuthReviewing(null);
-                                }}
+              <>
+                {/* Filters */}
+                <Card className="mrpsl-card p-4">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search ref or bonus name..."
+                        value={icuListSearch}
+                        onChange={(e) => {
+                          setIcuListSearch(e.target.value);
+                          setIcuListPage(1);
+                        }}
+                        className="pl-9 mrpsl-input"
+                      />
+                    </div>
+                    <Select
+                      value={icuListRegister || "all"}
+                      onValueChange={(v) => {
+                        setIcuListRegister(v === "all" ? "" : (v ?? ""));
+                        setIcuListPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="mrpsl-input w-48">
+                        <SelectValue placeholder="All Registers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingRegisters ? (
+                          <div className="py-10 flex items-center justify-center">
+                            <Loader2 className="animate-spin w-4 h-4" />
+                          </div>
+                        ) : (
+                          <>
+                            <SelectItem value="all">All Registers</SelectItem>
+                            {registerList?.map((r) => (
+                              <SelectItem
+                                key={r.registerId}
+                                value={r.registerId}
                               >
-                                ICU Review
-                              </Button>
-                            </td>
+                                <span className="font-bold">
+                                  {r.registerName}
+                                </span>{" "}
+                                -{" "}
+                                <span className="text-xs translate-y-0.5">
+                                  {r.symbol}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+
+                <Card className="mrpsl-card overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="mrpsl-table-header">
+                      <tr>
+                        <th className="px-4 py-3">DECLARATION REF</th>
+                        <th className="px-4 py-3">REGISTER</th>
+                        <th className="px-4 py-3">BONUS NAME</th>
+                        <th className="px-4 py-3 text-center">RATIO</th>
+                        <th className="px-4 py-3">QUAL DATE</th>
+                        <th className="px-4 py-3">ALLOTMENT DATE</th>
+                        <th className="px-4 py-3 text-right">ELIGIBLE SHs</th>
+                        <th className="px-4 py-3 text-right">NEW SHARES</th>
+                        <th className="px-4 py-3">OPS APPROVAL</th>
+                        <th className="px-4 py-3">STATUS</th>
+                        <th className="px-4 py-3 text-right">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {isIcuDeclarationsLoading ? (
+                        Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                          <tr key={i}>
+                            {Array.from({ length: 11 }).map((__, j) => (
+                              <td key={j} className="px-4 py-3">
+                                <Skeleton className="h-4 w-24" />
+                              </td>
+                            ))}
                           </tr>
                         ))
-                    )}
-                  </tbody>
-                </table>
-              </Card>
+                      ) : !icuDeclarationList ||
+                        icuDeclarationList.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={11}
+                            className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
+                          >
+                            No declarations found
+                          </td>
+                        </tr>
+                      ) : (
+                        icuDeclarationList.map(
+                          (declaration: BonusDeclaration) => (
+                            <tr
+                              key={declaration?.id}
+                              className="mrpsl-table-row"
+                            >
+                              <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                                {declaration?.ref}
+                              </td>
+                              <td className="px-4 py-3 font-semibold">
+                                {declaration?.registerName}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                {declaration?.bonusName}
+                              </td>
+                              <td className="px-4 py-3 text-center font-mono">
+                                {declaration?.ratio}
+                              </td>
+                              <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                                {formatDateOnly(declaration?.qualificationDate)}
+                              </td>
+                              <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                                {formatDateOnly(declaration?.allotmentDate)}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-right">
+                                {declaration?.totalShareholders?.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
+                                {declaration?.totalBonusShares?.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="text-[13px] font-medium">
+                                  {declaration?.submittedByName}
+                                </div>
+                                <div className="text-[13px] text-muted-foreground">
+                                  {formatCustomDate(declaration?.submittedAt)}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                                  {declaration?.status}
+                                </Badge>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setIcuPage(1);
+                                    setIcuReviewing(declaration?.id);
+                                    setAuthReviewing(null);
+                                  }}
+                                >
+                                  ICU Review
+                                </Button>
+                              </td>
+                            </tr>
+                          ),
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                  <PaginationBar
+                    page={icuListPage}
+                    total={icuDeclarationTotal}
+                    onPageChange={setIcuListPage}
+                    pageSize={icuListPageSize}
+                    onPageSizeChange={setIcuListPageSize}
+                  />
+                </Card>
+              </>
             ) : isActiveReviewLoading ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50 mx-auto" />
@@ -1911,11 +2151,15 @@ export default function BonusIssuePage() {
                       <BonusTableHead />
                       <tbody className="divide-y">
                         {isEntitlementLoading ? (
-                          <tr>
-                            <td colSpan={6} className="py-10 text-center">
-                              <Loader2 className="h-6 w-6 animate-spin mx-auto opacity-50" />
-                            </td>
-                          </tr>
+                          Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                            <tr key={i}>
+                              {Array.from({ length: 6 }).map((__, j) => (
+                                <td key={j} className="px-4 py-2.5">
+                                  <Skeleton className="h-4 w-20" />
+                                </td>
+                              ))}
+                            </tr>
+                          ))
                         ) : (
                           <EntitlementTableRows
                             rows={entitlementList}
@@ -1964,103 +2208,194 @@ export default function BonusIssuePage() {
 
           <TabsContent value="allotment" className="space-y-4">
             {allotReviewing === null ? (
-              /* Queue table */
-              <Card className="mrpsl-card overflow-hidden">
-                <div className="px-4 py-3 border-b bg-muted/20">
-                  <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
-                    ICU Approved — Ready for Allotment
-                  </p>
-                </div>
-                <table className="w-full text-left text-sm">
-                  <thead className="mrpsl-table-header">
-                    <tr>
-                      <th className="px-4 py-3">DECLARATION REF</th>
-                      <th className="px-4 py-3">REGISTER</th>
-                      <th className="px-4 py-3">BONUS NAME</th>
-                      <th className="px-4 py-3 text-center">RATIO</th>
-                      <th className="px-4 py-3 text-right">ELIGIBLE SHs</th>
-                      <th className="px-4 py-3 text-right">NEW SHARES</th>
-                      <th className="px-4 py-3">ICU APPROVER</th>
-                      <th className="px-4 py-3">ICU DATE</th>
-                      <th className="px-4 py-3">STATUS</th>
-                      <th className="px-4 py-3 text-center">ACTION</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {!icuApprovedList || icuApprovedList.length === 0 ? (
+              <>
+                {/* Filters */}
+                <Card className="mrpsl-card p-4">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search ref or bonus name..."
+                        value={allotListSearch}
+                        onChange={(e) => {
+                          setAllotListSearch(e.target.value);
+                          setAllotListPage(1);
+                        }}
+                        className="pl-9 mrpsl-input"
+                      />
+                    </div>
+                    <Select
+                      value={allotListRegister || "all"}
+                      onValueChange={(v) => {
+                        setAllotListRegister(v === "all" ? "" : (v ?? ""));
+                        setAllotListPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="mrpsl-input w-48">
+                        <SelectValue placeholder="All Registers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingRegisters ? (
+                          <div className="py-10 flex items-center justify-center">
+                            <Loader2 className="animate-spin w-4 h-4" />
+                          </div>
+                        ) : (
+                          <>
+                            <SelectItem value="all">All Registers</SelectItem>
+                            {registerList?.map((r) => (
+                              <SelectItem
+                                key={r.registerId}
+                                value={r.registerId}
+                              >
+                                <span className="font-bold">
+                                  {r.registerName}
+                                </span>{" "}
+                                -{" "}
+                                <span className="text-xs translate-y-0.5">
+                                  {r.symbol}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={allotListStatus}
+                      onValueChange={(v) => {
+                        setAllotListStatus(v ?? "ICU_APPROVED");
+                        setAllotListPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="mrpsl-input w-44">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ICU_APPROVED">
+                          Pending Allotment
+                        </SelectItem>
+                        <SelectItem value="ALLOTTED">Allotted</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </Card>
+
+                {/* Queue table */}
+                <Card className="mrpsl-card overflow-hidden">
+                  <table className="w-full text-left text-sm">
+                    <thead className="mrpsl-table-header">
                       <tr>
-                        <td
-                          colSpan={10}
-                          className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
-                        >
-                          No declarations awaiting allotment
-                        </td>
+                        <th className="px-4 py-3">DECLARATION REF</th>
+                        <th className="px-4 py-3">REGISTER</th>
+                        <th className="px-4 py-3">BONUS NAME</th>
+                        <th className="px-4 py-3 text-center">RATIO</th>
+                        <th className="px-4 py-3 text-right">ELIGIBLE SHs</th>
+                        <th className="px-4 py-3 text-right">NEW SHARES</th>
+                        <th className="px-4 py-3">ICU APPROVER</th>
+                        <th className="px-4 py-3">ICU DATE</th>
+                        <th className="px-4 py-3">STATUS</th>
+                        <th className="px-4 py-3 text-center">ACTION</th>
                       </tr>
-                    ) : (
-                      icuApprovedList.map((declaration: BonusDeclaration) => (
-                        <tr
-                          key={declaration?.id}
-                          className="mrpsl-table-row hover:bg-muted/40 transition-colors"
-                        >
-                          <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                            {declaration?.ref}
-                          </td>
-                          <td className="px-4 py-3 font-semibold">
-                            {declaration?.registerName}
-                          </td>
-                          <td className="px-4 py-3 text-[13px]">
-                            {declaration?.bonusName}
-                          </td>
-                          <td className="px-4 py-3 font-mono text-center">
-                            {declaration?.ratio}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono">
-                            {declaration?.totalShareholders}
-                          </td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-green-700">
-                            {declaration?.totalBonusShares}
-                          </td>
-                          <td className="px-4 py-3 text-[13px]">
-                            {getUserByIdFn(declaration?.icuApprovedBy)?.name}
-                          </td>
-                          <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                            {formatDateOnly(
-                              declaration?.icuApprovedAt?.split("T")[0],
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            {declaration?.status === "ICU_APPROVED" ? (
-                              <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px] uppercase">
-                                Pending Allotment
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-green-100 text-green-800 border-0 text-[13px] uppercase">
-                                Allotted
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs font-semibold cursor-pointer"
-                              onClick={() => setAllotReviewing(declaration?.id)}
-                            >
-                              View Allotment
-                            </Button>
+                    </thead>
+                    <tbody className="divide-y">
+                      {isAllotDeclarationsLoading ? (
+                        Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                          <tr key={i}>
+                            {Array.from({ length: 10 }).map((__, j) => (
+                              <td key={j} className="px-4 py-3">
+                                <Skeleton className="h-4 w-24" />
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ) : !allotDeclarationList ||
+                        allotDeclarationList.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={10}
+                            className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
+                          >
+                            No declarations found
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </Card>
+                      ) : (
+                        allotDeclarationList.map(
+                          (declaration: BonusDeclaration) => (
+                            <tr
+                              key={declaration?.id}
+                              className="mrpsl-table-row hover:bg-muted/40 transition-colors"
+                            >
+                              <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                                {declaration?.ref}
+                              </td>
+                              <td className="px-4 py-3 font-semibold">
+                                {declaration?.registerName}
+                              </td>
+                              <td className="px-4 py-3 text-[13px]">
+                                {declaration?.bonusName}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-center">
+                                {declaration?.ratio}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono">
+                                {declaration?.totalShareholders?.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono font-semibold text-green-700">
+                                {declaration?.totalBonusShares?.toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-[13px]">
+                                {
+                                  getUserByIdFn(declaration?.icuApprovedBy)
+                                    ?.name
+                                }
+                              </td>
+                              <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                                {formatDateOnly(
+                                  declaration?.icuApprovedAt?.split("T")[0],
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {declaration?.status === "ICU_APPROVED" ? (
+                                  <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px] uppercase">
+                                    Pending Allotment
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-green-100 text-green-800 border-0 text-[13px] uppercase">
+                                    Allotted
+                                  </Badge>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 text-xs font-semibold cursor-pointer"
+                                  onClick={() => {
+                                    setAllotReviewing(declaration?.id);
+                                    setAllotReviewingRow(declaration);
+                                  }}
+                                >
+                                  View Allotment
+                                </Button>
+                              </td>
+                            </tr>
+                          ),
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                  <PaginationBar
+                    page={allotListPage}
+                    total={allotDeclarationTotal}
+                    onPageChange={setAllotListPage}
+                    pageSize={allotListPageSize}
+                    onPageSizeChange={setAllotListPageSize}
+                  />
+                </Card>
+              </>
             ) : (
               (() => {
-                const row = icuApprovedList?.find(
-                  (r: { id: string; status: string }) =>
-                    r.id === allotReviewing,
-                );
+                const row = allotReviewingRow;
                 const isDone = row
                   ? row.status !== "ICU_APPROVED" ||
                     (allotmentProcessedMap[row.id] ?? false)
@@ -2339,14 +2674,19 @@ export default function BonusIssuePage() {
                               <BonusTableHead />
                               <tbody className="divide-y">
                                 {isAllotmentsLoading ? (
-                                  <tr>
-                                    <td
-                                      colSpan={6}
-                                      className="py-10 text-center"
-                                    >
-                                      <Loader2 className="h-6 w-6 animate-spin mx-auto opacity-50" />
-                                    </td>
-                                  </tr>
+                                  Array.from({ length: PAGE_SIZE }).map(
+                                    (_, i) => (
+                                      <tr key={i}>
+                                        {Array.from({ length: 6 }).map(
+                                          (__, j) => (
+                                            <td key={j} className="px-4 py-2.5">
+                                              <Skeleton className="h-4 w-20" />
+                                            </td>
+                                          ),
+                                        )}
+                                      </tr>
+                                    ),
+                                  )
                                 ) : (
                                   <EntitlementTableRows
                                     rows={allotmentsList}
@@ -2430,12 +2770,24 @@ export default function BonusIssuePage() {
                     <SelectValue placeholder="All Registers" />
                   </SelectTrigger>
                   <SelectContent className="w-max">
-                    <SelectItem value="all">All Registers</SelectItem>
-                    {registerList?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.registerId}>
-                        {r.registerName} · {r.symbol}
-                      </SelectItem>
-                    ))}
+                    {loadingRegisters ? (
+                      <div className="py-10 flex items-center justify-center">
+                        <Loader2 className="animate-spin w-4 h-4" />
+                      </div>
+                    ) : (
+                      <>
+                        <SelectItem value="">All Register</SelectItem>
+                        {registerList?.map((r) => (
+                          <SelectItem key={r.registerId} value={r.symbol}>
+                            <span className="font-bold">{r.registerName}</span>{" "}
+                            -{" "}
+                            <span className="text-xs translate-y-0.5">
+                              {r.symbol}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
                 <Popover
@@ -2519,7 +2871,7 @@ export default function BonusIssuePage() {
                     <h3 className="font-semibold text-sm text-foreground">
                       Ready to generate
                     </h3>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-[280px]">
+                    <p className="text-xs text-muted-foreground mt-1 max-w-70">
                       Configure your parameters above and click &quot;Generate
                       Report&quot; to view results.
                     </p>
@@ -2573,7 +2925,7 @@ export default function BonusIssuePage() {
                           <span>
                             Register:{" "}
                             {registerList?.find(
-                              (r) => r.registerId === reportRegister,
+                              (r) => r.symbol === reportRegister,
                             )?.registerName || "All Registers"}
                           </span>
                           <span>

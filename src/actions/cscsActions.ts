@@ -11,9 +11,13 @@ import {
   ReconciliationFlaggedTransaction,
   ReconciliationResponse,
   ProcessedTransaction,
-  TransactionBatch
+  TransactionBatch,
+  CscsInjectJob,
+  CscsPosition,
+  CscsInjectStatus,
+  CscsReconciliationRecord,
 } from "@/types/cscs";
-import { ContentPaginatedResponse, PaginatedResponse } from "@/types";
+import { ApiResponse, ContentPaginatedResponse, PaginatedResponse } from "@/types";
 
 export const GET_CSCS_PROCESSED_LOGS = async (params?: {
   search?: string;
@@ -36,13 +40,23 @@ export const GET_CSCS_PROCESSED_LOGS = async (params?: {
   }
 };
 
-export const INJECT_CSCS_ZIP_FILE = async (data: FormData) => {
+export const INJECT_CSCS_ZIP_FILE = async (data: FormData): Promise<CscsInjectJob> => {
   try {
-    const res = await api.post<string>(`/cscs-ingestion/upload`, data, {
+    const res = await api.post<CscsInjectJob>(`/cscs-ingestion/upload`, data, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_CSCS_INJECT_STATUS = async (batchRef: string): Promise<CscsInjectStatus> => {
+  try {
+    const res = await api.get<CscsInjectStatus>(`/cscs-ingestion/status/${batchRef}`);
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;
@@ -64,24 +78,6 @@ export const UPLOAD_CSCS_FILE = async (data: FormData) => {
   }
 };
 
-export const RESOLVE_CSCS_FLAGGED_TRANSACTION = async (
-  id: string,
-  data: {
-    resolvedBy: string;
-    resolutionNote: string;
-  },
-) => {
-  try {
-    const res = await api.patch<FlaggedTransaction>(
-      `/cscs/flagged-transactions/${id}/resolve`,
-      data,
-    );
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
 
 export const GET_CSCS_PROCESSING_QUEUE = async (params?: {
   search?: string;
@@ -155,9 +151,20 @@ export const GET_CSCS_FLAGGED_TRANSACTIONS_HISTORY = async (chn: string) => {
   }
 };
 
+export const CREATE_CSCS_TRANSACTION = async (
+  data: Omit<ProcessedTransaction, "holderName" | "batchRef" | "id" | "balanceAfter"> & { transStatus: string },
+) => {
+  try {
+    const res = await api.post<CscsReconciliationRecord>(`/cscs`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
 export const UPDATE_CSCS_TRANSACTION = async (
   id: string,
-  data: Omit<ProcessedTransaction, "id">,
+  data: Partial<ProcessedTransaction>,
 ) => {
   try {
     const res = await api.patch<ProcessedTransaction>(`/cscs/${id}`, data);
@@ -226,17 +233,19 @@ export const LOOKUP_HOLDER_STATES = async (
 
 export const GET_CSCS_RECONCILIATIONS = async (params: {
   register: string;
-  from?: string;
-  to?: string;
+  startDate?: string;
+  endDate?: string;
   chn?: string;
-  page?: number; // 0 indexed
-  size?: number;
+  mrpslPage?: number; // 0 indexed
+  mrpslPageSize?: number;
+  cscsPage?: number; // 0 indexed
+  cscsPageSize?: number;
 }) => {
   try {
     const res = await api.get<ReconciliationResponse>(`/cscs-reconciliation`, {
       params,
     });
-    return res.data;
+    return res.data?.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
@@ -257,6 +266,41 @@ export const GET_CSCS_RECONCILIATION_FLAGGED_TRANSACTIONS = async (params?: {
       PaginatedResponse<ReconciliationFlaggedTransaction>
     >(`/cscs-reconciliation/reconcile-flagged-transactions`, {
       params,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+
+export const GET_CSCS_SHAREHOLDER_TRANSACTIONS = async (params?: {
+  chn?: string;
+  register?: string;
+}) => {
+  try {
+    const res = await api.get<
+      ApiResponse<unknown>
+    >(`/cscs/shareholder-transaction`, {
+      params,
+    });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const UPLOAD_CSCS_HISTORY = async (register: string, data: FormData) => {
+  try {
+    const res = await api.post<ApiResponse<CscsPosition[]>>(`/cscs/cscs-transaction-history`, data, {
+      params: {
+        register
+      },
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
     return res.data;
   } catch (error) {

@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { AlertCircle, Plus, Pencil, X } from "lucide-react";
+import { AlertCircle, Plus, Pencil, X, Loader2 } from "lucide-react";
 import { useGetHolders } from "@/hooks/useCscs";
 import {
   useGetAllCertificateDemat,
@@ -32,12 +32,12 @@ export const CaptureDematerialization = ({
   tab: string;
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
 }) => {
-  const { data: activeRegisters } = useGetRegisters({
+  const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters({
     size: 100,
     status: "ACTIVE",
   });
 
-  const { data: agents } = useQuery({
+  const { data: agents, isLoading: loadingAgents } = useQuery({
     queryKey: ["agents"],
     queryFn: () => GET_AGENTS({ type: "STOCKBROKER", size: 100 }),
   });
@@ -56,7 +56,11 @@ export const CaptureDematerialization = ({
   const [dematFormUrl, setDematFormUrl] = useState("");
   const [scannedCertsUrl, setScannedCertsUrl] = useState("");
 
-  const { data: holders, isFetching: isSearchingHolder } = useGetHolders(
+  const {
+    data: holders,
+    isFetching: isSearchingHolder,
+    isLoading: isLoadingHolders,
+  } = useGetHolders(
     {
       chn: searchQuery || undefined,
     },
@@ -68,7 +72,6 @@ export const CaptureDematerialization = ({
   const holderNotFound = !!searchQuery && !isSearchingHolder && !foundHolder;
 
   const stockBrokerList = agents?.data?.content || [];
-
 
   // rejected items
   const { data: rejectedData } = useGetAllCertificateDemat(
@@ -233,11 +236,21 @@ export const CaptureDematerialization = ({
                     <SelectValue placeholder="Select Register" />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeRegisters?.content?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.registerId}>
-                        {r.registerName} · {r.symbol}
-                      </SelectItem>
-                    ))}{" "}
+                    {loadingRegisters ? (
+                      <div className="py-10 flex items-center justify-center">
+                        <Loader2 className="animate-spin w-4 h-4" />
+                      </div>
+                    ) : (
+                      <>
+                        {activeRegisters?.content?.map((r) => (
+                          <SelectItem key={r.registerId} value={r.symbol}>
+                            <span className="font-bold">{r.registerName}</span>{" "}
+                            -{" "}
+                            <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -253,11 +266,15 @@ export const CaptureDematerialization = ({
                     <SelectValue placeholder="Select Stockbroker" />
                   </SelectTrigger>
                   <SelectContent>
-                    {stockBrokerList?.map((s: Agent) => (
-                      <SelectItem key={s.id} value={s.name}>
-                        {s.name} · {s.code}
-                      </SelectItem>
-                    ))}
+                    {
+                      loadingAgents ? (<SelectItem value="_loading" disabled>
+                        Loading Stockbrokers...
+                      </SelectItem>) :
+                        stockBrokerList?.map((s: Agent) => (
+                          <SelectItem key={s.id} value={s.name}>
+                            {s.name} · {s.code}
+                          </SelectItem>
+                        ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -276,10 +293,18 @@ export const CaptureDematerialization = ({
                   />
                   <Button
                     variant="outline"
-                    className="h-11 px-6 font-bold"
+                    className="h-11 px-6 font-bold cursor-pointer"
                     onClick={handleHolderLookup}
+                    disabled={isLoadingHolders}
                   >
-                    Lookup
+                    {isLoadingHolders ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Checking...</span>
+                      </div>
+                    ) : (
+                      "Lookup"
+                    )}
                   </Button>
                 </div>
                 {foundHolder && (

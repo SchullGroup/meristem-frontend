@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { CertificateConsolidation } from "@/types/cscs";
 import { useStore } from "@/lib/store";
 import {
@@ -67,7 +67,7 @@ export const ReviewConsolidation = ({
           setReviewOpen(false);
           onSuccess?.();
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error.message || "Consolidation rejection failed.");
         },
       },
@@ -100,7 +100,7 @@ export const ReviewConsolidation = ({
           setReviewOpen(false);
           onSuccess?.();
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error.message || "Consolidation approval failed.");
         },
       },
@@ -207,41 +207,41 @@ export const ReviewConsolidation = ({
                   pending?: boolean;
                   time?: string | null;
                 }> => [
-                  {
-                    label: `Submitted by ${selected.submittedBy}`,
-                    done: true,
-                    time: selected.submittedAt
-                      ? new Date(selected.submittedAt).toLocaleString()
-                      : "N/A",
-                  },
-                  {
-                    label: "ICU Final Review — Pending",
-                    done: false,
-                    pending: true,
-                    time: null,
-                  },
-                ])().map((step, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div
-                      className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
-                    >
-                      {step.done && (
-                        <Check
-                          className="h-3 w-3 text-white"
-                          style={{ strokeWidth: 3 }}
-                        />
-                      )}
+                    {
+                      label: `Submitted by ${selected.submittedBy}`,
+                      done: true,
+                      time: selected.submittedAt
+                        ? new Date(selected.submittedAt).toLocaleString()
+                        : "N/A",
+                    },
+                    {
+                      label: "ICU Final Review — Pending",
+                      done: false,
+                      pending: true,
+                      time: null,
+                    },
+                  ])().map((step, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : step.pending ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                      >
+                        {step.done && (
+                          <Check
+                            className="h-3 w-3 text-white"
+                            style={{ strokeWidth: 3 }}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm">{step.label}</div>
+                        {step.time && (
+                          <div className="text-[11px] text-muted-foreground mt-0.5">
+                            {step.time}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-sm">{step.label}</div>
-                      {step.time && (
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          {step.time}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
@@ -260,11 +260,16 @@ export const ReviewConsolidation = ({
                 variant="destructive"
                 className="flex-1"
                 onClick={handleReject}
+                disabled={approveMutation.isPending || rejectMutation.isPending}
               >
-                Reject
+                {rejectMutation?.isPending ? "Rejecting..." : "Reject"}
               </Button>
-              <Button className="flex-1" onClick={handleApprove}>
-                Approve Consolidation
+              <Button
+                disabled={approveMutation.isPending || rejectMutation.isPending}
+                className="flex-1"
+                onClick={handleApprove}
+              >
+                {approveMutation?.isPending ? "Approving..." : "Approve Consolidation"}
               </Button>
             </div>
           </div>
@@ -320,7 +325,7 @@ export const RejectConsolidation = ({
           setBatchComment("");
           toast.success("Consolidations rejected successfully");
         },
-        onError: (error: any) => {
+        onError: (error) => {
           toast.error(error?.message || "Failed to reject consolidations");
         },
       },
@@ -358,6 +363,7 @@ export const RejectConsolidation = ({
               variant="ghost"
               className="flex-1"
               onClick={() => setBatchRejectOpen(false)}
+              disabled={batchRejectMutation.isPending}
             >
               Cancel
             </Button>
@@ -365,8 +371,12 @@ export const RejectConsolidation = ({
               variant="destructive"
               className="flex-1"
               onClick={handleBatchReject}
+              disabled={batchRejectMutation.isPending}
             >
               Confirm Rejection
+              {batchRejectMutation.isPending && (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              )}
             </Button>
           </div>
         </div>

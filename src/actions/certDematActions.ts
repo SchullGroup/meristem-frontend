@@ -33,7 +33,8 @@ export interface DematParams {
 export interface Certificate {
   id: string; // uuid
   dematRecord: string;
-  certNo: string;
+  certNo?: string;
+  certNumber?: string;
   units: number;
   certDate: string; // date (ISO format YYYY-MM-DD)
 }

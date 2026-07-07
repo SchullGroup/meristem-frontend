@@ -50,6 +50,23 @@ export interface RejectedBatch {
   rightsIssueDetails?: RightsIssue;
 }
 
+export type BulkJobType =
+  | "cscs"
+  | "kyc"
+  | "consolidation"
+  | "reports";
+
+export interface BulkJob {
+  id: string;
+  type: BulkJobType;
+  route: string;
+  status: 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+  startedAt: number;
+  progress?: number;   // 0–100
+  message?: string;    // human‑readable description
+  downloadUrl?: string;
+}
+
 export interface AppState {
   // Auth
   currentUser: User | null;
@@ -80,6 +97,13 @@ export interface AppState {
   rejectedRightsIssue: { ref: string; comment: string } | null;
   rejectedBatches: RejectedBatch[];
   rejectedTransfers: TransferRequest[];
+  consolidationJobId: string | null;
+  setConsolidationJobId: (jobId: string | null) => void;
+  kycUploadJobId: string | null;
+  setKycUploadJobId: (jobId: string | null) => void;
+  cscsInjectBatchRef: string | null;
+  setCscsInjectBatchRef: (batchRef: string | null) => void;
+  jobs: BulkJob[];
 
   // CRUD actions
   addPrincipal: (p: Principal) => void;
@@ -115,6 +139,9 @@ export interface AppState {
   clearRejectedBatches: () => void;
   addRejectedTransfer: (transfer: TransferRequest) => void;
   removeRejectedTransfer: (id: string) => void;
+  addJob: (job: BulkJob) => void;
+  updateJob: (id: string, updates: Partial<BulkJob>) => void;
+  removeJob: (id: string) => void;
 
   // Utilities
   seedStore: () => void;
@@ -148,6 +175,10 @@ export const useStore = create<AppState>()(
       rejectedRightsIssue: null,
       rejectedBatches: [],
       rejectedTransfers: [],
+      consolidationJobId: null,
+      cscsInjectBatchRef: null,
+      kycUploadJobId: null,
+      jobs: [],
 
       addPrincipal: (p) =>
         set((state) => ({ principals: [...state.principals, p] })),
@@ -271,6 +302,19 @@ export const useStore = create<AppState>()(
         set((state) => ({
           rejectedTransfers: state.rejectedTransfers.filter((t) => t.id !== id),
         })),
+      setConsolidationJobId: (jobId) => set({ consolidationJobId: jobId }),
+      setKycUploadJobId: (jobId) => set({ kycUploadJobId: jobId }),
+      setCscsInjectBatchRef: (batchRef) => set({ cscsInjectBatchRef: batchRef }),
+      addJob: (job) =>
+        set((state) => ({ jobs: [...state.jobs, job] })),
+      updateJob: (id, updates) =>
+        set((state) => ({
+          jobs: state.jobs.map((j) =>
+            j.id === id ? { ...j, ...updates } : j,
+          ),
+        })),
+      removeJob: (id) =>
+        set((state) => ({ jobs: state.jobs.filter((j) => j.id !== id) })),
     }),
     {
       name: "mrpsl-cpa-store",

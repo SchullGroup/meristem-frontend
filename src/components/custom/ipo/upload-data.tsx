@@ -12,29 +12,24 @@ import { useGetRegisters } from "@/hooks/useRegisters";
 import { format } from "date-fns";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FileCheck2, FileX2, AlertCircle, CheckCircle, X } from "lucide-react";
+import {
+  FileCheck2,
+  FileX2,
+  AlertCircle,
+  CheckCircle,
+  X,
+  Loader2,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import DateInput from "@/components/ui/date-input";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useUploadBatchIpo, useGetRejectedIpoBatches } from "@/hooks/useIPO";
+import { useUploadBatchIpo } from "@/hooks/useIPO";
 import { downloadCsvTemplate } from "@/lib/utils/csv-template";
 import { ipoTemplateFields } from "@/lib/utils/constants";
 import { IPO } from "@/types/ipo";
 
 export default function UploadIPOData({ tab }: { tab: string }) {
-  const { data: rejectedData } = useGetRejectedIpoBatches(
-    { size: 100 },
-    { enabled: tab === "upload" },
-  );
-
-  const allRejectedBatches = rejectedData?.content || [];
-  const [hiddenRejectedIds, setHiddenRejectedIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const rejectedBatches = allRejectedBatches.filter(
-    (b) => !hiddenRejectedIds.has(b.batchReference),
-  );
   const [selectedRegister, setSelectedRegister] = useState("");
   const [batchDate, setBatchDate] = useState<Date>(new Date());
 
@@ -44,11 +39,14 @@ export default function UploadIPOData({ tab }: { tab: string }) {
   const [disapprovedFile, setDisapprovedFile] = useState<File | null>(null);
   const [invalidFile, setInvalidFile] = useState<File | null>(null);
   const [processedBatch, setProcessedBatch] = useState<IPO | null>(null);
-  const [showRejected, setShowRejected] = useState(false);
 
-  const { data: activeRegisters, isLoading: registersLoading } = useGetRegisters({ size: 1000, status: "ACTIVE" }, {
-    enabled: tab === "upload",
-  });
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters(
+      { size: 100, status: "ACTIVE" },
+      {
+        enabled: tab === "upload",
+      },
+    );
   const uploadIpoMutation = useUploadBatchIpo();
 
   const handleProcess = () => {
@@ -92,70 +90,7 @@ export default function UploadIPOData({ tab }: { tab: string }) {
 
   return (
     <div className="space-y-6">
-      {/* Rejected IPO Batches toggle */}
-      {rejectedBatches && rejectedBatches.length > 0 && !showRejected && (
-        <div className="mb-6">
-          <Button
-            variant="outline"
-            onClick={() => setShowRejected(true)}
-            className="border-red-200 text-red-700 bg-red-50 hover:bg-red-100 hover:text-red-800"
-          >
-            <AlertCircle className="h-4 w-4 mr-2" />
-            View Rejected Declarations ({rejectedBatches.length})
-          </Button>
-        </div>
-      )}
 
-      {/* Rejected IPO Batches list */}
-      {rejectedBatches && rejectedBatches.length > 0 && showRejected && (
-        <div className="space-y-4 mb-6 animate-in fade-in">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-red-800 text-sm">
-              Action Required: Rejected Declarations
-            </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowRejected(false)}
-              className="text-muted-foreground h-8 px-2"
-            >
-              Hide
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-2">
-            {rejectedBatches.map((batch) => (
-              <Card
-                key={batch.batchReference}
-                className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 w-full shrink-0"
-              >
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-red-800">
-                      Declaration Rejected — Ref: {batch.batchReference}
-                    </p>
-                    <p className="text-[13px] text-muted-foreground mt-1">
-                      Please review the data and resubmit for approval.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setHiddenRejectedIds((prev) =>
-                        new Set(prev).add(batch.batchReference),
-                      );
-                      if (rejectedBatches.length <= 1) setShowRejected(false);
-                    }}
-                    className="rounded-full hover:bg-red-100 p-0.5"
-                  >
-                    <X className="h-3.5 w-3.5 text-red-600" />
-                  </button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Batch controls */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -169,13 +104,23 @@ export default function UploadIPOData({ tab }: { tab: string }) {
               <SelectValue placeholder="Select Register" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Select Register</SelectItem>
-              {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.symbol}>
-                  {r.registerName} ({r.symbol})
-                </SelectItem>
-              ))}
-              {registersLoading && <SelectItem disabled>Loading...</SelectItem>}
+              {registersLoading ? (
+                <div className="py-10 flex items-center justify-center">
+                  <Loader2 className="animate-spin w-4 h-4" />
+                </div>
+              ) : (
+                <>
+                  <SelectItem value="">Select Register</SelectItem>
+                  {activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.symbol}>
+                      <span className="font-bold">{r.registerName}</span> -{" "}
+                      <span className="text-xs translate-y-0.5">
+                        {r.symbol}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

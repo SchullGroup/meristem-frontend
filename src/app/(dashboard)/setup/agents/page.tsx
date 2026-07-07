@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,17 +9,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   PlusCircle,
   MoreHorizontal,
   Pencil,
-  PenLine,
   FileText,
-  Power,
-  History,
   Loader2,
   Trash,
 } from "lucide-react";
@@ -65,7 +62,7 @@ import {
 } from "@/actions/agentAction";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 const agentSchema = z.object({
   name: z.string().min(2, "Name required"),
@@ -77,6 +74,7 @@ const agentSchema = z.object({
 });
 
 export default function AgentsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { agentTypes } = useStore();
   const activeTypes = agentTypes.filter((t) => t.active);
@@ -217,9 +215,9 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Agents</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Agents</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage external parties (Banks, Stockbrokers)
           </p>
@@ -229,7 +227,7 @@ export default function AgentsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">Total</div>
           {isStatsLoading ? (
@@ -365,7 +363,15 @@ export default function AgentsPage() {
                         {a.address}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+                        <Badge
+                          className={`border-0 text-xs ${
+                            a.status === "ACTIVE"
+                              ? "bg-green-100 text-green-800"
+                              : a.status === "SUSPENDED"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
                           {a.status
                             .toLowerCase()
                             .replace(/\b\w/g, (c) => c.toUpperCase())}
@@ -384,6 +390,15 @@ export default function AgentsPage() {
                           >
                             <DropdownMenuItem onClick={() => handleEdit(a)}>
                               <Pencil className="mr-2 h-4 w-4" /> Edit Agent
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                router.push(
+                                  `/enquiry/agent?name=${encodeURIComponent(a.name)}`,
+                                )
+                              }
+                            >
+                              <FileText className="mr-2 h-4 w-4" /> View Mandate
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
@@ -429,13 +444,13 @@ export default function AgentsPage() {
               onSubmit={form.handleSubmit(onSubmit)}
               className="flex flex-col h-full"
             >
-              <div className="px-8 pb-8 space-y-8 overflow-y-auto max-h-[70vh]">
+              <div className="px-4 sm:px-8 pb-8 space-y-8 overflow-y-auto max-h-[70vh]">
                 {/* SECTION 1: Agent Identity */}
                 <div>
                   <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-4">
                     Agent Identity & Type
                   </h3>
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
                     <FormField
                       control={form.control}
                       name="name"
@@ -635,7 +650,7 @@ export default function AgentsPage() {
 
       {/* DELETE CONFIRMATION DIALOG */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="max-w-[400px] p-0 overflow-hidden border-none shadow-2xl bg-white">
+        <DialogContent className="max-w-100 p-0 overflow-hidden border-none shadow-2xl bg-white">
           <div className="px-6 pt-8 pb-6 flex flex-col items-center text-center">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
               <Trash className="h-6 w-6 text-muted-foreground" />

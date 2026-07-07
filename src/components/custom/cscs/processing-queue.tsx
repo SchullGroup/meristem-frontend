@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, Search, MoreHorizontal, Eye } from "lucide-react";
+import { AlertTriangle, Search, MoreHorizontal, Eye, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -45,7 +45,7 @@ export const ProcessingQueue = ({
   tab: string;
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
 }) => {
-  const { data: activeRegisters } = useGetRegisters(
+  const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters(
     {
       size: 100,
       status: "ACTIVE",
@@ -91,7 +91,7 @@ export const ProcessingQueue = ({
   );
 
   const processingQueue = data?.data?.content || [];
-  const totalPages = data?.data?.totalPages || 0;
+  const totalPages = data?.data?.totalPages || 1;
   const total = data?.data?.totalElements || 0;
 
   const handlePageChange = (newPage: number) => {
@@ -125,12 +125,22 @@ export const ProcessingQueue = ({
               <SelectValue placeholder="All Registers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Registers</SelectItem>
-              {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.registerId}>
-                  {r.registerName} · {r.symbol}
-                </SelectItem>
-              ))}
+              {loadingRegisters ? (
+                <div className="py-10 flex items-center justify-center">
+                  <Loader2 className="animate-spin w-4 h-4" />
+                </div>
+              ) : (
+                <>
+                  <SelectItem value="">All Registers</SelectItem>
+                  {activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.symbol}>
+                      <span className="font-bold">{r.registerName}</span>{" "}
+                      -{" "}
+                      <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>

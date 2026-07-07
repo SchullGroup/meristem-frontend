@@ -109,27 +109,26 @@ export default function RightsIssueICUApproval({
     }
   };
 
-
   // Filters & List State
   const [authRegister, setAuthRegister] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [listPage, setListPage] = useState(1);
-  const [listPageSize, setListPageSize] = useState(10);
+  const [listPageSize, setListPageSize] = useState(20);
   const debouncedListSearch = useDebounce(searchQuery, 500);
 
   // Review mode pagination
   const [authPage, setAuthPage] = useState(1);
-  const [authPageSize, setAuthPageSize] = useState(10);
+  const [authPageSize, setAuthPageSize] = useState(20);
 
   // Dialog states
   const [showApprove, setShowApprove] = useState(false);
   const [showReject, setShowReject] = useState(false);
 
   // Registers for filter
-  const { data: registersData } = useGetRegisters({
+  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
     status: "ACTIVE",
-    size: 100
+    size: 100,
   });
   const activeRegisters = registersData?.content || [];
 
@@ -187,12 +186,23 @@ export default function RightsIssueICUApproval({
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Registers</SelectItem>
-                  {activeRegisters.map((r) => (
-                    <SelectItem key={r.registerId} value={r.registerId}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {loadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="">All Register</SelectItem>
+                      {activeRegisters?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -243,9 +253,9 @@ export default function RightsIssueICUApproval({
                     <td className="px-4 py-3 text-muted-foreground text-[13px]">
                       {issue.qualificationDate
                         ? format(
-                          new Date(issue.qualificationDate),
-                          "dd MMM yyyy",
-                        )
+                            new Date(issue.qualificationDate),
+                            "dd MMM yyyy",
+                          )
                         : "----"}
                     </td>
                     <td className="px-4 py-3 font-mono text-right">
@@ -295,7 +305,6 @@ export default function RightsIssueICUApproval({
                     </td>
                   </tr>
                 )}
-
               </tbody>
             </table>
           )}
@@ -354,7 +363,6 @@ export default function RightsIssueICUApproval({
         </Button>
       </div>
 
-
       {/* Stats */}
       {shLoading ? (
         <EntitlementStatsSkeleton />
@@ -396,7 +404,6 @@ export default function RightsIssueICUApproval({
           ))}
         </div>
       )}
-
 
       {/* Shareholder table */}
       {shLoading ? (

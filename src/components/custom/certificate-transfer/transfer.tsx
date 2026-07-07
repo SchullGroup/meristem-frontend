@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,15 +16,27 @@ import { CscsShareholder, TransferRequest } from "@/types/cscs";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
 import { useGetShareholdersCertificate } from "@/hooks/useCertificates";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useStore } from "@/lib/store";
 
 export const Transfer = ({
   setTab,
 }: {
   setTab: React.Dispatch<React.SetStateAction<string>>;
 }) => {
+  const { currentUser } = useStore();
+
   const { data: rejectedData } = useGetAllTransferRequests({
     status: "REJECTED",
   });
+
   const allRejectedTransfers: TransferRequest[] =
     rejectedData?.data?.content || [];
   const [hiddenRejectedIds, setHiddenRejectedIds] = useState<Set<string>>(
@@ -32,10 +45,14 @@ export const Transfer = ({
   const rejectedTransfers = allRejectedTransfers.filter(
     (c) => !hiddenRejectedIds.has(c.id),
   );
-  const [autoLoad, setAutoLoad] = useState(false);
+
+  const searchParams = useSearchParams();
+
+  const autoLoadRef = useRef(false);
+  const autoLoadSrcRef = useRef(!!searchParams.get("src"));
   const [showRejected, setShowRejected] = useState(false);
 
-  const [srcSearch, setSrcSearch] = useState("");
+  const [srcSearch, setSrcSearch] = useState(() => searchParams.get("src") ?? "");
   const [destSearch, setDestSearch] = useState("");
 
   const [srcSearchResults, setSrcSearchResults] = useState<
@@ -51,6 +68,8 @@ export const Transfer = ({
   const [editingRejected, setEditingRejected] =
     useState<TransferRequest | null>(null);
 
+  const [selectedRegister, setSelectedRegister] = useState("");
+
   const [formData, setFormData] = useState({
     units: "",
     instrumentRef: "",
@@ -60,20 +79,31 @@ export const Transfer = ({
   });
   const [uploadingIot, setUploadingIot] = useState(false);
 
+  // ── Registers ──
+  const { data: activeRegisters, isLoading: registersLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
+
   // Setup queries
-  const { refetch: fetchSrc, isFetching: srcFetching } = useGetShareholdersCertificate(
-    { search: srcSearch },
-    { enabled: false },
-  );
-  const { refetch: fetchDest, isFetching: destFetching } = useGetShareholdersCertificate(
-    { search: destSearch },
-    { enabled: false },
-  );
+  const { refetch: fetchSrc, isFetching: srcFetching } =
+    useGetShareholdersCertificate(
+      { search: srcSearch, registerId: selectedRegister },
+      { enabled: false, retry: 1 },
+    );
+  const { refetch: fetchDest, isFetching: destFetching } =
+    useGetShareholdersCertificate(
+      { search: destSearch, registerId: selectedRegister },
+      { enabled: false, retry: 1 },
+    );
 
   const submitMutation = useSubmitTransferRequest();
 
   const handleSearchSrc = async () => {
     if (!srcSearch) return;
+    if (!selectedRegister) return toast.error("Please select a register");
+
     setSrcLoaded(null);
     setSrcSearchResults([]);
     const res = await fetchSrc();
@@ -91,6 +121,8 @@ export const Transfer = ({
 
   const handleSearchDest = async () => {
     if (!destSearch) return;
+    if (!selectedRegister) return toast.error("Please select a register");
+
     setDestLoaded(null);
     setDestSearchResults([]);
     const res = await fetchDest();
@@ -144,7 +176,7 @@ export const Transfer = ({
         stampDuty: Number(formData.stampDuty),
         iotDocumentUrl: formData.iotUrl,
         reason: formData.comment,
-        submittedBy: "user@meristem.com",
+        submittedBy: currentUser?.email ?? "",
       });
 
       toast.success(
@@ -165,14 +197,51 @@ export const Transfer = ({
   };
 
   useEffect(() => {
-    if (autoLoad && srcSearch && destSearch) {
-      //eslint-disable-next-line
-      handleSearchSrc();
-      handleSearchDest();
-      setAutoLoad(false);
-    }
+    if (!autoLoadRef.current || !srcSearch || !destSearch) return;
+    autoLoadRef.current = false;
+    fetchSrc().then((res) => {
+      const data = res.data?.data;
+      setSrcLoaded(null);
+      if (data && data.length > 0) {
+        setSrcSearchResults(data);
+        toast.success(data.length === 1 ? "1 shareholder found" : `${data.length} shareholders found. Please select one.`);
+      } else {
+        setSrcSearchResults([]);
+        toast.error("Source shareholder not found");
+      }
+    });
+    fetchDest().then((res) => {
+      const data = res.data?.data;
+      setDestLoaded(null);
+      if (data && data.length > 0) {
+        setDestSearchResults(data);
+        toast.success(data.length === 1 ? "1 shareholder found" : `${data.length} shareholders found. Please select one.`);
+      } else {
+        setDestSearchResults([]);
+        toast.error("Destination shareholder not found");
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [srcSearch, destSearch, autoLoad]);
+  }, [srcSearch, destSearch]);
+
+  // Auto-search the source only (used when prefilled from the certificate enquiry page)
+  useEffect(() => {
+    if (!autoLoadSrcRef.current || !srcSearch || !selectedRegister) return;
+    autoLoadSrcRef.current = false;
+    fetchSrc().then((res) => {
+      const data = res.data?.data;
+      setSrcLoaded(null);
+      if (data && data.length > 0) {
+        setSrcSearchResults(data);
+        toast.success(data.length === 1 ? "1 shareholder found" : `${data.length} shareholders found. Please select one.`);
+      } else {
+        setSrcSearchResults([]);
+        toast.error("Source shareholder not found");
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [srcSearch, selectedRegister]);
+
 
   const resetForm = () => {
     setEditingRejected(null);
@@ -277,7 +346,7 @@ export const Transfer = ({
                         new Set(prev).add(item.id),
                       );
                       setShowRejected(false);
-                      setAutoLoad(true);
+                      autoLoadRef.current = true;
                     }}
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -318,6 +387,32 @@ export const Transfer = ({
         </Card>
       )}
 
+      <Select
+        value={selectedRegister}
+        onValueChange={(v) => setSelectedRegister(v || "")}
+      >
+        <SelectTrigger className="w-64 mrpsl-input">
+          <SelectValue placeholder="All Registers" />
+        </SelectTrigger>
+        <SelectContent>
+          {registersLoading ? (
+            <div className="py-10 flex items-center justify-center">
+              <Loader2 className="animate-spin w-4 h-4" />
+            </div>
+          ) : (
+            <>
+              <SelectItem value={""}>All Registers</SelectItem>
+              {activeRegisters?.content.map((r) => (
+                <SelectItem key={r.registerId} value={r.symbol}>
+                  <span className="font-bold">{r.registerName}</span> -{" "}
+                  <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                </SelectItem>
+              ))}
+            </>
+          )}
+        </SelectContent>
+      </Select>
+
       {/* transferor and transferee forms */}
       <div className="grid grid-cols-2 gap-6">
         <Card className="mrpsl-card p-4 space-y-4">
@@ -333,7 +428,7 @@ export const Transfer = ({
               onChange={(e) => setSrcSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearchSrc()}
             />
-            <Button onClick={handleSearchSrc} disabled={srcFetching}>
+            <Button size="xl" onClick={handleSearchSrc} disabled={srcFetching}>
               {srcFetching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -347,7 +442,7 @@ export const Transfer = ({
             <div className="mt-2 border rounded-md divide-y max-h-48 overflow-y-auto bg-background">
               {srcSearchResults.map((sh) => (
                 <div
-                  key={sh.id}
+                  key={sh.certificateId}
                   className="p-3 hover:bg-muted cursor-pointer transition-colors"
                   onClick={() => {
                     setSrcLoaded(sh);
@@ -414,7 +509,11 @@ export const Transfer = ({
               onChange={(e) => setDestSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearchDest()}
             />
-            <Button onClick={handleSearchDest} disabled={destFetching}>
+            <Button
+              size="xl"
+              onClick={handleSearchDest}
+              disabled={destFetching}
+            >
               {destFetching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

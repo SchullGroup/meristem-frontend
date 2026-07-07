@@ -48,7 +48,7 @@ export const useGetUnpaidWarrantMarkoff = (
 
 // Search warrant for mark-off
 export const useGetWarrantSearch = (
-  params: { q: string },
+  params: { q: string; registerId?: string },
   options?: Omit<
     UseQueryOptions<
       ApiResponse<WarrantMarkOff>,

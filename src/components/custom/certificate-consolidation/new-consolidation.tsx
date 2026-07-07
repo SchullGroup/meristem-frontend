@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -36,10 +37,11 @@ export default function NewConsolidation({
 }: {
   setTab: (tab: string) => void;
 }) {
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: isRegisterLoading } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   const [selectedRegister, setSelectedRegister] = useState("All");
   const [certsLoaded, setCertsLoaded] = useState(false);
@@ -100,6 +102,19 @@ export default function NewConsolidation({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, autoLoad]);
+
+  // Prefill + auto-load when navigated from the certificate enquiry page
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const accountNo = searchParams.get("accountNo");
+    const register = searchParams.get("register");
+    if (accountNo) {
+      setSearch(accountNo);
+      if (register) setSelectedRegister(register);
+      setAutoLoad(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -248,13 +263,22 @@ export default function NewConsolidation({
               <SelectTrigger className="w-52 mrpsl-input">
                 <SelectValue placeholder="Select register" />
               </SelectTrigger>
-              <SelectContent className="w-max">
-                <SelectItem value="All">All Registers</SelectItem>
-                {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.registerId}>
-                    {r.registerName} · {r.symbol}
-                  </SelectItem>
-                ))}
+              <SelectContent>
+                {isRegisterLoading ? (
+                  <div className="py-10 flex items-center justify-center">
+                    <Loader2 className="animate-spin w-4 h-4" />
+                  </div>
+                ) : (
+                  <>
+                    {activeRegisters?.content?.map((r) => (
+                      <SelectItem key={r.registerId} value={r.symbol}>
+                        <span className="font-bold">{r.registerName}</span>{" "}
+                        -{" "}
+                        <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -411,7 +435,7 @@ export default function NewConsolidation({
       )}
 
       <Dialog open={consolOpen} onOpenChange={setConsolOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Submit Consolidation Request</DialogTitle>
           </DialogHeader>

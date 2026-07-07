@@ -53,7 +53,7 @@ export default function RightsIssuePendingApproval({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [listPage, setListPage] = useState(1);
-  const [listPageSize, setListPageSize] = useState(10);
+  const [listPageSize, setListPageSize] = useState(20);
   const debouncedListSearch = useDebounce(searchQuery, 500);
 
   // Selection state for Review mode
@@ -61,8 +61,8 @@ export default function RightsIssuePendingApproval({
     useState<RightsIssue | null>(null);
 
   // Review mode pagination
-  const [authPage, setAuthPage] = useState(0);
-  const [authPageSize, setAuthPageSize] = useState(10);
+  const [authPage, setAuthPage] = useState(1);
+  const [authPageSize, setAuthPageSize] = useState(20);
 
   // Store & Download state
   const [downloading, setDownloading] = useState(false);
@@ -129,7 +129,10 @@ export default function RightsIssuePendingApproval({
   const [showReject, setShowReject] = useState(false);
 
   // Registers for filter
-  const { data: registersData } = useGetRegisters({ status: "ACTIVE", size: 100 });
+  const { data: registersData, isLoading: loadingRegisters } = useGetRegisters({
+    status: "ACTIVE",
+    size: 100,
+  });
   const activeRegisters = registersData?.content || [];
 
   // Main list query
@@ -215,12 +218,23 @@ export default function RightsIssuePendingApproval({
                   <SelectValue placeholder="All Registers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Registers</SelectItem>
-                  {activeRegisters.map((r) => (
-                    <SelectItem key={r.registerId} value={r.registerId}>
-                      {r.symbol}
-                    </SelectItem>
-                  ))}
+                  {loadingRegisters ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="">All Register</SelectItem>
+                      {activeRegisters?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -287,9 +301,9 @@ export default function RightsIssuePendingApproval({
                       <td className="px-4 py-3 text-muted-foreground text-[13px]">
                         {issue.qualificationDate
                           ? format(
-                            new Date(issue.qualificationDate),
-                            "dd MMM yyyy",
-                          )
+                              new Date(issue.qualificationDate),
+                              "dd MMM yyyy",
+                            )
                           : "----"}{" "}
                       </td>
                       <td className="px-4 py-3 font-mono text-right">
@@ -454,10 +468,7 @@ export default function RightsIssuePendingApproval({
             <table className="w-full text-left text-[13px]">
               <ShholderTableHead />
               <tbody className="divide-y">
-                <ShholderRows
-                  rows={shData?.content || []}
-                  pageStart={authPage * authPageSize}
-                />
+                <ShholderRows rows={shData?.content || []} />
               </tbody>
               <ShholderTfoot
                 rows={shData?.content || []}

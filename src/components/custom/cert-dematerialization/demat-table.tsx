@@ -11,7 +11,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Demat, DematStatus } from "@/actions/certDematActions";
-import { TablePagination } from "../table-pagination";
 import { formatDate } from "@/lib/utils/format";
 import { PaginationBar } from "../pagination-bar";
 
@@ -207,9 +206,9 @@ export function DematTable({
                 </td>
                 <td
                   className="p-3 font-mono truncate max-w-40"
-                  title={row.certificates?.map((c) => c.certNo).join(", ")}
+                  title={row.certificates?.map((c) => c.certNumber).join(", ")}
                 >
-                  {row.certificates?.map((c) => c.certNo).join(", ") || "-"}
+                  {row.certificates?.map((c) => c.certNumber).join(", ") || "-"}
                 </td>
                 <td className="p-3 font-medium">{row.holderName}</td>
                 <td className="p-3 font-mono text-muted-foreground">

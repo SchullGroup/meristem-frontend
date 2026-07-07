@@ -20,6 +20,7 @@ import { EntitlementTableSkeleton } from "../rights-issue/loaders";
 import { ReviewDecideDialog, BatchRejectDialog } from "./dialogs";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { PaginationBar } from "../pagination-bar";
 
 interface PendingApprovalsProps {
   onReject: (id: string, comment: string) => void;
@@ -61,8 +62,8 @@ function tierBadgeClass(tier: string | number | undefined) {
 
 export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
   const { currentUser } = useStore();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
 
   // Queries & Mutations
   const {
@@ -72,7 +73,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
     error: pendingError,
     refetch: refetchPending,
   } = useGetPendingMarkOffApprovals({
-    page: page - 1,
+    page: page,
     size: pageSize,
   });
 
@@ -91,7 +92,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
 
   const pendingList = pendingResponse?.data?.content || [];
   const totalElements = pendingResponse?.data?.totalElements || 0;
-  const totalPages = pendingResponse?.data?.totalPages || 0;
+  const totalPages = pendingResponse?.data?.totalPages || 1;
 
   // Toggle helpers
   const toggleAuthSel = (id: number) => {
@@ -214,8 +215,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.success(
-              `${authSelIds.size} warrant${
-                authSelIds.size !== 1 ? "s" : ""
+              `${authSelIds.size} warrant${authSelIds.size !== 1 ? "s" : ""
               } approved and advanced.`,
             );
             setAuthSelIds(new Set());
@@ -247,8 +247,7 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
         onSuccess: (res) => {
           if (res?.isSuccessful) {
             toast.error(
-              `${authSelIds.size} warrant${
-                authSelIds.size !== 1 ? "s" : ""
+              `${authSelIds.size} warrant${authSelIds.size !== 1 ? "s" : ""
               } rejected.`,
             );
             setAuthSelIds(new Set());
@@ -345,9 +344,8 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
                 {pendingList.map((row) => (
                   <tr
                     key={row.id}
-                    className={`mrpsl-table-row ${
-                      authSelIds.has(row.id) ? "bg-primary/5" : ""
-                    }`}
+                    className={`mrpsl-table-row ${authSelIds.has(row.id) ? "bg-primary/5" : ""
+                      }`}
                   >
                     <td className="p-3">
                       <Checkbox
@@ -390,12 +388,11 @@ export default function PendingApprovals({ onReject }: PendingApprovalsProps) {
             </table>
           </Card>
 
-          <TablePagination
+          <PaginationBar
             page={page}
             pageSize={pageSize}
             totalPages={totalPages}
-            from={(page - 1) * pageSize + 1}
-            to={Math.min(page * pageSize, totalElements)}
+
             total={totalElements}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}

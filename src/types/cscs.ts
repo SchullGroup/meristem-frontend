@@ -1,4 +1,4 @@
-import { ContentPaginatedResponse } from ".";
+import { ApiResponse, PaginatedResponse } from ".";
 import { Principal } from "./principal";
 import { Register } from "./register";
 
@@ -30,7 +30,6 @@ export interface ProcessedTransaction {
   balanceAfter: number;
   processedBy: string;
 }
-
 export interface TransactionBatch {
   batchRef: string;
   register: string;
@@ -233,6 +232,34 @@ export interface CertificateParams {
   toDate?: string;
 }
 
+/**
+ * Response returned by the CSCS inject endpoint.
+ * The batchRef is embedded inside `message` as:
+ *   "Processing Zip record with BatchRef: BATCH-CSCS-XXXXXXXX_XXXXXX"
+ * and must be extracted with a regex.
+ *
+ * Example:
+ *   { message: "Processing Zip record with BatchRef: BATCH-CSCS-20260610_123038", status: "ACCEPTED" }
+ */
+export interface CscsInjectJob {
+  /** Human-readable message — contains the batchRef */
+  message: string;
+  /** ACCEPTED = queued for background processing, FAILED = error */
+  status: "ACCEPTED" | "FAILED" | string;
+  batchRef: string;
+}
+
+// Check import job status
+export interface CscsInjectStatus {
+  message: string;
+  status: "PENDING" | "SUCCESS" | "FAILED";
+  batchRef: string;
+  holdersLoaded: number;
+  transactionsLoaded: number;
+  startedAt: string;
+  completedAt: string;
+}
+
 export interface Holder {
   id: string;
   name: string;
@@ -242,9 +269,11 @@ export interface Holder {
   state: string;
   bank: string;
   bvnAccount: string;
+  accountNumber: string | null;
   phone: string;
   altPhone: string;
   nextOfKin: string;
+  units: number | null;
   dateOfBirth: string | null;
   registers: Array<{
     id: number;
@@ -267,14 +296,36 @@ export interface ReconciliationTransaction {
   transactionDate: string;
 }
 
-export interface ReconciliationResponse {
-  mrpslPositions: ContentPaginatedResponse<MrpslPosition>;
-  mrpslTotalUnits: number;
-  cscsPositions: ContentPaginatedResponse<CscsPosition>;
-  cscsTotalUnits: number; // int64
+export interface CscsReconciliationRecord {
+  id: string;
+  batchRef: string;
+  transactionDate: string;
+  chn: string;
+  register: string;
+  holderName: string;
+  transferNo: string;
+  type: string;
+  transStatus: string;
+  entryMode?: string; // Optional since it only appears in mrpsl blocks
+  units: number;
+  balanceAfter: number | null; // Can be null on CSCS entries
+  processedBy: string | null;
+  status?: string; // Optional since it only appears in mrpsl blocks
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface MrpslPosition {
+// Map the data object inside the API envelope
+export interface CscsReconciliationData {
+  mrpsl: PaginatedResponse<CscsReconciliationRecord>["data"];
+  cscs: PaginatedResponse<CscsReconciliationRecord>["data"];
+  missingData: CscsReconciliationRecord[];
+}
+
+// Complete endpoint response wrapping layout
+export type ReconciliationResponse = ApiResponse<CscsReconciliationData>;
+
+export interface MrpslPosition {
   createdAt: string;
   updatedAt: string;
   id: string;
@@ -295,7 +346,7 @@ interface MrpslPosition {
   status: string;
 }
 
-interface CscsPosition {
+export interface CscsPosition {
   createdAt: string;
   updatedAt: string;
   id: string;

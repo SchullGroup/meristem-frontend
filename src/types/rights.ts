@@ -1,5 +1,3 @@
-import { ApiResponse } from ".";
-
 export interface RightsIssue {
   id: string;
   ref: string;
@@ -30,6 +28,9 @@ export interface RightsIssue {
   lodgedAt: string;
   processedBy: string;
   notes: string;
+  pagination: {
+    total: number;
+  };
 }
 
 export type RightsIssueStatus =
@@ -40,7 +41,8 @@ export type RightsIssueStatus =
   | "ICU_APPROVED"
   | "ICU_REJECTED"
   | "ALLOTTED"
-  | "CLOSED" | "LODGED";
+  | "CLOSED"
+  | "LODGED";
 
 export interface CreateRightsIssue {
   registerId: string;

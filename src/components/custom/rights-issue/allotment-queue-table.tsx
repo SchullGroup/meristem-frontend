@@ -30,16 +30,17 @@ export function AllotmentQueueTable({
   // Filters & Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRegister, setSelectedRegister] = useState("");
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedStatus, setSelectedStatus] = useState("ICU_APPROVED");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedListSearch = useDebounce(searchQuery, 500);
 
   // Live Register options for filter
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: loadingRegisters } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   // Main list fetch
   const {
@@ -91,12 +92,23 @@ export function AllotmentQueueTable({
                 <SelectValue placeholder="All Registers" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Registers</SelectItem>
-                {activeRegisters?.content?.map((r) => (
-                  <SelectItem key={r.registerId} value={r.registerId}>
-                    {r.symbol}
-                  </SelectItem>
-                ))}
+                {loadingRegisters ? (
+                  <div className="py-10 flex items-center justify-center">
+                    <Loader2 className="animate-spin w-4 h-4" />
+                  </div>
+                ) : (
+                  <>
+                    <SelectItem value="">All Register</SelectItem>
+                    {activeRegisters?.content?.map((r) => (
+                      <SelectItem key={r.registerId} value={r.symbol}>
+                        <span className="font-bold">{r.registerName}</span> -{" "}
+                        <span className="text-xs translate-y-0.5">
+                          {r.symbol}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>

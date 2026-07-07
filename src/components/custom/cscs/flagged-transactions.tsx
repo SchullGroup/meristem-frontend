@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
     Search,
+    Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
@@ -27,14 +28,16 @@ import { PaginationBar } from "../pagination-bar";
 import { DateRangePicker } from "../date-range-picker";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 const PAGE_SIZE = 10
 
 export const FlaggedTransactions = ({ tab }: {
     tab: string
 }) => {
+    const router = useRouter();
 
-    const { data: activeRegisters } = useGetRegisters({
+    const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters({
         size: 100,
         status: "ACTIVE",
     }, {
@@ -86,7 +89,7 @@ export const FlaggedTransactions = ({ tab }: {
     }
 
     const flaggedTransactions = data?.data?.content || []
-    const totalPages = data?.data?.totalPages || 0;
+    const totalPages = data?.data?.totalPages || 1;
     const total = data?.data?.totalElements || 0;
 
     return (
@@ -109,12 +112,22 @@ export const FlaggedTransactions = ({ tab }: {
                         <SelectValue placeholder="All Registers" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">All Registers</SelectItem>
-                        {activeRegisters?.content?.map((r) => (
-                            <SelectItem key={r.registerId} value={r.symbol}>
-                                {r.registerName} · {r.symbol}
-                            </SelectItem>
-                        ))}
+                        {loadingRegisters ? (
+                            <div className="py-10 flex items-center justify-center">
+                                <Loader2 className="animate-spin w-4 h-4" />
+                            </div>
+                        ) : (
+                            <>
+                                <SelectItem value="">All Registers</SelectItem>
+                                {activeRegisters?.content?.map((r) => (
+                                    <SelectItem key={r.registerId} value={r.symbol}>
+                                        <span className="font-bold">{r.registerName}</span>{" "}
+                                        -{" "}
+                                        <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                                    </SelectItem>
+                                ))}
+                            </>
+                        )}
                     </SelectContent>
                 </Select>
 
@@ -271,6 +284,7 @@ export const FlaggedTransactions = ({ tab }: {
                 open={flagSheetOpen}
                 setOpen={setFlagSheetOpen}
                 selectedTransaction={selectedTransaction}
+                onComplete={() => router.replace("/certificates/reconciliation")}
             />
         </>
     )

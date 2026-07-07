@@ -13,6 +13,7 @@ import {
   Pencil,
   Download,
   Loader2,
+  Search,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -34,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -52,7 +54,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
-import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import type { DividendDeclaration } from "@/lib/types";
 import { useGetRegisters } from "@/hooks/useRegisters";
@@ -75,7 +76,7 @@ import { formatCustomDate } from "@/utils/helperFunctions";
 
 export default function DeclarationPage() {
   const queryClient = useQueryClient();
-  const { currentUser, dividendDeclarations } = useStore();
+  const { currentUser } = useStore();
   const [activeTab, setActiveTab] = useState("new");
   const [selectedRegister, setSelectedRegister] = useState("");
   const [divType, setDivType] = useState("FINAL");
@@ -107,8 +108,6 @@ export default function DeclarationPage() {
   const [selectedIcuDecl, setSelectedIcuDecl] =
     useState<DividendDeclaration | null>(null);
   const [icuComment, setIcuComment] = useState("");
-  const [icuApprovedIds, setIcuApprovedIds] = useState<Set<string>>(new Set());
-
   const [pendingSelIds, setPendingSelIds] = useState<Set<string>>(new Set());
   const [icuSelIds, setIcuSelIds] = useState<Set<string>>(new Set());
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
@@ -122,16 +121,121 @@ export default function DeclarationPage() {
   const { data: currenciesData } = useGetCurrencies();
   const currencies = currenciesData?.content || [];
 
-  const { data: registersData } = useGetRegisters({
-    size: 1000,
-  });
+  const { data: registersData, isLoading: isRegisterLoading } = useGetRegisters(
+    {
+      size: 100,
+    },
+  );
 
-  const { data: declarationData } = useQuery({
-    queryKey: ["all-declarations", 20, 1],
-    queryFn: () => GET_ALL_DIVIDEND_DECLARATIONS({ size: 20, page: 0 }),
+  // ── Draft tab ──────────────────────────────────────────────────────────────
+  const [draftPage, setDraftPage] = useState(1);
+  const [draftPageSize, setDraftPageSize] = useState(20);
+  const [draftRegister, setDraftRegister] = useState("");
+  const [draftType, setDraftType] = useState("");
+  const { data: draftData, isLoading: isDraftLoading } = useQuery({
+    queryKey: [
+      "declarations",
+      "draft",
+      draftPage,
+      draftPageSize,
+      draftRegister,
+      draftType,
+    ],
+    queryFn: () =>
+      GET_ALL_DIVIDEND_DECLARATIONS({
+        page: draftPage - 1,
+        size: draftPageSize,
+        status: "DRAFT",
+        registerId: draftRegister || undefined,
+        dividendType: draftType || undefined,
+      }),
   });
+  const draftList = draftData?.data?.content ?? [];
+  const draftTotal = draftData?.data?.totalElements ?? 0;
+  const draftTotalPages = draftData?.data?.totalPages ?? 1;
 
-  const declarationList = declarationData?.data?.content || [];
+  // ── Auth / Approval tab ─────────────────────────────────────────────────────
+  const [authDecPage, setAuthDecPage] = useState(1);
+  const [authDecPageSize, setAuthDecPageSize] = useState(20);
+  const [authDecRegister, setAuthDecRegister] = useState("");
+  const [authDecType, setAuthDecType] = useState("");
+  const { data: authDecData, isLoading: isAuthDecLoading } = useQuery({
+    queryKey: [
+      "declarations",
+      "auth",
+      authDecPage,
+      authDecPageSize,
+      authDecRegister,
+      authDecType,
+    ],
+    queryFn: () =>
+      GET_ALL_DIVIDEND_DECLARATIONS({
+        page: authDecPage - 1,
+        size: authDecPageSize,
+        status: "PENDING_TIER2",
+        registerId: authDecRegister || undefined,
+        dividendType: authDecType || undefined,
+      }),
+  });
+  const authDecList = authDecData?.data?.content ?? [];
+  const authDecTotal = authDecData?.data?.totalElements ?? 0;
+  const authDecTotalPages = authDecData?.data?.totalPages ?? 1;
+
+  // ── ICU tab ─────────────────────────────────────────────────────────────────
+  const [icuDecPage, setIcuDecPage] = useState(1);
+  const [icuDecPageSize, setIcuDecPageSize] = useState(20);
+  const [icuDecRegister, setIcuDecRegister] = useState("");
+  const [icuDecType, setIcuDecType] = useState("");
+  const { data: icuDecData, isLoading: isIcuDecLoading } = useQuery({
+    queryKey: [
+      "declarations",
+      "icu",
+      icuDecPage,
+      icuDecPageSize,
+      icuDecRegister,
+      icuDecType,
+    ],
+    queryFn: () =>
+      GET_ALL_DIVIDEND_DECLARATIONS({
+        page: icuDecPage - 1,
+        size: icuDecPageSize,
+        registerId: icuDecRegister || undefined,
+        dividendType: icuDecType || undefined,
+      }),
+  });
+  const icuDecList = (icuDecData?.data?.content ?? []).filter(
+    (d: { status: string }) =>
+      d.status === "PENDING_TIER3" || d.status === "PENDING_TIER4",
+  );
+  const icuDecTotal = icuDecData?.data?.totalElements ?? 0;
+  const icuDecTotalPages = icuDecData?.data?.totalPages ?? 1;
+
+  // ── History tab ─────────────────────────────────────────────────────────────
+  const [histPage, setHistPage] = useState(1);
+  const [histPageSize, setHistPageSize] = useState(20);
+  const [histRegister, setHistRegister] = useState("");
+  const [histType, setHistType] = useState("");
+  const { data: histData, isLoading: isHistLoading } = useQuery({
+    queryKey: [
+      "declarations",
+      "history",
+      histPage,
+      histPageSize,
+      histRegister,
+      histType,
+    ],
+    queryFn: () =>
+      GET_ALL_DIVIDEND_DECLARATIONS({
+        page: histPage - 1,
+        size: histPageSize,
+        status: "AUTHORIZED",
+        registerId: histRegister || undefined,
+        dividendType: histType || undefined,
+      }),
+  });
+  const histList = histData?.data?.content ?? [];
+  const histTotal = histData?.data?.totalElements ?? 0;
+  const histTotalPages = histData?.data?.totalPages ?? 1;
 
   const {
     data: dividendLiabilityPreview,
@@ -145,7 +249,7 @@ export default function DeclarationPage() {
   const previewData = (dividendLiabilityPreview as any)?.data;
 
   const registerlist = registersData?.content;
-  const register = registerlist?.find((r) => r.registerId === selectedRegister);
+  const register = registerlist?.find((r) => r.symbol === selectedRegister);
   const stockToday = register?.currentStockInIssue || 0;
   const rateNum = typeof rate === "number" ? rate : 0;
   const grossLiability = rateNum * stockToday;
@@ -219,7 +323,7 @@ export default function DeclarationPage() {
     onSuccess: () => {
       toast.success("Dividend declaration created successfully");
       queryClient.invalidateQueries({ queryKey: dividendLiabilityKeys.all });
-      queryClient.invalidateQueries({ queryKey: ["all-declarations"] });
+      queryClient.invalidateQueries({ queryKey: ["declarations"] });
       setDate1(undefined);
       setDate2(undefined);
       setDate3(undefined);
@@ -240,7 +344,7 @@ export default function DeclarationPage() {
     onSuccess: () => {
       toast.success("Dividend declaration submitted successfully");
       queryClient.invalidateQueries({ queryKey: dividendLiabilityKeys.all });
-      queryClient.invalidateQueries({ queryKey: ["all-declarations"] });
+      queryClient.invalidateQueries({ queryKey: ["declarations"] });
       setSheetOpen(false);
     },
     onError: (error) => {
@@ -253,7 +357,7 @@ export default function DeclarationPage() {
     onSuccess: () => {
       toast.success("Dividend declaration rejected successfully");
       queryClient.invalidateQueries({ queryKey: dividendLiabilityKeys.all });
-      queryClient.invalidateQueries({ queryKey: ["all-declarations"] });
+      queryClient.invalidateQueries({ queryKey: ["declarations"] });
       setSheetOpen(false);
       setSheetComment("");
       setIcuApprovalOpen(false);
@@ -269,7 +373,7 @@ export default function DeclarationPage() {
     onSuccess: () => {
       toast.success("Dividend declaration approved successfully");
       queryClient.invalidateQueries({ queryKey: dividendLiabilityKeys.all });
-      queryClient.invalidateQueries({ queryKey: ["all-declarations"] });
+      queryClient.invalidateQueries({ queryKey: ["declarations"] });
       setSheetOpen(false);
       setSheetComment("");
       setIcuApprovalOpen(false);
@@ -298,27 +402,6 @@ export default function DeclarationPage() {
     if (!date3) {
       toast.error("Payment date is required.");
       return;
-    }
-    if (date1) {
-      const today = new Date();
-      if (date1 < today) {
-        toast.error("Qualification date must be greater than today date.");
-        return;
-      }
-    }
-    if (date2) {
-      const today = new Date();
-      if (date2 < today) {
-        toast.error("Closure date must be greater than today date.");
-        return;
-      }
-    }
-    if (date3) {
-      const today = new Date();
-      if (date3 < today) {
-        toast.error("Payment date must be greater than today date.");
-        return;
-      }
     }
 
     if (date1 && date2) {
@@ -380,10 +463,10 @@ export default function DeclarationPage() {
   };
 
   const handleApprove = (id: number) => {
-    if (!sheetComment) {
-      toast.error("Comment is required");
-      return;
-    }
+    // if (!sheetComment) {
+    //   toast.error("Comment is required");
+    //   return;
+    // }
     const payload = {
       comment: sheetComment,
       authorisedBy: currentUser?.email,
@@ -480,19 +563,6 @@ export default function DeclarationPage() {
   const previewTotalElements = previewRows?.totalElements ?? 0;
   const previewPageSize = previewRows?.size ?? 10;
   const previewStart = (previewPage - 1) * previewPageSize;
-
-  const pendingDecs = dividendDeclarations.filter((d) =>
-    d.status.startsWith("PENDING"),
-  );
-  const icuDecsBase = dividendDeclarations.filter(
-    (d) =>
-      d.tier >= 3 &&
-      d.status.startsWith("PENDING") &&
-      !icuApprovedIds.has(d.id),
-  );
-  const pendingDecsPg = usePagination(pendingDecs);
-  const icuDecsPg = usePagination(icuDecsBase);
-  const historyDecsPg = usePagination(dividendDeclarations);
 
   const statusBadgeClass = (status: string) => {
     switch (status) {
@@ -742,16 +812,28 @@ export default function DeclarationPage() {
                           <SelectValue placeholder="Select Active Register" />
                         </SelectTrigger>
                         <SelectContent>
-                          {registerlist
-                            ?.filter((r) => r?.status === "ACTIVE")
-                            .map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r?.registerId}
-                              >
-                                {r?.registerId} - {r?.symbol}
-                              </SelectItem>
-                            ))}
+                          {isRegisterLoading ? (
+                            <div className="flex items-center justify-center py-10">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            </div>
+                          ) : (
+                            registerlist
+                              ?.filter((r) => r?.status === "ACTIVE")
+                              .map((r) => (
+                                <SelectItem
+                                  key={r.registerId}
+                                  value={r?.symbol}
+                                >
+                                  <span className="font-bold">
+                                    {r?.registerName}
+                                  </span>{" "}
+                                  -{" "}
+                                  <span className="translate-y-1 text-xs">
+                                    {r?.symbol}
+                                  </span>
+                                </SelectItem>
+                              ))
+                          )}
                         </SelectContent>
                       </Select>
                       {register && (
@@ -929,6 +1011,34 @@ export default function DeclarationPage() {
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="mrpsl-label">Warehouse Bank</label>
+                      <Select>
+                        <SelectTrigger className="mrpsl-input">
+                          <SelectValue placeholder="Select bank" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gtb">GTBank</SelectItem>
+                          <SelectItem value="zenith">Zenith Bank</SelectItem>
+                          <SelectItem value="access">Access Bank</SelectItem>
+                          <SelectItem value="first">First Bank</SelectItem>
+                          <SelectItem value="uba">UBA</SelectItem>
+                          <SelectItem value="stanbic">Stanbic IBTC</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="mrpsl-label">
+                        Warehouse Account No
+                      </label>
+                      <Input
+                        className="mrpsl-input font-mono"
+                        placeholder="Enter account number"
+                      />
+                    </div>
+                  </div>
+
                   {/* Rules */}
                   <div className="border-l-4 border-primary bg-primary/5 p-4 rounded-r-lg">
                     <ul className="space-y-2 text-sm text-primary/80">
@@ -994,17 +1104,8 @@ export default function DeclarationPage() {
           <TabsContent value="draft">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {
-                  declarationList?.filter(
-                    (d: { status: string }) => d.status === "DRAFT",
-                  )?.length
-                }{" "}
-                pending declaration
-                {declarationList?.filter(
-                  (d: { status: string }) => d.status === "DRAFT",
-                )?.length !== 1
-                  ? "s"
-                  : ""}
+                {draftTotal} pending declaration
+                {draftTotal !== 1 ? "s" : ""}
               </p>
               <Button
                 variant="outline"
@@ -1015,6 +1116,69 @@ export default function DeclarationPage() {
                 <Download className="h-4 w-4" /> Download Records
               </Button>
             </div>
+            <Card className="mrpsl-card p-3 mb-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Register</label>
+                  <Select
+                    value={draftRegister}
+                    onValueChange={(v) => {
+                      setDraftRegister(!v || v === "ALL" ? "" : v);
+                      setDraftPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-48 mrpsl-input">
+                      <SelectValue placeholder="All Registers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isRegisterLoading ? (
+                        <div className="py-10 flex items-center justify-center">
+                          <Loader2 className="animate-spin w-4 h-4" />
+                        </div>
+                      ) : (
+                        <>
+                          <SelectItem value="">All Registers</SelectItem>
+                          {registersData?.content?.map((r) => (
+                            <SelectItem
+                              key={r.registerId}
+                              value={r.symbol ?? ""}
+                            >
+                              <span className="font-bold">
+                                {r.registerName}
+                              </span>{" "}
+                              -{" "}
+                              <span className="text-xs translate-y-0.5">
+                                {r.symbol}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Dividend Type</label>
+                  <Select
+                    value={draftType || "ALL"}
+                    onValueChange={(v) => {
+                      setDraftType(!v || v === "ALL" ? "" : v);
+                      setDraftPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-40 mrpsl-input">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Types</SelectItem>
+                      <SelectItem value="FINAL">Final</SelectItem>
+                      <SelectItem value="INTERIM">Interim</SelectItem>
+                      <SelectItem value="SPECIAL">Special</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </Card>
             <div className="space-y-4">
               {pendingSelIds.size > 0 && (
                 <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
@@ -1049,14 +1213,14 @@ export default function DeclarationPage() {
                         <th className="px-4 py-3 w-10">
                           <Checkbox
                             checked={
-                              pendingDecsPg.paged.length > 0 &&
-                              pendingDecsPg.paged.every((d) =>
+                              draftList.length > 0 &&
+                              draftList.every((d: { id: string }) =>
                                 pendingSelIds.has(d.id),
                               )
                             }
                             onCheckedChange={() =>
                               togglePendingAll(
-                                pendingDecsPg.paged.map((d) => d.id),
+                                draftList.map((d: { id: string }) => d.id),
                               )
                             }
                           />
@@ -1074,122 +1238,119 @@ export default function DeclarationPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {declarationList?.filter(
-                        (d: DividendDeclaration) => d.status === "DRAFT",
-                      )?.length === 0 ? (
+                      {isDraftLoading ? (
+                        Array.from({ length: 10 }).map((_, i) => (
+                          <tr key={i}>
+                            {Array.from({ length: 9 }).map((__, j) => (
+                              <td key={j} className="px-4 py-3">
+                                <Skeleton className="h-4 w-full" />
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ) : draftList.length === 0 ? (
                         <tr>
                           <td colSpan={9} className="text-center py-4">
-                            No pending declarations
+                            No draft declarations found.
                           </td>
                         </tr>
                       ) : (
-                        declarationList
-                          ?.filter(
-                            (d: DividendDeclaration) => d.status === "DRAFT",
-                          )
-                          .map(
-                            (d: {
-                              id: string;
-                              paymentNumber: string;
-                              registerSymbol: string;
-                              dividendType: string;
-                              rate: string;
-                              grossLiability: string;
-                              tier: number;
-                              status: string;
-                            }) => {
-                              return (
-                                <tr
-                                  key={d.id}
-                                  className={`mrpsl-table-row ${pendingSelIds.has(d.id) ? "bg-primary/5" : ""}`}
-                                >
-                                  <td className="px-4 py-3">
-                                    <Checkbox
-                                      checked={pendingSelIds.has(d.id)}
-                                      onCheckedChange={() =>
-                                        togglePendingSel(d.id)
-                                      }
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
-                                    {d.paymentNumber}
-                                  </td>
-                                  <td className="px-4 py-3 font-semibold">
-                                    {d?.registerSymbol}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {d.dividendType}
-                                  </td>
-                                  <td className="px-4 py-3 tabular text-center">
-                                    ₦{Number(d.rate)?.toFixed(4)}
-                                  </td>
-                                  <td className="px-4 py-3 tabular text-center font-bold">
-                                    {formatNaira(Number(d.grossLiability))}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Badge
-                                      className={`${getTierBadge(d.tier)} text-[13px]`}
-                                    >
-                                      Tier {d.tier}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Badge
-                                      className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
-                                    >
-                                      {formatStatus(d.status)}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Button
-                                      size="sm"
-                                      onClick={() => {
-                                        setSelectedDecl({
-                                          ...d,
-                                          rate: Number(d.rate),
-                                          grossLiability: Number(
-                                            d.grossLiability,
-                                          ),
-                                          whtAmount:
-                                            Number(d.grossLiability) * 0.1,
-                                          netLiability:
-                                            Number(d.grossLiability) * 0.9,
-                                          registerId: d.registerSymbol || "",
-                                        } as unknown as DividendDeclaration);
-                                        setSheetOpen(true);
-                                      }}
-                                    >
-                                      Review &amp; Decide
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            },
-                          )
-                      )}
-                      {pendingDecsPg.total === 0 && (
-                        <tr>
-                          <td
-                            colSpan={9}
-                            className="px-4 py-12 text-center text-muted-foreground"
-                          >
-                            No pending declarations.
-                          </td>
-                        </tr>
+                        draftList.map(
+                          (d: {
+                            id: string;
+                            paymentNumber: string;
+                            registerSymbol: string;
+                            dividendType: string;
+                            rate: string;
+                            grossLiability: string;
+                            tier: number;
+                            status: string;
+                          }) => {
+                            return (
+                              <tr
+                                key={d.id}
+                                className={`mrpsl-table-row ${pendingSelIds.has(d.id) ? "bg-primary/5" : ""}`}
+                              >
+                                <td className="px-4 py-3">
+                                  <Checkbox
+                                    checked={pendingSelIds.has(d.id)}
+                                    onCheckedChange={() =>
+                                      togglePendingSel(d.id)
+                                    }
+                                  />
+                                </td>
+                                <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
+                                  {d.paymentNumber}
+                                </td>
+                                <td className="px-4 py-3 font-semibold">
+                                  {d?.registerSymbol}
+                                </td>
+                                <td className="px-4 py-3">{d.dividendType}</td>
+                                <td className="px-4 py-3 tabular text-center">
+                                  ₦{Number(d.rate)?.toFixed(4)}
+                                </td>
+                                <td className="px-4 py-3 tabular text-center font-bold">
+                                  {formatNaira(Number(d.grossLiability))}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Badge
+                                    className={`${getTierBadge(d.tier)} text-[13px]`}
+                                  >
+                                    Tier {d.tier}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Badge
+                                    className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
+                                  >
+                                    {formatStatus(d.status)}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedDecl({
+                                        ...d,
+                                        rate: Number(d.rate),
+                                        grossLiability: Number(
+                                          d.grossLiability,
+                                        ),
+                                        whtAmount:
+                                          Number(d.grossLiability) * 0.1,
+                                        netLiability:
+                                          Number(d.grossLiability) * 0.9,
+                                        registerId: d.registerSymbol || "",
+                                      } as unknown as DividendDeclaration);
+                                      setSheetOpen(true);
+                                    }}
+                                  >
+                                    Review &amp; Decide
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          },
+                        )
                       )}
                     </tbody>
                   </table>
                 </div>
               </Card>
               <TablePagination
-                page={pendingDecsPg.page}
-                pageSize={pendingDecsPg.pageSize}
-                totalPages={pendingDecsPg.totalPages}
-                from={pendingDecsPg.from}
-                to={pendingDecsPg.to}
-                total={pendingDecsPg.total}
-                onPageChange={pendingDecsPg.setPage}
-                onPageSizeChange={pendingDecsPg.setPageSize}
+                page={draftPage}
+                pageSize={draftPageSize}
+                totalPages={draftTotalPages}
+                from={
+                  draftTotal === 0 ? 0 : (draftPage - 1) * draftPageSize + 1
+                }
+                to={Math.min(draftPage * draftPageSize, draftTotal)}
+                total={draftTotal}
+                onPageChange={setDraftPage}
+                onPageSizeChange={(s) => {
+                  setDraftPageSize(s);
+                  setDraftPage(1);
+                }}
               />
             </div>
           </TabsContent>
@@ -1198,17 +1359,8 @@ export default function DeclarationPage() {
           <TabsContent value="auth">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {
-                  declarationList?.filter(
-                    (d: { status: string }) => d.status === "PENDING_TIER2",
-                  )?.length
-                }{" "}
-                pending declaration
-                {declarationList?.filter(
-                  (d: { status: string }) => d.status === "PENDING_TIER2",
-                )?.length !== 1
-                  ? "s"
-                  : ""}
+                {authDecTotal} pending declaration
+                {authDecTotal !== 1 ? "s" : ""}
               </p>
               <Button
                 variant="outline"
@@ -1219,6 +1371,69 @@ export default function DeclarationPage() {
                 <Download className="h-4 w-4" /> Download Records
               </Button>
             </div>
+            <Card className="mrpsl-card p-3 mb-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Register</label>
+                  <Select
+                    value={authDecRegister}
+                    onValueChange={(v) => {
+                      setAuthDecRegister(!v || v === "ALL" ? "" : v);
+                      setAuthDecPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-48 mrpsl-input">
+                      <SelectValue placeholder="All Registers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isRegisterLoading ? (
+                        <div className="py-10 flex items-center justify-center">
+                          <Loader2 className="animate-spin w-4 h-4" />
+                        </div>
+                      ) : (
+                        <>
+                          <SelectItem value="ALL">All Registers</SelectItem>
+                          {registersData?.content?.map((r) => (
+                            <SelectItem
+                              key={r.registerId}
+                              value={r.registerId ?? ""}
+                            >
+                              <span className="font-bold">
+                                {r.registerName}
+                              </span>{" "}
+                              -{" "}
+                              <span className="text-xs translate-y-0.5">
+                                {r.symbol}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Dividend Type</label>
+                  <Select
+                    value={authDecType || "ALL"}
+                    onValueChange={(v) => {
+                      setAuthDecType(!v || v === "ALL" ? "" : v);
+                      setAuthDecPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-40 mrpsl-input">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Types</SelectItem>
+                      <SelectItem value="FINAL">Final</SelectItem>
+                      <SelectItem value="INTERIM">Interim</SelectItem>
+                      <SelectItem value="SPECIAL">Special</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </Card>
             <div className="space-y-4">
               {pendingSelIds.size > 0 && (
                 <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
@@ -1253,14 +1468,14 @@ export default function DeclarationPage() {
                         <th className="px-4 py-3 w-10">
                           <Checkbox
                             checked={
-                              pendingDecsPg.paged.length > 0 &&
-                              pendingDecsPg.paged.every((d) =>
+                              authDecList.length > 0 &&
+                              authDecList.every((d: { id: string }) =>
                                 pendingSelIds.has(d.id),
                               )
                             }
                             onCheckedChange={() =>
                               togglePendingAll(
-                                pendingDecsPg.paged.map((d) => d.id),
+                                authDecList.map((d: { id: string }) => d.id),
                               )
                             }
                           />
@@ -1278,124 +1493,124 @@ export default function DeclarationPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {declarationList?.length === 0 ? (
+                      {isAuthDecLoading ? (
+                        Array.from({ length: 10 }).map((_, i) => (
+                          <tr key={i}>
+                            {Array.from({ length: 9 }).map((__, j) => (
+                              <td key={j} className="px-4 py-3">
+                                <Skeleton className="h-4 w-full" />
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ) : authDecList.length === 0 ? (
                         <tr>
                           <td
                             colSpan={9}
                             className="px-4 py-12 text-center text-muted-foreground"
                           >
-                            No pending declarations.
+                            No declarations pending approval.
                           </td>
                         </tr>
                       ) : (
-                        declarationList
-                          ?.filter(
-                            (d: DividendDeclaration) =>
-                              d.status === "PENDING_TIER2",
-                          )
-                          .map(
-                            (d: {
-                              id: string;
-                              paymentNumber: string;
-                              registerSymbol: string;
-                              dividendType: string;
-                              rate: string;
-                              grossLiability: string;
-                              tier: number;
-                              status: string;
-                            }) => {
-                              return (
-                                <tr
-                                  key={d.id}
-                                  className={`mrpsl-table-row ${pendingSelIds.has(d.id) ? "bg-primary/5" : ""}`}
-                                >
-                                  <td className="px-4 py-3">
-                                    <Checkbox
-                                      checked={pendingSelIds.has(d.id)}
-                                      onCheckedChange={() =>
-                                        togglePendingSel(d.id)
-                                      }
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
-                                    {d.paymentNumber}
-                                  </td>
-                                  <td className="px-4 py-3 font-semibold">
-                                    {d?.registerSymbol}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    {d.dividendType}
-                                  </td>
-                                  <td className="px-4 py-3 text-center tabular">
-                                    ₦{Number(d.rate)?.toFixed(4)}
-                                  </td>
-                                  <td className="px-4 py-3 text-center tabular font-bold">
-                                    {formatNaira(Number(d.grossLiability))}
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Badge
-                                      className={`${getTierBadge(d.tier)} text-[13px]`}
-                                    >
-                                      Tier {d.tier}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Badge
-                                      className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
-                                    >
-                                      {formatStatus(d.status)}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Button
-                                      size="sm"
-                                      onClick={() => {
-                                        setSelectedDecl({
-                                          ...d,
-                                          rate: Number(d.rate),
-                                          grossLiability: Number(
-                                            d.grossLiability,
-                                          ),
-                                          whtAmount:
-                                            Number(d.grossLiability) * 0.1,
-                                          netLiability:
-                                            Number(d.grossLiability) * 0.9,
-                                          registerId: d.registerSymbol || "",
-                                        } as unknown as DividendDeclaration);
-                                        setSheetOpen(true);
-                                      }}
-                                    >
-                                      Review &amp; Decide
-                                    </Button>
-                                  </td>
-                                </tr>
-                              );
-                            },
-                          )
-                      )}
-                      {pendingDecsPg.total === 0 && (
-                        <tr>
-                          <td
-                            colSpan={9}
-                            className="px-4 py-12 text-center text-muted-foreground"
-                          >
-                            No pending declarations.
-                          </td>
-                        </tr>
+                        authDecList.map(
+                          (d: {
+                            id: string;
+                            paymentNumber: string;
+                            registerSymbol: string;
+                            dividendType: string;
+                            rate: string;
+                            grossLiability: string;
+                            tier: number;
+                            status: string;
+                          }) => {
+                            return (
+                              <tr
+                                key={d.id}
+                                className={`mrpsl-table-row ${pendingSelIds.has(d.id) ? "bg-primary/5" : ""}`}
+                              >
+                                <td className="px-4 py-3">
+                                  <Checkbox
+                                    checked={pendingSelIds.has(d.id)}
+                                    onCheckedChange={() =>
+                                      togglePendingSel(d.id)
+                                    }
+                                  />
+                                </td>
+                                <td className="px-4 py-3 tabular text-[13px] text-muted-foreground">
+                                  {d.paymentNumber}
+                                </td>
+                                <td className="px-4 py-3 font-semibold">
+                                  {d?.registerSymbol}
+                                </td>
+                                <td className="px-4 py-3">{d.dividendType}</td>
+                                <td className="px-4 py-3 text-center tabular">
+                                  ₦{Number(d.rate)?.toFixed(4)}
+                                </td>
+                                <td className="px-4 py-3 text-center tabular font-bold">
+                                  {formatNaira(Number(d.grossLiability))}
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Badge
+                                    className={`${getTierBadge(d.tier)} text-[13px]`}
+                                  >
+                                    Tier {d.tier}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Badge
+                                    className={`border-0 text-[13px] ${statusBadgeClass(d.status)}`}
+                                  >
+                                    {formatStatus(d.status)}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedDecl({
+                                        ...d,
+                                        rate: Number(d.rate),
+                                        grossLiability: Number(
+                                          d.grossLiability,
+                                        ),
+                                        whtAmount:
+                                          Number(d.grossLiability) * 0.1,
+                                        netLiability:
+                                          Number(d.grossLiability) * 0.9,
+                                        registerId: d.registerSymbol || "",
+                                      } as unknown as DividendDeclaration);
+                                      setSheetOpen(true);
+                                    }}
+                                  >
+                                    Review &amp; Decide
+                                  </Button>
+                                </td>
+                              </tr>
+                            );
+                          },
+                        )
                       )}
                     </tbody>
                   </table>
                 </div>
               </Card>
               <TablePagination
-                page={pendingDecsPg.page}
-                pageSize={pendingDecsPg.pageSize}
-                totalPages={pendingDecsPg.totalPages}
-                from={pendingDecsPg.from}
-                to={pendingDecsPg.to}
-                total={pendingDecsPg.total}
-                onPageChange={pendingDecsPg.setPage}
-                onPageSizeChange={pendingDecsPg.setPageSize}
+                page={authDecPage}
+                pageSize={authDecPageSize}
+                totalPages={authDecTotalPages}
+                from={
+                  authDecTotal === 0
+                    ? 0
+                    : (authDecPage - 1) * authDecPageSize + 1
+                }
+                to={Math.min(authDecPage * authDecPageSize, authDecTotal)}
+                total={authDecTotal}
+                onPageChange={setAuthDecPage}
+                onPageSizeChange={(s) => {
+                  setAuthDecPageSize(s);
+                  setAuthDecPage(1);
+                }}
               />
             </div>
           </TabsContent>
@@ -1404,18 +1619,8 @@ export default function DeclarationPage() {
           <TabsContent value="icu">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {
-                  declarationList?.filter(
-                    (d: DividendDeclaration) => d.status === "PENDING_TIER3",
-                  )?.length
-                }{" "}
-                declaration{" "}
-                {declarationList?.filter(
-                  (d: DividendDeclaration) => d.status === "PENDING_TIER3",
-                )?.length !== 1
-                  ? "s"
-                  : ""}{" "}
-                pending ICU review
+                {icuDecList.length} declaration{" "}
+                {icuDecList.length !== 1 ? "s" : ""} pending ICU review
               </p>
               <Button
                 variant="outline"
@@ -1426,6 +1631,69 @@ export default function DeclarationPage() {
                 <Download className="h-4 w-4" /> Download Records
               </Button>
             </div>
+            <Card className="mrpsl-card p-3 mb-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Register</label>
+                  <Select
+                    value={icuDecRegister}
+                    onValueChange={(v) => {
+                      setIcuDecRegister(!v || v === "ALL" ? "" : v);
+                      setIcuDecPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-48 mrpsl-input">
+                      <SelectValue placeholder="All Registers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isRegisterLoading ? (
+                        <div className="py-10 flex items-center justify-center">
+                          <Loader2 className="animate-spin w-4 h-4" />
+                        </div>
+                      ) : (
+                        <>
+                          <SelectItem value="ALL">All Registers</SelectItem>
+                          {registersData?.content?.map((r) => (
+                            <SelectItem
+                              key={r.registerId}
+                              value={r.registerId ?? ""}
+                            >
+                              <span className="font-bold">
+                                {r.registerName}
+                              </span>{" "}
+                              -{" "}
+                              <span className="text-xs translate-y-0.5">
+                                {r.symbol}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Dividend Type</label>
+                  <Select
+                    value={icuDecType || "ALL"}
+                    onValueChange={(v) => {
+                      setIcuDecType(!v || v === "ALL" ? "" : v);
+                      setIcuDecPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-40 mrpsl-input">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Types</SelectItem>
+                      <SelectItem value="FINAL">Final</SelectItem>
+                      <SelectItem value="INTERIM">Interim</SelectItem>
+                      <SelectItem value="SPECIAL">Special</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </Card>
             <div className="space-y-4">
               {icuSelIds.size > 0 && (
                 <div className="flex items-center justify-between px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
@@ -1460,11 +1728,15 @@ export default function DeclarationPage() {
                         <th className="px-4 py-3 w-10">
                           <Checkbox
                             checked={
-                              icuDecsPg.paged.length > 0 &&
-                              icuDecsPg.paged.every((d) => icuSelIds.has(d.id))
+                              icuDecList.length > 0 &&
+                              icuDecList.every((d: { id: string }) =>
+                                icuSelIds.has(d.id),
+                              )
                             }
                             onCheckedChange={() =>
-                              toggleIcuAll(icuDecsPg.paged.map((d) => d.id))
+                              toggleIcuAll(
+                                icuDecList.map((d: { id: string }) => d.id),
+                              )
                             }
                           />
                         </th>
@@ -1481,12 +1753,18 @@ export default function DeclarationPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {declarationList
-                        ?.filter(
-                          (d: { status: string }) =>
-                            d.status === "PENDING_TIER3",
-                        )
-                        ?.map(
+                      {isIcuDecLoading &&
+                        Array.from({ length: 10 }).map((_, i) => (
+                          <tr key={i}>
+                            {Array.from({ length: 9 }).map((__, j) => (
+                              <td key={j} className="px-4 py-3">
+                                <Skeleton className="h-4 w-full" />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      {!isIcuDecLoading &&
+                        icuDecList?.map(
                           (d: {
                             id: string;
                             paymentNumber: string;
@@ -1561,9 +1839,7 @@ export default function DeclarationPage() {
                             );
                           },
                         )}
-                      {declarationList?.filter(
-                        (d: { status: string }) => d.status === "PENDING_TIER3",
-                      )?.length === 0 && (
+                      {!isIcuDecLoading && icuDecList.length === 0 && (
                         <tr>
                           <td
                             colSpan={9}
@@ -1578,20 +1854,88 @@ export default function DeclarationPage() {
                 </div>
               </Card>
               <TablePagination
-                page={icuDecsPg.page}
-                pageSize={icuDecsPg.pageSize}
-                totalPages={icuDecsPg.totalPages}
-                from={icuDecsPg.from}
-                to={icuDecsPg.to}
-                total={icuDecsPg.total}
-                onPageChange={icuDecsPg.setPage}
-                onPageSizeChange={icuDecsPg.setPageSize}
+                page={icuDecPage}
+                pageSize={icuDecPageSize}
+                totalPages={icuDecTotalPages}
+                from={
+                  icuDecTotal === 0 ? 0 : (icuDecPage - 1) * icuDecPageSize + 1
+                }
+                to={Math.min(icuDecPage * icuDecPageSize, icuDecTotal)}
+                total={icuDecTotal}
+                onPageChange={setIcuDecPage}
+                onPageSizeChange={(s) => {
+                  setIcuDecPageSize(s);
+                  setIcuDecPage(1);
+                }}
               />
             </div>
           </TabsContent>
 
           {/* ── Declaration History ── */}
           <TabsContent value="history">
+            <Card className="mrpsl-card p-3 mb-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Register</label>
+                  <Select
+                    value={histRegister}
+                    onValueChange={(v) => {
+                      setHistRegister(!v || v === "ALL" ? "" : v);
+                      setHistPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-48 mrpsl-input">
+                      <SelectValue placeholder="All Registers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isRegisterLoading ? (
+                        <div className="py-10 flex items-center justify-center">
+                          <Loader2 className="animate-spin w-4 h-4" />
+                        </div>
+                      ) : (
+                        <>
+                          <SelectItem value="ALL">All Registers</SelectItem>
+                          {registersData?.content?.map((r) => (
+                            <SelectItem
+                              key={r.registerId}
+                              value={r.registerId ?? ""}
+                            >
+                              <span className="font-bold">
+                                {r.registerName}
+                              </span>{" "}
+                              -{" "}
+                              <span className="text-xs translate-y-0.5">
+                                {r.symbol}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Dividend Type</label>
+                  <Select
+                    value={histType || "ALL"}
+                    onValueChange={(v) => {
+                      setHistType(!v || v === "ALL" ? "" : v);
+                      setHistPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-40 mrpsl-input">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Types</SelectItem>
+                      <SelectItem value="FINAL">Final</SelectItem>
+                      <SelectItem value="INTERIM">Interim</SelectItem>
+                      <SelectItem value="SPECIAL">Special</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </Card>
             <Card className="mrpsl-card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
@@ -1609,11 +1953,18 @@ export default function DeclarationPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {declarationList
-                      ?.filter((d: { status: string }) => {
-                        return d.status === "AUTHORIZED";
-                      })
-                      ?.map((d: DividendDeclaration) => {
+                    {isHistLoading &&
+                      Array.from({ length: 10 }).map((_, i) => (
+                        <tr key={i}>
+                          {Array.from({ length: 9 }).map((__, j) => (
+                            <td key={j} className="px-4 py-3">
+                              <Skeleton className="h-4 w-full" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    {!isHistLoading &&
+                      histList?.map((d: DividendDeclaration) => {
                         return (
                           <tr key={d.id} className="mrpsl-table-row">
                             <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
@@ -1717,9 +2068,7 @@ export default function DeclarationPage() {
                           </tr>
                         );
                       })}
-                    {declarationList?.filter((d: { status: string }) => {
-                      return d.status === "AUTHORIZED";
-                    })?.length === 0 && (
+                    {!isHistLoading && histList.length === 0 && (
                       <tr>
                         <td
                           colSpan={9}
@@ -1734,14 +2083,17 @@ export default function DeclarationPage() {
               </div>
             </Card>
             <TablePagination
-              page={historyDecsPg.page}
-              pageSize={historyDecsPg.pageSize}
-              totalPages={historyDecsPg.totalPages}
-              from={historyDecsPg.from}
-              to={historyDecsPg.to}
-              total={historyDecsPg.total}
-              onPageChange={historyDecsPg.setPage}
-              onPageSizeChange={historyDecsPg.setPageSize}
+              page={histPage}
+              pageSize={histPageSize}
+              totalPages={histTotalPages}
+              from={histTotal === 0 ? 0 : (histPage - 1) * histPageSize + 1}
+              to={Math.min(histPage * histPageSize, histTotal)}
+              total={histTotal}
+              onPageChange={setHistPage}
+              onPageSizeChange={(s) => {
+                setHistPageSize(s);
+                setHistPage(1);
+              }}
             />
           </TabsContent>
         </div>
@@ -1872,16 +2224,16 @@ export default function DeclarationPage() {
           </div>
 
           <div className="overflow-y-auto overflow-x-auto flex-1 min-h-0">
-            <table className="w-full min-w-[780px] text-left text-sm">
+            <table className="w-full min-w-195 text-left text-sm">
               <thead className="mrpsl-table-header sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-2.5">#</th>
                   <th className="px-4 py-2.5">ACCOUNT NO</th>
                   <th className="px-4 py-2.5">HOLDER NAME</th>
-                  <th className="px-4 py-2.5">UNITS AT QUAL DATE</th>
-                  <th className="px-4 py-2.5">GROSS DIV (₦)</th>
-                  <th className="px-4 py-2.5">WHT (₦)</th>
-                  <th className="px-4 py-2.5">NET DIV (₦)</th>
+                  <th className="px-4 py-2.5 text-right">UNITS AT QUAL DATE</th>
+                  <th className="px-4 py-2.5 text-right">GROSS DIV (₦)</th>
+                  <th className="px-4 py-2.5 text-right">WHT (₦)</th>
+                  <th className="px-4 py-2.5 text-right">NET DIV (₦)</th>
                 </tr>
               </thead>
               <tbody className="divide-y text-[13px]">

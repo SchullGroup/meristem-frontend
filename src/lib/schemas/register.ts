@@ -11,9 +11,9 @@ export const registerSchema = z.object({
   shareholderSizeAtSetup: z.coerce
     .number<number>()
     .min(0, "Cannot be negative"),
-  currentShareholdersSize: z.coerce
-    .number<number>()
-    .min(0, "Cannot be negative"),
+  // currentShareholdersSize: z.coerce
+  //   .number<number>()
+  //   .min(0, "Cannot be negative"),
   status: z.enum(["ACTIVE", "INACTIVE", "TRANSACTION_DISABLED"]),
 });
 

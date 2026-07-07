@@ -79,7 +79,6 @@ export function PrincipalForm({
       tin: "",
       rcNumber: "",
       sector: "",
-      shareHoldersAtSetUp: 0,
     },
   });
 
@@ -101,7 +100,6 @@ export function PrincipalForm({
         tin: initialData.tin || "",
         rcNumber: initialData.rcNumber || "",
         sector: initialData.sector || "",
-        shareHoldersAtSetUp: initialData.shareHoldersAtSetUp,
       });
     } else {
       form.reset({
@@ -116,8 +114,7 @@ export function PrincipalForm({
         tin: "",
         rcNumber: "",
         sector: "",
-        shareHoldersAtSetUp: 0,
-      });
+        });
     }
   }, [initialData, mode, form]);
 
@@ -496,26 +493,6 @@ export function PrincipalForm({
                       )}
                     />
 
-                    <FormField
-                      control={form.control}
-                      name="shareHoldersAtSetUp"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2 col-span-2">
-                          <FormLabel className="mrpsl-label">
-                            Shareholders at Setup *
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min={0}
-                              {...field}
-                              className="mrpsl-input h-11 font-mono"
-                            />
-                          </FormControl>
-                          <FormMessage className="text-[10px] text-destructive mt-1" />
-                        </FormItem>
-                      )}
-                    />
                   </div>
                 </div>
               </div>

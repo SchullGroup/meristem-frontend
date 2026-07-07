@@ -72,13 +72,14 @@ import { ApiResponse } from "@/types";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils/format";
 
 export default function RightsIssueReports() {
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
+  const { data: activeRegisters, isLoading: loadingRegisters } =
+    useGetRegisters({
+      size: 100,
+      status: "ACTIVE",
+    });
 
   // Page size (shared across all tables)
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
 
   // Reports
   const [selectedReport, setSelectedReport] = useState(RIGHTS_REPORT_TYPES[0]);
@@ -432,12 +433,23 @@ export default function RightsIssueReports() {
               <SelectValue placeholder="Select Register" />
             </SelectTrigger>
             <SelectContent className="w-max">
-              <SelectItem value="">All Registers</SelectItem>
-              {activeRegisters?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.registerId}>
-                  {r.registerName} · {r.symbol}
-                </SelectItem>
-              ))}
+              {loadingRegisters ? (
+                <div className="py-10 flex items-center justify-center">
+                  <Loader2 className="animate-spin w-4 h-4" />
+                </div>
+              ) : (
+                <>
+                  <SelectItem value="">All Register</SelectItem>
+                  {activeRegisters?.content?.map((r) => (
+                    <SelectItem key={r.registerId} value={r.symbol}>
+                      <span className="font-bold">{r.registerName}</span> -{" "}
+                      <span className="text-xs translate-y-0.5">
+                        {r.symbol}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
           <Button
@@ -456,7 +468,7 @@ export default function RightsIssueReports() {
       </Card>
 
       {!reportGenerated ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-70">
           <BarChart3 className="h-10 w-10 mb-3 opacity-20" />
           <p className="text-sm font-medium text-foreground">
             {selectedReport}
@@ -466,14 +478,14 @@ export default function RightsIssueReports() {
           </p>
         </Card>
       ) : isReportLoading ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-70">
           <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary" />
           <p className="text-sm font-medium text-foreground">
             Loading report data...
           </p>
         </Card>
       ) : isReportError ? (
-        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-red-500/80 min-h-[280px]">
+        <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-red-500/80 min-h-70">
           <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
           <p className="text-sm font-medium text-red-600 dark:text-red-400">
             Failed to load report data
@@ -537,10 +549,7 @@ export default function RightsIssueReports() {
                   <table className="w-full text-left text-[13px]">
                     <ShholderTableHead />
                     <tbody className="divide-y">
-                      <ShholderRows
-                        rows={paginatedRows as Shareholder[]}
-                        pageStart={reportStart}
-                      />
+                      <ShholderRows rows={paginatedRows as Shareholder[]} />
                     </tbody>
                     <ShholderTfoot
                       rows={paginatedRows as Shareholder[]}
@@ -841,7 +850,7 @@ export default function RightsIssueReports() {
                           <td className="px-3 py-2.5">{r.chn}</td>
                           <td className="px-3 py-2.5">{r.brokerCode}</td>
                           <td
-                            className="px-3 py-2.5 truncate max-w-[150px] font-sans"
+                            className="px-3 py-2.5 truncate max-w-37.5 font-sans"
                             title={
                               r.bankName
                                 ? `${r.bankName} - ${r.accountNo}`
