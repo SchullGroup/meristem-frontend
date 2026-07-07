@@ -1148,7 +1148,7 @@ export default function HolderEnquiryPage() {
             {(stmtFrom || stmtTo) && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="xl"
                 className="text-muted-foreground shrink-0"
                 onClick={() => {
                   setStmtFrom(undefined);
@@ -1213,28 +1213,39 @@ export default function HolderEnquiryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {statement.transactions.map((r, i) => (
-                      <tr key={i} className="hover:bg-accent/5">
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {r.date}
-                        </td>
-                        <td className="px-4 py-3 font-medium">
-                          {r.description}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-muted-foreground text-[12px]">
-                          {r.reference}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          {r.debit > 0 ? r.debit.toLocaleString() : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-green-700">
-                          {r.credit > 0 ? r.credit.toLocaleString() : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono font-bold">
-                          {r.balance.toLocaleString()}
+                    {statement.transactions?.length !== 0 ? (
+                      statement.transactions.map((r, i) => (
+                        <tr key={i} className="hover:bg-accent/5">
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {r.date}
+                          </td>
+                          <td className="px-4 py-3 font-medium">
+                            {r.description}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-muted-foreground text-[12px]">
+                            {r.reference}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono">
+                            {r.debit > 0 ? r.debit.toLocaleString() : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-green-700">
+                            {r.credit > 0 ? r.credit.toLocaleString() : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-bold">
+                            {r.balance.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6}>
+                          <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                            <FileText className="h-7 w-7 text-muted-foreground/30" />
+                            No transactions found for this period
+                          </div>
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </>
@@ -1283,7 +1294,7 @@ export default function HolderEnquiryPage() {
             {(divFrom || divTo) && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="xl"
                 className="text-muted-foreground shrink-0"
                 onClick={() => {
                   setDivFrom(undefined);
@@ -1362,7 +1373,16 @@ export default function HolderEnquiryPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
-                    {dividendStatement.dividends.map((r, i) => (
+                    {dividendStatement.dividends.length === 0 ? (
+                      <tr>
+                        <td colSpan={9}>
+                          <div className="flex flex-col items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+                            <DollarSign className="h-7 w-7 text-muted-foreground/30" />
+                            No dividends found for this period
+                          </div>
+                        </td>
+                      </tr>
+                    ) : dividendStatement.dividends.map((r, i) => (
                       <tr key={i} className="hover:bg-accent/5">
                         <td className="px-4 py-3 font-mono whitespace-nowrap">
                           {r.dividendNo}

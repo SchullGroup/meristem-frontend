@@ -403,27 +403,6 @@ export default function DeclarationPage() {
       toast.error("Payment date is required.");
       return;
     }
-    if (date1) {
-      const today = new Date();
-      if (date1 < today) {
-        toast.error("Qualification date must be greater than today date.");
-        return;
-      }
-    }
-    if (date2) {
-      const today = new Date();
-      if (date2 < today) {
-        toast.error("Closure date must be greater than today date.");
-        return;
-      }
-    }
-    if (date3) {
-      const today = new Date();
-      if (date3 < today) {
-        toast.error("Payment date must be greater than today date.");
-        return;
-      }
-    }
 
     if (date1 && date2) {
       if (date2 < date1) {

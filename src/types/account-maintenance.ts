@@ -23,14 +23,16 @@ export interface Consolidation {
   rejectionComment: string;
   createdAt: string;
   decidedAt: string;
+  supportingDocuments?: { name: string; url: string }[];
 }
 
 export interface CreateConsolidationRequest {
-  registerId: string;
+  registerId?: string;
   sourceAccountIds: string[];
   destinationAccountId: string;
   comment: string;
   initiatedBy: string;
+  supportingDocuments?: { name: string; url: string }[];
 }
 
 export interface ConsolidationDecisionRequest {
