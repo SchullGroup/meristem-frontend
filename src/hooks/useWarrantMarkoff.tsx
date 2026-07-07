@@ -12,6 +12,8 @@ import {
   BatchRequest,
   BatchResponse,
   BulkWarrantMarkoffRequest,
+  downloadBulkMarkoffTemplate,
+  EnblocWarrantMarkoffRequest,
   getMarkOffHistory,
   getPendingMarkOffApprovals,
   getUnpaidWarrantMarkoff,
@@ -19,7 +21,9 @@ import {
   ManualMarkoffRequest,
   rejectWarrantMarkoff,
   submitBulkWarrantMarkoff,
+  submitEnblocWarrantMarkoff,
   submitManualWarrantMarkoff,
+  uploadBulkMarkoffFile,
   WarrantMarkOff,
   WarrantMarkOffParams,
   WarrantStatusResponse,
@@ -134,12 +138,12 @@ export const useSubmitManualWarrantMarkoff = (
 };
 
 // Submit en-bloc (bulk) mark-off
-export const useSubmitBulkWarrantMarkoff = (
+export const useSubmitEnBlocWarrantMarkoff = (
   options?: Omit<
     UseMutationOptions<
       ApiResponse<WarrantStatusResponse>,
       Error,
-      BulkWarrantMarkoffRequest
+      EnblocWarrantMarkoffRequest
     >,
     "mutationKey" | "mutationFn"
   >,
@@ -147,8 +151,8 @@ export const useSubmitBulkWarrantMarkoff = (
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: BulkWarrantMarkoffRequest) =>
-      submitBulkWarrantMarkoff(data),
+    mutationFn: (data: EnblocWarrantMarkoffRequest) =>
+      submitEnblocWarrantMarkoff(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["unpaid-warrant-markoff"] });
       queryClient.invalidateQueries({
@@ -259,6 +263,87 @@ export const useBatchRejectWarrantMarkoff = (
       });
       queryClient.invalidateQueries({ queryKey: ["markoff-history"] });
     },
+    ...options,
+  });
+};
+
+export const useSubmitBulkWarrantMarkoff = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<{
+        submitted: number;
+        skipped: number;
+        total: number;
+        approvalRef: string;
+        errors: string[];
+      }>,
+      Error,
+      BulkWarrantMarkoffRequest
+    >,
+    "mutationKey" | "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: BulkWarrantMarkoffRequest) =>
+      submitBulkWarrantMarkoff(data),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["bulk-warrant-markoff"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useUploadBulkMarkoffFile = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<{
+        totalRows: number;
+        matched: number;
+        unmatched: number;
+        rows: {
+          rowNumber: number;
+          register: string;
+          dividendNumber: string;
+          accountNumber: string;
+          holderName: string;
+          netAmount: number;
+          status: string;
+          reason: string;
+        }[];
+      }>,
+      Error,
+      FormData
+    >,
+    "mutationKey" | "mutationFn"
+  >,
+) => {
+  return useMutation({
+    mutationFn: (data: FormData) =>
+      uploadBulkMarkoffFile(data),
+
+    ...options,
+  });
+};
+
+export const useDownloadBulkMarkoffTemplate = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<string>,
+      Error,
+      void
+    >,
+    "mutationKey" | "mutationFn"
+  >,
+) => {
+  return useMutation({
+    mutationFn: () => downloadBulkMarkoffTemplate(),
+
     ...options,
   });
 };

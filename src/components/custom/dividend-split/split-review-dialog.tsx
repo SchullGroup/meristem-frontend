@@ -37,7 +37,7 @@ export function SplitReviewDialog({
     if (!selected) return;
 
     if (!comment.trim()) {
-      toast.error("Comment required for rejection.");
+      toast.error("Comment required.");
       return;
     }
 
@@ -72,7 +72,7 @@ export function SplitReviewDialog({
     if (!selected) return;
 
     if (!comment.trim()) {
-      toast.error("Comment required for rejection.");
+      toast.error("Comment required.");
       return;
     }
 
@@ -207,11 +207,11 @@ export function SplitReviewDialog({
             </div>
 
             <div className="space-y-2">
-              <label className="mrpsl-label">Comment</label>
+              <label className="mrpsl-label">Comment <span className="text-red-500">*</span></label>
               <Textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Required for rejection..."
+                placeholder="Please leave a comment..."
                 className="resize-none"
               />
             </div>
