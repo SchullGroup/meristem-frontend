@@ -34,6 +34,7 @@ export default function DateInput({
         <PopoverContent className="w-auto p-0">
           <Calendar
             mode="single"
+            captionLayout="dropdown"
             selected={date ? date : undefined}
             onSelect={(d) => d && setDate(d)}
           />

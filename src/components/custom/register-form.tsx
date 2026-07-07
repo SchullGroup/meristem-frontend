@@ -49,7 +49,7 @@ export function RegisterForm({
   mode,
   initialData,
 }: RegisterFormProps) {
-  const { data, isLoading } = useGetPrincipals({ size: 100 });
+  const { data, isLoading } = useGetPrincipals({ size: 100, status: "ACTIVE" });
 
   const createRegister = useCreateRegister();
   const updateRegister = useUpdateRegister();
@@ -90,6 +90,8 @@ export function RegisterForm({
       ...values,
       currentShareholdersSize: values?.shareholderSizeAtSetup,
     };
+
+
 
     if (mode === "create") {
       createRegister.mutate(payload, {
@@ -306,7 +308,7 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              min={0}
+                              min={1}
                               {...field}
                               className="mrpsl-input h-11 font-mono"
                             />
@@ -326,7 +328,7 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              min={0}
+                              min={1}
                               {...field}
                               className="mrpsl-input h-11 font-mono"
                             />
@@ -346,7 +348,7 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              min={0}
+                              min={1}
                               {...field}
                               className="mrpsl-input h-11 font-mono"
                             />
@@ -366,7 +368,7 @@ export function RegisterForm({
                           </FormLabel>
                           <FormControl>
                             <Input
-                              min={0}
+                              min={1}
                               {...field}
                               className="mrpsl-input h-11 font-mono"
                             />

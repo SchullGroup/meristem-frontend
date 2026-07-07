@@ -14,7 +14,7 @@ import { useStore } from "@/lib/store";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   useGetUnpaidWarrantMarkoff,
-  useSubmitBulkWarrantMarkoff,
+  useSubmitEnBlocWarrantMarkoff,
 } from "@/hooks/useWarrantMarkoff";
 import { WarrantMarkOffParams } from "@/actions/warrantMarkoffActions";
 import { DataErrorState } from "../ipo/loaders";
@@ -62,7 +62,7 @@ export default function EnBlocMarkoff() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const submitBulkMutation = useSubmitBulkWarrantMarkoff();
+  const submitEnBlocMutation = useSubmitEnBlocWarrantMarkoff();
 
   const handleLoad = () => {
     if (!registerId) {
@@ -166,7 +166,7 @@ export default function EnBlocMarkoff() {
       return;
     }
 
-    submitBulkMutation.mutate(
+    submitEnBlocMutation.mutate(
       {
         warrantIds: Array.from(selectedIds).map((id) => id.toString()) as any,
         reason: reason.trim(),
@@ -347,7 +347,7 @@ export default function EnBlocMarkoff() {
         selectedCount={selectedIds.size}
         selectionTotal={selectionTotal}
         onConfirm={handleConfirmSubmit}
-        isConfirming={submitBulkMutation.isPending}
+        isConfirming={submitEnBlocMutation.isPending}
       />
     </div>
   );

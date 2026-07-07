@@ -285,7 +285,11 @@ export const useGetAccount = (
 export const useGetKycChanges = (
   params?: KycChangeFilters,
   options?: Omit<
-    UseQueryOptions<ApiResponse<KycChangeListResponse>>,
+    UseQueryOptions<
+      ApiResponse<KycChangeListResponse>,
+      Error,
+      KycChangeListResponse
+    >,
     "queryKey" | "queryFn"
   >,
 ) =>
@@ -293,6 +297,9 @@ export const useGetKycChanges = (
     queryKey: ["kyc-changes", params],
     queryFn: () => getKycChanges(params),
     refetchOnWindowFocus: false,
+    select: (data) => {
+      return data?.data;
+    },
     ...options,
   });
 
@@ -333,11 +340,16 @@ export const useAuthoriseKycChange = (
     >,
     "mutationFn"
   >,
-) =>
-  useMutation({
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
     mutationFn: ({ id, data }) => authoriseKycChange(id, data),
     ...options,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+    },
   });
+};
 
 export const useRejectKycChange = (
   options?: Omit<
@@ -351,12 +363,16 @@ export const useRejectKycChange = (
     >,
     "mutationFn"
   >,
-) =>
-  useMutation({
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
     mutationFn: ({ id, data }) => rejectKycChange(id, data),
     ...options,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+    },
   });
-
+};
 export const useBatchAuthoriseKycChanges = (
   options?: Omit<
     UseMutationOptions<
@@ -366,11 +382,17 @@ export const useBatchAuthoriseKycChanges = (
     >,
     "mutationFn"
   >,
-) =>
-  useMutation({
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
     mutationFn: batchAuthoriseKycChanges,
     ...options,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
   });
+};
 
 export const useBatchRejectKycChanges = (
   options?: Omit<
@@ -381,11 +403,16 @@ export const useBatchRejectKycChanges = (
     >,
     "mutationFn"
   >,
-) =>
-  useMutation({
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
     mutationFn: batchRejectKycChanges,
     ...options,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
   });
+};
 
 export const useUploadKycChanges = (
   options?: Omit<

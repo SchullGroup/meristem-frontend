@@ -81,3 +81,19 @@ export const GET_SHAREHOLDERS_CERTIFICATE = async (params: {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const GET_CERTIFICATES_BY_CHN = async (params: {
+  chn: string;
+  register?: string;
+}) => {
+  try {
+    const res = await api.get<ApiResponse<Certificate[]>>(
+      `/certificates/by-holder`,
+      { params },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};

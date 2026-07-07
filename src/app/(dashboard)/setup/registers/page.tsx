@@ -109,6 +109,7 @@ export default function RegistersPage() {
 
   const { data: principals, isLoading: principalsLoading } = useGetPrincipals({
     size: 100,
+    status: "ACTIVE"
   });
 
   const pagedRows = registers?.content || [];
@@ -142,14 +143,14 @@ export default function RegistersPage() {
             Official shareholder lists for each security managed by MRPSL
           </p>
         </div>
-        <Button onClick={handleCreate}>
+        <Button className="w-fit" onClick={handleCreate}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Add Register
         </Button>
       </div>
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-3">
         <Card className="mrpsl-card p-4 flex flex-col justify-between">
           <div className="mrpsl-section-title">Total Registers</div>
           {statsLoading ? (
@@ -279,18 +280,18 @@ export default function RegistersPage() {
           principalFilter !== "" ||
           typeFilter !== "" ||
           statusFilter !== "") && (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setSearch("");
-              setPrincipalFilter("");
-              setTypeFilter("");
-              setStatusFilter("");
-            }}
-          >
-            Clear
-          </Button>
-        )}
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSearch("");
+                setPrincipalFilter("");
+                setTypeFilter("");
+                setStatusFilter("");
+              }}
+            >
+              Clear
+            </Button>
+          )}
       </div>
 
       {/* Data Table */}
@@ -336,17 +337,16 @@ export default function RegistersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${
-                          r?.registerType === "ORDINARY"
-                            ? "bg-blue-100 text-blue-800"
-                            : r?.registerType === "PREFERENCE"
-                              ? "bg-violet-100 text-violet-800"
-                              : r?.registerType === "BOND"
-                                ? "bg-amber-100 text-amber-800"
-                                : r?.registerType === "ETF"
-                                  ? "bg-cyan-100 text-cyan-800"
-                                  : "bg-emerald-100 text-emerald-800"
-                        }`}
+                        className={`border-0 text-xs ${r?.registerType === "ORDINARY"
+                          ? "bg-blue-100 text-blue-800"
+                          : r?.registerType === "PREFERENCE"
+                            ? "bg-violet-100 text-violet-800"
+                            : r?.registerType === "BOND"
+                              ? "bg-amber-100 text-amber-800"
+                              : r?.registerType === "ETF"
+                                ? "bg-cyan-100 text-cyan-800"
+                                : "bg-emerald-100 text-emerald-800"
+                          }`}
                       >
                         {r?.registerType
                           .toLowerCase()
@@ -372,13 +372,12 @@ export default function RegistersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs capitalize ${
-                          r?.status === "ACTIVE"
-                            ? "bg-green-100 text-green-800"
-                            : r?.status === "INACTIVE"
-                              ? "bg-gray-100 text-gray-600"
-                              : "bg-amber-100 text-amber-800"
-                        }`}
+                        className={`border-0 text-xs capitalize ${r?.status === "ACTIVE"
+                          ? "bg-green-100 text-green-800"
+                          : r?.status === "INACTIVE"
+                            ? "bg-gray-100 text-gray-600"
+                            : "bg-amber-100 text-amber-800"
+                          }`}
                       >
                         {r?.status === "TRANSACTION_DISABLED"
                           ? "Disabled"

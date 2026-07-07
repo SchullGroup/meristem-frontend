@@ -1,6 +1,5 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -9,7 +8,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useGetRegisters } from "@/hooks/useRegisters";
-import { format } from "date-fns";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +17,7 @@ import {
   CheckCircle,
   X,
   Loader2,
+  Eye,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import DateInput from "@/components/ui/date-input";
@@ -28,17 +27,22 @@ import { useUploadBatchIpo } from "@/hooks/useIPO";
 import { downloadCsvTemplate } from "@/lib/utils/csv-template";
 import { ipoTemplateFields } from "@/lib/utils/constants";
 import { IPO } from "@/types/ipo";
+import { openFileInNewWindow } from "@/utils/helperFunctions";
 
 export default function UploadIPOData({ tab }: { tab: string }) {
   const [selectedRegister, setSelectedRegister] = useState("");
   const [batchDate, setBatchDate] = useState<Date>(new Date());
 
-  const batchRef = `BATCH-IPO-${format(batchDate, "yyyyMMdd")}-001`;
-
   const [approvedFile, setApprovedFile] = useState<File | null>(null);
   const [disapprovedFile, setDisapprovedFile] = useState<File | null>(null);
   const [invalidFile, setInvalidFile] = useState<File | null>(null);
   const [processedBatch, setProcessedBatch] = useState<IPO | null>(null);
+
+  // Drag states
+  const [isDragApproved, setIsDragApproved] = useState(false);
+  const [isDragDisapproved, setIsDragDisapproved] = useState(false);
+  const [isDragInvalid, setIsDragInvalid] = useState(false);
+
 
   const { data: activeRegisters, isLoading: registersLoading } =
     useGetRegisters(
@@ -127,14 +131,14 @@ export default function UploadIPOData({ tab }: { tab: string }) {
 
         <DateInput date={batchDate} setDate={setBatchDate} label="Batch Date" />
 
-        <div className="space-y-2">
+        {/* <div className="space-y-2">
           <label className="mrpsl-label">Batch Reference</label>
           <Input
             disabled
             value={batchRef}
             className="mrpsl-input bg-muted/50 tabular text-sm"
           />
-        </div>
+        </div> */}
       </div>
 
       {processedBatch ? (
@@ -214,6 +218,13 @@ export default function UploadIPOData({ tab }: { tab: string }) {
                       {approvedFile?.name}
                     </span>
                     <button
+                      onClick={() => openFileInNewWindow(approvedFile)}
+                      className="rounded-full hover:bg-green-100 p-0.5 transition-colors"
+                      title="Preview file"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-green-700" />
+                    </button>
+                    <button
                       onClick={() => setApprovedFile(null)}
                       className="rounded-full hover:bg-green-100 p-0.5 transition-colors"
                     >
@@ -221,7 +232,29 @@ export default function UploadIPOData({ tab }: { tab: string }) {
                     </button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+                  <label
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors",
+                      isDragApproved && "border-primary bg-primary/5 text-primary"
+                    )}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragApproved(true);
+                    }}
+                    onDragLeave={() => setIsDragApproved(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragApproved(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) {
+                        if (file.name.endsWith(".csv")) {
+                          setApprovedFile(file);
+                        } else {
+                          toast.error("Please upload a CSV file");
+                        }
+                      }
+                    }}
+                  >
                     Drop CSV here or click to browse
                     <input
                       type="file"
@@ -266,6 +299,13 @@ export default function UploadIPOData({ tab }: { tab: string }) {
                       {disapprovedFile?.name}
                     </span>
                     <button
+                      onClick={() => openFileInNewWindow(disapprovedFile)}
+                      className="rounded-full hover:bg-amber-100 p-0.5 transition-colors"
+                      title="Preview file"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-amber-700" />
+                    </button>
+                    <button
                       onClick={() => setDisapprovedFile(null)}
                       className="rounded-full hover:bg-amber-100 p-0.5 transition-colors"
                     >
@@ -273,7 +313,29 @@ export default function UploadIPOData({ tab }: { tab: string }) {
                     </button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+                  <label
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors",
+                      isDragDisapproved && "border-primary bg-primary/5 text-primary"
+                    )}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragDisapproved(true);
+                    }}
+                    onDragLeave={() => setIsDragDisapproved(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragDisapproved(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) {
+                        if (file.name.endsWith(".csv")) {
+                          setDisapprovedFile(file);
+                        } else {
+                          toast.error("Please upload a CSV file");
+                        }
+                      }
+                    }}
+                  >
                     Drop CSV here or click to browse
                     <input
                       type="file"
@@ -326,6 +388,13 @@ export default function UploadIPOData({ tab }: { tab: string }) {
                       {invalidFile?.name}
                     </span>
                     <button
+                      onClick={() => openFileInNewWindow(invalidFile)}
+                      className="rounded-full hover:bg-red-100 p-0.5 transition-colors"
+                      title="Preview file"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-red-600" />
+                    </button>
+                    <button
                       onClick={() => setInvalidFile(null)}
                       className="rounded-full hover:bg-red-100 p-0.5 transition-colors"
                     >
@@ -333,7 +402,29 @@ export default function UploadIPOData({ tab }: { tab: string }) {
                     </button>
                   </div>
                 ) : (
-                  <label className="flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors">
+                  <label
+                    className={cn(
+                      "flex flex-col items-center justify-center gap-1.5 h-20 border-2 border-dashed border-border rounded-lg text-sm text-muted-foreground hover:bg-muted/30 hover:border-primary/40 cursor-pointer transition-colors",
+                      isDragInvalid && "border-primary bg-primary/5 text-primary"
+                    )}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragInvalid(true);
+                    }}
+                    onDragLeave={() => setIsDragInvalid(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragInvalid(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) {
+                        if (file.name.endsWith(".csv")) {
+                          setInvalidFile(file);
+                        } else {
+                          toast.error("Please upload a CSV file");
+                        }
+                      }
+                    }}
+                  >
                     Drop CSV here or click to browse
                     <input
                       type="file"
