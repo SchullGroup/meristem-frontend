@@ -78,7 +78,7 @@ export interface Role {
   id: string;
   name: string;
   description: string;
-  isBuiltIn: boolean;
+  reserved: boolean;
   permissions: string[];
   userCount?: number;
 }
