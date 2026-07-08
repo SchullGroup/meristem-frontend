@@ -123,7 +123,7 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, setCurrentUser, pendingApprovals } = useStore();
+  const { currentUser, setCurrentUser, setUserPermissions, pendingApprovals } = useStore();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Setup: true,
     "Certificate Management": true,
@@ -170,6 +170,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setUserPermissions([]);
     router.push("/login");
   };
 

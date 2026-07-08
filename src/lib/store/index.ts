@@ -73,6 +73,8 @@ export interface AppState {
   setCurrentUser: (user: User | null) => void;
   isSessionExpired: boolean;
   setIsSessionExpired: (expired: boolean) => void;
+  userPermissions: string[];
+  setUserPermissions: (perms: string[]) => void;
 
   // Master data
   principals: Principal[];
@@ -154,6 +156,8 @@ export const useStore = create<AppState>()(
       setCurrentUser: (user) => set({ currentUser: user }),
       isSessionExpired: false,
       setIsSessionExpired: (expired) => set({ isSessionExpired: expired }),
+      userPermissions: [],
+      setUserPermissions: (perms) => set({ userPermissions: perms }),
 
       principals: [],
       registers: [],
