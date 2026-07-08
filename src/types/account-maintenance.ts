@@ -2,27 +2,40 @@ export interface ConsolidationAccount {
   accountNumber: string;
   holderName: string;
   holdings: number;
+  registerName?: string;
+  registerSymbol?: string;
+  status?: string;
 }
 
 export interface DestinationAccount {
   accountNumber: string;
   holderName: string;
+  registerName?: string;
+  registerSymbol?: string;
+  status?: string;
 }
 
 export interface Consolidation {
   id: number;
   registerId: string;
+  registerNames?: string[];
   sourceAccounts: ConsolidationAccount[];
   destinationAccount: DestinationAccount;
   totalHoldings: number;
   comment: string;
+  reason?: string;
   status: string;
   initiatorId: string;
   initiatorName: string;
-  authorisedBy: string;
-  rejectionComment: string;
+  submittedBy?: string;
+  authorisedBy: string | null;
+  rejectedBy?: string | null;
+  rejectionComment: string | null;
+  rejectionReason?: string | null;
+  reversalComment?: string | null;
+  reversedAt?: string | null;
   createdAt: string;
-  decidedAt: string;
+  decidedAt: string | null;
   supportingDocuments?: { name: string; url: string }[];
 }
 

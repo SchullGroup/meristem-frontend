@@ -28,6 +28,7 @@ import {
   rejectAdmonReversal,
   rejectConsolidation,
   rejectKycChange,
+  reverseConsolidation,
   uploadConsolidations,
   uploadKycChanges,
   uploadHolderSignature,
@@ -170,6 +171,21 @@ export const useRejectConsolidation = (
 ) =>
   useMutation({
     mutationFn: ({ id, data }) => rejectConsolidation(id, data),
+    ...options,
+  });
+
+export const useReverseConsolidation = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<Consolidation>,
+      Error,
+      { id: number; data: ConsolidationDecisionRequest }
+    >,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: ({ id, data }) => reverseConsolidation(id, data),
     ...options,
   });
 

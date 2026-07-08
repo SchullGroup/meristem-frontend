@@ -97,6 +97,20 @@ export const authoriseConsolidation = async (
   }
 };
 
+export const reverseConsolidation = async (
+  consolId: number,
+  data: ConsolidationDecisionRequest,
+) => {
+  try {
+    const res = await api.patch(`/consolidations/${consolId}/reverse`, data);
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const rejectConsolidation = async (
   id: number,
   data: ConsolidationDecisionRequest,

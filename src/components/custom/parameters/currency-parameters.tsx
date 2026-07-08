@@ -242,7 +242,7 @@ export default function CurrencyParameters({
                 onChange={(c) =>
                   setPickedCurr((prev) => ({
                     ...prev,
-                    name: c.code,
+                    name: c.name,
                     symbol: c.symbol,
                     code: c.code,
                   }))
