@@ -2,17 +2,11 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { format } from "date-fns";
+
 import {
   Dialog,
   DialogContent,
@@ -21,63 +15,49 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { PaginationBar } from "../pagination-bar";
+import { PaginationBar } from "../../pagination-bar";
+import { EntitlementTableSkeleton } from "../../rights-issue/loaders";
+import { type AdmonReversal } from "@/types/account-maintenance";
+import { DataErrorState } from "../../ipo/loaders";
+import { AdmonReversalDialog } from "./admon-review";
 import {
-  useGetAdmons,
+  useGetAdmonReversals,
   useBatchAuthoriseAdmons,
   useBatchRejectAdmons,
 } from "@/hooks/useAccountMaintenance";
-import { useGetRegisters } from "@/hooks/useRegisters";
-import { Admon } from "@/types/account-maintenance";
-import { DateRange } from "react-day-picker";
-import { EntitlementTableSkeleton } from "../rights-issue/loaders";
-import { DateRangePicker } from "../date-range-picker";
-import { DataErrorState } from "../ipo/loaders";
 import { formatDate } from "@/lib/utils/format";
-import { AdmonReviewDialog } from "./admon-review";
 
-export default function PendingAdmon({ tab }: { tab: string }) {
-  const { data: activeRegisters } = useGetRegisters({
-    size: 100,
-    status: "ACTIVE",
-  });
-
+export default function AdmonReversal({ tab }: { tab: string }) {
   const { currentUser } = useStore();
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const [registerId, setRegisterId] = useState("");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
-  const [selected, setSelected] = useState<Admon | null>(null);
+  const [selected, setSelected] = useState<AdmonReversal | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [rejectComment, setRejectComment] = useState("");
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
 
-  function openReview(row: Admon) {
+  function openReview(row: AdmonReversal) {
     setSelected(row);
     setReviewOpen(true);
   }
 
-  const { data, isLoading, error, isError, refetch } = useGetAdmons(
+  const { data, isLoading, error, isError, refetch } = useGetAdmonReversals(
     {
-      registerId: registerId !== "" ? registerId : undefined,
-      from: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
-      to: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
       page: currentPage,
       pageSize: pageSize,
-      status: "PENDING",
     },
     {
-      enabled: tab === "pending",
+      enabled: tab === "reversal",
     },
   );
 
-  const batchApproveMutation = useBatchAuthoriseAdmons();
-  const batchRejectMutation = useBatchRejectAdmons();
+  const authoriseMutation = useBatchAuthoriseAdmons();
+  const rejectMutation = useBatchRejectAdmons();
 
-  const pendingAdmons = data?.data?.data || [];
+  const reversedAdmons = data?.data?.data || [];
   const totalPages = data?.data?.totalPages || 1;
   const total = data?.data?.total || 0;
 
@@ -99,7 +79,7 @@ export default function PendingAdmon({ tab }: { tab: string }) {
     );
   }
 
-  function handleBatchApprove() {
+  const handleBatchApprove = () => {
     if (selectedIds.size === 0) return;
 
     if (!currentUser) {
@@ -107,26 +87,26 @@ export default function PendingAdmon({ tab }: { tab: string }) {
       return;
     }
 
-    batchApproveMutation.mutate(
+    const ids = Array.from(selectedIds).map(String);
+
+    authoriseMutation.mutate(
       {
-        ids: Array.from(selectedIds).map(String),
-        comment: "Admons approved",
+        ids: ids,
+        comment: "ADMOR reversals authorised",
         authorisedBy: currentUser?.email,
       },
       {
         onSuccess: () => {
-          toast.success(
-            `${selectedIds.size} record${selectedIds.size !== 1 ? "s" : ""} approved.`,
-          );
+          toast.success(`Reversal authorised successfully.`);
           setSelectedIds(new Set());
           refetch();
         },
-        onError: (err) => {
-          toast.error(err.message || "Failed to approve records");
+        onError: (err: any) => {
+          toast.error(err?.message || "Failed to approve reversal");
         },
       },
     );
-  }
+  };
 
   const handleBatchReject = () => {
     if (rejectComment.trim() === "") {
@@ -144,30 +124,31 @@ export default function PendingAdmon({ tab }: { tab: string }) {
       return;
     }
 
-    batchRejectMutation.mutate(
+    const ids = Array.from(selectedIds).map(String);
+
+    rejectMutation.mutateAsync(
       {
-        ids: Array.from(selectedIds).map(String),
+        ids: ids,
         comment: rejectComment,
         authorisedBy: currentUser?.email,
       },
       {
         onSuccess: () => {
-          refetch();
+          toast.success("Reversal rejected successfully.");
           setBatchRejectOpen(false);
           setSelectedIds(new Set());
           setRejectComment("");
-          toast.success("Estate administrations rejected successfully");
+          refetch();
         },
-        onError: (error: any) => {
-          toast.error(
-            error?.message || "Failed to reject estate administrations",
-          );
+
+        onError: (err: any) => {
+          toast.error(err?.message || "Failed to reject reversal");
         },
       },
     );
   };
 
-  const visibleIds = pendingAdmons.map((r) => r.id);
+  const visibleIds = reversedAdmons.map((r) => r.id);
 
   const allSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -178,34 +159,6 @@ export default function PendingAdmon({ tab }: { tab: string }) {
 
   return (
     <>
-      <div className="flex gap-2 items-center flex-wrap">
-        <Select
-          value={registerId}
-          onValueChange={(v) => setRegisterId(v || "")}
-        >
-          <SelectTrigger className="w-44 mrpsl-input">
-            <SelectValue placeholder="All Registers" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All Registers</SelectItem>
-            {activeRegisters?.content?.map((r) => (
-              <SelectItem key={r.registerId} value={r.symbol}>
-                {r.registerName} · {r.symbol}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Date range */}
-        <div className="space-y-1.5">
-          <DateRangePicker
-            className="mt-0"
-            date={dateRange}
-            setDate={setDateRange}
-          />
-        </div>
-      </div>
-
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
           <span className="text-sm font-semibold text-primary">
@@ -222,10 +175,10 @@ export default function PendingAdmon({ tab }: { tab: string }) {
             </Button>
             <Button
               size="sm"
-              disabled={batchApproveMutation.isPending}
+              disabled={authoriseMutation.isPending}
               onClick={handleBatchApprove}
             >
-              {batchApproveMutation.isPending
+              {authoriseMutation.isPending
                 ? "Approving..."
                 : "Approve Selected"}
             </Button>
@@ -233,10 +186,14 @@ export default function PendingAdmon({ tab }: { tab: string }) {
         </div>
       )}
 
+      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+        Reversals cancel a previously approved administration and restore the
+        original account state.
+      </div>
       <Card className="mrpsl-card overflow-hidden">
         {isError ? (
           <DataErrorState
-            message={error?.message || "Failed to load historical admons."}
+            message={error?.message || "Failed to load reversed ADMORs."}
             onRetry={refetch}
           />
         ) : (
@@ -253,14 +210,14 @@ export default function PendingAdmon({ tab }: { tab: string }) {
                 <th className="p-3">ACCOUNT</th>
                 <th className="p-3">ORIGINAL DECEASED</th>
                 <th className="p-3">CURRENT ADMINISTRATOR</th>
-                <th className="p-3">PROBATE NO</th>
+                <th className="p-3">REASON FOR REVERSAL</th>
                 <th className="p-3">SUBMITTED BY</th>
                 <th className="p-3">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y text-[13px]">
-              {pendingAdmons?.length > 0 ? (
-                pendingAdmons?.map((row) => (
+              {reversedAdmons?.length > 0 ? (
+                reversedAdmons?.map((row) => (
                   <tr key={row.id} className="mrpsl-table-row">
                     <td className="p-3">
                       <Checkbox
@@ -271,21 +228,21 @@ export default function PendingAdmon({ tab }: { tab: string }) {
                     <td className="p-3 text-muted-foreground">
                       {formatDate(row.createdAt)}
                     </td>
-                    <td className="p-3 font-mono">
-                      {row.deceasedAccountNumbers?.join(", ")}
-                    </td>
+                    <td className="p-3 font-mono">{row.accountNumber}</td>
                     <td className="p-3 font-medium">
                       {row.deceasedHolderName}
                     </td>
-                    <td className="p-3">{row.adminName}</td>
-                    <td className="p-3 font-mono text-muted-foreground">
-                      {row.probateNumber}
-                    </td>
+                    <td className="p-3">{row.currentAdminName}</td>
+                    <td className="p-3 text-muted-foreground">{row.reason}</td>
                     <td className="p-3 text-muted-foreground">
                       {row.initiatorName}
                     </td>
-                    <td className="p-3">
-                      <Button size="sm" onClick={() => openReview(row)}>
+                    <td className="p-3 text-right">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => openReview(row)}
+                      >
                         Review &amp; Authorise
                       </Button>
                     </td>
@@ -297,7 +254,7 @@ export default function PendingAdmon({ tab }: { tab: string }) {
                     colSpan={8}
                     className="p-6 text-center text-muted-foreground"
                   >
-                    No pending admons.
+                    No reversed ADMORs.
                   </td>
                 </tr>
               )}
@@ -314,7 +271,7 @@ export default function PendingAdmon({ tab }: { tab: string }) {
         onPageSizeChange={setPageSize}
       />
 
-      <AdmonReviewDialog
+      <AdmonReversalDialog
         reviewOpen={reviewOpen}
         setReviewOpen={setReviewOpen}
         selected={selected}
@@ -324,7 +281,7 @@ export default function PendingAdmon({ tab }: { tab: string }) {
       <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Selected Estate Administrations</DialogTitle>
+            <DialogTitle>Reject Selected Administration Reversals</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
@@ -346,11 +303,9 @@ export default function PendingAdmon({ tab }: { tab: string }) {
               <Button
                 variant="destructive"
                 onClick={handleBatchReject}
-                disabled={batchRejectMutation.isPending}
+                disabled={rejectMutation.isPending}
               >
-                {batchRejectMutation.isPending
-                  ? "Rejecting..."
-                  : "Reject Selected"}
+                {rejectMutation.isPending ? "Rejecting..." : "Reject Selected"}
               </Button>
             </div>
           </div>

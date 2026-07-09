@@ -642,3 +642,32 @@ export const uploadHolderSignature = async (data: HolderSignatureRequest) => {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const getHolderSignatureArchive = async (
+  chn: string,
+  registerSymbol: string,
+) => {
+  try {
+    const res = await api.get(
+      `/holders/signature/archive?chn=${chn}&register=${registerSymbol}`,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const validateBankDetails = async (data: {
+  bankCode: string;
+  accountNumber?: string;
+  bvn?: string;
+}) => {
+  try {
+    const res = await api.post("/nibss/validate-bank-details", data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};

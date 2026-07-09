@@ -97,7 +97,7 @@ const OPERATIONS_GROUPS = [
       },
       { label: "KYC Update", href: "/account-maintenance/kyc-update" },
       { label: "KYC Approvals", href: "/account-maintenance/kyc-approvals" },
-      { label: "Administration (ADMON)", href: "/account-maintenance/admon" },
+      { label: "Administration (ADMOR)", href: "/account-maintenance/admor" },
     ],
   },
   {

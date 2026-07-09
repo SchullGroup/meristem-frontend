@@ -19,7 +19,6 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: summaryData } = useGetNotificationSummary(currentUser?.email);
 
-
   const generateBreadcrumbs = () => {
     if (pathname === "/") return "Dashboard Home";
     const parts = pathname.split("/").filter(Boolean);
@@ -28,7 +27,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         if (part === "cscs-updates") return "CSCS Updates";
         if (part === "ipo") return "IPO / Public Offer";
         if (part === "kyc-update") return "KYC Update";
-        if (part === "admon") return "Administration (ADMON)";
+        if (part === "admor") return "Administration (ADMOR)";
         if (part === "notifications") return "Notifications";
         return part
           .split("-")
@@ -94,12 +93,17 @@ export function Header({ onMenuClick }: HeaderProps) {
         onClick={() => router.push("/notifications")}
       >
         <Bell className="h-4 w-4" />
-        {summaryData?.data?.unreadCount && summaryData?.data?.unreadCount > 0 ? <Badge
-          variant="destructive"
-          className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[11px] rounded-full flex items-center justify-center"
-        >
-          {summaryData?.data?.unreadCount}
-        </Badge> : ""}
+        {summaryData?.data?.unreadCount &&
+        summaryData?.data?.unreadCount > 0 ? (
+          <Badge
+            variant="destructive"
+            className="absolute -top-1 -right-1 h-4 min-w-[16px] px-1 text-[11px] rounded-full flex items-center justify-center"
+          >
+            {summaryData?.data?.unreadCount}
+          </Badge>
+        ) : (
+          ""
+        )}
       </Button>
     </header>
   );

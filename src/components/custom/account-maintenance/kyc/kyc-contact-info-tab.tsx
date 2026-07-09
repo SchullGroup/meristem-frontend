@@ -14,6 +14,7 @@ interface KycContactInfoTabProps {
     field: string,
     newValue: string,
     reason: string,
+    evidence?: { name: string; url: string }[],
   ) => Promise<void>;
 }
 
@@ -23,14 +24,21 @@ export function KycContactInfoTab({
   isSubmitting,
   onFieldSubmit,
 }: KycContactInfoTabProps) {
-  const submit = (field: string, newValue: string, reason: string) =>
-    onFieldSubmit(
-      selectedShareholder.accountNumber,
-      "CONTACT",
-      field,
-      newValue,
-      reason,
-    );
+  const submit =
+    (field: string) =>
+    (
+      newValue: string,
+      reason: string,
+      evidence?: { name: string; url: string }[],
+    ) =>
+      onFieldSubmit(
+        selectedShareholder.accountNumber,
+        "CONTACT",
+        field,
+        newValue,
+        reason,
+        evidence,
+      );
 
   return (
     <Card className="mrpsl-card p-6 space-y-1">
@@ -49,7 +57,7 @@ export function KycContactInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "email") ?? null
         }
-        onSubmit={(newValue, reason) => submit("email", newValue, reason)}
+        onSubmit={submit("email")}
         isSubmitting={isSubmitting}
       />
 
@@ -60,7 +68,7 @@ export function KycContactInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "phone") ?? null
         }
-        onSubmit={(newValue, reason) => submit("phone", newValue, reason)}
+        onSubmit={submit("phone")}
         isSubmitting={isSubmitting}
       />
 
@@ -71,7 +79,7 @@ export function KycContactInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "phone2") ?? null
         }
-        onSubmit={(newValue, reason) => submit("phone2", newValue, reason)}
+        onSubmit={submit("phone2")}
         isSubmitting={isSubmitting}
       />
 
@@ -83,7 +91,7 @@ export function KycContactInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "address") ?? null
         }
-        onSubmit={(newValue, reason) => submit("address", newValue, reason)}
+        onSubmit={submit("address")}
         isSubmitting={isSubmitting}
       />
 
@@ -95,7 +103,7 @@ export function KycContactInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "altAddress") ?? null
         }
-        onSubmit={(newValue, reason) => submit("altAddress", newValue, reason)}
+        onSubmit={submit("altAddress")}
         isSubmitting={isSubmitting}
       />
     </Card>

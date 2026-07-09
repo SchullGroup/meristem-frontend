@@ -311,7 +311,7 @@ export interface KycUploadJob {
   completedAt: string;
 }
 
-//////////// estate admon //////////////
+//////////// estate admor //////////////
 
 export interface Admon {
   id: number;
@@ -396,13 +396,32 @@ export interface AdmonReversalFilters {
   pageSize?: number;
 }
 
+export interface AdministratorRequest {
+  isExecutor: boolean;
+  adminName: string;
+  email: string;
+  phone: string;
+  altPhone?: string;
+  bvn: string;
+  nin: string;
+  idType: string;
+  idNumber: string;
+  relationship?: string;
+  adminAddress: string;
+  adminCity: string;
+  adminState: string;
+  memo?: string;
+  documents?: { name: string; url: string }[];
+}
+
 export interface CreateAdmonRequest {
   registerId: string;
+  registerIds?: string[];
   deceasedAccountIds: string[];
 
-  admonType: string;
+  administrators: AdministratorRequest[];
 
-  adminName: string;
+  admonType: string;
 
   probateCourt: string;
   probateNumber: string;
@@ -411,16 +430,11 @@ export interface CreateAdmonRequest {
 
   lodgementDate: string;
 
-  adminAddress: string;
-  adminCity: string;
-  adminState: string;
-
-  memo: string;
-
-  changeAddressToAdmin: boolean;
+  changeAddressToAdmin?: boolean;
   changeNameToEstate: boolean;
 
-  probateDocUrl: string;
+  probateDocUrl?: string;
+  probateDocs?: { name: string; url: string }[];
 
   initiatedBy: string;
 }
