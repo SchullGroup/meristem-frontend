@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ReturnMoneyQueue } from "@/components/custom/return-money/return-money-queue";
-import { RefundBatchProcessing } from "@/components/custom/return-money/refund-batch-processing";
-import { RefundReconciliation } from "@/components/custom/return-money/refund-reconciliation";
+import { NewSubscription } from "@/components/custom/fund-subscription/new-subscription";
+import { SubscriptionApproval } from "@/components/custom/fund-subscription/subscription-approval";
+import { RedemptionRequest } from "@/components/custom/fund-subscription/redemption-request";
+import { RedemptionApproval } from "@/components/custom/fund-subscription/redemption-approval";
 import { Button } from "@/components/ui/button";
-import { CalendarRange, FileSpreadsheet, Printer } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { CalendarRange, FileSpreadsheet, Printer } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,43 +18,44 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const TABS = ["queue", "batch", "reconciliation", "reports"] as const;
+const TABS = ["subscription", "subscription-approval", "redemption", "redemption-approval", "reports"] as const;
 type TabValue = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabValue, string> = {
-  queue: "Return Money Queue",
-  batch: "Refund Batch Processing",
-  reconciliation: "Refund Reconciliation",
-  reports: "Reports",
+  "subscription": "New Subscription",
+  "subscription-approval": "Subscription Approval",
+  "redemption": "Redemption Request",
+  "redemption-approval": "Redemption Approval",
+  "reports": "Reports",
 };
 
 const REPORT_TYPES = [
-  "Return Money Summary",
-  "Return Money by Offer",
-  "Return Money by Register",
-  "Return Money Aging",
+  "Subscription Summary",
+  "Redemption Summary",
+  "Fund Register Movement",
+  "Pending Subscriptions",
+  "Pending Redemptions",
 ] as const;
 
-export default function ReturnMoneyPage() {
-  const [activeTab, setActiveTab] = useState<TabValue>("queue");
+export default function FundSubscriptionPage() {
+  const [activeTab, setActiveTab] = useState<TabValue>("subscription");
 
-  // Reports tab state
+  // Reports state
   const [selectedReport, setSelectedReport] = useState<string>(REPORT_TYPES[0]);
-  const [filterOfferType, setFilterOfferType] = useState("");
   const [filterRegister, setFilterRegister] = useState("");
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Return Money Administration</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Fund Subscription & Redemption</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Track and process refunds arising from over-subscription or rejected applications across all offer types.
+          Process fund manager subscription requests and unit redemptions for fund registers.
         </p>
       </div>
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab((v as TabValue) || "queue")}
+        onValueChange={(v) => setActiveTab((v as TabValue) || "subscription")}
         className="w-full"
       >
         <div className="overflow-x-auto no-scrollbar pb-1">
@@ -71,16 +73,20 @@ export default function ReturnMoneyPage() {
         </div>
 
         <div className="mt-6">
-          <TabsContent value="queue">
-            <ReturnMoneyQueue />
+          <TabsContent value="subscription">
+            <NewSubscription />
           </TabsContent>
 
-          <TabsContent value="batch">
-            <RefundBatchProcessing />
+          <TabsContent value="subscription-approval">
+            <SubscriptionApproval />
           </TabsContent>
 
-          <TabsContent value="reconciliation">
-            <RefundReconciliation />
+          <TabsContent value="redemption">
+            <RedemptionRequest />
+          </TabsContent>
+
+          <TabsContent value="redemption-approval">
+            <RedemptionApproval />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4">
@@ -111,34 +117,21 @@ export default function ReturnMoneyPage() {
             {/* Filters */}
             <Card className="mrpsl-card p-5">
               <div className="flex items-center gap-3 flex-wrap">
-                <Select value={filterOfferType} onValueChange={(v) => setFilterOfferType(v ?? "")}>
-                  <SelectTrigger className="mrpsl-input h-9 w-48">
-                    <SelectValue placeholder="All Offer Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Offer Types</SelectItem>
-                    <SelectItem value="IPO">IPO</SelectItem>
-                    <SelectItem value="rights">Rights Issue</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 <Select value={filterRegister} onValueChange={(v) => setFilterRegister(v ?? "")}>
-                  <SelectTrigger className="mrpsl-input h-9 w-48">
-                    <SelectValue placeholder="All Registers" />
+                  <SelectTrigger className="mrpsl-input h-9 w-56">
+                    <SelectValue placeholder="All Fund Registers" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Registers</SelectItem>
-                    <SelectItem value="ACCESS">ACCESS</SelectItem>
-                    <SelectItem value="FIDELITY">FIDELITY</SelectItem>
+                    <SelectItem value="">All Fund Registers</SelectItem>
+                    <SelectItem value="stanbic-dollar">Stanbic IBTC Dollar Fund</SelectItem>
+                    <SelectItem value="arm-discovery">ARM Discovery Balanced Fund</SelectItem>
+                    <SelectItem value="coronation-mm">Coronation Money Market Fund</SelectItem>
                   </SelectContent>
                 </Select>
 
                 <div className="flex-1" />
 
-                <Button
-                  size="sm"
-                  onClick={() => toast.info(`${selectedReport} report coming soon`)}
-                >
+                <Button size="sm" onClick={() => toast.info(`${selectedReport} report coming soon`)}>
                   <CalendarRange className="h-3.5 w-3.5 mr-1.5" />
                   Generate Report
                 </Button>
@@ -153,7 +146,6 @@ export default function ReturnMoneyPage() {
               </div>
             </Card>
 
-            {/* Empty state — reports not yet connected */}
             <div className="flex flex-col items-center justify-center py-20 bg-background border rounded-2xl border-dashed text-muted-foreground text-center">
               <CalendarRange className="h-10 w-10 text-muted-foreground/35 mb-3" />
               <h3 className="font-semibold text-sm text-foreground">Ready to generate</h3>

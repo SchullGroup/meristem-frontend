@@ -14,9 +14,15 @@ import {
   AlertCircle,
   Loader2,
   Search,
+  Wand2,
+  CheckCircle2,
 } from "lucide-react";
 import { EmailPreviewModal } from "@/components/custom/shareholder-outreach-modals";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ICULodgment from "@/components/custom/ipo/lodgment";
+import { CSCSReversalsWorkspace } from "@/components/custom/offer-administration/cscs-reversals-workspace";
+import { ProvisionalAllotment } from "@/components/custom/rights-issue/provisional-allotment";
+import { DispatchNotificationPanel } from "@/components/custom/offer-administration/dispatch-notification-panel";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -105,11 +111,55 @@ export interface BonusDeclaration {
 
 const PAGE_SIZE = 20;
 
+interface BonusSetupProfile {
+  id: string;
+  name: string;
+  register: string;
+  ratio: string;
+  qualificationDate: Date;
+  closureDate: Date;
+  allotmentDate: Date;
+  roundingRule: string;
+  narrative: string;
+  status: "DRAFT" | "PENDING_AUTH" | "PENDING_ICU" | "ICU_APPROVED";
+}
+
+/** Mirrors the records created in Offer Setup → Bonus Issue Setup tab. */
+const BONUS_SETUP_PROFILES: BonusSetupProfile[] = [
+  {
+    id: "bs-1",
+    name: "Zenith Bank Bonus Issue 2024",
+    register: "Zenith Bank Ord. Shares",
+    ratio: "1 for 5",
+    qualificationDate: new Date("2024-06-30"),
+    closureDate: new Date("2024-07-15"),
+    allotmentDate: new Date("2024-08-01"),
+    roundingRule: "ROUND_DOWN",
+    narrative: "One bonus share for every five held at qualification date.",
+    status: "ICU_APPROVED",
+  },
+];
+
+const BONUS_SETUP_STATUS_LABELS: Record<BonusSetupProfile["status"], string> = {
+  DRAFT: "Draft",
+  PENDING_AUTH: "Pending Approval",
+  PENDING_ICU: "Pending ICU",
+  ICU_APPROVED: "ICU Approved",
+};
+
+const BONUS_SETUP_STATUS_STYLES: Record<BonusSetupProfile["status"], string> = {
+  DRAFT: "bg-gray-100 text-gray-700",
+  PENDING_AUTH: "bg-amber-100 text-amber-800",
+  PENDING_ICU: "bg-amber-100 text-amber-800",
+  ICU_APPROVED: "bg-green-100 text-green-800",
+};
+
 const BONUS_REPORT_TYPES = [
   "Bonus Entitlement Register",
   "Shareholder Bonus Allotment List",
   "Summary of Bonus Shares Issued",
   "Exception and Rounding Report",
+  "Bonus Report",
 ];
 
 function getVisiblePages(current: number, total: number): (number | "…")[] {
@@ -416,6 +466,7 @@ export default function BonusIssuePage() {
   const [ratioDenominator, setRatioDenominator] = useState<string>("4");
   const [roundingRule, setRoundingRule] = useState<string>("ROUND_DOWN");
   const [narrative, setNarrative] = useState<string>("");
+  const [activeSetupId, setActiveSetupId] = useState<string | null>(null);
 
   // Approval (2-step)
   const [authReviewing, setAuthReviewing] = useState<string | null>(null);
@@ -990,7 +1041,9 @@ export default function BonusIssuePage() {
         ? "summary-of-bonus-shares-issued"
         : selectedReport === "Exception and Rounding Report"
           ? "exception-and-rounding-report"
-          : "bonus-entitlement-register";
+          : selectedReport === "Bonus Report"
+            ? "bonus-report"
+            : "bonus-entitlement-register";
 
   const reportDateFrom = reportDateRange?.from
     ? reportDateRange.from.toISOString().split("T")[0]
@@ -1044,6 +1097,14 @@ export default function BonusIssuePage() {
         []
       );
     }
+    if (reportPath === "bonus-report") {
+      return (
+        fetchedReportData.bonusReport?.content ||
+        fetchedReportData.bonusReport ||
+        fetchedReportData.entitlements?.content ||
+        []
+      );
+    }
     return [];
   })();
 
@@ -1065,6 +1126,13 @@ export default function BonusIssuePage() {
     if (reportPath === "shareholder-bonus-allotment-list") {
       return (
         fetchedReportData.allotments?.totalElements ||
+        fetchedReportData.total ||
+        fetchedReportList.length
+      );
+    }
+    if (reportPath === "bonus-report") {
+      return (
+        fetchedReportData.bonusReport?.totalElements ||
         fetchedReportData.total ||
         fetchedReportList.length
       );
@@ -1163,6 +1231,27 @@ export default function BonusIssuePage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const loadSetup = (setup: BonusSetupProfile) => {
+    setBonusName(setup.name);
+    const parts = setup.ratio.match(/(\d+)\s+for\s+(\d+)/);
+    if (parts) {
+      setRatioNumerator(parts[1]);
+      setRatioDenominator(parts[2]);
+    }
+    setRoundingRule(setup.roundingRule);
+    setNarrative(setup.narrative);
+    setDate1(setup.qualificationDate);
+    setDate2(setup.closureDate);
+    setDate3(setup.allotmentDate);
+    const matchedReg = registerList?.find((r: { registerName: string; registerId: string }) =>
+      r.registerName.toLowerCase().includes(setup.register.toLowerCase().split(" ")[0]),
+    );
+    if (matchedReg) setSelectedRegister(matchedReg.registerId);
+    setActiveSetupId(setup.id);
+    toast.success(`Form pre-populated from "${setup.name}".`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const reportStart = (reportPage - 1) * PAGE_SIZE;
 
   const reportRows = fetchedReportList.slice(
@@ -1194,18 +1283,20 @@ export default function BonusIssuePage() {
         onValueChange={(v) => setActiveTab(v || "")}
         className="w-full"
       >
-        <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap">
           {[
-            ["declaration", "Declaration"],
-            ["auth", "Approval"],
+            ["declaration", "Provisional Allotment"],
+            ["auth", "Declaration Approval"],
             ["icu", "ICU Approval"],
-            ["allotment", "Allotment"],
+            ["lodgement", "CSCS Lodgement"],
+            ["reversals", "CSCS Reversals & Error Resolution"],
+            ["allotment", "Notification & Prelist Dispatch"],
             ["reports", "Reports"],
           ].map(([v, label]) => (
             <TabsTrigger
               key={v}
               value={v}
-              className="rounded-lg cursor-pointer px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              className="rounded-lg cursor-pointer px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
             >
               {label}
             </TabsTrigger>
@@ -1213,310 +1304,16 @@ export default function BonusIssuePage() {
         </TabsList>
 
         <div className="mt-6">
-          {/* ── Declaration ── */}
-          <TabsContent value="declaration" className="space-y-6">
-            {rejectedList?.length > 0 && (
-              <div className="flex items-stretch gap-2 flex-wrap">
-                {rejectedList?.map((declaration: BonusDeclaration) => (
-                  <Card
-                    onClick={() => handleEditDeclaration(declaration)}
-                    key={declaration.id}
-                    className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer"
-                  >
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0 max-w-1003">
-                        <p className="text-sm font-semibold text-red-800">
-                          Declaration Rejected — Ref: {declaration?.ref}
-                        </p>
-                        <p className="text-[13px] text-red-700 mt-0.5">
-                          Authorizer comment:{" "}
-                          {declaration?.authorizedReason ||
-                            "No comment provided."}
-                        </p>
-                        <p className="text-[13px] text-muted-foreground mt-1">
-                          Please review the declaration and resubmit for
-                          approval.
-                        </p>
-                      </div>
-                      <button className="rounded-full hover:bg-red-100 p-0.5">
-                        <X className="h-3.5 w-3.5 text-red-600" />
-                      </button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2">
-                <Card className="mrpsl-card p-6">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="mrpsl-label">Register *</label>
-                        <Select
-                          value={selectedRegister}
-                          onValueChange={(val) =>
-                            setSelectedRegister(val ?? "")
-                          }
-                        >
-                          <SelectTrigger className="mrpsl-input">
-                            <SelectValue placeholder="Select Register" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {loadingRegisters ? (
-                              <div className="py-10 flex items-center justify-center">
-                                <Loader2 className="animate-spin w-4 h-4" />
-                              </div>
-                            ) : (
-                              <>
-                                <SelectItem value="">All Register</SelectItem>
-                                {registerList?.map((r) => (
-                                  <SelectItem
-                                    key={r.registerId}
-                                    value={r.symbol}
-                                  >
-                                    <span className="font-bold">
-                                      {r.registerName}
-                                    </span>{" "}
-                                    -{" "}
-                                    <span className="text-xs translate-y-0.5">
-                                      {r.symbol}
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="mrpsl-label">Bonus Name *</label>
-                        <Input
-                          placeholder="e.g. 2025 Bonus Issue 1-for-4"
-                          className="mrpsl-input"
-                          value={bonusName}
-                          onChange={(e) => setBonusName(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="mrpsl-label">Bonus Ratio</label>
-                        <div className="flex items-center gap-3">
-                          <Input
-                            type="number"
-                            value={ratioNumerator}
-                            onChange={(e) => setRatioNumerator(e.target.value)}
-                            className="w-16 font-mono mrpsl-input"
-                          />
-                          <span className="text-sm font-medium">for</span>
-                          <Input
-                            type="number"
-                            value={ratioDenominator}
-                            onChange={(e) =>
-                              setRatioDenominator(e.target.value)
-                            }
-                            className="w-16 font-mono mrpsl-input"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="mrpsl-label">Rounding Rule</label>
-                        <Select
-                          value={roundingRule}
-                          onValueChange={(val) =>
-                            setRoundingRule(val ?? "down")
-                          }
-                        >
-                          <SelectTrigger className="mrpsl-input">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ROUND_DOWN">
-                              Round Down
-                            </SelectItem>
-                            <SelectItem value="ROUND_UP">Round Up</SelectItem>
-                            <SelectItem value="ROUND_NEAREST">
-                              Round to Nearest
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      {(
-                        [
-                          ["Qualification Date *", date1, setDate1],
-                          ["Closure Date *", date2, setDate2],
-                          ["Allotment Date *", date3, setDate3],
-                        ] as const
-                      ).map(([lbl, val, setter]) => (
-                        <div key={lbl} className="space-y-2">
-                          <label className="mrpsl-label">{lbl}</label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="w-full mrpsl-input justify-start text-left font-normal"
-                              >
-                                {val ? (
-                                  format(val, "PPP")
-                                ) : (
-                                  <span className="text-muted-foreground">
-                                    Pick a date
-                                  </span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={val}
-                                onSelect={setter}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="mrpsl-label">Narrative</label>
-                      <Textarea
-                        placeholder="Additional context..."
-                        className="resize-none"
-                        value={narrative}
-                        onChange={(e) => setNarrative(e.target.value)}
-                      />
-                    </div>
-
-                    <Button onClick={handleCompute}>
-                      {createdDeclarationId
-                        ? "Recompute Bonus"
-                        : "Compute Bonus"}{" "}
-                      {createDeclarationMutation.isPending && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                    </Button>
-                  </div>
-                </Card>
-              </div>
-
-              <div className="col-span-1">
-                <Card className="bg-blue-50 border-blue-200 p-5">
-                  <div className="flex items-center gap-2 mb-3 text-blue-800">
-                    <Info className="h-5 w-5" />
-                    <h3 className="font-semibold">System Rules</h3>
-                  </div>
-                  <ul className="space-y-3 text-sm text-blue-900/80">
-                    <li className="flex gap-2">
-                      <span>•</span> Bonus is computed on units held as at
-                      Qualification Date
-                    </li>
-                    <li className="flex gap-2">
-                      <span>•</span> Fractional entitlements are rounded down;
-                      fractions are pooled into the fractional account
-                    </li>
-                    <li className="flex gap-2">
-                      <span>•</span> Initiator cannot authorise their own
-                      declaration
-                    </li>
-                    <li className="flex gap-2">
-                      <span>•</span> Register must be Active — blocked if
-                      Inactive or Transaction Disabled
-                    </li>
-                    <li className="flex gap-2">
-                      <span>•</span> Once authorised, records are immutable
-                      unless reversed and re-initiated
-                    </li>
-                  </ul>
-                </Card>
-              </div>
-            </div>
-
-            {computed && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Card className="p-4 bg-primary/5 border-primary/20">
-                    <div className="mrpsl-section-title text-primary">
-                      Total New Shares
-                    </div>
-                    <div className="text-3xl font-mono mt-1 font-bold">
-                      {resTotalBonusShares?.toLocaleString()}
-                    </div>
-                  </Card>
-                  <Card className="p-4 bg-amber-50 border-amber-200">
-                    <div className="mrpsl-section-title text-amber-700">
-                      Fractional Shares (To Fractional Acct)
-                    </div>
-                    <div className="text-3xl font-mono mt-1 font-bold text-amber-600">
-                      {resTotalFractionalRemainder?.toLocaleString()}
-                    </div>
-                  </Card>
-                </div>
-
-                <Card className="mrpsl-card overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="mrpsl-table-header">
-                      <tr>
-                        <th className="p-3">ACCOUNT NO</th>
-                        <th className="p-3">HOLDER NAME</th>
-                        <th className="p-3 text-right">UNITS AT QUAL DATE</th>
-                        <th className="p-3 text-right">BONUS DUE</th>
-                        <th className="p-3 text-right">FRACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y font-mono text-[13px]">
-                      {isComputeLoading ? (
-                        Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                          <tr key={i}>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-28" />
-                            </td>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-36" />
-                            </td>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-20 ml-auto" />
-                            </td>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-16 ml-auto" />
-                            </td>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-14 ml-auto" />
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <EntitlementTableRows rows={computeEntitlementList} />
-                      )}
-                    </tbody>
-                  </table>
-                  <PaginationBar
-                    page={computePage}
-                    total={computeEntitlementTotal}
-                    onPageChange={setComputePage}
-                  />
-                </Card>
-
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <ExportToExcel
-                    data={computeEntitlementList}
-                    name="bonus-entitlement"
-                  />
-                  <Button size="lg" onClick={handleApprove}>
-                    Submit for Approval
-                    {submitForApprovalMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
+          {/* ── Provisional Allotment ── */}
+          <TabsContent value="declaration">
+            <ProvisionalAllotment
+              offerName="Zenith Bank Bonus Issue 2024"
+              ratioLabel="1 bonus share for every 5 held"
+              ratioDenominator={5}
+              pricePerShare={null}
+              qualificationDateLabel="30 Jun 2024"
+              entitlementLabel="Bonus Shares Due"
+            />
           </TabsContent>
 
           {/* ── Approval ── */}
@@ -2206,6 +2003,17 @@ export default function BonusIssuePage() {
             )}
           </TabsContent>
 
+          {/* ── CSCS Lodgement ── */}
+          <TabsContent value="lodgement" className="space-y-4">
+            <ICULodgment tab="lodgement" />
+          </TabsContent>
+
+          {/* ── CSCS Reversals & Error Resolution ── */}
+          <TabsContent value="reversals">
+            <CSCSReversalsWorkspace />
+          </TabsContent>
+
+          {/* ── Notification & Prelist Dispatch ── */}
           <TabsContent value="allotment" className="space-y-4">
             {allotReviewing === null ? (
               <>
@@ -3166,6 +2974,84 @@ export default function BonusIssuePage() {
                           <PaginationBar
                             page={reportPage}
                             total={fetchedReportList.length}
+                            onPageChange={setReportPage}
+                          />
+                        </Card>
+                      ) : selectedReport === "Bonus Report" ? (
+                        /* Bonus Report — Share Account No., Name, Cert No., Bonus Units, Before, After, Email, Phone, CHN, Broker */
+                        <Card className="mrpsl-card overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[13px]">
+                              <thead className="mrpsl-table-header">
+                                <tr>
+                                  <th className="px-3 py-2.5 font-medium">Acct No.</th>
+                                  <th className="px-3 py-2.5 font-medium">Shareholder Name</th>
+                                  <th className="px-3 py-2.5 font-medium">Cert No.</th>
+                                  <th className="px-3 py-2.5 font-medium text-right">Bonus Units</th>
+                                  <th className="px-3 py-2.5 font-medium text-right">Units Before</th>
+                                  <th className="px-3 py-2.5 font-medium text-right">Units After</th>
+                                  <th className="px-3 py-2.5 font-medium">Email</th>
+                                  <th className="px-3 py-2.5 font-medium">Phone</th>
+                                  <th className="px-3 py-2.5 font-medium">CHN</th>
+                                  <th className="px-3 py-2.5 font-medium">Stockbroker / Code</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y font-mono text-xs">
+                                {fetchedReportList?.map(
+                                  (
+                                    row: {
+                                      accountNo?: string;
+                                      shareAccountNo?: string;
+                                      name?: string;
+                                      holderName?: string;
+                                      certificateNo?: string;
+                                      certNo?: string;
+                                      bonusUnits?: number;
+                                      unitsBefore?: number;
+                                      unitsHeld?: number;
+                                      unitsAfter?: number;
+                                      email?: string;
+                                      emailAddress?: string;
+                                      phone?: string;
+                                      phoneNumber?: string;
+                                      chn?: string;
+                                      stockbroker?: string;
+                                      stockbrokerCode?: string;
+                                    },
+                                    idx: number,
+                                  ) => (
+                                    <tr key={idx} className="mrpsl-table-row">
+                                      <td className="px-3 py-2">{row.shareAccountNo || row.accountNo || "—"}</td>
+                                      <td className="px-3 py-2 font-sans font-medium">{row.name || row.holderName || "—"}</td>
+                                      <td className="px-3 py-2">{row.certificateNo || row.certNo || "—"}</td>
+                                      <td className="px-3 py-2 text-right text-primary font-semibold">{row.bonusUnits?.toLocaleString() ?? "—"}</td>
+                                      <td className="px-3 py-2 text-right">{(row.unitsBefore ?? row.unitsHeld)?.toLocaleString() ?? "—"}</td>
+                                      <td className="px-3 py-2 text-right">{row.unitsAfter?.toLocaleString() ?? "—"}</td>
+                                      <td className="px-3 py-2 font-sans">{row.email || row.emailAddress || "—"}</td>
+                                      <td className="px-3 py-2">{row.phone || row.phoneNumber || "—"}</td>
+                                      <td className="px-3 py-2">{row.chn || "—"}</td>
+                                      <td className="px-3 py-2 font-sans">
+                                        {row.stockbroker || "—"}
+                                        {row.stockbrokerCode && (
+                                          <span className="ml-1 text-muted-foreground">/ {row.stockbrokerCode}</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ),
+                                )}
+                                {fetchedReportList?.length === 0 && (
+                                  <tr>
+                                    <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground font-sans">
+                                      No bonus report records found.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          <PaginationBar
+                            page={reportPage}
+                            total={fetchedReportList?.length ?? 0}
                             onPageChange={setReportPage}
                           />
                         </Card>
