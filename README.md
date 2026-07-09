@@ -96,7 +96,7 @@ Manage corporate actions where new shares are offered to investors:
 Tools for updating shareholder records:
 - **KYC Update** — Update a shareholder's Know Your Customer information (identity documents, bank details, contact info)
 - **Consolidation** — Merge duplicate shareholder accounts
-- **ADMON** — Administrative adjustments to shareholder accounts
+- **ADMOR** — Administrative adjustments to shareholder accounts
 
 ---
 

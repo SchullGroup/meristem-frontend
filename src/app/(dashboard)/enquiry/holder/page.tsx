@@ -207,7 +207,7 @@ export default function HolderEnquiryPage() {
   });
   const transfers = trnData?.content ?? [];
 
-  // Admon tab
+  // ADMOR tab
   const admPg = useServerPagination();
   const { data: admData, isLoading: isAdmLoading } = useQuery({
     queryKey: ["holderAdmon", holderId, admPg.page, admPg.pageSize],
@@ -694,7 +694,7 @@ export default function HolderEnquiryPage() {
                 value="adm"
                 className="mrpsl-tabs-trigger text-[13px] px-4"
               >
-                Admon
+                ADMOR
               </TabsTrigger>
             </TabsList>
 

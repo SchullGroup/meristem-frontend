@@ -63,7 +63,7 @@ function moduleUrl(module: string, transactionType: string): string {
     if (transactionType.toLowerCase().includes("consolidation"))
       return "/account-maintenance/consolidation";
     if (transactionType.toLowerCase().includes("admon"))
-      return "/account-maintenance/admon";
+      return "/account-maintenance/admor";
     return "/account-maintenance/kyc-update";
   }
   return "/";
@@ -87,7 +87,9 @@ export default function ApprovalsPage() {
   const [search, setSearch] = useState(refParam ?? "");
   const [moduleFilter, setModuleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("PENDING");
-  const [queueTab, setQueueTab] = useState(refParam || tabParam === "global" ? "global" : "my-desk");
+  const [queueTab, setQueueTab] = useState(
+    refParam || tabParam === "global" ? "global" : "my-desk",
+  );
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewItem, setReviewItem] = useState<ApprovalItem | null>(null);
   const [reviewComment, setReviewComment] = useState("");

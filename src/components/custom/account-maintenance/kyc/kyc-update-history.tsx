@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -16,14 +17,84 @@ import { useGetAccountKycHistory } from "@/hooks/useAccountMaintenance";
 import { EntitlementTableSkeleton } from "@/components/custom/rights-issue/loaders";
 import { DataErrorState } from "@/components/custom/ipo/loaders";
 import { formatDate } from "@/lib/utils/format";
-import StatusBadge from "../status-badge";
 import { ChevronDown, ChevronRight, Download, FileText } from "lucide-react";
 import {
   DocumentViewer,
   parseDocumentUrls,
 } from "@/components/custom/document-viewer";
-import { DateRangePicker } from "../date-range-picker";
+import { DateRangePicker } from "../../date-range-picker";
 import { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
+
+// ── Minimal Excel export (CSV-based) ────────────────────────────────────────
+function mapStatus(status: string): { label: string; color: string } {
+  switch (status?.toUpperCase()) {
+    case "PENDING_AUTHORISATION":
+    case "PENDING":
+      return {
+        label: "Pending Authorisation",
+        color: "bg-amber-100 text-amber-700",
+      };
+    case "PENDING_ICU":
+      return {
+        label: "Pending ICU Approval",
+        color: "bg-blue-100 text-blue-700",
+      };
+    case "APPROVED":
+      return { label: "Approved", color: "bg-green-100 text-green-700" };
+    case "REJECTED":
+      return { label: "Rejected", color: "bg-red-100 text-red-700" };
+    default:
+      return { label: status || "—", color: "bg-muted text-muted-foreground" };
+  }
+}
+
+function changeTypeBadge(changeType: string) {
+  const base = "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded h-5";
+  switch (changeType?.toUpperCase()) {
+    case "BANK":
+      return (
+        <Badge className={cn(base, "bg-red-100 text-red-700 border-red-200")}>
+          HIGH RISK
+        </Badge>
+      );
+    case "PERSONAL":
+    case "CONTACT":
+      return (
+        <Badge className={cn(base, "bg-muted text-muted-foreground border")}>
+          {changeType}
+        </Badge>
+      );
+    case "SIGNATURE":
+      return (
+        <Badge
+          className={cn(
+            base,
+            "bg-purple-100 text-purple-700 border-purple-200",
+          )}
+        >
+          SIGNATURE
+        </Badge>
+      );
+    case "DOCUMENT":
+      return (
+        <Badge
+          className={cn(
+            base,
+            "bg-indigo-100 text-indigo-700 border-indigo-200",
+          )}
+        >
+          DOCUMENT
+        </Badge>
+      );
+    default:
+      return (
+        <Badge className={cn(base, "bg-muted text-muted-foreground border")}>
+          {changeType || "—"}
+        </Badge>
+      );
+  }
+}
 
 // ── Minimal Excel export (CSV-based) ────────────────────────────────────────
 function exportToCSV(rows: KycChange[], filename: string) {
@@ -211,24 +282,18 @@ export default function KYCHistory({
               <tr>
                 <th className="p-3 w-6" />
                 <th className="p-3">DATE</th>
-                <th className="p-3">FIELD CHANGED</th>
-                <th className="p-3">OLD VALUE</th>
-                <th className="p-3">NEW VALUE</th>
-                <th className="p-3">CHANGED BY</th>
+                <th className="p-3">CHANGE</th>
+                <th className="p-3">FIELD</th>
                 <th className="p-3">STATUS</th>
                 <th className="p-3">SUBMITTED BY</th>
-                <th className="p-3">AUTHORISED BY</th>
-                <th className="p-3">ICU APPROVED BY</th>
-                <th className="p-3">DECIDED AT</th>
-                <th className="p-3">REASON</th>
-                <th className="p-3">REJECTION REASON</th>
+                <th className="p-3 w-20">TYPE</th>
               </tr>
             </thead>
             <tbody className="divide-y text-[13px]">
               {historyChanges.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={7}
                     className="p-8 text-center text-muted-foreground"
                   >
                     No history found for this account
@@ -237,10 +302,10 @@ export default function KYCHistory({
               ) : (
                 historyChanges.map((row) => {
                   const isExpanded = expandedIds.has(row.id);
+                  const statusInfo = mapStatus(row.status);
                   return (
                     <React.Fragment key={row.id}>
                       <tr
-                        key={row.id}
                         className="mrpsl-table-row cursor-pointer"
                         onClick={() => toggleExpand(row.id)}
                       >
@@ -254,77 +319,100 @@ export default function KYCHistory({
                         <td className="p-3 text-muted-foreground whitespace-nowrap">
                           {formatDate(row.createdAt)}
                         </td>
+                        <td className="p-3 font-mono text-[12px]">
+                          <span className="text-muted-foreground">
+                            {row.oldValue || "—"}
+                          </span>
+                          {" → "}
+                          <span className="text-primary font-semibold">
+                            {row.newValue}
+                          </span>
+                        </td>
                         <td className="p-3 font-medium">{row.fieldChanged}</td>
-                        <td className="p-3 text-muted-foreground font-mono text-[12px]">
-                          {row.oldValue || "—"}
+                        <td className="p-3">
+                          <Badge
+                            className={cn(
+                              "text-[10px] h-5 px-1.5 font-bold uppercase border-0",
+                              statusInfo.color,
+                            )}
+                          >
+                            {statusInfo.label}
+                          </Badge>
                         </td>
-                        <td className="p-3 font-mono text-[12px] text-primary font-semibold">
-                          {row.newValue}
-                        </td>
-
                         <td className="p-3 text-muted-foreground">
                           {row.initiatorName}
                         </td>
                         <td className="p-3">
-                          <StatusBadge status={row.status} />
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {row.authorisedBy || "—"}
-                        </td>
-
-                        <td className="p-3 text-muted-foreground">
-                          {row?.icuApprovedBy || "—"}
-                        </td>
-                        <td className="p-3 text-muted-foreground">
-                          {formatDate(row?.decidedAt) || "—"}
-                        </td>
-                        <td className="p-3 text-muted-foreground max-w-40 truncate">
-                          {row.reason || "—"}
-                        </td>
-                        <td className="p-3 text-muted-foreground max-w-40 truncate">
-                          {row.rejectionComment ? (
-                            <span
-                              className="text-red-600 italic"
-                              title={row.rejectionComment}
-                            >
-                              {row.rejectionComment}
-                            </span>
-                          ) : (
-                            "—"
-                          )}
+                          {changeTypeBadge(row.changeType)}
                         </td>
                       </tr>
 
                       {/* ── Expanded Detail Row ── */}
                       {isExpanded && (
-                        <tr
-                          key={`${row.id}-expanded`}
-                          className="bg-muted/10 border-b"
-                        >
-                          <td colSpan={10} className="px-8 py-4">
+                        <tr className="bg-muted/10 border-b">
+                          <td colSpan={7} className="px-8 py-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                              {/* Submission Reason */}
+                              {/* Reason */}
                               <div>
-                                <div className="mrpsl-section-title mb-1">
+                                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
                                   Reason for Change
                                 </div>
-                                <p className="text-muted-foreground italic">
+                                <p className="text-muted-foreground italic text-[13px]">
                                   {row?.reason || "No reason recorded."}
                                 </p>
                               </div>
 
+                              {/* Approval trail */}
+                              <div className="space-y-2">
+                                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1">
+                                  Approval Trail
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[13px]">
+                                  <span className="text-muted-foreground">
+                                    Authorised By:
+                                  </span>
+                                  <span>{row.authorisedBy || "—"}</span>
+                                  <span className="text-muted-foreground">
+                                    Authorised At:
+                                  </span>
+                                  <span>
+                                    {formatDate(row.decidedAt) || "—"}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    ICU Approved By:
+                                  </span>
+                                  <span>{row.icuApprovedBy || "—"}</span>
+                                  <span className="text-muted-foreground">
+                                    ICU Approved At:
+                                  </span>
+                                  <span>
+                                    {formatDate(row.decidedAt) || "—"}
+                                  </span>
+                                </div>
+                                {row.rejectionComment && (
+                                  <div className="mt-2">
+                                    <span className="text-[11px] font-bold uppercase tracking-wide text-red-600">
+                                      Rejection Reason
+                                    </span>
+                                    <p className="text-red-600 italic text-[13px] mt-0.5">
+                                      {row.rejectionComment}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
                               {/* Supporting Documents */}
                               <div>
-                                <div className="mrpsl-section-title mb-2">
+                                <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-2">
                                   Supporting Documents
                                 </div>
-                                {row?.supportingDocuments?.length === 0 ? (
+                                {!row?.supportingDocuments?.length ? (
                                   <p className="text-muted-foreground text-xs">
                                     No documents attached.
                                   </p>
                                 ) : (
                                   <div className="flex flex-wrap gap-2">
-                                    {row?.supportingDocuments?.map((doc, i) => (
+                                    {row.supportingDocuments.map((doc, i) => (
                                       <button
                                         key={i}
                                         onClick={(e) => {

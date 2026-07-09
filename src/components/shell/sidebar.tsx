@@ -98,7 +98,7 @@ const OPERATIONS_GROUPS = [
       },
       { label: "KYC Update", href: "/account-maintenance/kyc-update" },
       { label: "KYC Approvals", href: "/account-maintenance/kyc-approvals" },
-      { label: "Administration (ADMON)", href: "/account-maintenance/admon" },
+      { label: "Administration (ADMOR)", href: "/account-maintenance/admor" },
     ],
   },
   {
@@ -170,16 +170,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       <div
         className={cn(
           "fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity duration-300",
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          open
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none",
         )}
         onClick={onClose}
       />
 
-      <div className={cn(
-        "w-72 h-screen border-r bg-background flex flex-col z-50 fixed left-0 top-0 transition-transform duration-300 ease-in-out",
-        "lg:translate-x-0",
-        open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-      )}>
+      <div
+        className={cn(
+          "w-72 h-screen border-r bg-background flex flex-col z-50 fixed left-0 top-0 transition-transform duration-300 ease-in-out",
+          "lg:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        )}
+      >
         {/* Branding */}
         <div className="h-14.25 px-6 flex items-center border-b border-border/60 shrink-0">
           <Link href="/" className="flex items-center">

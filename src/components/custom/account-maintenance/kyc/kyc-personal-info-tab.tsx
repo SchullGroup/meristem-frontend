@@ -2,16 +2,12 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { EditableField } from "@/components/custom/account-maintenance/editable-field";
-import { MultiDocUpload } from "@/components/custom/multi-doc-upload";
 import { ShareholderAccount, KycChange } from "@/types/account-maintenance";
+import { Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import { fullName } from "@/lib/utils/shareholder";
 
@@ -25,8 +21,8 @@ interface KycPersonalInfoTabProps {
     field: string,
     newValue: string,
     reason: string,
+    evidence?: { name: string; url: string }[],
   ) => Promise<void>;
-  onSupportingDocsChange: (docs: { name: string; url: string }[]) => void;
 }
 
 export function KycPersonalInfoTab({
@@ -34,18 +30,45 @@ export function KycPersonalInfoTab({
   pendingChanges,
   isSubmitting,
   onFieldSubmit,
-  onSupportingDocsChange,
 }: KycPersonalInfoTabProps) {
-  const [nameChangeType, setNameChangeType] = useState("");
+  const submit =
+    (field: string) =>
+    (
+      newValue: string,
+      reason: string,
+      evidence?: { name: string; url: string }[],
+    ) =>
+      onFieldSubmit(
+        selectedShareholder.accountNumber,
+        "PERSONAL",
+        field,
+        newValue,
+        reason,
+        evidence,
+      );
 
-  const submit = (field: string, newValue: string, reason: string) =>
-    onFieldSubmit(
-      selectedShareholder.accountNumber,
-      "PERSONAL",
-      field,
-      newValue,
-      reason,
-    );
+  // ── Tax Exempt toggle ──────────────────────────────────────────────────
+  const [taxReason, setTaxReason] = useState("");
+  const [taxSubmitting, setTaxSubmitting] = useState(false);
+
+  const handleTaxToggle = async (checked: boolean) => {
+    if (!taxReason.trim()) return;
+    setTaxSubmitting(true);
+    try {
+      await onFieldSubmit(
+        selectedShareholder.accountNumber,
+        "PERSONAL",
+        "noTax",
+        String(checked),
+        `Tax exempt ${checked ? "enabled" : "disabled"}: ${taxReason.trim()}`,
+      );
+      setTaxReason("");
+    } catch {
+      // error toast by parent
+    } finally {
+      setTaxSubmitting(false);
+    }
+  };
 
   return (
     <Card className="mrpsl-card p-6 space-y-1">
@@ -64,29 +87,7 @@ export function KycPersonalInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "holderName") ?? null
         }
-        extraInput={
-          <div className="flex gap-2 mb-2">
-            <Select
-              value={nameChangeType}
-              onValueChange={(v) => setNameChangeType(v || "")}
-            >
-              <SelectTrigger className="w-32 h-8 text-[13px]">
-                <SelectValue placeholder="Change type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="spell">Correction</SelectItem>
-                <SelectItem value="change">Change</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        }
-        onSubmit={(newValue, reason) =>
-          submit(
-            "holderName",
-            newValue,
-            `${nameChangeType || "change"}: ${reason}`,
-          )
-        }
+        onSubmit={submit("holderName")}
         isSubmitting={isSubmitting}
       />
 
@@ -103,7 +104,7 @@ export function KycPersonalInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "holderType") ?? null
         }
-        onSubmit={(newValue, reason) => submit("holderType", newValue, reason)}
+        onSubmit={submit("holderType")}
         isSubmitting={isSubmitting}
       />
 
@@ -114,7 +115,7 @@ export function KycPersonalInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "dob") ?? null
         }
-        onSubmit={(newValue, reason) => submit("dob", newValue, reason)}
+        onSubmit={submit("dob")}
         isSubmitting={isSubmitting}
       />
 
@@ -130,7 +131,7 @@ export function KycPersonalInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "gender") ?? null
         }
-        onSubmit={(newValue, reason) => submit("gender", newValue, reason)}
+        onSubmit={submit("gender")}
         isSubmitting={isSubmitting}
       />
 
@@ -141,7 +142,7 @@ export function KycPersonalInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "nationality") ?? null
         }
-        onSubmit={(newValue, reason) => submit("nationality", newValue, reason)}
+        onSubmit={submit("nationality")}
         isSubmitting={isSubmitting}
       />
 
@@ -152,7 +153,7 @@ export function KycPersonalInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "state") ?? null
         }
-        onSubmit={(newValue, reason) => submit("state", newValue, reason)}
+        onSubmit={submit("state")}
         isSubmitting={isSubmitting}
       />
 
@@ -165,7 +166,7 @@ export function KycPersonalInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "nin") ?? null
         }
-        onSubmit={(newValue, reason) => submit("nin", newValue, reason)}
+        onSubmit={submit("nin")}
         isSubmitting={isSubmitting}
       />
 
@@ -176,12 +177,46 @@ export function KycPersonalInfoTab({
         pendingChange={
           pendingChanges.find((c) => c.fieldChanged === "tin") ?? null
         }
-        onSubmit={(newValue, reason) => submit("tin", newValue, reason)}
+        onSubmit={submit("tin")}
         isSubmitting={isSubmitting}
       />
 
-      <div className="mt-6">
-        <MultiDocUpload onChange={onSupportingDocsChange} />
+      {/* ── Tax Exempt ── */}
+      <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-start py-3 border-b border-border/20">
+        <span className="text-sm font-medium text-muted-foreground pt-1">
+          Tax Exempt
+        </span>
+        <div className="flex items-center gap-3 pt-1">
+          <Switch
+            checked={selectedShareholder?.noTax ?? false}
+            onCheckedChange={(checked) => {
+              if (!taxReason.trim()) return;
+              handleTaxToggle(checked);
+            }}
+          />
+          <span className="text-sm">
+            {selectedShareholder?.noTax ? "Yes" : "No"}
+          </span>
+        </div>
+        <div className="space-y-2">
+          <Input
+            className="mrpsl-input text-sm"
+            placeholder="Reason for tax status change (required)"
+            value={taxReason}
+            onChange={(e) => setTaxReason(e.target.value)}
+          />
+          <Button
+            size="sm"
+            onClick={() => handleTaxToggle(!selectedShareholder?.noTax)}
+            disabled={!taxReason.trim() || taxSubmitting}
+            className="h-7 text-[12px]"
+          >
+            {taxSubmitting && (
+              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+            )}
+            Submit for approval
+          </Button>
+        </div>
       </div>
     </Card>
   );

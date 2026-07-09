@@ -36,6 +36,7 @@ import {
   verifyHolderKycDocument,
   rejectHolderKycDocument,
   getHolderSignature,
+  getHolderSignatureArchive,
 } from "@/actions/accountMaintenanceActions";
 import { ApiResponse } from "@/types";
 import {
@@ -478,6 +479,32 @@ export const useGetHolderSignature = (
   useQuery({
     queryKey: ["holder-signature", chn, registerSymbol],
     queryFn: () => getHolderSignature(chn, registerSymbol),
+    enabled: !!chn && !!registerSymbol,
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+
+export const useGetHolderSignatureArchive = (
+  chn: string,
+  registerSymbol: string,
+  options?: Omit<
+    UseQueryOptions<{
+      data: {
+        id: string;
+        signatureUrl: string;
+        status: "ACTIVE" | "ARCHIVED";
+        uploadedAt: string;
+        uploadedBy: string;
+        approvedAt?: string;
+        approvedBy?: string;
+      }[];
+    }>,
+    "queryKey" | "queryFn"
+  >,
+) =>
+  useQuery({
+    queryKey: ["holder-signature-archive", chn, registerSymbol],
+    queryFn: () => getHolderSignatureArchive(chn, registerSymbol),
     enabled: !!chn && !!registerSymbol,
     refetchOnWindowFocus: false,
     ...options,
