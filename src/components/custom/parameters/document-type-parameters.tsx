@@ -36,7 +36,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 const REQUIRED_FOR_OPTIONS = [
   "KYC",
   "Demat",
-  "Admon",
+  "ADMOR",
   "Caution",
   "Transfer",
   "Rights Issue",
