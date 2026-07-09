@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReturnMoneyQueue } from "@/components/custom/return-money/return-money-queue";
 import { RefundBatchProcessing } from "@/components/custom/return-money/refund-batch-processing";
 import { RefundReconciliation } from "@/components/custom/return-money/refund-reconciliation";
+import { AgentCommissionPanel } from "@/components/custom/return-money/agent-commission-panel";
 import { Button } from "@/components/ui/button";
 import { CalendarRange, FileSpreadsheet, Printer } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -17,12 +18,13 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const TABS = ["queue", "batch", "reconciliation", "reports"] as const;
+const TABS = ["queue", "batch", "commission", "reconciliation", "reports"] as const;
 type TabValue = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabValue, string> = {
   queue: "Return Money Queue",
   batch: "Refund Batch Processing",
+  commission: "Agent Commission",
   reconciliation: "Refund Reconciliation",
   reports: "Reports",
 };
@@ -39,7 +41,6 @@ export default function ReturnMoneyPage() {
 
   // Reports tab state
   const [selectedReport, setSelectedReport] = useState<string>(REPORT_TYPES[0]);
-  const [filterOfferType, setFilterOfferType] = useState("");
   const [filterRegister, setFilterRegister] = useState("");
 
   return (
@@ -47,7 +48,8 @@ export default function ReturnMoneyPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Return Money Administration</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Track and process refunds arising from over-subscription or rejected applications across all offer types.
+          Track and process refunds arising from over-subscription or rejected applications from
+          IPO / Public Offers, including agent commission calculation.
         </p>
       </div>
 
@@ -56,19 +58,17 @@ export default function ReturnMoneyPage() {
         onValueChange={(v) => setActiveTab((v as TabValue) || "queue")}
         className="w-full"
       >
-        <div className="overflow-x-auto no-scrollbar pb-1">
-          <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5 flex-nowrap">
-            {TABS.map((tab) => (
-              <TabsTrigger
-                key={tab}
-                value={tab}
-                className="rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-              >
-                {TAB_LABELS[tab]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap">
+          {TABS.map((tab) => (
+            <TabsTrigger
+              key={tab}
+              value={tab}
+              className="rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+            >
+              {TAB_LABELS[tab]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
         <div className="mt-6">
           <TabsContent value="queue">
@@ -79,12 +79,15 @@ export default function ReturnMoneyPage() {
             <RefundBatchProcessing />
           </TabsContent>
 
+          <TabsContent value="commission">
+            <AgentCommissionPanel />
+          </TabsContent>
+
           <TabsContent value="reconciliation">
             <RefundReconciliation />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4">
-            {/* Report type pills */}
             <Card className="mrpsl-card">
               <div className="p-4 border-b bg-muted/20">
                 <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -108,20 +111,8 @@ export default function ReturnMoneyPage() {
               </div>
             </Card>
 
-            {/* Filters */}
             <Card className="mrpsl-card p-5">
               <div className="flex items-center gap-3 flex-wrap">
-                <Select value={filterOfferType} onValueChange={(v) => setFilterOfferType(v ?? "")}>
-                  <SelectTrigger className="mrpsl-input h-9 w-48">
-                    <SelectValue placeholder="All Offer Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Offer Types</SelectItem>
-                    <SelectItem value="IPO">IPO</SelectItem>
-                    <SelectItem value="rights">Rights Issue</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 <Select value={filterRegister} onValueChange={(v) => setFilterRegister(v ?? "")}>
                   <SelectTrigger className="mrpsl-input h-9 w-48">
                     <SelectValue placeholder="All Registers" />
@@ -129,16 +120,13 @@ export default function ReturnMoneyPage() {
                   <SelectContent>
                     <SelectItem value="">All Registers</SelectItem>
                     <SelectItem value="ACCESS">ACCESS</SelectItem>
-                    <SelectItem value="FIDELITY">FIDELITY</SelectItem>
+                    <SelectItem value="TRANSCORP">TRANSCORP</SelectItem>
                   </SelectContent>
                 </Select>
 
                 <div className="flex-1" />
 
-                <Button
-                  size="sm"
-                  onClick={() => toast.info(`${selectedReport} report coming soon`)}
-                >
+                <Button size="sm" onClick={() => toast.info(`${selectedReport} report coming soon`)}>
                   <CalendarRange className="h-3.5 w-3.5 mr-1.5" />
                   Generate Report
                 </Button>
@@ -153,7 +141,6 @@ export default function ReturnMoneyPage() {
               </div>
             </Card>
 
-            {/* Empty state — reports not yet connected */}
             <div className="flex flex-col items-center justify-center py-20 bg-background border rounded-2xl border-dashed text-muted-foreground text-center">
               <CalendarRange className="h-10 w-10 text-muted-foreground/35 mb-3" />
               <h3 className="font-semibold text-sm text-foreground">Ready to generate</h3>

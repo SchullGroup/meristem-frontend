@@ -22,6 +22,7 @@ interface Agent {
   noOfForms: number;
   totalUnits: number;
   totalAmountPaid: number;
+  commissionRate: number;
 }
 
 const MOCK_AGENTS: Agent[] = [
@@ -35,6 +36,7 @@ const MOCK_AGENTS: Agent[] = [
     noOfForms: 12450,
     totalUnits: 45_200_000,
     totalAmountPaid: 1_017_000_000,
+    commissionRate: 0.75,
   },
   {
     id: "2",
@@ -46,6 +48,7 @@ const MOCK_AGENTS: Agent[] = [
     noOfForms: 8320,
     totalUnits: 30_500_000,
     totalAmountPaid: 686_250_000,
+    commissionRate: 0.75,
   },
   {
     id: "3",
@@ -57,6 +60,7 @@ const MOCK_AGENTS: Agent[] = [
     noOfForms: 6740,
     totalUnits: 22_100_000,
     totalAmountPaid: 497_250_000,
+    commissionRate: 0.75,
   },
 ];
 
@@ -71,6 +75,7 @@ const MOCK_STOCKBROKERS: Agent[] = [
     noOfForms: 3200,
     totalUnits: 11_500_000,
     totalAmountPaid: 258_750_000,
+    commissionRate: 1.0,
   },
   {
     id: "s2",
@@ -82,6 +87,7 @@ const MOCK_STOCKBROKERS: Agent[] = [
     noOfForms: 2800,
     totalUnits: 9_800_000,
     totalAmountPaid: 220_500_000,
+    commissionRate: 1.0,
   },
   {
     id: "s3",
@@ -93,6 +99,7 @@ const MOCK_STOCKBROKERS: Agent[] = [
     noOfForms: 4100,
     totalUnits: 15_200_000,
     totalAmountPaid: 342_000_000,
+    commissionRate: 1.0,
   },
 ];
 
@@ -111,6 +118,7 @@ const EMPTY_AGENT: Omit<Agent, "id"> = {
   noOfForms: 0,
   totalUnits: 0,
   totalAmountPaid: 0,
+  commissionRate: 0,
 };
 
 function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[]; agentType: AgentType; addLabel: string }) {
@@ -325,6 +333,25 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
                     value={form.totalAmountPaid || ""}
                     onChange={(e) => set("totalAmountPaid", Number(e.target.value))}
                   />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Commission Rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    className="mrpsl-input h-9 w-full"
+                    placeholder="0.00"
+                    value={form.commissionRate || ""}
+                    onChange={(e) => set("commissionRate", Number(e.target.value))}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Used for agent commission calculation in Return Money. Leave 0 if not applicable.
+                  </p>
                 </div>
               </div>
             </div>

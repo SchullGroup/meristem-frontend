@@ -12,6 +12,7 @@ import PendingApprovalIPO from "@/components/custom/ipo/pending-approval";
 import IcuApprovalIPO from "@/components/custom/ipo/icu-approval";
 import ICULodgment from "@/components/custom/ipo/lodgment";
 import IPOReports from "@/components/custom/ipo/ipo-reports";
+import { OfferReversalPanel } from "@/components/custom/offer-administration/offer-reversal-panel";
 
 const TABS = [
   "upload",
@@ -22,6 +23,7 @@ const TABS = [
   "icu",
   "lodgement",
   "reversals",
+  "reversal",
   "dispatch",
   "reports",
 ] as const;
@@ -37,6 +39,7 @@ const TAB_LABELS: Record<TabValue, string> = {
   icu: "ICU Approval",
   lodgement: "CSCS Lodgement",
   reversals: "CSCS Reversals & Error Resolution",
+  reversal: "Reversal",
   dispatch: "Dispatch & Notifications",
   reports: "Reports",
 };
@@ -104,6 +107,15 @@ export default function IPOPage() {
 
           <TabsContent value="reversals">
             <CSCSReversalsWorkspace />
+          </TabsContent>
+
+          <TabsContent value="reversal">
+            <OfferReversalPanel
+              offerType="ipo"
+              offerName="Access Holdings Public Offer 2024"
+              totalUnitsAllotted={97_800_000}
+              totalRefundValue={220_312_500}
+            />
           </TabsContent>
 
           <TabsContent value="dispatch">

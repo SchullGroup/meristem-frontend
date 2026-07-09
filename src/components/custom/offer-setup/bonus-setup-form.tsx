@@ -28,6 +28,8 @@ interface BonusIssue {
   allotmentDate: Date | null;
   roundingRule: string;
   narrative: string;
+  eventId: string;
+  registerAccountNumber: string;
   status: BonusStatus;
 }
 
@@ -42,6 +44,8 @@ const MOCK_BONUSES: BonusIssue[] = [
     allotmentDate: new Date("2024-08-01"),
     roundingRule: "Round Down",
     narrative: "One bonus share for every five held at qualification date.",
+    eventId: "BNS-2024-001",
+    registerAccountNumber: "REG-ZB-001",
     status: "ICU_APPROVED",
   },
 ];
@@ -82,6 +86,8 @@ const EMPTY_FORM: FormState = {
   allotmentDate: null,
   roundingRule: "Round Down",
   narrative: "",
+  eventId: "",
+  registerAccountNumber: "",
 };
 
 export function BonusSetupForm() {
@@ -282,6 +288,27 @@ export function BonusSetupForm() {
                   <option key={rule} value={rule}>{rule}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="mrpsl-label">Event ID</label>
+                <input
+                  className="mrpsl-input h-9 w-full font-mono"
+                  placeholder="e.g. BNS-2024-001"
+                  value={form.eventId}
+                  onChange={(e) => set("eventId", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="mrpsl-label">Register Account Number</label>
+                <input
+                  className="mrpsl-input h-9 w-full font-mono"
+                  placeholder="e.g. REG-ZB-001"
+                  value={form.registerAccountNumber}
+                  onChange={(e) => set("registerAccountNumber", e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-1">

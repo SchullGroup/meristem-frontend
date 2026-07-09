@@ -18,6 +18,8 @@ import RightsIssuePendingApproval from "@/components/custom/rights-issue/pending
 import RightsIssueICUApproval from "@/components/custom/rights-issue/icu-approval";
 import RightsIssueTradedLodgment from "@/components/custom/rights-issue/trade-lodgment";
 import RightsIssueReports from "@/components/custom/rights-issue/rights-reports";
+import { RightsRefundProcessing } from "@/components/custom/rights-issue/rights-refund-processing";
+import { OfferReversalPanel } from "@/components/custom/offer-administration/offer-reversal-panel";
 
 const TABS = [
   "provisional",
@@ -28,6 +30,8 @@ const TABS = [
   "icu",
   "lodgement",
   "reversals",
+  "refund",
+  "reversal",
   "dispatch",
   "reports",
 ] as const;
@@ -43,6 +47,8 @@ const TAB_LABELS: Record<TabValue, string> = {
   icu: "ICU Approval",
   lodgement: "CSCS Lodgement",
   reversals: "CSCS Reversals & Error Resolution",
+  refund: "Rights Refund Processing",
+  reversal: "Reversal",
   dispatch: "Dispatch & Notifications",
   reports: "Reports",
 };
@@ -122,6 +128,19 @@ export default function RightsIssuePage() {
 
           <TabsContent value="reversals">
             <CSCSReversalsWorkspace />
+          </TabsContent>
+
+          <TabsContent value="refund">
+            <RightsRefundProcessing />
+          </TabsContent>
+
+          <TabsContent value="reversal">
+            <OfferReversalPanel
+              offerType="rights"
+              offerName="Fidelity Bank PLC Rights Issue 2024"
+              totalUnitsAllotted={103_226}
+              totalRefundValue={472_613}
+            />
           </TabsContent>
 
           <TabsContent value="dispatch">

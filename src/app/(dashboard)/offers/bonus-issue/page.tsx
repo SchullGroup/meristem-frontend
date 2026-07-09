@@ -23,6 +23,7 @@ import ICULodgment from "@/components/custom/ipo/lodgment";
 import { CSCSReversalsWorkspace } from "@/components/custom/offer-administration/cscs-reversals-workspace";
 import { ProvisionalAllotment } from "@/components/custom/rights-issue/provisional-allotment";
 import { DispatchNotificationPanel } from "@/components/custom/offer-administration/dispatch-notification-panel";
+import { OfferReversalPanel } from "@/components/custom/offer-administration/offer-reversal-panel";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -1290,6 +1291,7 @@ export default function BonusIssuePage() {
             ["icu", "ICU Approval"],
             ["lodgement", "CSCS Lodgement"],
             ["reversals", "CSCS Reversals & Error Resolution"],
+            ["reversal", "Reversal"],
             ["allotment", "Notification & Prelist Dispatch"],
             ["reports", "Reports"],
           ].map(([v, label]) => (
@@ -2011,6 +2013,14 @@ export default function BonusIssuePage() {
           {/* ── CSCS Reversals & Error Resolution ── */}
           <TabsContent value="reversals">
             <CSCSReversalsWorkspace />
+          </TabsContent>
+
+          <TabsContent value="reversal">
+            <OfferReversalPanel
+              offerType="bonus"
+              offerName="Zenith Bank Bonus Issue 2024"
+              totalUnitsAllotted={204_330}
+            />
           </TabsContent>
 
           {/* ── Notification & Prelist Dispatch ── */}

@@ -27,6 +27,10 @@ interface RightsIssue {
   qualificationDate: Date | null;
   openingDate: Date | null;
   closingDate: Date | null;
+  secApprovalDate: Date | null;
+  eventId: string;
+  tradedRightsSymbol: string;
+  renounciationName: string;
   receivingBanks: string;
   narration: string;
   status: OfferStatus;
@@ -42,6 +46,10 @@ const MOCK_RIGHTS: RightsIssue[] = [
     qualificationDate: new Date("2024-07-31"),
     openingDate: new Date("2024-08-12"),
     closingDate: new Date("2024-08-30"),
+    secApprovalDate: new Date("2024-07-15"),
+    eventId: "RTS-2024-001",
+    tradedRightsSymbol: "FIDBNK-RT",
+    renounciationName: "Fidelity Bank Plc Rights Issue 2024",
     receivingBanks: "Fidelity Bank, Access Bank",
     narration: "Rights Issue at ₦9.25 per share.",
     status: "CLOSED",
@@ -73,6 +81,10 @@ const EMPTY_FORM: FormState = {
   qualificationDate: null,
   openingDate: null,
   closingDate: null,
+  secApprovalDate: null,
+  eventId: "",
+  tradedRightsSymbol: "",
+  renounciationName: "",
   receivingBanks: "",
   narration: "",
 };
@@ -160,6 +172,7 @@ export function RightsSetupForm() {
                     <th className="text-left px-4 py-3 font-medium">Qual. Date</th>
                     <th className="text-left px-4 py-3 font-medium">Opens</th>
                     <th className="text-left px-4 py-3 font-medium">Closes</th>
+                    <th className="text-left px-4 py-3 font-medium">Event ID</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
                     <th className="text-right px-4 py-3 font-medium">Actions</th>
                   </tr>
@@ -183,6 +196,9 @@ export function RightsSetupForm() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {issue.closingDate ? format(issue.closingDate, "dd MMM yyyy") : "—"}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                        {issue.eventId || "—"}
                       </td>
                       <td className="px-4 py-3">
                         <Badge className={`border-0 text-[12px] ${STATUS_MAP[issue.status]}`}>
@@ -300,6 +316,43 @@ export function RightsSetupForm() {
                 placeholder="e.g. Fidelity Bank, Access Bank"
                 value={form.receivingBanks}
                 onChange={(e) => set("receivingBanks", e.target.value)}
+              />
+            </div>
+
+            <DateInput
+              label="SEC Approval Date"
+              date={form.secApprovalDate}
+              setDate={(d) => set("secApprovalDate", d)}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="mrpsl-label">Event ID</label>
+                <input
+                  className="mrpsl-input h-9 w-full font-mono"
+                  placeholder="e.g. RTS-2024-001"
+                  value={form.eventId}
+                  onChange={(e) => set("eventId", e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="mrpsl-label">Traded Rights Symbol</label>
+                <input
+                  className="mrpsl-input h-9 w-full font-mono"
+                  placeholder="e.g. FIDBNK-RT"
+                  value={form.tradedRightsSymbol}
+                  onChange={(e) => set("tradedRightsSymbol", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="mrpsl-label">Renunciation / Name of Right to be Traded</label>
+              <input
+                className="mrpsl-input h-9 w-full"
+                placeholder="e.g. Fidelity Bank Plc Rights Issue 2024"
+                value={form.renounciationName}
+                onChange={(e) => set("renounciationName", e.target.value)}
               />
             </div>
 
