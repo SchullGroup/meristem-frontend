@@ -57,7 +57,7 @@ export const INIT_DOC_TYPES: DocTypeConfig[] = [
   {
     code: "DOC-4",
     name: "Court Order",
-    requiredFor: ["Admon", "Caution"],
+    requiredFor: ["ADMOR", "Caution"],
     fileTypes: ["PDF"],
     maxSizeMB: 10,
     active: true,
@@ -81,7 +81,7 @@ export const INIT_DOC_TYPES: DocTypeConfig[] = [
   {
     code: "DOC-7",
     name: "Probate / Letters of Administration",
-    requiredFor: ["Admon"],
+    requiredFor: ["ADMOR"],
     fileTypes: ["PDF"],
     maxSizeMB: 10,
     active: true,
@@ -89,7 +89,7 @@ export const INIT_DOC_TYPES: DocTypeConfig[] = [
   {
     code: "DOC-8",
     name: "Corporate Resolution",
-    requiredFor: ["KYC", "Admon"],
+    requiredFor: ["KYC", "ADMOR"],
     fileTypes: ["PDF", "DOCX"],
     maxSizeMB: 10,
     active: true,

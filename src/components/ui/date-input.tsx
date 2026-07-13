@@ -25,10 +25,12 @@ export default function DateInput({
           <Button
             type="button"
             variant="outline"
-            className="w-full mrpsl-input justify-start text-left font-normal"
+            className="w-full mrpsl-input justify-start text-left font-normal overflow-hidden"
           >
-            {date ? format(date, "PPP") : "Pick a date"}
-            <CalendarIcon className="ml-auto h-4 w-4 opacity-40" />
+            <span className="flex-1 truncate">
+              {date ? format(date, "PPP") : "Pick a date"}
+            </span>
+            <CalendarIcon className="ml-2 h-4 w-4 opacity-40 shrink-0" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0">

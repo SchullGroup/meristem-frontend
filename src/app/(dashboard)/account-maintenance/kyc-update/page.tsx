@@ -25,12 +25,12 @@ import {
 } from "@/hooks/useAccountMaintenance";
 import { Agent, GET_AGENTS } from "@/actions/agentAction";
 import { useQuery } from "@tanstack/react-query";
-import { KYCBulkUpload } from "@/components/custom/account-maintenance/kyc-bulk-upload";
-import KYCHistory from "@/components/custom/account-maintenance/kyc-update-history";
-import { KycPersonalInfoTab } from "@/components/custom/account-maintenance/kyc-personal-info-tab";
-import { KycContactInfoTab } from "@/components/custom/account-maintenance/kyc-contact-info-tab";
-import { KycBankDetailsTab } from "@/components/custom/account-maintenance/kyc-bank-details-tab";
-import { KycDocumentsTab } from "@/components/custom/account-maintenance/kyc-documents-tab";
+import { KYCBulkUpload } from "@/components/custom/account-maintenance/kyc/kyc-bulk-upload";
+import KYCHistory from "@/components/custom/account-maintenance/kyc/kyc-update-history";
+import { KycPersonalInfoTab } from "@/components/custom/account-maintenance/kyc/kyc-personal-info-tab";
+import { KycContactInfoTab } from "@/components/custom/account-maintenance/kyc/kyc-contact-info-tab";
+import { KycBankDetailsTab } from "@/components/custom/account-maintenance/kyc/kyc-bank-details-tab";
+import { KycDocumentsTab } from "@/components/custom/account-maintenance/kyc/kyc-documents-tab";
 import { useDebounce } from "@/hooks/useDebounce";
 import StatusBadge from "@/components/custom/status-badge";
 import { formatDate } from "@/lib/utils/format";
@@ -53,9 +53,6 @@ export default function KYCUpdatePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedShareholder, setSelectedShareholder] =
     useState<ShareholderAccount | null>(null);
-  const [supportingDocs, setSupportingDocs] = useState<
-    { name: string; url: string }[]
-  >([]);
 
   // ── Account search ──
   const debouncedSearch = useDebounce(searchTerm, 500);
@@ -95,6 +92,7 @@ export default function KYCUpdatePage() {
     field: string,
     newValue: string,
     reason: string,
+    evidence?: { name: string; url: string }[],
   ) => {
     if (!currentUser) return;
     try {
@@ -103,9 +101,7 @@ export default function KYCUpdatePage() {
         data: {
           changeType,
           changes: [{ field, newValue }],
-          supportingDocuments: supportingDocs.length
-            ? supportingDocs
-            : undefined,
+          supportingDocuments: evidence?.length ? evidence : undefined,
           initiatedBy: currentUser.email,
           reason,
         },
@@ -116,7 +112,7 @@ export default function KYCUpdatePage() {
       toast.error(
         err instanceof Error ? err.message : "Failed to submit change",
       );
-      throw err; // Re-throw so the EditableField knows it failed
+      throw err;
     }
   };
 
@@ -324,7 +320,6 @@ export default function KYCUpdatePage() {
                   pendingChanges={pendingChanges}
                   isSubmitting={createKycMutation.isPending}
                   onFieldSubmit={handleFieldSubmit}
-                  onSupportingDocsChange={setSupportingDocs}
                 />
               </TabsContent>
 
@@ -353,6 +348,9 @@ export default function KYCUpdatePage() {
                   registerSymbol={selectedShareholder.registerSymbol}
                   holderName={fullName(selectedShareholder)}
                   currentUserEmail={currentUser?.email ?? ""}
+                  onFieldSubmit={handleFieldSubmit}
+                  isSubmitting={createKycMutation.isPending}
+                  accountNumber={selectedShareholder.accountNumber}
                 />
               </TabsContent>
 

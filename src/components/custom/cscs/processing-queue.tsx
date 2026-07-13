@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { AlertTriangle, Search, MoreHorizontal, Eye, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Search,
+  MoreHorizontal,
+  Eye,
+  Loader2,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -45,23 +51,26 @@ export const ProcessingQueue = ({
   tab: string;
   setActiveTab: React.Dispatch<React.SetStateAction<string>>;
 }) => {
-  const { data: activeRegisters, isLoading: loadingRegisters } = useGetRegisters(
-    {
-      size: 100,
-      status: "ACTIVE",
-    },
-    {
-      enabled: tab === "queue",
-    },
-  );
+  const { data: activeRegisters, isLoading: loadingRegisters } =
+    useGetRegisters(
+      {
+        size: 100,
+        status: "ACTIVE",
+      },
+      {
+        enabled: tab === "queue",
+      },
+    );
 
   const [open, setOpen] = useState(false);
   const [queueRegister, setQueueRegister] = useState("");
   const [queueSearch, setQueueSearch] = useState("");
-  const [queueStatus, setQueueStatus] = useState<
-    "" | "PARTIAL" | "COMPLETE"
+  const [queueStatus, setQueueStatus] = useState<"" | "PARTIAL" | "COMPLETE">(
+    "",
+  );
+  const [queueDateFilter, setQueueDateFilter] = useState<
+    "TODAY" | "THIS_WEEK" | "THIS_MONTH" | ""
   >("");
-  const [queueDateFilter, setQueueDateFilter] = useState<"TODAY" | "THIS_WEEK" | "THIS_MONTH" | "">("");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
@@ -70,25 +79,20 @@ export const ProcessingQueue = ({
   const [selectedTransaction, setSelectedTransaction] =
     useState<SelectedProcess | null>(null);
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useGetCscsTransactionBatchLogs(
-    {
-      batchRef: debouncedSearch !== "" ? debouncedSearch : undefined,
-      register: queueRegister !== "" ? queueRegister : undefined,
-      status: queueStatus !== "" ? queueStatus : undefined,
-      dateFilter: queueDateFilter !== "" ? queueDateFilter : undefined,
-      page: currentPage,
-      size: pageSize,
-    },
-    {
-      enabled: tab === "queue",
-    },
-  );
+  const { data, isLoading, isError, error, refetch } =
+    useGetCscsTransactionBatchLogs(
+      {
+        batchRef: debouncedSearch !== "" ? debouncedSearch : undefined,
+        register: queueRegister !== "" ? queueRegister : undefined,
+        status: queueStatus !== "" ? queueStatus : undefined,
+        dateFilter: queueDateFilter !== "" ? queueDateFilter : undefined,
+        page: currentPage,
+        size: pageSize,
+      },
+      {
+        enabled: tab === "queue",
+      },
+    );
 
   const processingQueue = data?.data?.content || [];
   const totalPages = data?.data?.totalPages || 1;
@@ -107,7 +111,6 @@ export const ProcessingQueue = ({
     <>
       <div className="flex gap-2 items-center">
         <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search batch ref…"
             className="pl-9 mrpsl-input"
@@ -116,7 +119,7 @@ export const ProcessingQueue = ({
           />
         </div>
 
-        <div >
+        <div>
           <Select
             value={queueRegister}
             onValueChange={(v) => setQueueRegister(v || "")}
@@ -134,9 +137,10 @@ export const ProcessingQueue = ({
                   <SelectItem value="">All Registers</SelectItem>
                   {activeRegisters?.content?.map((r) => (
                     <SelectItem key={r.registerId} value={r.symbol}>
-                      <span className="font-bold">{r.registerName}</span>{" "}
-                      -{" "}
-                      <span className="text-xs translate-y-0.5">{r.symbol}</span>
+                      <span className="font-bold">{r.registerName}</span> -{" "}
+                      <span className="text-xs translate-y-0.5">
+                        {r.symbol}
+                      </span>
                     </SelectItem>
                   ))}
                 </>
@@ -144,7 +148,7 @@ export const ProcessingQueue = ({
             </SelectContent>
           </Select>
         </div>
-        <div >
+        <div>
           <Select
             value={queueStatus}
             onValueChange={(v) => setQueueStatus(v || "")}
@@ -159,7 +163,7 @@ export const ProcessingQueue = ({
             </SelectContent>
           </Select>
         </div>
-        <div >
+        <div>
           <Select
             value={queueDateFilter}
             onValueChange={(v) => setQueueDateFilter(v || "")}
@@ -208,79 +212,80 @@ export const ProcessingQueue = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {
-                  processingQueue?.length > 0 ? (
-                    processingQueue?.map((row) => (
-                      <tr key={row.batchRef} className="mrpsl-table-row">
-                        <td className="px-4 py-3 tabular-nums text-[13px] text-muted-foreground">
-                          {row.batchRef}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">
-                            {row.register}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground text-[13px]">
-                          {row.transactionDate ? formatDate(row.transactionDate) : "N/A"}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums font-semibold">
-                          {formatNumber(row?.total)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-green-600">
-                          {formatNumber(row.buys)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums text-red-600">
-                          {formatNumber(row.sells)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {formatNumber(row.flagged)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            className={`border-0 text-[13px] ${row.status === "COMPLETE" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-                          >
-                            {row.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                {processingQueue?.length > 0 ? (
+                  processingQueue?.map((row) => (
+                    <tr key={row.batchRef} className="mrpsl-table-row">
+                      <td className="px-4 py-3 tabular-nums text-[13px] text-muted-foreground">
+                        {row.batchRef}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">
+                          {row.register}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground text-[13px]">
+                        {row.transactionDate
+                          ? formatDate(row.transactionDate)
+                          : "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums font-semibold">
+                        {formatNumber(row?.total)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-green-600">
+                        {formatNumber(row.buys)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-red-600">
+                        {formatNumber(row.sells)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatNumber(row.flagged)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          className={`border-0 text-[13px] ${row.status === "COMPLETE" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                        >
+                          {row.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedTransaction(row);
+                                setOpen(true);
+                              }}
+                            >
+                              <Eye className="mr-2 h-4 w-4" /> View Batch Detail
+                            </DropdownMenuItem>
+                            {row?.flagged > 0 && (
                               <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedTransaction(row);
-                                  setOpen(true);
-                                }}
+                                onClick={() => setActiveTab("flagged")}
                               >
-                                <Eye className="mr-2 h-4 w-4" /> View Batch Detail
+                                <AlertTriangle className="mr-2 h-4 w-4" /> View
+                                Flagged ({row.flagged})
                               </DropdownMenuItem>
-                              {row?.flagged > 0 && (
-                                <DropdownMenuItem
-                                  onClick={() => setActiveTab("flagged")}
-                                >
-                                  <AlertTriangle className="mr-2 h-4 w-4" /> View
-                                  Flagged ({row.flagged})
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={9}
-                        className="text-center py-10 text-muted-foreground"
-                      >
-                        No records found
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
-                  )}
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="text-center py-10 text-muted-foreground"
+                    >
+                      No records found
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           )}
@@ -304,7 +309,8 @@ export const ProcessingQueue = ({
               Batch Reference: {selectedTransaction?.batchRef ?? "N/A"}
             </DialogTitle>
             <DialogDescription>
-              View the full processing summary for this batch, including totals, status and processing metadata.
+              View the full processing summary for this batch, including totals,
+              status and processing metadata.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 px-8 pb-8 overflow-y-auto">
@@ -371,8 +377,6 @@ export const ProcessingQueue = ({
                 </p>
               </div>
             </div>
-
-
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>

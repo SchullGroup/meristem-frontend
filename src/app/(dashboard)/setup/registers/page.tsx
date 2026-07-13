@@ -109,7 +109,7 @@ export default function RegistersPage() {
 
   const { data: principals, isLoading: principalsLoading } = useGetPrincipals({
     size: 100,
-    status: "ACTIVE"
+    status: "ACTIVE",
   });
 
   const pagedRows = registers?.content || [];
@@ -138,7 +138,9 @@ export default function RegistersPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Registers</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            Registers
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Official shareholder lists for each security managed by MRPSL
           </p>
@@ -212,86 +214,88 @@ export default function RegistersPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Input
-          placeholder="Search registers..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-64 mrpsl-input"
-        />
-        <Select
-          value={principalFilter}
-          onValueChange={(value) => handlePrincipalFilterChange(value || "")}
-        >
-          <SelectTrigger className="w-48 mrpsl-input">
-            <SelectValue placeholder="Principal" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="">All Principals</SelectItem>
-              {principals?.content.map((p) => (
-                <SelectItem key={p.principalId} value={p.principalId}>
-                  {p.principalName}
+      <div className="flex gap-2 items-center">
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 w-1/2">
+          <Input
+            placeholder="Search registers..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full sm:w-64 mrpsl-input"
+          />
+          <Select
+            value={principalFilter}
+            onValueChange={(value) => handlePrincipalFilterChange(value || "")}
+          >
+            <SelectTrigger className="w-48 mrpsl-input">
+              <SelectValue placeholder="Principal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="">All Principals</SelectItem>
+                {principals?.content.map((p) => (
+                  <SelectItem key={p.principalId} value={p.principalId}>
+                    {p.principalName}
+                  </SelectItem>
+                ))}
+                {principalsLoading && (
+                  <SelectItem disabled>Loading....</SelectItem>
+                )}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <Select
+            value={typeFilter}
+            onValueChange={(v) => setTypeFilter(v || "")}
+          >
+            <SelectTrigger className="w-36 mrpsl-input">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="ORDINARY">Ordinary</SelectItem>
+                <SelectItem value="PREFERENCE">Preference</SelectItem>
+                <SelectItem value="BOND">Bond</SelectItem>
+                <SelectItem value="FUND">Fund</SelectItem>
+                <SelectItem value="ETF">Etf</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v || "")}
+          >
+            <SelectTrigger className="w-48 mrpsl-input">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="TRANSACTION_DISABLED">
+                  Transaction Disabled
                 </SelectItem>
-              ))}
-              {principalsLoading && (
-                <SelectItem disabled>Loading....</SelectItem>
-              )}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Select
-          value={typeFilter}
-          onValueChange={(v) => setTypeFilter(v || "")}
-        >
-          <SelectTrigger className="w-36 mrpsl-input">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="">All Types</SelectItem>
-              <SelectItem value="ORDINARY">Ordinary</SelectItem>
-              <SelectItem value="PREFERENCE">Preference</SelectItem>
-              <SelectItem value="BOND">Bond</SelectItem>
-              <SelectItem value="FUND">Fund</SelectItem>
-              <SelectItem value="ETF">Etf</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v || "")}
-        >
-          <SelectTrigger className="w-48 mrpsl-input">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="">All Status</SelectItem>
-              <SelectItem value="ACTIVE">Active</SelectItem>
-              <SelectItem value="INACTIVE">Inactive</SelectItem>
-              <SelectItem value="TRANSACTION_DISABLED">
-                Transaction Disabled
-              </SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
         {(search !== "" ||
           principalFilter !== "" ||
           typeFilter !== "" ||
           statusFilter !== "") && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setSearch("");
-                setPrincipalFilter("");
-                setTypeFilter("");
-                setStatusFilter("");
-              }}
-            >
-              Clear
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setSearch("");
+              setPrincipalFilter("");
+              setTypeFilter("");
+              setStatusFilter("");
+            }}
+          >
+            Clear
+          </Button>
+        )}
       </div>
 
       {/* Data Table */}
@@ -337,16 +341,17 @@ export default function RegistersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${r?.registerType === "ORDINARY"
-                          ? "bg-blue-100 text-blue-800"
-                          : r?.registerType === "PREFERENCE"
-                            ? "bg-violet-100 text-violet-800"
-                            : r?.registerType === "BOND"
-                              ? "bg-amber-100 text-amber-800"
-                              : r?.registerType === "ETF"
-                                ? "bg-cyan-100 text-cyan-800"
-                                : "bg-emerald-100 text-emerald-800"
-                          }`}
+                        className={`border-0 text-xs ${
+                          r?.registerType === "ORDINARY"
+                            ? "bg-blue-100 text-blue-800"
+                            : r?.registerType === "PREFERENCE"
+                              ? "bg-violet-100 text-violet-800"
+                              : r?.registerType === "BOND"
+                                ? "bg-amber-100 text-amber-800"
+                                : r?.registerType === "ETF"
+                                  ? "bg-cyan-100 text-cyan-800"
+                                  : "bg-emerald-100 text-emerald-800"
+                        }`}
                       >
                         {r?.registerType
                           .toLowerCase()
@@ -372,12 +377,13 @@ export default function RegistersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs capitalize ${r?.status === "ACTIVE"
-                          ? "bg-green-100 text-green-800"
-                          : r?.status === "INACTIVE"
-                            ? "bg-gray-100 text-gray-600"
-                            : "bg-amber-100 text-amber-800"
-                          }`}
+                        className={`border-0 text-xs capitalize ${
+                          r?.status === "ACTIVE"
+                            ? "bg-green-100 text-green-800"
+                            : r?.status === "INACTIVE"
+                              ? "bg-gray-100 text-gray-600"
+                              : "bg-amber-100 text-amber-800"
+                        }`}
                       >
                         {r?.status === "TRANSACTION_DISABLED"
                           ? "Disabled"

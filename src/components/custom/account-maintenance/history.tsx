@@ -130,7 +130,6 @@ export default function History({ tab }: { tab: string }) {
       {/* ── Filters ── */}
       <div className="flex gap-2 items-center flex-wrap mb-4 border p-5 rounded-xl">
         <div className="relative w-1/2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search CHN or holder…"
             className="pl-9 mrpsl-input w-full"

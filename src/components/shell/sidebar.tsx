@@ -56,10 +56,12 @@ const OPERATIONS_GROUPS = [
     title: "Offer Administration",
     icon: TrendingUp,
     items: [
+      { label: "Offer Setup", href: "/offers/offer-setup" },
       { label: "IPO / Public Offer", href: "/offers/ipo" },
       { label: "Rights Issue", href: "/offers/rights-issue" },
       { label: "Bonus Issue", href: "/offers/bonus-issue" },
       { label: "Return Money", href: "/offers/return-money" },
+      { label: "Fund Subscription & Redemption", href: "/offers/fund-subscription" },
     ],
   },
   {
@@ -97,7 +99,7 @@ const OPERATIONS_GROUPS = [
       },
       { label: "KYC Update", href: "/account-maintenance/kyc-update" },
       { label: "KYC Approvals", href: "/account-maintenance/kyc-approvals" },
-      { label: "Administration (ADMON)", href: "/account-maintenance/admon" },
+      { label: "Administration (ADMOR)", href: "/account-maintenance/admor" },
     ],
   },
   {
