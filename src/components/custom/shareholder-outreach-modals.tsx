@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Printer,
   Download,
   Mail,
@@ -54,7 +61,7 @@ export interface StickyLabelModalProps {
 export interface EmailPreviewModalProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  offerType: "rights" | "bonus";
+  offerType: "rights" | "bonus" | "ipo" | "ipo-refund";
   companyName: string;
   offerName: string;
   ratio: string;
@@ -66,6 +73,7 @@ export interface EmailPreviewModalProps {
   totalCount: number;
   issueId?: string;
   mode: string;
+  onSent?: () => void;
 }
 
 /* ─── Sticky Label Preview Modal ------────────────── */
@@ -398,6 +406,9 @@ export function StickyLabelModal({
 
 function EmailBody({
   isRights,
+  isIPO = false,
+  isIPORefund = false,
+  refundReason,
   companyName,
   offerName,
   ratio,
@@ -409,6 +420,9 @@ function EmailBody({
   circularLinkUrl,
 }: {
   isRights: boolean;
+  isIPO?: boolean;
+  isIPORefund?: boolean;
+  refundReason?: string;
   companyName: string;
   offerName: string;
   ratio: string;
@@ -448,7 +462,24 @@ function EmailBody({
     fontStyle: "italic",
   };
 
-  const placeholderRows = isRights
+  const placeholderRows = isIPORefund
+    ? [
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Applied", "[UNITS APPLIED]"],
+      ["Units Allotted", "[UNITS ALLOTTED]"],
+      ["Refund Amount (₦)", "[REFUND AMOUNT]"],
+      ["Refund Bank Account", "[BANK ACCOUNT / NUBAN]"],
+    ]
+    : isIPO
+    ? [
+      ["Registrars Account Number", "[ACCOUNT NUMBER]"],
+      ["Name", "[SHAREHOLDER NAME]"],
+      ["Units Applied", "[UNITS APPLIED]"],
+      ["Units Allotted", "[UNITS ALLOTTED]"],
+      ["Refund Amount (₦)", "[REFUND AMOUNT]"],
+    ]
+    : isRights
     ? [
       ["Registrars Account Number", "[ACCOUNT NUMBER]"],
       ["Name", "[SHAREHOLDER NAME]"],
@@ -541,7 +572,11 @@ function EmailBody({
             textTransform: "uppercase",
           }}
         >
-          {isRights
+          {isIPORefund
+            ? "IPO / Public Offer — Refund Notice"
+            : isIPO
+            ? "IPO / Public Offer — Allotment Notice"
+            : isRights
             ? "Rights Issue — Now Open"
             : `${offerName} — Allotment Notice`}
         </div>
@@ -566,7 +601,22 @@ function EmailBody({
 
         {/* Opening paragraph */}
         <p style={{ ...baseFont, textAlign: "justify", marginBottom: "14px" }}>
-          {isRights ? (
+          {isIPORefund ? (
+            <>
+              We wish to inform you that a refund has been initiated for your
+              subscription to the{" "}
+              <strong>{companyName} Initial Public Offer (IPO)</strong>. Please
+              find below the details of your refund for your records.
+            </>
+          ) : isIPO ? (
+            <>
+              We are pleased to inform you that your application for the{" "}
+              <strong>{companyName} Initial Public Offer (IPO)</strong> has been
+              duly processed. Shares have been allotted to your account in
+              accordance with the SEC-approved Basis of Allotment, effective{" "}
+              <strong>{allotDate ?? "—"}</strong>.
+            </>
+          ) : isRights ? (
             <>
               The <strong>{companyName} Rights Issue is now open</strong> and
               will close on <strong>{closeDate ?? "—"}</strong>.
@@ -584,9 +634,48 @@ function EmailBody({
         </p>
 
         <p style={{ ...baseFont, marginBottom: "16px" }}>
-          Kindly find below the details of your {isRights ? "Rights" : "Bonus"}{" "}
-          for your use:
+          Kindly find below the details of your{" "}
+          {isIPORefund ? "Refund" : isIPO ? "IPO Allotment" : isRights ? "Rights" : "Bonus"} for your
+          use:
         </p>
+
+        {/* ── Refund reason callout ── */}
+        {isIPORefund && refundReason && (
+          <div
+            style={{
+              background: "#fff7ed",
+              border: "1px solid #fed7aa",
+              borderLeft: "4px solid #f97316",
+              borderRadius: "3px",
+              padding: "14px 18px",
+              marginBottom: "20px",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "Arial, Helvetica, sans-serif",
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#9a3412",
+                textTransform: "uppercase" as const,
+                letterSpacing: "0.06em",
+                marginBottom: "5px",
+              }}
+            >
+              Reason for Refund
+            </div>
+            <div
+              style={{
+                fontFamily: "Tahoma, Geneva, Arial, sans-serif",
+                fontSize: "14px",
+                color: "#7c2d12",
+                fontWeight: 600,
+              }}
+            >
+              {refundReason}
+            </div>
+          </div>
+        )}
 
         {/* ── Shareholder details card ── */}
         <div
@@ -635,7 +724,7 @@ function EmailBody({
               letterSpacing: "0.02em",
             }}
           >
-            {isRights ? "Rights Issue Circular" : "Bonus Allotment Notice"}
+            {isRights ? "Rights Issue Circular" : "Allotment Notice"}
           </a>
         </div>
 
@@ -648,7 +737,23 @@ function EmailBody({
             marginBottom: "12px",
           }}
         >
-          {isRights ? (
+          {isIPORefund ? (
+            <>
+              Your refund will be processed electronically via NIBSS to the
+              bank account registered with your stockbroker or Receiving Agent.
+              Please allow <strong>5–10 business days</strong> for the funds to
+              reflect in your account. If you have not received your refund
+              after this period, kindly contact us using the details below.
+            </>
+          ) : isIPO ? (
+            <>
+              The allotment was carried out in accordance with the{" "}
+              <strong>SEC-approved Basis of Allotment</strong>. Any excess
+              subscription monies will be refunded electronically to the bank
+              account details registered with your stockbroker or Receiving
+              Agent.
+            </>
+          ) : isRights ? (
             <>
               The offer is on the basis of{" "}
               <strong>
@@ -840,13 +945,17 @@ export function EmailPreviewModal({
   contactEmail,
   totalCount,
   issueId,
+  onSent,
 }: EmailPreviewModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
   const [circularLinkUrl, setCircularLinkUrl] = useState("");
+  const [refundReason, setRefundReason] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
+  const isIPO = offerType === "ipo";
+  const isIPORefund = offerType === "ipo-refund";
 
   const { mutateAsync: emailShareholders, isPending } = useEmailShareholders();
 
@@ -855,6 +964,7 @@ export function EmailPreviewModal({
       setStep(1);
       setHeaderImageUrl(null);
       setCircularLinkUrl("");
+      setRefundReason("");
     }
     onOpenChange(v);
   };
@@ -864,6 +974,7 @@ export function EmailPreviewModal({
     onSuccess: () => {
       toast.success("Emails sent to shareholders successfully");
       resetAndClose(false);
+      onSent?.();
     },
     onError: (error) => {
       const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
@@ -919,10 +1030,19 @@ export function EmailPreviewModal({
         await emailShareholders(issueId);
         toast.success("Emails sent to shareholders");
         resetAndClose(false);
+        onSent?.();
       } catch (error) {
         const errorMessge = new Error(returnErrorMessage(error as ErrorLike));
         toast.error(errorMessge?.message || "Failed to send emails");
       }
+    } else if (mode === "ipo") {
+      toast.success(`Allotment e-notices dispatched to ${totalCount.toLocaleString()} shareholders.`);
+      resetAndClose(false);
+      onSent?.();
+    } else if (mode === "ipo-refund") {
+      toast.success(`Refund notices dispatched to ${totalCount.toLocaleString()} holders.`);
+      resetAndClose(false);
+      onSent?.();
     }
   };
 
@@ -945,7 +1065,7 @@ export function EmailPreviewModal({
           <p className="text-[13px] text-muted-foreground mt-0.5">
             Step {step} of 2 &mdash;{" "}
             {step === 1
-              ? "Customise header & link"
+              ? isIPORefund ? "Set refund reason, header & link" : "Customise header & link"
               : "Review template before sending"}{" "}
             &middot;{" "}
             <span className="font-semibold text-foreground">{companyName}</span>
@@ -961,7 +1081,7 @@ export function EmailPreviewModal({
               >
                 1
               </span>
-              Header &amp; Link
+              {isIPORefund ? "Reason & Header" : "Header & Link"}
             </div>
             <div className="flex-1 h-px bg-border mx-1" />
             <div
@@ -980,6 +1100,38 @@ export function EmailPreviewModal({
         {/* ── Step 1: Setup ── */}
         {step === 1 && (
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {/* Refund reason — ipo-refund only */}
+            {isIPORefund && (
+              <div className="space-y-2">
+                <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Reason for Refund <span className="text-destructive">*</span>
+                </label>
+                <p className="text-[13px] text-muted-foreground">
+                  This reason will appear prominently in the refund notice sent
+                  to each holder. Choose the most applicable option.
+                </p>
+                <Select value={refundReason} onValueChange={(v) => setRefundReason(v ?? "")}>
+                  <SelectTrigger className="h-9 w-full text-[13px]">
+                    <SelectValue placeholder="Select a reason…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Oversubscription — units allotted are less than units applied">
+                      Oversubscription (Partial Allotment)
+                    </SelectItem>
+                    <SelectItem value="Application disapproved — subscription did not meet eligibility criteria">
+                      Application Disapproved
+                    </SelectItem>
+                    <SelectItem value="Application invalid — required documentation was incomplete or incorrect">
+                      Application Invalid
+                    </SelectItem>
+                    <SelectItem value="Excess payment — amount paid exceeded the subscription cost">
+                      Excess Payment
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Header image */}
             <div className="space-y-2">
               <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1052,15 +1204,15 @@ export function EmailPreviewModal({
               <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {isRights
                   ? "Rights Issue Circular URL"
-                  : "Bonus Allotment Notice URL"}{" "}
+                  : "Allotment Notice URL"}{" "}
                 <span className="text-[12px] normal-case font-normal">
                   (optional)
                 </span>
               </label>
               <p className="text-[13px] text-muted-foreground">
                 The URL shareholders click to view the full{" "}
-                {isRights ? "rights issue circular" : "allotment notice"}. Leave
-                blank to omit the link from the email.
+                {isRights ? "rights issue circular" : "allotment notice"}.
+                Leave blank to omit the link from the email.
               </p>
               <Input
                 placeholder="https://..."
@@ -1082,6 +1234,9 @@ export function EmailPreviewModal({
             </div>
             <EmailBody
               isRights={isRights}
+              isIPO={isIPO}
+              isIPORefund={isIPORefund}
+              refundReason={refundReason}
               companyName={companyName}
               offerName={offerName}
               ratio={ratio}
@@ -1101,7 +1256,10 @@ export function EmailPreviewModal({
             Cancel
           </Button>
           {step === 1 ? (
-            <Button onClick={() => setStep(2)}>
+            <Button
+              onClick={() => setStep(2)}
+              disabled={isIPORefund && !refundReason}
+            >
               Preview Email <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (

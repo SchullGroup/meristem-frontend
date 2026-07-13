@@ -359,7 +359,6 @@ export default function KYCApprovalsPage() {
         <div className="flex items-end gap-3">
           {/* Search */}
           <div className="relative lg:col-span-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               className="mrpsl-input pl-9"
               placeholder="Search account, name, field…"

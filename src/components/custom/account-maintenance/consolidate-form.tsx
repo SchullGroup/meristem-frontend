@@ -508,7 +508,6 @@ export default function Consolidate({ tab }: { tab: string }) {
                 <div ref={srcSearchRef} className="relative">
                   <div className="relative flex gap-2 items-center">
                     <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="text"
                         placeholder="Search by name, account number or CHN…"
@@ -772,7 +771,6 @@ export default function Consolidate({ tab }: { tab: string }) {
                   <div ref={destSearchRef} className="relative">
                     <div className="relative flex gap-2 items-center">
                       <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           type="text"
                           placeholder="Search by name, account number or CHN…"
