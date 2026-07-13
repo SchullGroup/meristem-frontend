@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,10 +48,12 @@ const REGISTERS = Array.from(new Set(SEED_TRADE_BALANCES.map((r) => r.register))
 interface StepComputeTradesProps {
   batchRef: string;
   onProceed: () => void;
+  initialRegister?: string;
 }
 
-export function StepComputeTrades({ batchRef: _batchRef, onProceed }: StepComputeTradesProps) {
-  const [registerFilter, setRegisterFilter] = useState("All");
+export function StepComputeTrades({ batchRef: _batchRef, onProceed, initialRegister }: StepComputeTradesProps) {
+  const router = useRouter();
+  const [registerFilter, setRegisterFilter] = useState(initialRegister ?? "All");
 
   const filtered = registerFilter === "All"
     ? SEED_TRADE_BALANCES
@@ -184,7 +187,7 @@ export function StepComputeTrades({ batchRef: _batchRef, onProceed }: StepComput
                           size="sm"
                           variant="outline"
                           className="text-[13px] border-red-200 text-red-700 hover:bg-red-50"
-                          onClick={() => toast.info(`Reconcile Trade for ${row.chn} — route to Reconciliation after applying.`)}
+                          onClick={() => router.push(`/certificates/reconciliation?tab=cscs&batch=${encodeURIComponent(row.chn)}`)}
                         >
                           Reconcile Trade
                         </Button>
