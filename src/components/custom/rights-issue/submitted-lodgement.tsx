@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { CloudUpload, Loader2 } from "lucide-react";
+import { CloudUpload, FileSpreadsheet, Loader2, Mail, Tag } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,11 @@ import { RightsIssue } from "@/types/rights";
 import { PaginationBar } from "../pagination-bar";
 import { formatNumber } from "@/lib/utils/format";
 import { DataErrorState } from "../ipo/loaders";
+import {
+  StickyLabelModal,
+  EmailPreviewModal,
+  type OutreachShareholder,
+} from "@/components/custom/shareholder-outreach-modals";
 
 interface SubmittedLodgementProps {
   selectedIssue: RightsIssue;
@@ -21,6 +26,9 @@ interface SubmittedLodgementProps {
 export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(20);
+  const [labelsOpen, setLabelsOpen] = useState(false);
+  const [labelsPage, setLabelsPage] = useState(1);
+  const [emailOpen, setEmailOpen] = useState(false);
 
   // Submitted history for the selected issue
   const {
@@ -38,6 +46,56 @@ export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
     (historyData?.content &&
       historyData?.content.reduce((a, e) => a + e.volume, 0)) ||
     0;
+
+  const totalEntries = historyData?.pagination?.total ?? 0;
+
+  // Map loaded entries to OutreachShareholder for modals
+  const outreachShareholders: OutreachShareholder[] = (
+    historyData?.content ?? []
+  ).map((e) => ({
+    id: String(e.id),
+    accountNumber: e.registrarsAccount,
+    name: e.shareholderName,
+    address: "",
+    holdings: e.volume,
+  }));
+
+  // Labels are sliced client-side from loaded data (24 per sheet)
+  const LABELS_PER_SHEET = 24;
+  const labelSheets = Math.ceil(outreachShareholders.length / LABELS_PER_SHEET);
+  const currentSheetHolders = outreachShareholders.slice(
+    (labelsPage - 1) * LABELS_PER_SHEET,
+    labelsPage * LABELS_PER_SHEET,
+  );
+
+  const downloadExcel = () => {
+    if (!historyData?.content?.length) {
+      toast.error("No data loaded to export.");
+      return;
+    }
+    const header = "Shareholder Name,Reg Account No,CHN,Volume,Member Code,Lodged At";
+    const rows = historyData.content.map((e) =>
+      [
+        `"${e.shareholderName}"`,
+        e.registrarsAccount,
+        e.chn,
+        e.volume,
+        e.memberCode,
+        e.lodgedAt ? format(new Date(e.lodgedAt), "yyyy-MM-dd") : "",
+      ].join(","),
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lodgement_${selectedIssue.ref}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    toast.success("Lodgement data exported.");
+  };
 
   return (
     <div className="space-y-6">
@@ -105,17 +163,42 @@ export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
 
       {/* Submitted history section */}
       <div className="space-y-3 pt-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-widest">
             Submitted Lodgments
           </h3>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toast.success("Pushed to CSCS API.")}
-          >
-            <CloudUpload className="mr-2 h-4 w-4" /> Push via CSCS API
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadExcel}
+              disabled={!historyData?.content?.length}
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" /> Download as Excel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setLabelsPage(1); setLabelsOpen(true); }}
+              disabled={!historyData?.content?.length}
+            >
+              <Tag className="mr-2 h-4 w-4" /> Print Sticky Labels
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEmailOpen(true)}
+            >
+              <Mail className="mr-2 h-4 w-4" /> Email Shareholders
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toast.success("Pushed to CSCS API.")}
+            >
+              <CloudUpload className="mr-2 h-4 w-4" /> Push via CSCS API
+            </Button>
+          </div>
         </div>
 
         <Card className="mrpsl-card overflow-hidden">
@@ -216,6 +299,33 @@ export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
           )}
         </Card>
       </div>
+
+      <StickyLabelModal
+        open={labelsOpen}
+        onOpenChange={setLabelsOpen}
+        offerType="rights"
+        companyName={selectedIssue.registerName}
+        shareholders={currentSheetHolders}
+        totalCount={outreachShareholders.length}
+        currentPage={labelsPage}
+        onPageChange={setLabelsPage}
+        loading={historyLoading}
+      />
+
+      <EmailPreviewModal
+        mode="right"
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        offerType="rights"
+        companyName={selectedIssue.registerName}
+        offerName={selectedIssue.offerName}
+        ratio={selectedIssue.ratio ?? "1:1"}
+        closeDate={selectedIssue.closureDate}
+        contactEmail="info@meristemregistrars.com"
+        shareholders={outreachShareholders}
+        totalCount={totalEntries}
+        issueId={String(selectedIssue.id)}
+      />
     </div>
   );
 }

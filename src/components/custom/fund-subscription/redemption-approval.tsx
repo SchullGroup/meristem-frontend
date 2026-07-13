@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { ArrowLeft, CheckCircle2, XCircle, UserCheck, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  XCircle,
+  UserCheck,
+  Loader2,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,20 +41,36 @@ interface PendingRedemption {
 
 const MOCK_PENDING: PendingRedemption[] = [
   {
-    id: "rd1", ref: "REDM-2024-000001",
-    fundName: "Stanbic IBTC Dollar Fund", holderName: "Adebayo Oluwaseun", accountNo: "FND-00123456",
-    fundManagerEmail: "fm@stanbicastset.com", unitsRequested: 5_000,
-    redemptionPrice: 125.5, totalAmount: 627_500, redemptionAccount: "0123456789 (Access Bank)",
-    redemptionDate: new Date("2024-09-12"), datePayable: new Date("2024-09-15"),
-    submittedBy: "Ngozi Eze (Ops)", submittedAt: new Date("2024-09-11T09:00:00"),
+    id: "rd1",
+    ref: "REDM-2024-000001",
+    fundName: "Stanbic IBTC Dollar Fund",
+    holderName: "Adebayo Oluwaseun",
+    accountNo: "FND-00123456",
+    fundManagerEmail: "fm@stanbicastset.com",
+    unitsRequested: 5_000,
+    redemptionPrice: 125.5,
+    totalAmount: 627_500,
+    redemptionAccount: "0123456789 (Access Bank)",
+    redemptionDate: new Date("2024-09-12"),
+    datePayable: new Date("2024-09-15"),
+    submittedBy: "Ngozi Eze (Ops)",
+    submittedAt: new Date("2024-09-11T09:00:00"),
   },
   {
-    id: "rd2", ref: "REDM-2024-000002",
-    fundName: "Coronation Money Market Fund", holderName: "Fatima Garba Abubakar", accountNo: "FND-00456789",
-    fundManagerEmail: "fm@coronationam.com", unitsRequested: 30_000,
-    redemptionPrice: 1.02, totalAmount: 30_600, redemptionAccount: "0456789012 (Zenith Bank)",
-    redemptionDate: new Date("2024-09-12"), datePayable: new Date("2024-09-14"),
-    submittedBy: "Tunde Bakare (Ops)", submittedAt: new Date("2024-09-11T10:45:00"),
+    id: "rd2",
+    ref: "REDM-2024-000002",
+    fundName: "Coronation Money Market Fund",
+    holderName: "Fatima Garba Abubakar",
+    accountNo: "FND-00456789",
+    fundManagerEmail: "fm@coronationam.com",
+    unitsRequested: 30_000,
+    redemptionPrice: 1.02,
+    totalAmount: 30_600,
+    redemptionAccount: "0456789012 (Zenith Bank)",
+    redemptionDate: new Date("2024-09-12"),
+    datePayable: new Date("2024-09-14"),
+    submittedBy: "Tunde Bakare (Ops)",
+    submittedAt: new Date("2024-09-11T10:45:00"),
   },
 ];
 
@@ -95,9 +117,13 @@ export function RedemptionApproval() {
           <div className="flex items-center gap-3">
             <UserCheck className="h-5 w-5 text-amber-600 shrink-0" />
             <div>
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">Awaiting Approval — Redemption {reviewing.ref}</p>
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">
+                Awaiting Approval — Redemption {reviewing.ref}
+              </p>
               <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                On approval: units are deducted from the holder's balance, the redemption amount is scheduled for payment, and an e-notification fires immediately to the Fund Manager.
+                On approval: units are deducted from the holder&apos;s balance,
+                the redemption amount is scheduled for payment, and an
+                e-notification fires immediately to the Fund Manager.
               </p>
             </div>
           </div>
@@ -105,18 +131,35 @@ export function RedemptionApproval() {
 
         {/* Detail card */}
         <Card className="mrpsl-card p-5 space-y-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Redemption Details</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Redemption Details
+          </p>
           <div className="grid grid-cols-3 gap-4 text-sm">
             {[
               { label: "Fund Register", value: reviewing.fundName },
               { label: "Unit Holder", value: reviewing.holderName },
               { label: "Account No.", value: reviewing.accountNo },
-              { label: "Fund Manager Email", value: reviewing.fundManagerEmail },
-              { label: "Redemption Account", value: reviewing.redemptionAccount },
+              {
+                label: "Fund Manager Email",
+                value: reviewing.fundManagerEmail,
+              },
+              {
+                label: "Redemption Account",
+                value: reviewing.redemptionAccount,
+              },
               { label: "Submitted By", value: reviewing.submittedBy },
-              { label: "Redemption Date", value: format(reviewing.redemptionDate, "dd MMM yyyy") },
-              { label: "Date Payable", value: format(reviewing.datePayable, "dd MMM yyyy") },
-              { label: "Submitted At", value: format(reviewing.submittedAt, "dd MMM yyyy, HH:mm") },
+              {
+                label: "Redemption Date",
+                value: format(reviewing.redemptionDate, "dd MMM yyyy"),
+              },
+              {
+                label: "Date Payable",
+                value: format(reviewing.datePayable, "dd MMM yyyy"),
+              },
+              {
+                label: "Submitted At",
+                value: format(reviewing.submittedAt, "dd MMM yyyy, HH:mm"),
+              },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="mrpsl-label">{label}</p>
@@ -128,15 +171,21 @@ export function RedemptionApproval() {
           <div className="grid grid-cols-3 gap-4 pt-3 border-t border-border">
             <div>
               <p className="mrpsl-label">Units to Redeem</p>
-              <p className="font-mono font-bold text-xl mt-0.5 text-destructive">{reviewing.unitsRequested.toLocaleString()}</p>
+              <p className="font-mono font-bold text-xl mt-0.5 text-destructive">
+                {reviewing.unitsRequested.toLocaleString()}
+              </p>
             </div>
             <div>
               <p className="mrpsl-label">Price per Unit</p>
-              <p className="font-mono font-bold text-xl mt-0.5">₦{reviewing.redemptionPrice.toFixed(2)}</p>
+              <p className="font-mono font-bold text-xl mt-0.5">
+                ₦{reviewing.redemptionPrice.toFixed(2)}
+              </p>
             </div>
             <div>
               <p className="mrpsl-label">Total Redemption Amount</p>
-              <p className="font-mono font-bold text-xl mt-0.5 text-primary">₦{reviewing.totalAmount.toLocaleString()}</p>
+              <p className="font-mono font-bold text-xl mt-0.5 text-primary">
+                ₦{reviewing.totalAmount.toLocaleString()}
+              </p>
             </div>
           </div>
         </Card>
@@ -148,9 +197,13 @@ export function RedemptionApproval() {
           </Button>
           <Button onClick={handleApprove} disabled={approving}>
             {approving ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Approving…</>
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Approving…
+              </>
             ) : (
-              <><CheckCircle2 className="h-4 w-4 mr-2" /> Approve Redemption</>
+              <>
+                <CheckCircle2 className="h-4 w-4 mr-2" /> Approve Redemption
+              </>
             )}
           </Button>
         </div>
@@ -171,8 +224,14 @@ export function RedemptionApproval() {
               onChange={(e) => setRejectRemark(e.target.value)}
             />
             <div className="flex justify-end gap-2 mt-2">
-              <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
-              <Button variant="destructive" disabled={!rejectRemark.trim()} onClick={handleReject}>
+              <Button variant="outline" onClick={() => setRejectOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={!rejectRemark.trim()}
+                onClick={handleReject}
+              >
                 Confirm Rejection
               </Button>
             </div>
@@ -189,10 +248,13 @@ export function RedemptionApproval() {
         <div className="flex items-center gap-3">
           <UserCheck className="h-5 w-5 text-amber-600 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">Redemption Approval Queue</p>
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">
+              Redemption Approval Queue
+            </p>
             <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-              {pending.length} redemption{pending.length !== 1 ? "s" : ""} pending approval.
-              Approval triggers immediate unit deduction and Fund Manager e-notification.
+              {pending.length} redemption{pending.length !== 1 ? "s" : ""}{" "}
+              pending approval. Approval triggers immediate unit deduction and
+              Fund Manager e-notification.
             </p>
           </div>
         </div>
@@ -211,15 +273,28 @@ export function RedemptionApproval() {
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm">{red.holderName}</span>
-                    <Badge className="bg-amber-100 text-amber-800 border-0">Pending Approval</Badge>
-                    <span className="font-mono text-xs text-muted-foreground">{red.ref}</span>
+                    <span className="font-semibold text-sm">
+                      {red.holderName}
+                    </span>
+                    <Badge className="bg-amber-100 text-amber-800 border-0">
+                      Pending Approval
+                    </Badge>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {red.ref}
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {red.fundName} · {red.unitsRequested.toLocaleString()} units · ₦{red.totalAmount.toLocaleString()} · Payable {format(red.datePayable, "dd MMM yyyy")} · Submitted by {red.submittedBy}
+                    {red.fundName} · {red.unitsRequested.toLocaleString()} units
+                    · ₦{red.totalAmount.toLocaleString()} · Payable{" "}
+                    {format(red.datePayable, "dd MMM yyyy")} · Submitted by{" "}
+                    {red.submittedBy}
                   </p>
                 </div>
-                <Button size="sm" onClick={() => setReviewing(red)} className="shrink-0">
+                <Button
+                  size="sm"
+                  onClick={() => setReviewing(red)}
+                  className="shrink-0"
+                >
                   Review
                 </Button>
               </div>

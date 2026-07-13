@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Eye, ArrowRight, FileText } from "lucide-react";
+import { Plus, Eye, ArrowRight, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
 
@@ -22,7 +29,8 @@ interface RightsIssue {
   id: string;
   name: string;
   register: string;
-  ratio: string;
+  ratioNumerator: number;
+  ratioDenominator: number;
   pricePerShare: number;
   qualificationDate: Date | null;
   openingDate: Date | null;
@@ -30,8 +38,7 @@ interface RightsIssue {
   secApprovalDate: Date | null;
   eventId: string;
   tradedRightsSymbol: string;
-  renounciationName: string;
-  receivingBanks: string;
+  receivingBanks: string[];
   narration: string;
   status: OfferStatus;
 }
@@ -41,7 +48,8 @@ const MOCK_RIGHTS: RightsIssue[] = [
     id: "1",
     name: "Fidelity Bank PLC Rights Issue 2024",
     register: "Fidelity Bank Ord. Shares",
-    ratio: "1 new share for every 10 held",
+    ratioNumerator: 1,
+    ratioDenominator: 10,
     pricePerShare: 9.25,
     qualificationDate: new Date("2024-07-31"),
     openingDate: new Date("2024-08-12"),
@@ -49,8 +57,7 @@ const MOCK_RIGHTS: RightsIssue[] = [
     secApprovalDate: new Date("2024-07-15"),
     eventId: "RTS-2024-001",
     tradedRightsSymbol: "FIDBNK-RT",
-    renounciationName: "Fidelity Bank Plc Rights Issue 2024",
-    receivingBanks: "Fidelity Bank, Access Bank",
+    receivingBanks: ["Fidelity Bank PLC", "Access Bank PLC"],
     narration: "Rights Issue at ₦9.25 per share.",
     status: "CLOSED",
   },
@@ -71,12 +78,29 @@ const MOCK_REGISTERS = [
   "Zenith Bank Ord. Shares",
 ];
 
+const NIGERIAN_BANKS = [
+  "Access Bank PLC",
+  "Fidelity Bank PLC",
+  "First Bank of Nigeria",
+  "First City Monument Bank (FCMB)",
+  "Guaranty Trust Bank (GTBank)",
+  "Keystone Bank",
+  "Polaris Bank",
+  "Stanbic IBTC Bank",
+  "Sterling Bank",
+  "Union Bank of Nigeria",
+  "United Bank for Africa (UBA)",
+  "Wema Bank",
+  "Zenith Bank PLC",
+];
+
 type FormState = Omit<RightsIssue, "id" | "status">;
 
 const EMPTY_FORM: FormState = {
   name: "",
   register: "",
-  ratio: "",
+  ratioNumerator: 1,
+  ratioDenominator: 1,
   pricePerShare: 0,
   qualificationDate: null,
   openingDate: null,
@@ -84,8 +108,7 @@ const EMPTY_FORM: FormState = {
   secApprovalDate: null,
   eventId: "",
   tradedRightsSymbol: "",
-  renounciationName: "",
-  receivingBanks: "",
+  receivingBanks: [],
   narration: "",
 };
 
@@ -97,6 +120,22 @@ export function RightsSetupForm() {
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
+
+  const addBank = () => {
+    if (form.receivingBanks.length < 3) {
+      set("receivingBanks", [...form.receivingBanks, ""]);
+    }
+  };
+
+  const updateBank = (index: number, value: string) => {
+    const updated = [...form.receivingBanks];
+    updated[index] = value;
+    set("receivingBanks", updated);
+  };
+
+  const removeBank = (index: number) => {
+    set("receivingBanks", form.receivingBanks.filter((_, i) => i !== index));
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -112,7 +151,7 @@ export function RightsSetupForm() {
   };
 
   const handleSave = () => {
-    if (!form.name || !form.register || !form.ratio) {
+    if (!form.name || !form.register || !form.ratioDenominator) {
       toast.error("Please fill in all required fields.");
       return;
     }
@@ -167,7 +206,7 @@ export function RightsSetupForm() {
                   <tr className="mrpsl-table-header">
                     <th className="text-left px-4 py-3 font-medium">Rights Issue Name</th>
                     <th className="text-left px-4 py-3 font-medium">Register</th>
-                    <th className="text-left px-4 py-3 font-medium">Ratio</th>
+                    <th className="text-center px-4 py-3 font-medium">Ratio</th>
                     <th className="text-right px-4 py-3 font-medium">Price / Share</th>
                     <th className="text-left px-4 py-3 font-medium">Qual. Date</th>
                     <th className="text-left px-4 py-3 font-medium">Opens</th>
@@ -182,7 +221,9 @@ export function RightsSetupForm() {
                     <tr key={issue.id} className="mrpsl-table-row">
                       <td className="px-4 py-3 font-medium">{issue.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{issue.register}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{issue.ratio}</td>
+                      <td className="px-4 py-3 text-center font-mono text-xs">
+                        {issue.ratioNumerator}:{issue.ratioDenominator}
+                      </td>
                       <td className="px-4 py-3 text-right font-mono">
                         ₦{issue.pricePerShare.toFixed(2)}
                       </td>
@@ -243,8 +284,8 @@ export function RightsSetupForm() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 py-5 space-y-4">
-            <div className="space-y-1">
+          <div className="px-6 py-5 space-y-5">
+            <div className="space-y-1.5">
               <label className="mrpsl-label">Rights Issue Name *</label>
               <input
                 className="mrpsl-input h-9 w-full"
@@ -254,31 +295,49 @@ export function RightsSetupForm() {
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="mrpsl-label">Register *</label>
-              <select
-                className="mrpsl-input h-9 w-full"
-                value={form.register}
-                onChange={(e) => set("register", e.target.value)}
-              >
-                <option value="">Select register…</option>
-                {MOCK_REGISTERS.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
+              <Select value={form.register} onValueChange={(v) => set("register", v ?? "")}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Select register…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOCK_REGISTERS.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Ratio — two numeric inputs */}
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Rights Ratio *</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  className="mrpsl-input h-9 w-10! text-center font-mono px-1"
+                  placeholder="1"
+                  value={form.ratioNumerator || ""}
+                  onChange={(e) => set("ratioNumerator", Number(e.target.value))}
+                />
+                <span className="text-lg font-semibold text-muted-foreground select-none">:</span>
+                <input
+                  type="number"
+                  min={1}
+                  className="mrpsl-input h-9 w-10! text-center font-mono px-1"
+                  placeholder="10"
+                  value={form.ratioDenominator || ""}
+                  onChange={(e) => set("ratioDenominator", Number(e.target.value))}
+                />
+                <span className="text-xs text-muted-foreground ml-1">
+                  new share{form.ratioNumerator !== 1 ? "s" : ""} for every {form.ratioDenominator} held
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="mrpsl-label">Rights Ratio *</label>
-                <input
-                  className="mrpsl-input h-9 w-full"
-                  placeholder="e.g. 1 new for every 10 held"
-                  value={form.ratio}
-                  onChange={(e) => set("ratio", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="mrpsl-label">Price per Share (₦) *</label>
                 <input
                   type="number"
@@ -289,9 +348,18 @@ export function RightsSetupForm() {
                   onChange={(e) => set("pricePerShare", Number(e.target.value))}
                 />
               </div>
+              <div className="space-y-1.5">
+                <label className="mrpsl-label">Event ID</label>
+                <input
+                  className="mrpsl-input h-9 w-full font-mono"
+                  placeholder="e.g. RTS-2024-001"
+                  value={form.eventId}
+                  onChange={(e) => set("eventId", e.target.value)}
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <DateInput
                 label="Qualification Date *"
                 date={form.qualificationDate}
@@ -302,61 +370,86 @@ export function RightsSetupForm() {
                 date={form.openingDate}
                 setDate={(d) => set("openingDate", d)}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <DateInput
                 label="Closing Date *"
                 date={form.closingDate}
                 setDate={(d) => set("closingDate", d)}
               />
-            </div>
-
-            <div className="space-y-1">
-              <label className="mrpsl-label">Receiving Bank Accounts</label>
-              <input
-                className="mrpsl-input h-9 w-full"
-                placeholder="e.g. Fidelity Bank, Access Bank"
-                value={form.receivingBanks}
-                onChange={(e) => set("receivingBanks", e.target.value)}
+              <DateInput
+                label="SEC Approval Date"
+                date={form.secApprovalDate}
+                setDate={(d) => set("secApprovalDate", d)}
               />
             </div>
 
-            <DateInput
-              label="SEC Approval Date"
-              date={form.secApprovalDate}
-              setDate={(d) => set("secApprovalDate", d)}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="mrpsl-label">Event ID</label>
-                <input
-                  className="mrpsl-input h-9 w-full font-mono"
-                  placeholder="e.g. RTS-2024-001"
-                  value={form.eventId}
-                  onChange={(e) => set("eventId", e.target.value)}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="mrpsl-label">Traded Rights Symbol</label>
-                <input
-                  className="mrpsl-input h-9 w-full font-mono"
-                  placeholder="e.g. FIDBNK-RT"
-                  value={form.tradedRightsSymbol}
-                  onChange={(e) => set("tradedRightsSymbol", e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="mrpsl-label">Renunciation / Name of Right to be Traded</label>
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Traded Rights Symbol</label>
               <input
-                className="mrpsl-input h-9 w-full"
-                placeholder="e.g. Fidelity Bank Plc Rights Issue 2024"
-                value={form.renounciationName}
-                onChange={(e) => set("renounciationName", e.target.value)}
+                className="mrpsl-input h-9 w-full font-mono"
+                placeholder="e.g. FIDBNK-RT"
+                value={form.tradedRightsSymbol}
+                onChange={(e) => set("tradedRightsSymbol", e.target.value)}
               />
             </div>
 
-            <div className="space-y-1">
+            {/* Receiving Banks — up to 3 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="mrpsl-label">Receiving Bank Accounts</label>
+                <span className="text-xs text-muted-foreground">{form.receivingBanks.length}/3</span>
+              </div>
+
+              {form.receivingBanks.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-1">No banks added yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {form.receivingBanks.map((bank, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground w-5 shrink-0">{i + 1}.</span>
+                      <div className="flex-1">
+                        <Select value={bank} onValueChange={(v) => updateBank(i, v ?? "")}>
+                          <SelectTrigger className="h-9 w-full">
+                            <SelectValue placeholder="Select bank…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {NIGERIAN_BANKS.filter(
+                              (b) => b === bank || !form.receivingBanks.includes(b)
+                            ).map((b) => (
+                              <SelectItem key={b} value={b}>{b}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeBank(i)}
+                        className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {form.receivingBanks.length < 3 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-1 text-xs h-8"
+                  onClick={addBank}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add Receiving Bank
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
               <label className="mrpsl-label">Rights Circular (PDF)</label>
               <div
                 className="border-2 border-dashed border-border rounded-lg p-4 flex items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors"
@@ -369,11 +462,16 @@ export function RightsSetupForm() {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="mrpsl-label">Narration</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="mrpsl-label">Narration</label>
+                <span className="text-xs text-muted-foreground">{form.narration.length}/300</span>
+              </div>
               <textarea
-                className="mrpsl-input w-full resize-none h-20 text-sm"
-                placeholder="Optional notes…"
+                className="mrpsl-input h-auto min-h-22 resize-none py-2.5 leading-relaxed"
+                placeholder="Optional notes about this rights issue…"
+                maxLength={300}
+                rows={4}
                 value={form.narration}
                 onChange={(e) => set("narration", e.target.value)}
               />

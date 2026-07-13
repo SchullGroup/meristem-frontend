@@ -30,6 +30,8 @@ const MOCK_BANDS: AllotmentBand[] = [
 const TOTAL_UNITS_OFFERED = 17_772_612_811;
 const TOTAL_UNITS_APPLIED = 22_450_318_000;
 const TOTAL_APPLICANTS = 78956;
+const APPROVED_APPLICANTS = 41832;
+const OFFER_PRICE = 22.5;
 
 function DonutChart({ allottedPct }: { allottedPct: number }) {
   const r = 52;
@@ -121,6 +123,8 @@ export function AllotmentRulesEngine({ bannerMessage }: AllotmentRulesEngineProp
 
   const totalAllottedUnits = Math.floor((estimatedAllottedPct / 100) * TOTAL_UNITS_APPLIED);
   const refundUnits = TOTAL_UNITS_APPLIED - totalAllottedUnits;
+  const estRefundValue = refundUnits * OFFER_PRICE;
+  const refundApplicants = TOTAL_APPLICANTS - APPROVED_APPLICANTS;
 
   const handleExecute = () => {
     if (bands.length === 0) {
@@ -242,26 +246,41 @@ export function AllotmentRulesEngine({ bannerMessage }: AllotmentRulesEngineProp
 
           <div className="space-y-2.5">
             {[
-              { label: "Total Units Offered", value: TOTAL_UNITS_OFFERED.toLocaleString(), color: "" },
+              { label: "Total Units of Offer", value: TOTAL_UNITS_OFFERED.toLocaleString(), color: "" },
               { label: "Total Units Applied", value: TOTAL_UNITS_APPLIED.toLocaleString(), color: "" },
+              { label: "Est. Units to Allot", value: totalAllottedUnits.toLocaleString(), color: "text-primary font-semibold" },
+              { label: "Est. Units for Refund", value: refundUnits.toLocaleString(), color: "text-destructive" },
               {
-                label: "Est. Units to Allot",
-                value: totalAllottedUnits.toLocaleString(),
-                color: "text-primary font-semibold",
-              },
-              {
-                label: "Est. Units for Refund",
-                value: refundUnits.toLocaleString(),
+                label: "Est. Refund Value",
+                value: `₦${(estRefundValue / 1e9).toFixed(2)}B`,
                 color: "text-destructive",
               },
-              { label: "Total Applicants", value: TOTAL_APPLICANTS.toLocaleString(), color: "" },
-              { label: "Bands Configured", value: `${bands.length}`, color: "" },
             ].map(({ label, value, color }) => (
               <div key={label} className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">{label}</span>
                 <span className={`font-mono ${color}`}>{value}</span>
               </div>
             ))}
+
+            <div className="pt-2 border-t border-border/60 space-y-2.5">
+              {[
+                { label: "Total Applicants", value: TOTAL_APPLICANTS.toLocaleString(), color: "" },
+                { label: "Approved Applicants", value: APPROVED_APPLICANTS.toLocaleString(), color: "text-primary font-semibold" },
+                { label: "Applicants for Refund", value: refundApplicants.toLocaleString(), color: "text-destructive" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className={`font-mono ${color}`}>{value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-border/60">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground">Bands Configured</span>
+                <span className="font-mono">{bands.length}</span>
+              </div>
+            </div>
           </div>
 
           <div className="pt-1 border-t border-border">

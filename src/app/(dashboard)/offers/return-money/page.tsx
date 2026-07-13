@@ -18,7 +18,13 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const TABS = ["queue", "batch", "commission", "reconciliation", "reports"] as const;
+const TABS = [
+  "queue",
+  "batch",
+  "commission",
+  "reconciliation",
+  "reports",
+] as const;
 type TabValue = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabValue, string> = {
@@ -46,10 +52,13 @@ export default function ReturnMoneyPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Return Money Administration</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Return Money Administration
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Track and process refunds arising from over-subscription or rejected applications from
-          IPO / Public Offers, including agent commission calculation.
+          Track and process refunds arising from over-subscription or rejected
+          applications from IPO / Public Offers, including agent commission
+          calculation.
         </p>
       </div>
 
@@ -58,12 +67,12 @@ export default function ReturnMoneyPage() {
         onValueChange={(v) => setActiveTab((v as TabValue) || "queue")}
         className="w-full"
       >
-        <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap">
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5 flex-wrap">
           {TABS.map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab}
-              className="rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              className="rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all cursor-pointer"
             >
               {TAB_LABELS[tab]}
             </TabsTrigger>
@@ -113,7 +122,10 @@ export default function ReturnMoneyPage() {
 
             <Card className="mrpsl-card p-5">
               <div className="flex items-center gap-3 flex-wrap">
-                <Select value={filterRegister} onValueChange={(v) => setFilterRegister(v ?? "")}>
+                <Select
+                  value={filterRegister}
+                  onValueChange={(v) => setFilterRegister(v ?? "")}
+                >
                   <SelectTrigger className="mrpsl-input h-9 w-48">
                     <SelectValue placeholder="All Registers" />
                   </SelectTrigger>
@@ -126,15 +138,28 @@ export default function ReturnMoneyPage() {
 
                 <div className="flex-1" />
 
-                <Button size="sm" onClick={() => toast.info(`${selectedReport} report coming soon`)}>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    toast.info(`${selectedReport} report coming soon`)
+                  }
+                >
                   <CalendarRange className="h-3.5 w-3.5 mr-1.5" />
                   Generate Report
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => toast.info("Export coming soon")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info("Export coming soon")}
+                >
                   <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
                   Excel
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => toast.info("Print coming soon")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info("Print coming soon")}
+                >
                   <Printer className="h-3.5 w-3.5 mr-1.5" />
                   Print
                 </Button>
@@ -143,9 +168,12 @@ export default function ReturnMoneyPage() {
 
             <div className="flex flex-col items-center justify-center py-20 bg-background border rounded-2xl border-dashed text-muted-foreground text-center">
               <CalendarRange className="h-10 w-10 text-muted-foreground/35 mb-3" />
-              <h3 className="font-semibold text-sm text-foreground">Ready to generate</h3>
+              <h3 className="font-semibold text-sm text-foreground">
+                Ready to generate
+              </h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-72">
-                Configure your parameters above and click &quot;Generate Report&quot; to view results.
+                Configure your parameters above and click &quot;Generate
+                Report&quot; to view results.
               </p>
             </div>
           </TabsContent>

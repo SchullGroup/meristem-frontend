@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Eye, ArrowRight, FileText } from "lucide-react";
+import { Plus, Eye, ArrowRight, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
 
@@ -21,8 +28,6 @@ type OfferStatus = "DRAFT" | "OPEN" | "CLOSED" | "ALLOTTED" | "CONCLUDED";
 interface PublicOffer {
   id: string;
   name: string;
-  issuer: string;
-  issuingHouse: string;
   register: string;
   offerPrice: number;
   totalUnits: number;
@@ -30,8 +35,8 @@ interface PublicOffer {
   multiples: number;
   openingDate: Date | null;
   closingDate: Date | null;
-  allotmentDate: Date | null;
-  receivingBanks: string;
+  secApprovalDate: Date | null;
+  receivingBanks: string[];
   narration: string;
   status: OfferStatus;
 }
@@ -40,8 +45,6 @@ const MOCK_OFFERS: PublicOffer[] = [
   {
     id: "1",
     name: "Access Holdings PLC Public Offer 2024",
-    issuer: "Access Holdings PLC",
-    issuingHouse: "Chapel Hill Denham Advisory",
     register: "Access Holdings Ord. Shares",
     offerPrice: 22.5,
     totalUnits: 17_772_612_811,
@@ -49,16 +52,14 @@ const MOCK_OFFERS: PublicOffer[] = [
     multiples: 100,
     openingDate: new Date("2024-10-07"),
     closingDate: new Date("2024-10-21"),
-    allotmentDate: new Date("2024-11-15"),
-    receivingBanks: "Access Bank, GTBank, Zenith Bank",
+    secApprovalDate: new Date("2024-11-15"),
+    receivingBanks: ["Access Bank", "GTBank", "Zenith Bank"],
     narration: "Public Offer at ₦22.50 per share.",
     status: "CLOSED",
   },
   {
     id: "2",
     name: "Transcorp Power PLC IPO 2024",
-    issuer: "Transcorp Power PLC",
-    issuingHouse: "Stanbic IBTC Capital",
     register: "Transcorp Power Ord. Shares",
     offerPrice: 5.0,
     totalUnits: 7_500_000_000,
@@ -66,8 +67,8 @@ const MOCK_OFFERS: PublicOffer[] = [
     multiples: 100,
     openingDate: null,
     closingDate: null,
-    allotmentDate: null,
-    receivingBanks: "",
+    secApprovalDate: null,
+    receivingBanks: [],
     narration: "",
     status: "DRAFT",
   },
@@ -88,27 +89,26 @@ const MOCK_REGISTERS = [
   "Meristem Securities Ord. Shares",
 ];
 
-const MOCK_ISSUERS = [
-  "Access Holdings PLC",
-  "Transcorp Power PLC",
+const NIGERIAN_BANKS = [
+  "Access Bank PLC",
   "Fidelity Bank PLC",
-  "GTBank PLC",
-];
-
-const MOCK_ISSUING_HOUSES = [
-  "Chapel Hill Denham Advisory",
-  "Stanbic IBTC Capital",
-  "CardinalStone Capital",
-  "Vetiva Capital Management",
-  "FCMB Capital Markets",
+  "First Bank of Nigeria",
+  "First City Monument Bank (FCMB)",
+  "Guaranty Trust Bank (GTBank)",
+  "Keystone Bank",
+  "Polaris Bank",
+  "Stanbic IBTC Bank",
+  "Sterling Bank",
+  "Union Bank of Nigeria",
+  "United Bank for Africa (UBA)",
+  "Wema Bank",
+  "Zenith Bank PLC",
 ];
 
 type FormState = Omit<PublicOffer, "id" | "status">;
 
 const EMPTY_FORM: FormState = {
   name: "",
-  issuer: "",
-  issuingHouse: "",
   register: "",
   offerPrice: 0,
   totalUnits: 0,
@@ -116,8 +116,8 @@ const EMPTY_FORM: FormState = {
   multiples: 100,
   openingDate: null,
   closingDate: null,
-  allotmentDate: null,
-  receivingBanks: "",
+  secApprovalDate: null,
+  receivingBanks: [],
   narration: "",
 };
 
@@ -129,6 +129,22 @@ export function PublicOfferForm() {
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((prev) => ({ ...prev, [k]: v }));
+
+  const addBank = () => {
+    if (form.receivingBanks.length < 3) {
+      set("receivingBanks", [...form.receivingBanks, ""]);
+    }
+  };
+
+  const updateBank = (index: number, value: string) => {
+    const updated = [...form.receivingBanks];
+    updated[index] = value;
+    set("receivingBanks", updated);
+  };
+
+  const removeBank = (index: number) => {
+    set("receivingBanks", form.receivingBanks.filter((_, i) => i !== index));
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -144,7 +160,7 @@ export function PublicOfferForm() {
   };
 
   const handleSave = () => {
-    if (!form.name || !form.issuer || !form.register) {
+    if (!form.name || !form.register) {
       toast.error("Please fill in all required fields.");
       return;
     }
@@ -198,7 +214,6 @@ export function PublicOfferForm() {
                 <thead>
                   <tr className="mrpsl-table-header">
                     <th className="text-left px-4 py-3 font-medium">Offer Name</th>
-                    <th className="text-left px-4 py-3 font-medium">Issuer</th>
                     <th className="text-left px-4 py-3 font-medium">Register</th>
                     <th className="text-right px-4 py-3 font-medium">Offer Price</th>
                     <th className="text-right px-4 py-3 font-medium">Total Units</th>
@@ -211,13 +226,7 @@ export function PublicOfferForm() {
                 <tbody>
                   {offers.map((offer) => (
                     <tr key={offer.id} className="mrpsl-table-row">
-                      <td className="px-4 py-3">
-                        <p className="font-medium leading-tight">{offer.name}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {offer.issuingHouse}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{offer.issuer}</td>
+                      <td className="px-4 py-3 font-medium">{offer.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{offer.register}</td>
                       <td className="px-4 py-3 text-right font-mono">
                         ₦{offer.offerPrice.toFixed(2)}
@@ -273,8 +282,8 @@ export function PublicOfferForm() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 py-5 space-y-4">
-            <div className="space-y-1">
+          <div className="px-6 py-5 space-y-5">
+            <div className="space-y-1.5">
               <label className="mrpsl-label">Offer / IPO Name *</label>
               <input
                 className="mrpsl-input h-9 w-full"
@@ -284,52 +293,22 @@ export function PublicOfferForm() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="mrpsl-label">Issuer (Principal) *</label>
-                <select
-                  className="mrpsl-input h-9 w-full"
-                  value={form.issuer}
-                  onChange={(e) => set("issuer", e.target.value)}
-                >
-                  <option value="">Select issuer…</option>
-                  {MOCK_ISSUERS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="mrpsl-label">Issuing House</label>
-                <select
-                  className="mrpsl-input h-9 w-full"
-                  value={form.issuingHouse}
-                  onChange={(e) => set("issuingHouse", e.target.value)}
-                >
-                  <option value="">Select issuing house…</option>
-                  {MOCK_ISSUING_HOUSES.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="mrpsl-label">Register *</label>
-              <select
-                className="mrpsl-input h-9 w-full"
-                value={form.register}
-                onChange={(e) => set("register", e.target.value)}
-              >
-                <option value="">Select register…</option>
-                {MOCK_REGISTERS.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
+              <Select value={form.register} onValueChange={(v) => set("register", v ?? "")}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Select register…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MOCK_REGISTERS.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="mrpsl-label">Offer Price (₦) *</label>
                 <input
                   type="number"
@@ -340,7 +319,7 @@ export function PublicOfferForm() {
                   onChange={(e) => set("offerPrice", Number(e.target.value))}
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="mrpsl-label">Total Units *</label>
                 <input
                   type="number"
@@ -350,7 +329,7 @@ export function PublicOfferForm() {
                   onChange={(e) => set("totalUnits", Number(e.target.value))}
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="mrpsl-label">Min. Units *</label>
                 <input
                   type="number"
@@ -362,7 +341,7 @@ export function PublicOfferForm() {
               </div>
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="mrpsl-label">Subsequent Multiples *</label>
               <input
                 type="number"
@@ -388,26 +367,74 @@ export function PublicOfferForm() {
                 setDate={(d) => set("closingDate", d)}
               />
               <DateInput
-                label="Allotment Date"
-                date={form.allotmentDate}
-                setDate={(d) => set("allotmentDate", d)}
+                label="SEC Approval Date"
+                date={form.secApprovalDate}
+                setDate={(d) => set("secApprovalDate", d)}
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="mrpsl-label">Receiving Bank Accounts</label>
-              <input
-                className="mrpsl-input h-9 w-full"
-                placeholder="e.g. Access Bank, GTBank, Zenith Bank"
-                value={form.receivingBanks}
-                onChange={(e) => set("receivingBanks", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Comma-separated list of receiving banks for this offer.
-              </p>
+            {/* Receiving Banks — up to 3 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="mrpsl-label">Receiving Bank Accounts</label>
+                <span className="text-xs text-muted-foreground">
+                  {form.receivingBanks.length}/3
+                </span>
+              </div>
+
+              {form.receivingBanks.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-1">No banks added yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {form.receivingBanks.map((bank, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0 w-5">
+                        <span className="text-xs font-semibold text-muted-foreground">{i + 1}.</span>
+                      </div>
+                      <div className="flex-1">
+                        <Select
+                          value={bank}
+                          onValueChange={(v) => updateBank(i, v ?? "")}
+                        >
+                          <SelectTrigger className="h-9 w-full">
+                            <SelectValue placeholder="Select bank…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {NIGERIAN_BANKS.filter(
+                              (b) => b === bank || !form.receivingBanks.includes(b)
+                            ).map((b) => (
+                              <SelectItem key={b} value={b}>{b}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeBank(i)}
+                        className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {form.receivingBanks.length < 3 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-1 text-xs h-8"
+                  onClick={addBank}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1.5" />
+                  Add Receiving Bank
+                </Button>
+              )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <label className="mrpsl-label">Offer Circular (PDF)</label>
               <div
                 className="border-2 border-dashed border-border rounded-lg p-4 flex items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors"
@@ -420,11 +447,16 @@ export function PublicOfferForm() {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="mrpsl-label">Narration</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="mrpsl-label">Narration</label>
+                <span className="text-xs text-muted-foreground">{form.narration.length}/300</span>
+              </div>
               <textarea
-                className="mrpsl-input w-full resize-none h-20 text-sm"
-                placeholder="Optional notes about this offer…"
+                className="mrpsl-input h-auto min-h-22 resize-none py-2.5 leading-relaxed"
+                placeholder="Optional notes or description about this offer…"
+                maxLength={300}
+                rows={4}
                 value={form.narration}
                 onChange={(e) => set("narration", e.target.value)}
               />

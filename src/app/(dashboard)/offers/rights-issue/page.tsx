@@ -11,16 +11,14 @@ import { ReturnsCapture } from "@/components/custom/rights-issue/returns-capture
 // Shared offer-administration components (reused with rights-specific config)
 import { AllotmentRulesEngine } from "@/components/custom/offer-administration/allotment-rules-engine";
 import { CSCSReversalsWorkspace } from "@/components/custom/offer-administration/cscs-reversals-workspace";
-import { DispatchNotificationPanel } from "@/components/custom/offer-administration/dispatch-notification-panel";
 
 // Existing API-connected rights-issue components (preserved untouched)
 import RightsIssuePendingApproval from "@/components/custom/rights-issue/pending-approval";
 import RightsIssueICUApproval from "@/components/custom/rights-issue/icu-approval";
 import RightsIssueTradedLodgment from "@/components/custom/rights-issue/trade-lodgment";
 import RightsIssueReports from "@/components/custom/rights-issue/rights-reports";
+import RightsIssueAllotment from "@/components/custom/rights-issue/allotment";
 import { RightsRefundProcessing } from "@/components/custom/rights-issue/rights-refund-processing";
-import { OfferReversalPanel } from "@/components/custom/offer-administration/offer-reversal-panel";
-
 const TABS = [
   "provisional",
   "trading",
@@ -31,7 +29,6 @@ const TABS = [
   "lodgement",
   "reversals",
   "refund",
-  "reversal",
   "dispatch",
   "reports",
 ] as const;
@@ -48,7 +45,6 @@ const TAB_LABELS: Record<TabValue, string> = {
   lodgement: "CSCS Lodgement",
   reversals: "CSCS Reversals & Error Resolution",
   refund: "Rights Refund Processing",
-  reversal: "Reversal",
   dispatch: "Dispatch & Notifications",
   reports: "Reports",
 };
@@ -75,8 +71,8 @@ export default function RightsIssuePage() {
           Rights Issue Administration
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Compute provisional entitlements, capture returns, process traded rights,
-          and manage allotment and dispatch for Rights Issues.
+          Compute provisional entitlements, capture returns, process traded
+          rights, and manage allotment and dispatch for Rights Issues.
         </p>
       </div>
 
@@ -85,12 +81,12 @@ export default function RightsIssuePage() {
         onValueChange={(v) => setActiveTab((v as TabValue) || "provisional")}
         className="w-full"
       >
-        <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap">
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap justify-start">
           {TABS.map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab}
-              className="rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              className="flex-none rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all cursor-pointer"
             >
               {TAB_LABELS[tab]}
             </TabsTrigger>
@@ -134,17 +130,8 @@ export default function RightsIssuePage() {
             <RightsRefundProcessing />
           </TabsContent>
 
-          <TabsContent value="reversal">
-            <OfferReversalPanel
-              offerType="rights"
-              offerName="Fidelity Bank PLC Rights Issue 2024"
-              totalUnitsAllotted={103_226}
-              totalRefundValue={472_613}
-            />
-          </TabsContent>
-
           <TabsContent value="dispatch">
-            <DispatchNotificationPanel />
+            <RightsIssueAllotment />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">

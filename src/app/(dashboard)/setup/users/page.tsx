@@ -262,7 +262,9 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Users</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            Users
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage system users, roles, and authorization limits
           </p>
@@ -305,7 +307,7 @@ export default function UsersPage() {
         </Card>
       </div>
 
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-2 items-center w-1/2">
         <Input
           placeholder="Search users..."
           value={search}

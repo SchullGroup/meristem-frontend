@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, AlertCircle, CheckCircle2, Loader2, Info } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,10 +29,46 @@ interface UnitHolder {
 }
 
 const MOCK_HOLDERS: UnitHolder[] = [
-  { id: "h1", accountNo: "FND-00123456", name: "Adebayo Oluwaseun", chn: "CHN-0012345678", email: "adebayo@email.com", fundManagerEmail: "fm@stanbicastset.com", availableUnits: 15_000, fund: "Stanbic IBTC Dollar Fund" },
-  { id: "h2", accountNo: "FND-00234567", name: "Chinwe Okafor-Nwosu", chn: "CHN-0023456789", email: "chinwe@email.com", fundManagerEmail: "fm@armgroup.net", availableUnits: 8_500, fund: "ARM Discovery Balanced Fund" },
-  { id: "h3", accountNo: "FND-00345678", name: "Emeka Nwachukwu", chn: "CHN-0034567890", email: "emeka@email.com", fundManagerEmail: "fm@stanbicastset.com", availableUnits: 42_000, fund: "Stanbic IBTC Dollar Fund" },
-  { id: "h4", accountNo: "FND-00456789", name: "Fatima Garba Abubakar", chn: "CHN-0045678901", email: "fatima@email.com", fundManagerEmail: "fm@coronationam.com", availableUnits: 120_000, fund: "Coronation Money Market Fund" },
+  {
+    id: "h1",
+    accountNo: "FND-00123456",
+    name: "Adebayo Oluwaseun",
+    chn: "CHN-0012345678",
+    email: "adebayo@email.com",
+    fundManagerEmail: "fm@stanbicastset.com",
+    availableUnits: 15_000,
+    fund: "Stanbic IBTC Dollar Fund",
+  },
+  {
+    id: "h2",
+    accountNo: "FND-00234567",
+    name: "Chinwe Okafor-Nwosu",
+    chn: "CHN-0023456789",
+    email: "chinwe@email.com",
+    fundManagerEmail: "fm@armgroup.net",
+    availableUnits: 8_500,
+    fund: "ARM Discovery Balanced Fund",
+  },
+  {
+    id: "h3",
+    accountNo: "FND-00345678",
+    name: "Emeka Nwachukwu",
+    chn: "CHN-0034567890",
+    email: "emeka@email.com",
+    fundManagerEmail: "fm@stanbicastset.com",
+    availableUnits: 42_000,
+    fund: "Stanbic IBTC Dollar Fund",
+  },
+  {
+    id: "h4",
+    accountNo: "FND-00456789",
+    name: "Fatima Garba Abubakar",
+    chn: "CHN-0045678901",
+    email: "fatima@email.com",
+    fundManagerEmail: "fm@coronationam.com",
+    availableUnits: 120_000,
+    fund: "Coronation Money Market Fund",
+  },
 ];
 
 let refCounter = 1;
@@ -42,7 +78,13 @@ function generateRef() {
   return ref;
 }
 
-function HolderDropdown({ query, onSelect }: { query: string; onSelect: (h: UnitHolder) => void }) {
+function HolderDropdown({
+  query,
+  onSelect,
+}: {
+  query: string;
+  onSelect: (h: UnitHolder) => void;
+}) {
   if (!query || query.length < 2) return null;
   const matches = MOCK_HOLDERS.filter(
     (h) =>
@@ -50,11 +92,12 @@ function HolderDropdown({ query, onSelect }: { query: string; onSelect: (h: Unit
       h.accountNo.toLowerCase().includes(query.toLowerCase()) ||
       h.chn.toLowerCase().includes(query.toLowerCase()),
   );
-  if (!matches.length) return (
-    <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md p-3 text-sm text-muted-foreground">
-      No matching unit holders found.
-    </div>
-  );
+  if (!matches.length)
+    return (
+      <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md p-3 text-sm text-muted-foreground">
+        No matching unit holders found.
+      </div>
+    );
   return (
     <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md overflow-hidden">
       {matches.map((h) => (
@@ -65,7 +108,10 @@ function HolderDropdown({ query, onSelect }: { query: string; onSelect: (h: Unit
           className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors text-sm"
         >
           <p className="font-medium">{h.name}</p>
-          <p className="text-xs text-muted-foreground font-mono">{h.accountNo} · {h.chn} · {h.availableUnits.toLocaleString()} units available</p>
+          <p className="text-xs text-muted-foreground font-mono">
+            {h.accountNo} · {h.chn} · {h.availableUnits.toLocaleString()} units
+            available
+          </p>
         </button>
       ))}
     </div>
@@ -73,7 +119,8 @@ function HolderDropdown({ query, onSelect }: { query: string; onSelect: (h: Unit
 }
 
 export function RedemptionRequest() {
-  const { data: fundRegisters, isLoading: loadingRegisters } = useGetRegistersByType("Fund");
+  const { data: fundRegisters, isLoading: loadingRegisters } =
+    useGetRegistersByType("Fund");
 
   const [fundRegister, setFundRegister] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -91,7 +138,11 @@ export function RedemptionRequest() {
   const parsedUnits = parseInt(unitsRequested, 10) || 0;
   const parsedPrice = parseFloat(redemptionPrice) || 0;
   const totalAmount = parsedUnits * parsedPrice;
-  const insufficient = !!(selectedHolder && parsedUnits > 0 && parsedUnits > selectedHolder.availableUnits);
+  const insufficient = !!(
+    selectedHolder &&
+    parsedUnits > 0 &&
+    parsedUnits > selectedHolder.availableUnits
+  );
 
   const canSubmit = !!(
     fundRegister &&
@@ -116,14 +167,23 @@ export function RedemptionRequest() {
     setSubmittedRef(ref);
     setSubmitting(false);
     setSubmitted(true);
-    toast.success(`Redemption request ${ref} submitted. Pending Team Lead approval.`);
+    toast.success(
+      `Redemption request ${ref} submitted. Pending Team Lead approval.`,
+    );
   };
 
   const handleReset = () => {
-    setFundRegister(""); setSearchQuery(""); setSelectedHolder(null);
-    setUnitsRequested(""); setRedemptionPrice(""); setRedemptionAccount("");
-    setRedemptionDate(null); setDatePayable(null); setAdviseNote("");
-    setSubmitted(false); setSubmittedRef("");
+    setFundRegister("");
+    setSearchQuery("");
+    setSelectedHolder(null);
+    setUnitsRequested("");
+    setRedemptionPrice("");
+    setRedemptionAccount("");
+    setRedemptionDate(null);
+    setDatePayable(null);
+    setAdviseNote("");
+    setSubmitted(false);
+    setSubmittedRef("");
   };
 
   if (submitted) {
@@ -134,12 +194,17 @@ export function RedemptionRequest() {
         </div>
         <div>
           <p className="font-semibold text-lg">Redemption Request Submitted</p>
-          <p className="font-mono text-sm text-muted-foreground mt-0.5">{submittedRef}</p>
+          <p className="font-mono text-sm text-muted-foreground mt-0.5">
+            {submittedRef}
+          </p>
           <p className="text-sm text-muted-foreground mt-2">
-            Pending review and approval. On approval, units will be deducted and the Fund Manager notified.
+            Pending review and approval. On approval, units will be deducted and
+            the Fund Manager notified.
           </p>
         </div>
-        <Button variant="outline" onClick={handleReset}>Submit Another Request</Button>
+        <Button variant="outline" onClick={handleReset}>
+          Submit Another Request
+        </Button>
       </Card>
     );
   }
@@ -152,22 +217,35 @@ export function RedemptionRequest() {
             {/* Fund Register */}
             <div className="space-y-1.5">
               <label className="mrpsl-label">Fund Register *</label>
-              <Select value={fundRegister} onValueChange={(v) => setFundRegister(v ?? "")}>
+              <Select
+                value={fundRegister}
+                onValueChange={(v) => setFundRegister(v ?? "")}
+              >
                 <SelectTrigger className="mrpsl-input">
                   <SelectValue placeholder="Select Fund Register" />
                 </SelectTrigger>
                 <SelectContent>
                   {loadingRegisters ? (
-                    <div className="py-6 flex items-center justify-center"><Loader2 className="animate-spin h-4 w-4" /></div>
+                    <div className="py-6 flex items-center justify-center">
+                      <Loader2 className="animate-spin h-4 w-4" />
+                    </div>
                   ) : fundRegisters && fundRegisters.length > 0 ? (
                     fundRegisters.map((r) => (
-                      <SelectItem key={r.registerId} value={r.registerId}>{r.registerName}</SelectItem>
+                      <SelectItem key={r.registerId} value={r.registerId}>
+                        {r.registerName}
+                      </SelectItem>
                     ))
                   ) : (
                     <>
-                      <SelectItem value="stanbic-dollar">Stanbic IBTC Dollar Fund</SelectItem>
-                      <SelectItem value="arm-discovery">ARM Discovery Balanced Fund</SelectItem>
-                      <SelectItem value="coronation-mm">Coronation Money Market Fund</SelectItem>
+                      <SelectItem value="stanbic-dollar">
+                        Stanbic IBTC Dollar Fund
+                      </SelectItem>
+                      <SelectItem value="arm-discovery">
+                        ARM Discovery Balanced Fund
+                      </SelectItem>
+                      <SelectItem value="coronation-mm">
+                        Coronation Money Market Fund
+                      </SelectItem>
                     </>
                   )}
                 </SelectContent>
@@ -176,24 +254,36 @@ export function RedemptionRequest() {
 
             {/* Unit Holder search */}
             <div className="space-y-1.5">
-              <label className="mrpsl-label">Unit Holder (Account No., Name, or CHN) *</label>
+              <label className="mrpsl-label">
+                Unit Holder (Account No., Name, or CHN) *
+              </label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   className="mrpsl-input pl-8"
                   placeholder="Start typing to search…"
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setSelectedHolder(null); }}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setSelectedHolder(null);
+                  }}
                 />
-                <HolderDropdown query={searchQuery} onSelect={handleSelectHolder} />
+                <HolderDropdown
+                  query={searchQuery}
+                  onSelect={handleSelectHolder}
+                />
               </div>
               {selectedHolder && (
                 <div className="rounded-xl bg-muted/40 p-3 text-sm">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold">{selectedHolder.name}</span>
-                    <span className="font-mono font-bold text-primary">{selectedHolder.availableUnits.toLocaleString()} units available</span>
+                    <span className="font-mono font-bold text-primary">
+                      {selectedHolder.availableUnits.toLocaleString()} units
+                      available
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{selectedHolder.fund} · {selectedHolder.accountNo}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {selectedHolder.fund} · {selectedHolder.accountNo}
+                  </p>
                 </div>
               )}
             </div>
@@ -201,7 +291,9 @@ export function RedemptionRequest() {
             {/* Units requested */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="mrpsl-label">Units Requested for Redemption *</label>
+                <label className="mrpsl-label">
+                  Units Requested for Redemption *
+                </label>
                 <Input
                   className={`mrpsl-input font-mono ${insufficient ? "border-destructive" : ""}`}
                   type="number"
@@ -213,16 +305,23 @@ export function RedemptionRequest() {
                 {insufficient && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
-                    Insufficient units. Available: {selectedHolder!.availableUnits.toLocaleString()}.
+                    Insufficient units. Available:{" "}
+                    {selectedHolder!.availableUnits.toLocaleString()}.
                   </p>
                 )}
               </div>
               <div className="space-y-1.5">
-                <label className="mrpsl-label">Available Units (read-only)</label>
+                <label className="mrpsl-label">
+                  Available Units (read-only)
+                </label>
                 <Input
                   className="mrpsl-input font-mono bg-muted/30"
                   readOnly
-                  value={selectedHolder ? selectedHolder.availableUnits.toLocaleString() : "—"}
+                  value={
+                    selectedHolder
+                      ? selectedHolder.availableUnits.toLocaleString()
+                      : "—"
+                  }
                 />
               </div>
             </div>
@@ -232,7 +331,8 @@ export function RedemptionRequest() {
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs text-amber-700">
                   <Info className="h-3.5 w-3.5" />
-                  Advise the unit holder that their requested units exceed available balance. Document your advice below.
+                  Advise the unit holder that their requested units exceed
+                  available balance. Document your advice below.
                 </div>
                 <Textarea
                   className="mrpsl-input resize-none"
@@ -247,7 +347,9 @@ export function RedemptionRequest() {
             {/* Pricing */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="mrpsl-label">Redemption Price (₦ per unit) *</label>
+                <label className="mrpsl-label">
+                  Redemption Price (₦ per unit) *
+                </label>
                 <Input
                   className="mrpsl-input font-mono"
                   type="number"
@@ -259,11 +361,15 @@ export function RedemptionRequest() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="mrpsl-label">Total Redemption Amount (auto)</label>
+                <label className="mrpsl-label">
+                  Total Redemption Amount (auto)
+                </label>
                 <Input
                   className="mrpsl-input font-mono bg-muted/30"
                   readOnly
-                  value={totalAmount > 0 ? `₦${totalAmount.toLocaleString()}` : "—"}
+                  value={
+                    totalAmount > 0 ? `₦${totalAmount.toLocaleString()}` : "—"
+                  }
                 />
               </div>
             </div>
@@ -271,7 +377,9 @@ export function RedemptionRequest() {
             {/* Redemption account + ref */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="mrpsl-label">Redemption Account (bank account for payout) *</label>
+                <label className="mrpsl-label">
+                  Redemption Account (bank account for payout) *
+                </label>
                 <Input
                   className="mrpsl-input font-mono"
                   placeholder="NUBAN or account reference"
@@ -280,7 +388,9 @@ export function RedemptionRequest() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="mrpsl-label">Payment / Redemption Number (auto-generated)</label>
+                <label className="mrpsl-label">
+                  Payment / Redemption Number (auto-generated)
+                </label>
                 <Input
                   className="mrpsl-input font-mono bg-muted/30 text-muted-foreground"
                   readOnly
@@ -304,9 +414,15 @@ export function RedemptionRequest() {
             </div>
 
             <div className="pt-2 flex justify-end">
-              <Button onClick={handleSubmit} disabled={submitting || !canSubmit || insufficient}>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || !canSubmit || insufficient}
+              >
                 {submitting ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting…</>
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />{" "}
+                    Submitting…
+                  </>
                 ) : (
                   "Submit Redemption Request"
                 )}
@@ -328,7 +444,9 @@ export function RedemptionRequest() {
                 "E-notification sent immediately to Fund Manager.",
               ].map((step, i) => (
                 <li key={i} className="flex items-start gap-2">
-                  <span className="shrink-0 h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                  <span className="shrink-0 h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
+                    {i + 1}
+                  </span>
                   <span>{step}</span>
                 </li>
               ))}
@@ -336,9 +454,18 @@ export function RedemptionRequest() {
           </Card>
           <Card className="mrpsl-card p-4 text-xs text-muted-foreground space-y-1.5">
             <p className="font-semibold text-sm text-foreground">Rules</p>
-            <p>• Redemption is voluntary — triggered by the unit holder or fund manager, not by any system event.</p>
-            <p>• If units requested exceed available balance, submission is blocked. Document your advice to the holder in the note field.</p>
-            <p>• This flow is independent of IPO/Rights Issue Return Money queues.</p>
+            <p>
+              • Redemption is voluntary — triggered by the unit holder or fund
+              manager, not by any system event.
+            </p>
+            <p>
+              • If units requested exceed available balance, submission is
+              blocked. Document your advice to the holder in the note field.
+            </p>
+            <p>
+              • This flow is independent of IPO/Rights Issue Return Money
+              queues.
+            </p>
           </Card>
         </div>
       </div>

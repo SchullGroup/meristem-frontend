@@ -67,6 +67,16 @@
     @apply border-border tracking-normal;
   }
 
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
   html {
     font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
   }
@@ -101,7 +111,14 @@
 }
 
 .mrpsl-input {
-  @apply h-10;
+  @apply h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors outline-none;
+}
+
+.mrpsl-input:focus,
+.mrpsl-input:focus-within {
+  border-color: hsl(var(--primary) / 0.6);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.08);
+  background-color: hsl(var(--primary) / 0.015);
 }
 
 /* ── Form-row pattern ─────────────────────────────────────────────────────

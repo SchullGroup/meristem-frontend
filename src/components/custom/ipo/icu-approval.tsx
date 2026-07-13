@@ -10,17 +10,9 @@ import {
   History,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { DateRangePicker } from "@/components/custom/date-range-picker";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -31,8 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { DateRange } from "react-day-picker";
-import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   useGetIcuApprovals,
   useGetIpoBatch,
@@ -65,24 +55,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
     action: "approve" | "return";
   } | null>(null);
 
-  // Filters
-  const [icuRegister, setIcuRegister] = useState<string>("");
-  const [icuDateRange, setIcuDateRange] = useState<DateRange | undefined>(
-    undefined,
-  );
-
   // Queries
-  const { data: activeRegisters, isLoading: registersLoading } =
-    useGetRegisters(
-      {
-        size: 100,
-        status: "ACTIVE",
-      },
-      {
-        enabled: tab === "icu",
-      },
-    );
-
   const {
     data: icuData,
     isLoading: icuLoading,
@@ -91,11 +64,6 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
     refetch: refetchIcu,
   } = useGetIcuApprovals(
     {
-      register: icuRegister === "all" ? "" : icuRegister,
-      from: icuDateRange?.from
-        ? format(icuDateRange.from, "yyyy-MM-dd")
-        : undefined,
-      to: icuDateRange?.to ? format(icuDateRange.to, "yyyy-MM-dd") : undefined,
       page: currentPage,
       size: pageSize,
     },
@@ -197,28 +165,12 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
     }
   };
 
-  const resetFilters = () => {
-    setIcuRegister("");
-    setIcuDateRange(undefined);
-    setCurrentPage(0);
-  };
-
-  // ── Helper Components ──
-
   // ── Render Logic ──
 
   if (!reviewingBatch) {
     if (icuError) {
       return (
         <div className="space-y-6">
-          <Card className="mrpsl-card p-5">
-            <div className="flex justify-between items-center">
-              <h2 className="font-semibold">ICU Approval Queue</h2>
-              <Button variant="ghost" size="sm" onClick={resetFilters}>
-                Reset Filters
-              </Button>
-            </div>
-          </Card>
           <DataErrorState
             message={returnErrorMessage(icuErrorData as ErrorLike)}
             onRetry={refetchIcu}
@@ -229,55 +181,6 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
 
     return (
       <div className="space-y-6">
-        {/* Filters */}
-        <Card className="mrpsl-card p-5">
-          <div className="flex-1 flex gap-4">
-            <div className="">
-              <label className="mrpsl-label">Register</label>
-              <Select
-                value={icuRegister}
-                onValueChange={(value) => setIcuRegister(value || "")}
-              >
-                <SelectTrigger className="mrpsl-input w-full">
-                  <SelectValue placeholder="All Registers" />
-                </SelectTrigger>
-                <SelectContent>
-                  {registersLoading ? (
-                    <div className="py-10 flex items-center justify-center">
-                      <Loader2 className="animate-spin w-4 h-4" />
-                    </div>
-                  ) : (
-                    <>
-                      <SelectItem value="All">All Register</SelectItem>
-                      {activeRegisters?.content?.map((r) => (
-                        <SelectItem key={r.registerId} value={r.symbol}>
-                          <span className="font-bold">{r.registerName}</span> -{" "}
-                          <span className="text-xs translate-y-0.5">
-                            {r.symbol}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="">
-              <label className="mrpsl-label">Date Range</label>
-              <DateRangePicker date={icuDateRange} setDate={setIcuDateRange} />
-            </div>
-            <Button
-              variant="ghost"
-              onClick={resetFilters}
-              size="xl"
-              className="self-end"
-            >
-              Reset
-            </Button>
-          </div>
-        </Card>
-
         {/* Batch list */}
         <Card className="mrpsl-card overflow-hidden">
           <div className="overflow-x-auto">

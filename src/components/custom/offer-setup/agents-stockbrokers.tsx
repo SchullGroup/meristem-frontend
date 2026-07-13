@@ -1,22 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Save, Users } from "lucide-react";
+import { Plus, Save, Users, Building2, AlertCircle, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
+import { useGetAgents } from "@/hooks/useAgents";
+import type { Agent as ApiAgent } from "@/actions/agentAction";
 
 type AgentType = "Bank" | "Stockbroker" | "Receiving Agent";
+type OfferStatus = "DRAFT" | "OPEN" | "CLOSED" | "ALLOTTED" | "CONCLUDED";
+
+interface PublicOfferSummary {
+  id: string;
+  name: string;
+  register: string;
+  offerPrice: number;
+  status: OfferStatus;
+}
 
 interface Agent {
   id: string;
   name: string;
   agentType: AgentType;
-  offer: string;
+  offerId: string;
   offerDate: Date | null;
   offerValue: number;
   noOfForms: number;
@@ -25,12 +43,52 @@ interface Agent {
   commissionRate: number;
 }
 
+const MOCK_PUBLIC_OFFERS: PublicOfferSummary[] = [
+  {
+    id: "1",
+    name: "Access Holdings PLC Public Offer 2024",
+    register: "Access Holdings Ord. Shares",
+    offerPrice: 22.5,
+    status: "CLOSED",
+  },
+  {
+    id: "2",
+    name: "Transcorp Power PLC IPO 2024",
+    register: "Transcorp Power Ord. Shares",
+    offerPrice: 5.0,
+    status: "DRAFT",
+  },
+];
+
+const STATUS_COLORS: Record<OfferStatus, string> = {
+  DRAFT: "bg-gray-100 text-gray-700",
+  OPEN: "bg-green-100 text-green-800",
+  CLOSED: "bg-amber-100 text-amber-800",
+  ALLOTTED: "bg-blue-100 text-blue-800",
+  CONCLUDED: "bg-purple-100 text-purple-800",
+};
+
+const MOCK_RECEIVING_AGENTS: Agent[] = [
+  {
+    id: "ra1",
+    name: "Meristem Registrars Ltd",
+    agentType: "Receiving Agent",
+    offerId: "1",
+    offerDate: new Date("2024-10-07"),
+    offerValue: 22.5,
+    noOfForms: 5400,
+    totalUnits: 18_000_000,
+    totalAmountPaid: 405_000_000,
+    commissionRate: 0.5,
+  },
+];
+
 const MOCK_AGENTS: Agent[] = [
   {
     id: "1",
     name: "Access Bank PLC",
     agentType: "Bank",
-    offer: "Access Holdings Public Offer 2024",
+    offerId: "1",
     offerDate: new Date("2024-10-07"),
     offerValue: 22.5,
     noOfForms: 12450,
@@ -42,7 +100,7 @@ const MOCK_AGENTS: Agent[] = [
     id: "2",
     name: "GTBank PLC",
     agentType: "Bank",
-    offer: "Access Holdings Public Offer 2024",
+    offerId: "1",
     offerDate: new Date("2024-10-07"),
     offerValue: 22.5,
     noOfForms: 8320,
@@ -54,7 +112,7 @@ const MOCK_AGENTS: Agent[] = [
     id: "3",
     name: "Zenith Bank PLC",
     agentType: "Bank",
-    offer: "Access Holdings Public Offer 2024",
+    offerId: "1",
     offerDate: new Date("2024-10-07"),
     offerValue: 22.5,
     noOfForms: 6740,
@@ -69,7 +127,7 @@ const MOCK_STOCKBROKERS: Agent[] = [
     id: "s1",
     name: "Meristem Securities Ltd",
     agentType: "Stockbroker",
-    offer: "Access Holdings Public Offer 2024",
+    offerId: "1",
     offerDate: new Date("2024-10-07"),
     offerValue: 22.5,
     noOfForms: 3200,
@@ -81,7 +139,7 @@ const MOCK_STOCKBROKERS: Agent[] = [
     id: "s2",
     name: "CardinalStone Partners Ltd",
     agentType: "Stockbroker",
-    offer: "Access Holdings Public Offer 2024",
+    offerId: "1",
     offerDate: new Date("2024-10-07"),
     offerValue: 22.5,
     noOfForms: 2800,
@@ -93,7 +151,7 @@ const MOCK_STOCKBROKERS: Agent[] = [
     id: "s3",
     name: "Stanbic IBTC Stockbrokers",
     agentType: "Stockbroker",
-    offer: "Access Holdings Public Offer 2024",
+    offerId: "1",
     offerDate: new Date("2024-10-07"),
     offerValue: 22.5,
     noOfForms: 4100,
@@ -103,16 +161,10 @@ const MOCK_STOCKBROKERS: Agent[] = [
   },
 ];
 
-const MOCK_OFFERS = [
-  "Access Holdings Public Offer 2024",
-  "Transcorp Power PLC IPO 2024",
-  "Fidelity Bank PLC Rights Issue 2024",
-];
-
 const EMPTY_AGENT: Omit<Agent, "id"> = {
   name: "",
   agentType: "Bank",
-  offer: "",
+  offerId: "",
   offerDate: null,
   offerValue: 0,
   noOfForms: 0,
@@ -121,15 +173,42 @@ const EMPTY_AGENT: Omit<Agent, "id"> = {
   commissionRate: 0,
 };
 
-function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[]; agentType: AgentType; addLabel: string }) {
+const API_TYPE_MAP: Record<string, AgentType> = {
+  BANK: "Bank",
+  STOCKBROKER: "Stockbroker",
+  COLLECTING_AGENT: "Receiving Agent",
+};
+
+function AgentPanel({
+  agents: initial,
+  agentType,
+  apiAgentType,
+  selectedOffer,
+}: {
+  agents: Agent[];
+  agentType: AgentType;
+  apiAgentType: "BANK" | "STOCKBROKER" | "COLLECTING_AGENT";
+  selectedOffer: PublicOfferSummary;
+}) {
   const [agents, setAgents] = useState<Agent[]>(initial);
   const [selected, setSelected] = useState<Agent | null>(null);
   const [form, setForm] = useState<Omit<Agent, "id">>(EMPTY_AGENT);
   const [isNew, setIsNew] = useState(false);
 
+  const { data: apiAgents, isLoading: agentsLoading } = useGetAgents(
+    { type: apiAgentType, status: "ACTIVE", size: 200 },
+  );
+
+  const offerAgents = agents.filter((a) => a.offerId === selectedOffer.id);
+
+  const handleSelectApiAgent = (apiAgent: ApiAgent) => {
+    set("name", apiAgent.name);
+    set("agentType", API_TYPE_MAP[apiAgent.type] ?? agentType);
+  };
+
   const openNew = () => {
     setSelected(null);
-    setForm({ ...EMPTY_AGENT, agentType });
+    setForm({ ...EMPTY_AGENT, agentType, offerId: selectedOffer.id, offerValue: selectedOffer.offerPrice });
     setIsNew(true);
   };
 
@@ -141,8 +220,8 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
   };
 
   const handleSave = () => {
-    if (!form.name || !form.offer) {
-      toast.error("Agent name and offer are required.");
+    if (!form.name) {
+      toast.error("Please select an agent.");
       return;
     }
     if (isNew) {
@@ -165,30 +244,29 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
   const showForm = selected !== null || isNew;
 
   return (
-    <div className="flex gap-4 h-[520px]">
+    <div className="flex gap-4 min-h-100 h-[calc(100dvh-26rem)]">
       <Card className="mrpsl-card w-72 shrink-0 flex flex-col overflow-hidden">
         <div className="p-3 border-b border-border flex items-center justify-between">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            {agentType}s
+            {agentType}s ({offerAgents.length})
           </span>
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openNew}>
             <Plus className="h-3.5 w-3.5 mr-1" />Add
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {agents.length === 0 ? (
+          {offerAgents.length === 0 ? (
             <div className="p-4 text-center text-xs text-muted-foreground">
-              No {agentType.toLowerCase()}s added yet.
+              No agents added yet.
             </div>
           ) : (
-            agents.map((agent) => (
+            offerAgents.map((agent) => (
               <button
                 key={agent.id}
                 onClick={() => openEdit(agent)}
-                className={`w-full text-left p-3.5 border-b border-border hover:bg-muted/40 transition-colors ${(selected?.id === agent.id || (isNew && !selected)) ? "bg-primary/5" : ""}`}
+                className={`w-full text-left p-3.5 border-b border-border hover:bg-muted/40 transition-colors ${selected?.id === agent.id ? "bg-primary/5" : ""}`}
               >
                 <p className="text-sm font-medium truncate">{agent.name}</p>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{agent.offer}</p>
                 <div className="flex items-center gap-2 mt-1">
                   {agent.offerDate && (
                     <span className="text-[11px] text-muted-foreground">
@@ -224,56 +302,51 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
               <p className="font-semibold text-sm">
                 {isNew ? `New ${agentType}` : selected?.name}
               </p>
-              {!isNew && selected && (
-                <p className="text-xs text-muted-foreground mt-0.5">{selected.offer}</p>
-              )}
+              <p className="text-xs text-muted-foreground mt-0.5">{selectedOffer.name}</p>
             </div>
 
             <div className="flex-1 p-5 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2 space-y-1">
+                {/* Agent name — dropdown from API */}
+                <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Name of Agent *
+                    Agent *
                   </label>
-                  <input
-                    className="mrpsl-input h-9 w-full"
-                    placeholder="Agent / institution name"
+                  <Select
                     value={form.name}
-                    onChange={(e) => set("name", e.target.value)}
-                  />
+                    onValueChange={(v) => {
+                      const picked = apiAgents?.content.find((a) => a.name === v);
+                      if (picked) handleSelectApiAgent(picked);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      {agentsLoading ? (
+                        <span className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Loading agents…
+                        </span>
+                      ) : (
+                        <SelectValue placeholder="Select agent…" />
+                      )}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(apiAgents?.content ?? []).map((a) => (
+                        <SelectItem key={a.id} value={a.name}>
+                          {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="space-y-1">
+                {/* Agent type — read-only, pre-filled from selection */}
+                <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Agent Type
                   </label>
-                  <select
-                    className="mrpsl-input h-9 w-full"
-                    value={form.agentType}
-                    onChange={(e) => set("agentType", e.target.value as AgentType)}
-                  >
-                    <option value="Bank">Bank</option>
-                    <option value="Stockbroker">Stockbroker</option>
-                    <option value="Receiving Agent">Receiving Agent</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Offer *
-                  </label>
-                  <select
-                    className="mrpsl-input h-9 w-full"
-                    value={form.offer}
-                    onChange={(e) => set("offer", e.target.value)}
-                  >
-                    <option value="">Select offer…</option>
-                    {MOCK_OFFERS.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="h-9 flex items-center px-3 rounded-lg border border-input bg-muted/40 text-sm text-muted-foreground">
+                    {form.agentType || <span className="italic">Auto-filled on selection</span>}
+                  </div>
                 </div>
 
                 <DateInput
@@ -282,7 +355,7 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
                   setDate={(d) => set("offerDate", d)}
                 />
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Offer Value (₦)
                   </label>
@@ -296,7 +369,7 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     No. of Forms
                   </label>
@@ -309,7 +382,7 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Total No. of Units
                   </label>
@@ -322,7 +395,7 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
                   />
                 </div>
 
-                <div className="col-span-2 space-y-1">
+                <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Total Amount Paid (₦)
                   </label>
@@ -335,7 +408,7 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Commission Rate (%)
                   </label>
@@ -360,10 +433,7 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setSelected(null);
-                  setIsNew(false);
-                }}
+                onClick={() => { setSelected(null); setIsNew(false); }}
               >
                 Cancel
               </Button>
@@ -380,33 +450,98 @@ function AgentPanel({ agents: initial, agentType, addLabel }: { agents: Agent[];
 }
 
 export function AgentsStockbrokers() {
-  return (
-    <Tabs defaultValue="agents">
-      <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5 mb-4">
-        <TabsTrigger
-          value="agents"
-          className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-        >
-          Receiving Agents
-        </TabsTrigger>
-        <TabsTrigger
-          value="stockbrokers"
-          className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-        >
-          Stockbrokers
-        </TabsTrigger>
-      </TabsList>
+  const [selectedOfferId, setSelectedOfferId] = useState<string>("");
+  const selectedOffer = MOCK_PUBLIC_OFFERS.find((o) => o.id === selectedOfferId) ?? null;
 
-      <TabsContent value="agents">
-        <AgentPanel agents={MOCK_AGENTS} agentType="Bank" addLabel="Add Receiving Agent" />
-      </TabsContent>
-      <TabsContent value="stockbrokers">
-        <AgentPanel
-          agents={MOCK_STOCKBROKERS}
-          agentType="Stockbroker"
-          addLabel="Add Stockbroker"
-        />
-      </TabsContent>
-    </Tabs>
+  return (
+    <div className="space-y-5">
+      {/* Offer selector */}
+      <Card className="mrpsl-card p-4">
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0 pt-0.5">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Select Offer</span>
+          </div>
+          <div className="flex-1 min-w-60">
+            <Select value={selectedOfferId} onValueChange={(v) => setSelectedOfferId(v ?? "")}>
+              <SelectTrigger className="h-9 w-full max-w-sm">
+                <SelectValue placeholder="Choose a public offer to configure agents for…" />
+              </SelectTrigger>
+              <SelectContent>
+                {MOCK_PUBLIC_OFFERS.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedOffer && (
+            <div className="flex items-center gap-4 flex-wrap text-sm">
+              <div>
+                <span className="mrpsl-label mr-1">Register:</span>
+                <span className="font-medium">{selectedOffer.register}</span>
+              </div>
+              <div>
+                <span className="mrpsl-label mr-1">Price:</span>
+                <span className="font-mono font-semibold">₦{selectedOffer.offerPrice.toFixed(2)}</span>
+              </div>
+              <Badge className={`border-0 text-[11px] ${STATUS_COLORS[selectedOffer.status]}`}>
+                {selectedOffer.status}
+              </Badge>
+            </div>
+          )}
+          {!selectedOffer && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Select a public offer above to configure its receiving agents and stockbrokers.
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Agents / Stockbrokers panels */}
+      {!selectedOffer ? (
+        <Card className="mrpsl-card p-16 flex flex-col items-center justify-center gap-3 text-center">
+          <Users className="h-10 w-10 text-muted-foreground/20" />
+          <p className="font-medium text-sm text-muted-foreground">No offer selected</p>
+          <p className="text-xs text-muted-foreground max-w-sm">
+            Choose a public offer from the selector above to view and configure its receiving
+            agents and stockbrokers.
+          </p>
+        </Card>
+      ) : (
+        <Tabs defaultValue="receiving-agents">
+          <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5 mb-4">
+            <TabsTrigger
+              value="receiving-agents"
+              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+            >
+              Receiving Agents
+            </TabsTrigger>
+            <TabsTrigger
+              value="banks"
+              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+            >
+              Banks
+            </TabsTrigger>
+            <TabsTrigger
+              value="stockbrokers"
+              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+            >
+              Stockbrokers
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="receiving-agents">
+            <AgentPanel agents={MOCK_RECEIVING_AGENTS} agentType="Receiving Agent" apiAgentType="COLLECTING_AGENT" selectedOffer={selectedOffer} />
+          </TabsContent>
+          <TabsContent value="banks">
+            <AgentPanel agents={MOCK_AGENTS} agentType="Bank" apiAgentType="BANK" selectedOffer={selectedOffer} />
+          </TabsContent>
+          <TabsContent value="stockbrokers">
+            <AgentPanel agents={MOCK_STOCKBROKERS} agentType="Stockbroker" apiAgentType="STOCKBROKER" selectedOffer={selectedOffer} />
+          </TabsContent>
+        </Tabs>
+      )}
+    </div>
   );
 }

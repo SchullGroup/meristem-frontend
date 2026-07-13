@@ -13,6 +13,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
 
@@ -22,14 +29,15 @@ interface BonusIssue {
   id: string;
   name: string;
   register: string;
-  ratio: string;
+  ratioNumerator: number;
+  ratioDenominator: number;
   qualificationDate: Date | null;
   closureDate: Date | null;
   allotmentDate: Date | null;
   roundingRule: string;
   narrative: string;
   eventId: string;
-  registerAccountNumber: string;
+  fractionAccountNumber: string;
   status: BonusStatus;
 }
 
@@ -38,14 +46,15 @@ const MOCK_BONUSES: BonusIssue[] = [
     id: "1",
     name: "Zenith Bank Bonus Issue 2024",
     register: "Zenith Bank Ord. Shares",
-    ratio: "1 for 5",
+    ratioNumerator: 1,
+    ratioDenominator: 5,
     qualificationDate: new Date("2024-06-30"),
     closureDate: new Date("2024-07-15"),
     allotmentDate: new Date("2024-08-01"),
     roundingRule: "Round Down",
     narrative: "One bonus share for every five held at qualification date.",
     eventId: "BNS-2024-001",
-    registerAccountNumber: "REG-ZB-001",
+    fractionAccountNumber: "REG-ZB-001",
     status: "ICU_APPROVED",
   },
 ];
@@ -80,14 +89,15 @@ type FormState = Omit<BonusIssue, "id" | "status">;
 const EMPTY_FORM: FormState = {
   name: "",
   register: "",
-  ratio: "",
+  ratioNumerator: 1,
+  ratioDenominator: 1,
   qualificationDate: null,
   closureDate: null,
   allotmentDate: null,
   roundingRule: "Round Down",
   narrative: "",
   eventId: "",
-  registerAccountNumber: "",
+  fractionAccountNumber: "",
 };
 
 export function BonusSetupForm() {
@@ -113,7 +123,7 @@ export function BonusSetupForm() {
   };
 
   const handleSave = () => {
-    if (!form.name || !form.register || !form.ratio) {
+    if (!form.name || !form.register || !form.ratioDenominator) {
       toast.error("Please fill in all required fields.");
       return;
     }
@@ -161,7 +171,7 @@ export function BonusSetupForm() {
                   <tr className="mrpsl-table-header">
                     <th className="text-left px-4 py-3 font-medium">Bonus Issue Name</th>
                     <th className="text-left px-4 py-3 font-medium">Register</th>
-                    <th className="text-left px-4 py-3 font-medium">Ratio</th>
+                    <th className="text-center px-4 py-3 font-medium">Ratio</th>
                     <th className="text-left px-4 py-3 font-medium">Qual. Date</th>
                     <th className="text-left px-4 py-3 font-medium">Closure Date</th>
                     <th className="text-left px-4 py-3 font-medium">Allotment Date</th>
@@ -175,21 +185,19 @@ export function BonusSetupForm() {
                     <tr key={bonus.id} className="mrpsl-table-row">
                       <td className="px-4 py-3 font-medium">{bonus.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{bonus.register}</td>
-                      <td className="px-4 py-3 font-mono text-sm">{bonus.ratio}</td>
+                      <td className="px-4 py-3 text-center font-mono text-xs">
+                        {bonus.ratioNumerator}:{bonus.ratioDenominator}
+                      </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {bonus.qualificationDate
                           ? format(bonus.qualificationDate, "dd MMM yyyy")
                           : "—"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {bonus.closureDate
-                          ? format(bonus.closureDate, "dd MMM yyyy")
-                          : "—"}
+                        {bonus.closureDate ? format(bonus.closureDate, "dd MMM yyyy") : "—"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {bonus.allotmentDate
-                          ? format(bonus.allotmentDate, "dd MMM yyyy")
-                          : "—"}
+                        {bonus.allotmentDate ? format(bonus.allotmentDate, "dd MMM yyyy") : "—"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">
                         {bonus.roundingRule}
@@ -222,8 +230,8 @@ export function BonusSetupForm() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="px-6 py-5 space-y-4">
-            <div className="space-y-1">
+          <div className="px-6 py-5 space-y-5">
+            <div className="space-y-1.5">
               <label className="mrpsl-label">Bonus Issue Name *</label>
               <input
                 className="mrpsl-input h-9 w-full"
@@ -233,33 +241,49 @@ export function BonusSetupForm() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="mrpsl-label">Register *</label>
-                <select
-                  className="mrpsl-input h-9 w-full"
-                  value={form.register}
-                  onChange={(e) => set("register", e.target.value)}
-                >
-                  <option value="">Select register…</option>
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Register *</label>
+              <Select value={form.register} onValueChange={(v) => set("register", v ?? "")}>
+                <SelectTrigger className="h-9 w-full">
+                  <SelectValue placeholder="Select register…" />
+                </SelectTrigger>
+                <SelectContent>
                   {MOCK_REGISTERS.map((r) => (
-                    <option key={r} value={r}>{r}</option>
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
                   ))}
-                </select>
-              </div>
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div className="space-y-1">
-                <label className="mrpsl-label">Bonus Ratio *</label>
+            {/* Bonus Ratio */}
+            <div className="space-y-1.5">
+              <label className="mrpsl-label">Bonus Ratio *</label>
+              <div className="flex items-center gap-2">
                 <input
-                  className="mrpsl-input h-9 w-full"
-                  placeholder="e.g. 1 for 5"
-                  value={form.ratio}
-                  onChange={(e) => set("ratio", e.target.value)}
+                  type="number"
+                  min={1}
+                  className="mrpsl-input h-9 w-10! text-center font-mono px-1"
+                  placeholder="1"
+                  value={form.ratioNumerator || ""}
+                  onChange={(e) => set("ratioNumerator", Number(e.target.value))}
                 />
+                <span className="text-lg font-semibold text-muted-foreground select-none">:</span>
+                <input
+                  type="number"
+                  min={1}
+                  className="mrpsl-input h-9 w-10! text-center font-mono px-1"
+                  placeholder="5"
+                  value={form.ratioDenominator || ""}
+                  onChange={(e) => set("ratioDenominator", Number(e.target.value))}
+                />
+                <span className="text-xs text-muted-foreground ml-1">
+                  bonus share{form.ratioNumerator !== 1 ? "s" : ""} for every {form.ratioDenominator} held
+                </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            {/* Dates — 2-col grid for breathing room */}
+            <div className="grid grid-cols-2 gap-5">
               <DateInput
                 label="Qualification Date *"
                 date={form.qualificationDate}
@@ -270,28 +294,31 @@ export function BonusSetupForm() {
                 date={form.closureDate}
                 setDate={(d) => set("closureDate", d)}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-5">
               <DateInput
                 label="Allotment Date"
                 date={form.allotmentDate}
                 setDate={(d) => set("allotmentDate", d)}
               />
+              <div className="space-y-1.5">
+                <label className="mrpsl-label">Rounding Rule *</label>
+                <Select value={form.roundingRule} onValueChange={(v) => set("roundingRule", v ?? "Round Down")}>
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Select rule…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROUNDING_RULES.map((rule) => (
+                      <SelectItem key={rule} value={rule}>{rule}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="mrpsl-label">Rounding Rule *</label>
-              <select
-                className="mrpsl-input h-9 w-full"
-                value={form.roundingRule}
-                onChange={(e) => set("roundingRule", e.target.value)}
-              >
-                {ROUNDING_RULES.map((rule) => (
-                  <option key={rule} value={rule}>{rule}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-5">
+              <div className="space-y-1.5">
                 <label className="mrpsl-label">Event ID</label>
                 <input
                   className="mrpsl-input h-9 w-full font-mono"
@@ -300,22 +327,27 @@ export function BonusSetupForm() {
                   onChange={(e) => set("eventId", e.target.value)}
                 />
               </div>
-              <div className="space-y-1">
-                <label className="mrpsl-label">Register Account Number</label>
+              <div className="space-y-1.5">
+                <label className="mrpsl-label">Fraction Account Number</label>
                 <input
                   className="mrpsl-input h-9 w-full font-mono"
                   placeholder="e.g. REG-ZB-001"
-                  value={form.registerAccountNumber}
-                  onChange={(e) => set("registerAccountNumber", e.target.value)}
+                  value={form.fractionAccountNumber}
+                  onChange={(e) => set("fractionAccountNumber", e.target.value)}
                 />
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="mrpsl-label">Narrative / Notes</label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="mrpsl-label">Narrative / Notes</label>
+                <span className="text-xs text-muted-foreground">{form.narrative.length}/300</span>
+              </div>
               <textarea
-                className="mrpsl-input w-full resize-none h-20 text-sm"
+                className="mrpsl-input h-auto min-h-22 resize-none py-2.5 leading-relaxed"
                 placeholder="Optional notes about this bonus issue…"
+                maxLength={300}
+                rows={4}
                 value={form.narrative}
                 onChange={(e) => set("narrative", e.target.value)}
               />

@@ -23,7 +23,6 @@ import ICULodgment from "@/components/custom/ipo/lodgment";
 import { CSCSReversalsWorkspace } from "@/components/custom/offer-administration/cscs-reversals-workspace";
 import { ProvisionalAllotment } from "@/components/custom/rights-issue/provisional-allotment";
 import { DispatchNotificationPanel } from "@/components/custom/offer-administration/dispatch-notification-panel";
-import { OfferReversalPanel } from "@/components/custom/offer-administration/offer-reversal-panel";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -1244,8 +1243,11 @@ export default function BonusIssuePage() {
     setDate1(setup.qualificationDate);
     setDate2(setup.closureDate);
     setDate3(setup.allotmentDate);
-    const matchedReg = registerList?.find((r: { registerName: string; registerId: string }) =>
-      r.registerName.toLowerCase().includes(setup.register.toLowerCase().split(" ")[0]),
+    const matchedReg = registerList?.find(
+      (r: { registerName: string; registerId: string }) =>
+        r.registerName
+          .toLowerCase()
+          .includes(setup.register.toLowerCase().split(" ")[0]),
     );
     if (matchedReg) setSelectedRegister(matchedReg.registerId);
     setActiveSetupId(setup.id);
@@ -1284,21 +1286,20 @@ export default function BonusIssuePage() {
         onValueChange={(v) => setActiveTab(v || "")}
         className="w-full"
       >
-        <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap">
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap justify-start">
           {[
             ["declaration", "Provisional Allotment"],
             ["auth", "Declaration Approval"],
             ["icu", "ICU Approval"],
             ["lodgement", "CSCS Lodgement"],
             ["reversals", "CSCS Reversals & Error Resolution"],
-            ["reversal", "Reversal"],
             ["allotment", "Notification & Prelist Dispatch"],
             ["reports", "Reports"],
           ].map(([v, label]) => (
             <TabsTrigger
               key={v}
               value={v}
-              className="rounded-lg cursor-pointer px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              className="flex-none rounded-lg cursor-pointer px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
             >
               {label}
             </TabsTrigger>
@@ -1326,7 +1327,6 @@ export default function BonusIssuePage() {
                 <Card className="mrpsl-card p-4">
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="relative w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder="Search ref or bonus name..."
                         value={authListSearch}
@@ -1665,7 +1665,6 @@ export default function BonusIssuePage() {
                 <Card className="mrpsl-card p-4">
                   <div className="flex items-center gap-3 flex-wrap">
                     <div className="relative w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder="Search ref or bonus name..."
                         value={icuListSearch}
@@ -2015,23 +2014,14 @@ export default function BonusIssuePage() {
             <CSCSReversalsWorkspace />
           </TabsContent>
 
-          <TabsContent value="reversal">
-            <OfferReversalPanel
-              offerType="bonus"
-              offerName="Zenith Bank Bonus Issue 2024"
-              totalUnitsAllotted={204_330}
-            />
-          </TabsContent>
-
           {/* ── Notification & Prelist Dispatch ── */}
           <TabsContent value="allotment" className="space-y-4">
             {allotReviewing === null ? (
               <>
                 {/* Filters */}
                 <Card className="mrpsl-card p-4">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="relative w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <div className="grid grid-cols-[2fr_1fr_1fr] w-1/2 items-center gap-3">
+                    <div className="relative w-full">
                       <Input
                         placeholder="Search ref or bonus name..."
                         value={allotListSearch}
@@ -2994,16 +2984,36 @@ export default function BonusIssuePage() {
                             <table className="w-full text-left text-[13px]">
                               <thead className="mrpsl-table-header">
                                 <tr>
-                                  <th className="px-3 py-2.5 font-medium">Acct No.</th>
-                                  <th className="px-3 py-2.5 font-medium">Shareholder Name</th>
-                                  <th className="px-3 py-2.5 font-medium">Cert No.</th>
-                                  <th className="px-3 py-2.5 font-medium text-right">Bonus Units</th>
-                                  <th className="px-3 py-2.5 font-medium text-right">Units Before</th>
-                                  <th className="px-3 py-2.5 font-medium text-right">Units After</th>
-                                  <th className="px-3 py-2.5 font-medium">Email</th>
-                                  <th className="px-3 py-2.5 font-medium">Phone</th>
-                                  <th className="px-3 py-2.5 font-medium">CHN</th>
-                                  <th className="px-3 py-2.5 font-medium">Stockbroker / Code</th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Acct No.
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Shareholder Name
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Cert No.
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium text-right">
+                                    Bonus Units
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium text-right">
+                                    Units Before
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium text-right">
+                                    Units After
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Email
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Phone
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    CHN
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Stockbroker / Code
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y font-mono text-xs">
@@ -3031,19 +3041,45 @@ export default function BonusIssuePage() {
                                     idx: number,
                                   ) => (
                                     <tr key={idx} className="mrpsl-table-row">
-                                      <td className="px-3 py-2">{row.shareAccountNo || row.accountNo || "—"}</td>
-                                      <td className="px-3 py-2 font-sans font-medium">{row.name || row.holderName || "—"}</td>
-                                      <td className="px-3 py-2">{row.certificateNo || row.certNo || "—"}</td>
-                                      <td className="px-3 py-2 text-right text-primary font-semibold">{row.bonusUnits?.toLocaleString() ?? "—"}</td>
-                                      <td className="px-3 py-2 text-right">{(row.unitsBefore ?? row.unitsHeld)?.toLocaleString() ?? "—"}</td>
-                                      <td className="px-3 py-2 text-right">{row.unitsAfter?.toLocaleString() ?? "—"}</td>
-                                      <td className="px-3 py-2 font-sans">{row.email || row.emailAddress || "—"}</td>
-                                      <td className="px-3 py-2">{row.phone || row.phoneNumber || "—"}</td>
-                                      <td className="px-3 py-2">{row.chn || "—"}</td>
+                                      <td className="px-3 py-2">
+                                        {row.shareAccountNo ||
+                                          row.accountNo ||
+                                          "—"}
+                                      </td>
+                                      <td className="px-3 py-2 font-sans font-medium">
+                                        {row.name || row.holderName || "—"}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {row.certificateNo || row.certNo || "—"}
+                                      </td>
+                                      <td className="px-3 py-2 text-right text-primary font-semibold">
+                                        {row.bonusUnits?.toLocaleString() ??
+                                          "—"}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {(
+                                          row.unitsBefore ?? row.unitsHeld
+                                        )?.toLocaleString() ?? "—"}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {row.unitsAfter?.toLocaleString() ??
+                                          "—"}
+                                      </td>
+                                      <td className="px-3 py-2 font-sans">
+                                        {row.email || row.emailAddress || "—"}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {row.phone || row.phoneNumber || "—"}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {row.chn || "—"}
+                                      </td>
                                       <td className="px-3 py-2 font-sans">
                                         {row.stockbroker || "—"}
                                         {row.stockbrokerCode && (
-                                          <span className="ml-1 text-muted-foreground">/ {row.stockbrokerCode}</span>
+                                          <span className="ml-1 text-muted-foreground">
+                                            / {row.stockbrokerCode}
+                                          </span>
                                         )}
                                       </td>
                                     </tr>
@@ -3051,7 +3087,10 @@ export default function BonusIssuePage() {
                                 )}
                                 {fetchedReportList?.length === 0 && (
                                   <tr>
-                                    <td colSpan={10} className="px-4 py-10 text-center text-muted-foreground font-sans">
+                                    <td
+                                      colSpan={10}
+                                      className="px-4 py-10 text-center text-muted-foreground font-sans"
+                                    >
                                       No bonus report records found.
                                     </td>
                                   </tr>

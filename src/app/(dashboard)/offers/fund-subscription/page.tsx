@@ -18,15 +18,21 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const TABS = ["subscription", "subscription-approval", "redemption", "redemption-approval", "reports"] as const;
+const TABS = [
+  "subscription",
+  "subscription-approval",
+  "redemption",
+  "redemption-approval",
+  "reports",
+] as const;
 type TabValue = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabValue, string> = {
-  "subscription": "New Subscription",
+  subscription: "New Subscription",
   "subscription-approval": "Subscription Approval",
-  "redemption": "Redemption Request",
+  redemption: "Redemption Request",
   "redemption-approval": "Redemption Approval",
-  "reports": "Reports",
+  reports: "Reports",
 };
 
 const REPORT_TYPES = [
@@ -47,9 +53,12 @@ export default function FundSubscriptionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Fund Subscription & Redemption</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Fund Subscription & Redemption
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Process fund manager subscription requests and unit redemptions for fund registers.
+          Process fund manager subscription requests and unit redemptions for
+          fund registers.
         </p>
       </div>
 
@@ -64,7 +73,7 @@ export default function FundSubscriptionPage() {
               <TabsTrigger
                 key={tab}
                 value={tab}
-                className="rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+                className="rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all cursor-pointer"
               >
                 {TAB_LABELS[tab]}
               </TabsTrigger>
@@ -117,29 +126,51 @@ export default function FundSubscriptionPage() {
             {/* Filters */}
             <Card className="mrpsl-card p-5">
               <div className="flex items-center gap-3 flex-wrap">
-                <Select value={filterRegister} onValueChange={(v) => setFilterRegister(v ?? "")}>
+                <Select
+                  value={filterRegister}
+                  onValueChange={(v) => setFilterRegister(v ?? "")}
+                >
                   <SelectTrigger className="mrpsl-input h-9 w-56">
                     <SelectValue placeholder="All Fund Registers" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">All Fund Registers</SelectItem>
-                    <SelectItem value="stanbic-dollar">Stanbic IBTC Dollar Fund</SelectItem>
-                    <SelectItem value="arm-discovery">ARM Discovery Balanced Fund</SelectItem>
-                    <SelectItem value="coronation-mm">Coronation Money Market Fund</SelectItem>
+                    <SelectItem value="stanbic-dollar">
+                      Stanbic IBTC Dollar Fund
+                    </SelectItem>
+                    <SelectItem value="arm-discovery">
+                      ARM Discovery Balanced Fund
+                    </SelectItem>
+                    <SelectItem value="coronation-mm">
+                      Coronation Money Market Fund
+                    </SelectItem>
                   </SelectContent>
                 </Select>
 
                 <div className="flex-1" />
 
-                <Button size="sm" onClick={() => toast.info(`${selectedReport} report coming soon`)}>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    toast.info(`${selectedReport} report coming soon`)
+                  }
+                >
                   <CalendarRange className="h-3.5 w-3.5 mr-1.5" />
                   Generate Report
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => toast.info("Export coming soon")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info("Export coming soon")}
+                >
                   <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
                   Excel
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => toast.info("Print coming soon")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info("Print coming soon")}
+                >
                   <Printer className="h-3.5 w-3.5 mr-1.5" />
                   Print
                 </Button>
@@ -148,9 +179,12 @@ export default function FundSubscriptionPage() {
 
             <div className="flex flex-col items-center justify-center py-20 bg-background border rounded-2xl border-dashed text-muted-foreground text-center">
               <CalendarRange className="h-10 w-10 text-muted-foreground/35 mb-3" />
-              <h3 className="font-semibold text-sm text-foreground">Ready to generate</h3>
+              <h3 className="font-semibold text-sm text-foreground">
+                Ready to generate
+              </h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-72">
-                Configure your parameters above and click &quot;Generate Report&quot; to view results.
+                Configure your parameters above and click &quot;Generate
+                Report&quot; to view results.
               </p>
             </div>
           </TabsContent>
