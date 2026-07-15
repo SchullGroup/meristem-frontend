@@ -32,7 +32,7 @@ interface EditableFieldProps {
   onSubmit: (
     newValue: string,
     reason: string,
-    evidence?: DoneEvidence[],
+    evidence: DoneEvidence[],
   ) => Promise<void>;
   isSubmitting?: boolean;
   /** Extra content between reason and buttons (validation status, etc.) */
@@ -76,14 +76,10 @@ export function EditableField({
   };
 
   const handleSubmit = async () => {
-    if (!newValue.trim() || !reason.trim()) return;
+    if (!newValue.trim() || !reason.trim() || evidence.length === 0) return;
     setLocalSubmitting(true);
     try {
-      await onSubmit(
-        newValue.trim(),
-        reason.trim(),
-        evidence.length > 0 ? evidence : undefined,
-      );
+      await onSubmit(newValue.trim(), reason.trim(), evidence);
       setIsEditing(false);
       setNewValue("");
       setReason("");
@@ -95,7 +91,10 @@ export function EditableField({
     }
   };
 
-  const canSubmit = newValue.trim().length > 0 && reason.trim().length > 0;
+  const canSubmit =
+    newValue.trim().length > 0 &&
+    reason.trim().length > 0 &&
+    evidence.length > 0;
 
   const renderInput = () => {
     switch (inputType) {

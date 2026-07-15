@@ -138,7 +138,7 @@ export function InlineEvidenceDropper({
         <div className="space-y-2 rounded-lg border border-dashed border-border/60 bg-muted/5 p-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              Evidence for this change
+              Evidence for this change <span className="text-destructive">*</span>
             </span>
             <button
               type="button"

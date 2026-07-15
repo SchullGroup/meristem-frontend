@@ -37,6 +37,7 @@ import {
   useBatchRejectKycChanges,
   useAuthoriseKycChange,
   useRejectKycChange,
+  useCancelKycChange,
 } from "@/hooks/useAccountMaintenance";
 import { useStore } from "@/lib/store";
 import { KycChange } from "@/types/account-maintenance";
@@ -94,6 +95,10 @@ export default function KYCApprovalsPage() {
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchRejectComment, setBatchRejectComment] = useState("");
 
+  // ── Cancel (submitter withdrawing their own pending request) ──
+  const [cancelTarget, setCancelTarget] = useState<KycChange | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+
   // ── Document viewer ──────────────────────────────────────────────────────
   const [docViewerOpen, setDocViewerOpen] = useState(false);
   const [docViewerDocs, setDocViewerDocs] = useState<
@@ -142,6 +147,7 @@ export default function KYCApprovalsPage() {
   const rejectSingle = useRejectKycChange();
   const batchAuthorise = useBatchAuthoriseKycChanges();
   const batchReject = useBatchRejectKycChanges();
+  const cancelMutation = useCancelKycChange();
 
   // ── Selection helpers ─────────────────────────────────────────────────────
   const visibleIds = rows.map((r) => r.id);
@@ -171,6 +177,31 @@ export default function KYCApprovalsPage() {
     setReviewRow(row);
     setReviewComment("");
     setReviewOpen(true);
+  }
+
+  function openCancel(row: KycChange) {
+    setCancelTarget(row);
+    setCancelOpen(true);
+  }
+
+  function handleCancel() {
+    if (!cancelTarget || !currentUser) return;
+    cancelMutation.mutate(
+      {
+        id: cancelTarget.id,
+        data: { cancelledBy: currentUser.email },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Request cancelled — the field is editable again.");
+          setCancelOpen(false);
+          setCancelTarget(null);
+          refetch();
+        },
+        onError: (e: any) =>
+          toast.error(e?.message || "Failed to cancel request"),
+      },
+    );
   }
 
   function handleSingleApprove() {
@@ -459,7 +490,6 @@ export default function KYCApprovalsPage() {
                   <th className="p-3">SUBMITTED BY</th>
                   <th className="p-3">SUBMITTED AT</th>
                   <th className="p-3">PRIORITY</th>
-                  <th className="p-3">STATUS</th>
                   <th className="p-3 text-right">ACTIONS</th>
                 </tr>
               </thead>
@@ -467,7 +497,7 @@ export default function KYCApprovalsPage() {
                 {rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={12}
+                      colSpan={11}
                       className="p-12 text-center text-muted-foreground"
                     >
                       <ShieldCheck className="h-10 w-10 mx-auto mb-3 opacity-20" />
@@ -526,9 +556,7 @@ export default function KYCApprovalsPage() {
                             {priority}
                           </Badge>
                         </td>
-                        <td className="p-3">
-                          <StatusBadge status={row.status} />
-                        </td>
+
                         <td className="p-3">
                           <div className="flex items-center justify-end gap-1.5 flex-wrap">
                             {row?.supportingDocuments?.length > 0 && (
@@ -539,7 +567,8 @@ export default function KYCApprovalsPage() {
                                 onClick={() => openDocViewer(row)}
                               >
                                 <FileText className="h-3.5 w-3.5" />
-                                Docs ({row?.supportingDocuments?.length})
+                                View Documents (
+                                {row?.supportingDocuments?.length})
                               </Button>
                             )}
                             {row.status === "PENDING" && (
@@ -552,6 +581,18 @@ export default function KYCApprovalsPage() {
                                 Review
                               </Button>
                             )}
+                            {row.status === "PENDING" &&
+                              row.initiatorId === currentUser?.id && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1 text-muted-foreground hover:text-destructive"
+                                  onClick={() => openCancel(row)}
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  Cancel
+                                </Button>
+                              )}
                           </div>
                         </td>
                       </tr>
@@ -647,15 +688,10 @@ export default function KYCApprovalsPage() {
                   </div>
                   <div className="flex items-center gap-3 text-sm">
                     <div className="h-5 w-5 rounded-full bg-amber-200 animate-pulse shrink-0" />
-                    1st Approver —{" "}
+                    Approved By —{" "}
                     <span className="font-medium">
                       {reviewRow?.authorisedBy || "Pending your action"}
                     </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <div className="h-5 w-5 rounded-full border-2 border-dashed border-muted-foreground/40 shrink-0" />
-                    ICU Approver —{" "}
-                    {reviewRow?.icuApprovedBy || "Awaiting 1st approval"}
                   </div>
                 </div>
               </div>
@@ -698,6 +734,34 @@ export default function KYCApprovalsPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Cancel (submitter withdraws) Dialog ── */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel This Request?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 p-4">
+            <p className="text-[13px] text-muted-foreground">
+              This withdraws your pending change to{" "}
+              <strong>{cancelTarget?.fieldChanged}</strong>. The field will be
+              editable again and this request cannot be un-cancelled.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCancelOpen(false)}>
+                Keep Request
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleCancel}
+                disabled={cancelMutation.isPending}
+              >
+                {cancelMutation.isPending ? "Cancelling..." : "Cancel Request"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

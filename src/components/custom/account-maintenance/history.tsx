@@ -25,7 +25,7 @@ import { Eye, FileText, Loader2, RotateCcw, Search } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { usePermission } from "@/hooks/usePermission";
+import { useRolePermission } from "@/hooks/usePermission";
 import { PaginationBar } from "../pagination-bar";
 import {
   useGetConsolidations,
@@ -46,7 +46,7 @@ import {
 
 export default function History({ tab }: { tab: string }) {
   const { currentUser } = useStore();
-  const canApprove = usePermission(
+  const canApprove = useRolePermission(
     "account_maintenance.account_consolidation_approve.approve",
   );
 

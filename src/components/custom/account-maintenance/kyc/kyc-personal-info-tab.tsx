@@ -4,12 +4,16 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EditableField } from "@/components/custom/account-maintenance/editable-field";
 import { ShareholderAccount, KycChange } from "@/types/account-maintenance";
 import { Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import { fullName } from "@/lib/utils/shareholder";
+import {
+  InlineEvidenceDropper,
+  DoneEvidence,
+} from "@/components/custom/account-maintenance/inline-evidence-dropper";
 
 interface KycPersonalInfoTabProps {
   selectedShareholder: ShareholderAccount;
@@ -21,7 +25,7 @@ interface KycPersonalInfoTabProps {
     field: string,
     newValue: string,
     reason: string,
-    evidence?: { name: string; url: string }[],
+    evidence: { name: string; url: string }[],
   ) => Promise<void>;
 }
 
@@ -36,7 +40,7 @@ export function KycPersonalInfoTab({
     (
       newValue: string,
       reason: string,
-      evidence?: { name: string; url: string }[],
+      evidence: { name: string; url: string }[],
     ) =>
       onFieldSubmit(
         selectedShareholder.accountNumber,
@@ -49,10 +53,24 @@ export function KycPersonalInfoTab({
 
   // ── Tax Exempt toggle ──────────────────────────────────────────────────
   const [taxReason, setTaxReason] = useState("");
+  const [taxEvidence, setTaxEvidence] = useState<DoneEvidence[]>([]);
   const [taxSubmitting, setTaxSubmitting] = useState(false);
+  const [taxHint, setTaxHint] = useState(false);
+  const [taxChecked, setTaxChecked] = useState(
+    () => selectedShareholder?.noTax ?? false,
+  );
 
-  const handleTaxToggle = async (checked: boolean) => {
-    if (!taxReason.trim()) return;
+  const handleTaxToggle = (checked: boolean) => {
+    setTaxChecked(checked);
+    if (!taxReason.trim() || taxEvidence.length === 0) {
+      setTaxHint(true);
+      return;
+    }
+    handleTaxSubmit(checked);
+  };
+
+  const handleTaxSubmit = async (checked: boolean) => {
+    setTaxHint(false);
     setTaxSubmitting(true);
     try {
       await onFieldSubmit(
@@ -61,8 +79,10 @@ export function KycPersonalInfoTab({
         "noTax",
         String(checked),
         `Tax exempt ${checked ? "enabled" : "disabled"}: ${taxReason.trim()}`,
+        taxEvidence,
       );
       setTaxReason("");
+      setTaxEvidence([]);
     } catch {
       // error toast by parent
     } finally {
@@ -171,6 +191,18 @@ export function KycPersonalInfoTab({
       />
 
       <EditableField
+        label="RG Account Number"
+        currentValue={selectedShareholder?.rgAccountNumber || "—"}
+        fieldKey="rgAccountNumber"
+        pendingChange={
+          pendingChanges.find((c) => c.fieldChanged === "rgAccountNumber") ??
+          null
+        }
+        onSubmit={submit("rgAccountNumber")}
+        isSubmitting={isSubmitting}
+      />
+
+      <EditableField
         label="TIN"
         currentValue={selectedShareholder?.tin || "—"}
         fieldKey="tin"
@@ -186,29 +218,50 @@ export function KycPersonalInfoTab({
         <span className="text-sm font-medium text-muted-foreground pt-1">
           Tax Exempt
         </span>
-        <div className="flex items-center gap-3 pt-1">
-          <Switch
-            checked={selectedShareholder?.noTax ?? false}
-            onCheckedChange={(checked) => {
-              if (!taxReason.trim()) return;
-              handleTaxToggle(checked);
-            }}
-          />
-          <span className="text-sm">
-            {selectedShareholder?.noTax ? "Yes" : "No"}
-          </span>
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="tax-exempt-cb"
+              checked={taxChecked}
+              onCheckedChange={(c) => handleTaxToggle(!!c)}
+            />
+            <label
+              htmlFor="tax-exempt-cb"
+              className="text-sm cursor-pointer select-none"
+            >
+              {taxChecked ? "Yes" : "No"}
+            </label>
+          </div>
+          {taxHint && (
+            <p className="text-[12px] text-amber-600 animate-in fade-in">
+              Fill in the reason and attach evidence, then click Submit for
+              approval.
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Input
             className="mrpsl-input text-sm"
-            placeholder="Reason for tax status change (required)"
+            placeholder="e.g. Pension fund exemption, diplomatic status…"
             value={taxReason}
-            onChange={(e) => setTaxReason(e.target.value)}
+            onChange={(e) => {
+              setTaxReason(e.target.value);
+              setTaxHint(false);
+            }}
+          />
+          <InlineEvidenceDropper
+            doneEvidence={taxEvidence}
+            onDoneEvidenceChange={(ev) => {
+              setTaxEvidence(ev);
+              if (ev.length > 0) setTaxHint(false);
+            }}
           />
           <Button
             size="sm"
-            onClick={() => handleTaxToggle(!selectedShareholder?.noTax)}
-            disabled={!taxReason.trim() || taxSubmitting}
+            onClick={() => handleTaxSubmit(taxChecked)}
+            disabled={
+              !taxReason.trim() || taxEvidence.length === 0 || taxSubmitting
+            }
             className="h-7 text-[12px]"
           >
             {taxSubmitting && (

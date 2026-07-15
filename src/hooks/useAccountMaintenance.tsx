@@ -4,9 +4,12 @@ import {
   authoriseConsolidation,
   authoriseKycChange,
   batchAuthoriseAdmons,
+  batchAuthoriseAdmonReversals,
   batchAuthoriseConsolidations,
   batchAuthoriseKycChanges,
   batchRejectAdmons,
+  batchRejectAdmonReversals,
+  batchReturnAdmons,
   batchRejectConsolidations,
   batchRejectKycChanges,
   createAdmon,
@@ -26,6 +29,7 @@ import {
   getKycChangesUploadJob,
   rejectAdmon,
   rejectAdmonReversal,
+  cancelKycChange,
   rejectConsolidation,
   rejectKycChange,
   reverseConsolidation,
@@ -72,12 +76,15 @@ import {
   KycChangeFilters,
   KycChangeListResponse,
   KycDecisionRequest,
+  KycCancelRequest,
   KycUploadJob,
   ShareholderAccount,
   AdmonListResponse,
   AdmonDecisionRequest,
   BatchAdmonRequest,
   BatchAdmonResponse,
+  BatchAdmonReversalRequest,
+  BatchAdmonReversalResponse,
   AdmonReversalListResponse,
   HolderKycDocRequest,
   HolderSignatureRequest,
@@ -390,6 +397,30 @@ export const useRejectKycChange = (
     },
   });
 };
+export const useCancelKycChange = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      {
+        id: number;
+        data: KycCancelRequest;
+      }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => cancelKycChange(id, data),
+    ...options,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+    },
+  });
+};
+
 export const useBatchAuthoriseKycChanges = (
   options?: Omit<
     UseMutationOptions<
@@ -747,6 +778,31 @@ export const useBatchRejectAdmons = (
   });
 };
 
+export const useBatchReturnAdmons = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<BatchAdmonResponse>,
+      Error,
+      BatchAdmonRequest
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: batchReturnAdmons,
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["admons"],
+      });
+    },
+
+    ...options,
+  });
+};
+
 export const useCreateAdmonReversal = (
   options?: Omit<
     UseMutationOptions<
@@ -825,6 +881,56 @@ export const useRejectAdmonReversal = (
 
   return useMutation({
     mutationFn: ({ reversalId, data }) => rejectAdmonReversal(reversalId, data),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["admon-reversals"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useBatchAuthoriseAdmonReversals = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<BatchAdmonReversalResponse>,
+      Error,
+      BatchAdmonReversalRequest
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: batchAuthoriseAdmonReversals,
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["admon-reversals"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useBatchRejectAdmonReversals = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<BatchAdmonReversalResponse>,
+      Error,
+      BatchAdmonReversalRequest
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: batchRejectAdmonReversals,
 
     onSuccess: () => {
       queryClient.invalidateQueries({

@@ -144,6 +144,7 @@ export interface ShareholderAccount {
   registerId: string;
   registerSymbol: string;
   accountNumber: string;
+  rgAccountNumber?: string;
 
   lastName: string;
   firstName: string;
@@ -253,6 +254,10 @@ export interface KycDecisionRequest {
   authorisedBy: string;
 }
 
+export interface KycCancelRequest {
+  cancelledBy: string;
+}
+
 export interface KycChangeFilters {
   status?: string;
   changeType?: string;
@@ -320,6 +325,15 @@ export interface Admon {
   deceasedAccountIds: string[];
   deceasedAccountNumbers: string[];
 
+  /** Detailed account info for the review panel (accounts, register, holdings, CHN). */
+  deceasedAccounts?: {
+    accountNumber: string;
+    holderName: string;
+    registerSymbol: string;
+    chn: string;
+    holdings: number;
+  }[];
+
   deceasedHolderName: string;
 
   admonType: string;
@@ -339,12 +353,31 @@ export interface Admon {
 
   memo: string;
 
-  changeAddressToAdmin: boolean;
   changeNameToEstate: boolean;
 
   estateNamePreview: string;
 
-  probateDocUrl: string;
+  /** The single estate bank account that receives dividends from all deceased accounts after approval. */
+  estateAccountNumber?: string;
+
+  probateDocs: { name: string; url: string }[];
+
+  administrators?: {
+    adminName: string;
+    isExecutor: boolean;
+    email: string;
+    phone: string;
+    altPhone?: string;
+    bvn: string;
+    nin: string;
+    idType: string;
+    relationship?: string;
+    adminAddress: string;
+    adminCity: string;
+    adminState: string;
+    memo?: string;
+    documents?: { name: string; url: string }[];
+  }[];
 
   status: string;
 
@@ -352,7 +385,19 @@ export interface Admon {
   initiatorName: string;
 
   authorisedBy: string;
-  rejectionComment: string;
+  authorisedAt: string;
+  icuApprovedBy: string;
+  icuApprovedAt: string;
+
+  /** Reason provided when the request is returned to initiator for fixes. */
+  returnedReason?: string;
+  returnedBy?: string;
+  returnedAt?: string;
+
+  /** Who rejected this permanently (terminal). */
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionComment?: string;
 
   createdAt: string;
   decidedAt: string;
@@ -372,8 +417,14 @@ export interface AdmonReversal {
 
   initiatorId: string;
   initiatorName: string;
+  submittedAt: string;
 
   authorisedBy: string;
+  authorisedAt: string;
+
+  icuApprovedBy: string;
+  icuApprovedAt: string;
+
   rejectionComment: string;
 
   createdAt: string;
@@ -405,7 +456,6 @@ export interface AdministratorRequest {
   bvn: string;
   nin: string;
   idType: string;
-  idNumber: string;
   relationship?: string;
   adminAddress: string;
   adminCity: string;
@@ -415,6 +465,8 @@ export interface AdministratorRequest {
 }
 
 export interface CreateAdmonRequest {
+  /** Set when updating an existing draft (PATCH). Omit for new records (POST). */
+  id?: number;
   registerId: string;
   registerIds?: string[];
   deceasedAccountIds: string[];
@@ -430,18 +482,21 @@ export interface CreateAdmonRequest {
 
   lodgementDate: string;
 
-  changeAddressToAdmin?: boolean;
   changeNameToEstate: boolean;
 
-  probateDocUrl?: string;
   probateDocs?: { name: string; url: string }[];
 
   initiatedBy: string;
+
+  /** "DRAFT" | "SUBMITTED" — defaults to SUBMITTED if omitted */
+  status?: string;
 }
 
 export interface AdmonDecisionRequest {
   comment: string;
   authorisedBy: string;
+  /** "APPROVE" | "RETURN" | "REJECT" */
+  action?: string;
 }
 
 export interface CreateAdmonReversalRequest {
@@ -492,4 +547,17 @@ export interface BatchAdmonResponse {
   rejected: number;
   skipped: number;
   details: Admon[];
+}
+
+export interface BatchAdmonReversalRequest {
+  ids: string[];
+  comment: string;
+  authorisedBy: string;
+}
+
+export interface BatchAdmonReversalResponse {
+  authorised: number;
+  rejected: number;
+  skipped: number;
+  details: AdmonReversal[];
 }

@@ -92,7 +92,7 @@ export default function KYCUpdatePage() {
     field: string,
     newValue: string,
     reason: string,
-    evidence?: { name: string; url: string }[],
+    evidence: { name: string; url: string }[],
   ) => {
     if (!currentUser) return;
     try {
@@ -101,7 +101,7 @@ export default function KYCUpdatePage() {
         data: {
           changeType,
           changes: [{ field, newValue }],
-          supportingDocuments: evidence?.length ? evidence : undefined,
+          supportingDocuments: evidence.length ? evidence : undefined,
           initiatedBy: currentUser.email,
           reason,
         },

@@ -6,6 +6,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   Dialog,
@@ -22,16 +30,70 @@ import { DataErrorState } from "../../ipo/loaders";
 import { AdmonReversalDialog } from "./admon-review";
 import {
   useGetAdmonReversals,
-  useBatchAuthoriseAdmons,
-  useBatchRejectAdmons,
+  useBatchAuthoriseAdmonReversals,
+  useBatchRejectAdmonReversals,
 } from "@/hooks/useAccountMaintenance";
+import { useRolePermission } from "@/hooks/usePermission";
 import { formatDate } from "@/lib/utils/format";
+
+// ── Demo mock rows for backend demonstration ──
+// Remove once the backend has real reversal traffic to show.
+
+const MOCK_DEMO_REVERSALS: AdmonReversal[] = [
+  {
+    id: -1,
+    admonId: -1,
+    accountNumber: "MR00001234",
+    deceasedHolderName: "John Adeyemi Okafor",
+    currentAdminName: "Folake Okafor",
+    reason:
+      "Administrator submitted incorrect probate documents — estate transfer must be reversed and resubmitted with corrected filings.",
+    status: "PENDING_AUTH",
+    initiatorId: "ops004@email.com",
+    initiatorName: "Ngozi Adeyemi",
+    submittedAt: "2026-07-11T08:30:00",
+    authorisedBy: "",
+    authorisedAt: "",
+    icuApprovedBy: "",
+    icuApprovedAt: "",
+    rejectionComment: "",
+    createdAt: "2026-07-11T08:30:00",
+    decidedAt: "",
+  },
+  {
+    id: -2,
+    admonId: -2,
+    accountNumber: "MRP0000456",
+    deceasedHolderName: "Grace Nwosu",
+    currentAdminName: "Charles Nwosu",
+    reason:
+      "Court subsequently voided the grant of probate — administration must be recalled and the account restored.",
+    status: "PENDING_ICU",
+    initiatorId: "ops005@email.com",
+    initiatorName: "Tobi Fashola",
+    submittedAt: "2026-07-09T13:10:00",
+    authorisedBy: "chioma.okafor@email.com",
+    authorisedAt: "2026-07-10T09:00:00",
+    icuApprovedBy: "",
+    icuApprovedAt: "",
+    rejectionComment: "",
+    createdAt: "2026-07-09T13:10:00",
+    decidedAt: "",
+  },
+];
 
 export default function AdmonReversal({ tab }: { tab: string }) {
   const { currentUser } = useStore();
+  const canApprove = useRolePermission(
+    "account_maintenance.admon_reversal_approve.approve",
+  );
+  const canIcu = useRolePermission(
+    "account_maintenance.admon_reversal_icu.approve",
+  );
 
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const [stage, setStage] = useState("PENDING_AUTH"); // PENDING_AUTH | PENDING_ICU
 
   const [selected, setSelected] = useState<AdmonReversal | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -48,18 +110,31 @@ export default function AdmonReversal({ tab }: { tab: string }) {
     {
       page: currentPage,
       pageSize: pageSize,
+      status: stage,
     },
     {
       enabled: tab === "reversal",
     },
   );
 
-  const authoriseMutation = useBatchAuthoriseAdmons();
-  const rejectMutation = useBatchRejectAdmons();
+  const authoriseMutation = useBatchAuthoriseAdmonReversals();
+  const rejectMutation = useBatchRejectAdmonReversals();
 
-  const reversedAdmons = data?.data?.data || [];
+  const fetchedReversals = data?.data?.data || [];
+  const reversedAdmons =
+    fetchedReversals.length === 0 ? MOCK_DEMO_REVERSALS : fetchedReversals;
   const totalPages = data?.data?.totalPages || 1;
   const total = data?.data?.total || 0;
+
+  // An OPS Authoriser may only act on PENDING_AUTH reversals; ICU may only
+  // act on PENDING_ICU reversals — mirrors the same rule on the main ADMOR
+  // pending queue.
+  function canActOn(row: AdmonReversal): boolean {
+    if (row.status === "PENDING_AUTH") return canApprove;
+    if (row.status === "PENDING_ICU") return canIcu;
+    return false;
+  }
+  const hasAnyApprovalRole = canApprove || canIcu;
 
   function toggleSelect(id: number) {
     setSelectedIds((prev) => {
@@ -148,10 +223,32 @@ export default function AdmonReversal({ tab }: { tab: string }) {
     );
   };
 
-  const visibleIds = reversedAdmons.map((r) => r.id);
+  const visibleIds = reversedAdmons
+    .filter((r) => r.id > 0 && canActOn(r))
+    .map((r) => r.id);
 
   const allSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  function stageBadge(s: string) {
+    if (s === "PENDING_ICU")
+      return (
+        <Badge
+          variant="outline"
+          className="text-[10px] bg-purple-50 text-purple-700 border-purple-200"
+        >
+          ICU
+        </Badge>
+      );
+    return (
+      <Badge
+        variant="outline"
+        className="text-[10px] bg-blue-50 text-blue-700 border-blue-200"
+      >
+        Auth
+      </Badge>
+    );
+  }
 
   if (isLoading) {
     return <EntitlementTableSkeleton />;
@@ -159,7 +256,17 @@ export default function AdmonReversal({ tab }: { tab: string }) {
 
   return (
     <>
-      {selectedIds.size > 0 && (
+      <Select value={stage} onValueChange={(v) => setStage(v || "PENDING_AUTH")}>
+        <SelectTrigger className="w-48 mrpsl-input">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="PENDING_AUTH">Pending Authorisation</SelectItem>
+          <SelectItem value="PENDING_ICU">Pending ICU</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {hasAnyApprovalRole && selectedIds.size > 0 && (
         <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
           <span className="text-sm font-semibold text-primary">
             {selectedIds.size} selected
@@ -200,12 +307,15 @@ export default function AdmonReversal({ tab }: { tab: string }) {
           <table className="w-full text-left text-sm">
             <thead className="mrpsl-table-header">
               <tr>
-                <th className="p-3 w-12">
-                  <Checkbox
-                    checked={allSelected}
-                    onCheckedChange={() => toggleSelectAll(visibleIds)}
-                  />
-                </th>
+                {hasAnyApprovalRole && (
+                  <th className="p-3 w-12">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={() => toggleSelectAll(visibleIds)}
+                    />
+                  </th>
+                )}
+                <th className="p-3">STAGE</th>
                 <th className="p-3">DATE</th>
                 <th className="p-3">ACCOUNT</th>
                 <th className="p-3">ORIGINAL DECEASED</th>
@@ -219,12 +329,16 @@ export default function AdmonReversal({ tab }: { tab: string }) {
               {reversedAdmons?.length > 0 ? (
                 reversedAdmons?.map((row) => (
                   <tr key={row.id} className="mrpsl-table-row">
-                    <td className="p-3">
-                      <Checkbox
-                        checked={selectedIds.has(row.id)}
-                        onCheckedChange={() => toggleSelect(row.id)}
-                      />
-                    </td>
+                    {hasAnyApprovalRole && (
+                      <td className="p-3">
+                        <Checkbox
+                          checked={selectedIds.has(row.id)}
+                          disabled={row.id <= 0 || !canActOn(row)}
+                          onCheckedChange={() => toggleSelect(row.id)}
+                        />
+                      </td>
+                    )}
+                    <td className="p-3">{stageBadge(row.status)}</td>
                     <td className="p-3 text-muted-foreground">
                       {formatDate(row.createdAt)}
                     </td>
@@ -238,20 +352,30 @@ export default function AdmonReversal({ tab }: { tab: string }) {
                       {row.initiatorName}
                     </td>
                     <td className="p-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => openReview(row)}
-                      >
-                        Review &amp; Authorise
-                      </Button>
+                      {canActOn(row) ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => openReview(row)}
+                        >
+                          Review &amp; Authorise
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openReview(row)}
+                        >
+                          View Details
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={hasAnyApprovalRole ? 9 : 8}
                     className="p-6 text-center text-muted-foreground"
                   >
                     No reversed ADMORs.
@@ -275,6 +399,7 @@ export default function AdmonReversal({ tab }: { tab: string }) {
         reviewOpen={reviewOpen}
         setReviewOpen={setReviewOpen}
         selected={selected}
+        canApprove={selected ? canActOn(selected) : false}
         onSuccess={refetch}
       />
 
