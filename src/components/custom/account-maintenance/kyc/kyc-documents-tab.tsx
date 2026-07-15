@@ -117,6 +117,7 @@ interface KycDocumentsTabProps {
     field: string,
     newValue: string,
     reason: string,
+    evidence: { name: string; url: string }[],
   ) => Promise<void>;
 }
 
@@ -240,6 +241,7 @@ export function KycDocumentsTab({
         "signature",
         sigEntry.url,
         sigReason.trim(),
+        [{ name: "Signature", url: sigEntry.url }],
       );
       toast.success("Signature submitted for approval");
       setSigEntry(newSigEntry());
@@ -318,6 +320,12 @@ export function KycDocumentsTab({
             type: doc.documentType || "OTHER",
           }),
           docReason.trim(),
+          [
+            {
+              name: doc.documentName || doc.file?.name || "Document",
+              url: doc.url,
+            },
+          ],
         );
       } catch {
         failed = true;

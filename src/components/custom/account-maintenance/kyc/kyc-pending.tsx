@@ -13,6 +13,7 @@ import { KycChange, ShareholderAccount } from "@/types/account-maintenance";
 import {
   useBatchAuthoriseKycChanges,
   useBatchRejectKycChanges,
+  useCancelKycChange,
   useGetKycChanges,
 } from "@/hooks/useAccountMaintenance";
 import { EntitlementTableSkeleton } from "@/components/custom/rights-issue/loaders";
@@ -55,12 +56,48 @@ export default function PendingKYC({
     setReviewOpen(true);
   }
 
+  function openCancel(row: KycChange) {
+    setCancelTarget(row);
+    setCancelOpen(true);
+  }
+
+  function handleCancel() {
+    if (!cancelTarget) return;
+    if (!currentUser) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+
+    cancelMutation.mutate(
+      {
+        id: cancelTarget.id,
+        data: { cancelledBy: currentUser.email },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Request cancelled — the field is editable again.");
+          setCancelOpen(false);
+          setCancelTarget(null);
+          refetchPending();
+        },
+        onError: (err) => {
+          toast.error(err.message || "Failed to cancel request");
+        },
+      },
+    );
+  }
+
   // ── Review modal & Batch operations state ──
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selectedChange, setSelectedChange] = useState<KycChange | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [rejectComment, setRejectComment] = useState("");
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
+
+  // ── Cancel (submitter withdrawing their own pending request) ──
+  const [cancelTarget, setCancelTarget] = useState<KycChange | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const cancelMutation = useCancelKycChange();
 
   // ── Pagination state for pending & history ──
   const [pendingPage, setPendingPage] = useState(0);
@@ -281,6 +318,17 @@ export default function PendingKYC({
                             Review
                           </Button>
                         )}
+                        {row.status === "PENDING" &&
+                          row.initiatorId === currentUser?.id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => openCancel(row)}
+                            >
+                              Cancel
+                            </Button>
+                          )}
                         {row.status === "REJECTED" && (
                           <Button
                             size="sm"
@@ -327,6 +375,33 @@ export default function PendingKYC({
         }}
         selected={selectedChange}
       />
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel This Request?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2 px-2 pb-2">
+            <p className="text-[13px] text-muted-foreground">
+              This withdraws your pending change to{" "}
+              <strong>{cancelTarget?.fieldChanged}</strong>. The field will be
+              editable again and this request cannot be un-cancelled.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCancelOpen(false)}>
+                Keep Request
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleCancel}
+                disabled={cancelMutation.isPending}
+              >
+                {cancelMutation.isPending ? "Cancelling..." : "Cancel Request"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
         <DialogContent>

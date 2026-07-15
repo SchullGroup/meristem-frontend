@@ -14,7 +14,7 @@ interface KycContactInfoTabProps {
     field: string,
     newValue: string,
     reason: string,
-    evidence?: { name: string; url: string }[],
+    evidence: { name: string; url: string }[],
   ) => Promise<void>;
 }
 
@@ -29,7 +29,7 @@ export function KycContactInfoTab({
     (
       newValue: string,
       reason: string,
-      evidence?: { name: string; url: string }[],
+      evidence: { name: string; url: string }[],
     ) =>
       onFieldSubmit(
         selectedShareholder.accountNumber,

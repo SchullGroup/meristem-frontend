@@ -3,38 +3,37 @@
 import axios from "axios";
 
 const convertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const fileReader = new FileReader();
-      fileReader.readAsDataURL(file);
-      fileReader.onload = () => {
-            resolve(fileReader.result?.toString().split(",")[1] || "");
-      };
-      fileReader.onerror = (error) => {
-        reject(error);
-      };
-    });
+  return new Promise((resolve, reject) => {
+    const fileReader = new FileReader();
+    fileReader.readAsDataURL(file);
+    fileReader.onload = () => {
+      resolve(fileReader.result?.toString().split(",")[1] || "");
+    };
+    fileReader.onerror = (error) => {
+      reject(error);
+    };
+  });
 };
-  
+
 // folder name must not contain any symbols
 export const GetPDFUrl = async (file: File, folderName: string) => {
   const fileName = file?.name;
   const convertToUrlAPI = `https://4c73wdutl4.execute-api.us-west-1.amazonaws.com/staging/fileupload/upload-file?fileName=${fileName}&projectFolder=${folderName}`;
 
-  if (file?.size > 2000000) {
-    return { type: 'error', result: 'File too large...' };
+  if (file?.size > 10000000) {
+    return { type: "error", result: "File too large..." };
   }
 
   const base64 = await convertToBase64(file);
 
   const payload = { file: base64 };
   try {
-        const response = await axios.post(convertToUrlAPI, payload);
-      return { type: 'success', result: response.data.responseObj.pdf_url };
+    const response = await axios.post(convertToUrlAPI, payload);
+    return { type: "success", result: response.data.responseObj.pdf_url };
   } catch (error) {
-      return { type: 'error', result: error };
-    }
+    return { type: "error", result: error };
+  }
 };
-
 
 // SAMPLE USAGE OF THE FUNCTION IN A REACT CODE
 
@@ -56,20 +55,19 @@ export const GetPDFUrl = async (file: File, folderName: string) => {
 //       //setErrorMessage(urlResponse.result) you can set error message here
 //     }
 //   };
-  
-  
+
 //   return (
 //     <div className="App">
 //       <h1>PDF Upload</h1>
-//       <input accept=".pdf" 
-//         multiple={false}  
+//       <input accept=".pdf"
+//         multiple={false}
 //         type="file"
 //         onChange={handlePDFUpload}
 //       />
-          
+
 //       {
-//         uploading ? 
-//         <p>Loading...</p> : 
+//         uploading ?
+//         <p>Loading...</p> :
 //         <img src={uploadedPDF} alt="" />
 //       }
 //     </div>

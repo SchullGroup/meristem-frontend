@@ -29,6 +29,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useGetKycChanges } from "@/hooks/useAccountMaintenance";
+
+const KYC_APPROVALS_HREF = "/account-maintenance/kyc-approvals";
 
 const NAV_GROUPS = [
   {
@@ -125,14 +128,18 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, setCurrentUser, setUserPermissions, pendingApprovals } = useStore();
+  const { currentUser, setCurrentUser, setUserPermissions, pendingApprovals } =
+    useStore();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Setup: true,
     "Certificate Management": true,
   });
   const [logoutOpen, setLogoutOpen] = useState(false);
   const isFirstRender = useRef(true);
-
+  const { data: kycPendingRes } = useGetKycChanges(
+    { status: "PENDING", page: 0, pageSize: 1 },
+    { enabled: !!currentUser },
+  );
   useEffect(() => {
     [...NAV_GROUPS, ...OPERATIONS_GROUPS].forEach((group) => {
       if (group.items?.some((item) => pathname.startsWith(item.href))) {
@@ -154,17 +161,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const isSuperAdmin = currentUser?.roles?.includes("SUPER_ADMIN") ?? false;
 
-  const visibleNavGroups = [...NAV_GROUPS, ...OPERATIONS_GROUPS].map((group) => {
-    if (group.title === "Setup" && !isSuperAdmin) {
-      return {
-        ...group,
-        items: group.items.filter(
-          (item) => item.href !== "/setup/roles" && item.href !== "/setup/users",
-        ),
-      };
-    }
-    return group;
-  });
+  const visibleNavGroups = [...NAV_GROUPS, ...OPERATIONS_GROUPS].map(
+    (group) => {
+      if (group.title === "Setup" && !isSuperAdmin) {
+        return {
+          ...group,
+          items: group.items.filter(
+            (item) =>
+              item.href !== "/setup/roles" && item.href !== "/setup/users",
+          ),
+        };
+      }
+      return group;
+    },
+  );
 
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
@@ -179,6 +189,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pendingCount = pendingApprovals.filter(
     (a) => a.status === "PENDING",
   ).length;
+
+  const kycApprovalsCount = kycPendingRes?.total ?? 0;
 
   return (
     <>
@@ -273,7 +285,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                   key={item.href}
                                   href={item.href}
                                   className={cn(
-                                    "flex items-center pl-10 pr-3 py-1.5 rounded-lg text-[13px] transition-colors relative whitespace-nowrap",
+                                    "flex items-center justify-between gap-2 pl-10 pr-3 py-1.5 rounded-lg text-[13px] transition-colors relative whitespace-nowrap",
                                     isActive
                                       ? "bg-primary/8 text-primary font-semibold"
                                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -282,7 +294,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                   {isActive && (
                                     <div className="absolute left-7.5 w-0.5 h-3.5 bg-primary rounded-full" />
                                   )}
-                                  {item.label}
+                                  <span className="truncate">{item.label}</span>
+                                  {item.href === KYC_APPROVALS_HREF &&
+                                    kycApprovalsCount > 0 && (
+                                      <Badge
+                                        variant="destructive"
+                                        className="h-4.5 px-1.5 text-[11px] rounded-full shrink-0"
+                                      >
+                                        {kycApprovalsCount}
+                                      </Badge>
+                                    )}
                                 </Link>
                               );
                             },
