@@ -1,12 +1,46 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, FileDown, Users, CheckCircle2, Loader2, Building2 } from "lucide-react";
+import { Mail, FileDown, Users, CheckCircle2, Loader2, Building2, FileText, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { EmailPreviewModal } from "@/components/custom/shareholder-outreach-modals";
+
+const PRELIST_DATA = {
+  companyName: "Access Holdings PLC",
+  offerName: "Access Holdings PLC Public Offer 2024",
+  totalUnitsOffered: 17_772_612_811,
+  totalUnitsApplied: 22_450_318_000,
+  offerPrice: 22.5,
+  totalApplicants: 78_956,
+  approvedApplicants: 41_832,
+  bands: [
+    { label: "Band 1", minUnits: 500, maxUnits: 10_000, proRataPercent: 100 },
+    { label: "Band 2", minUnits: 10_001, maxUnits: 50_000, proRataPercent: 85 },
+    { label: "Band 3", minUnits: 50_001, maxUnits: 500_000, proRataPercent: 70 },
+    { label: "Band 4", minUnits: 500_001, maxUnits: 5_000_000, proRataPercent: 55 },
+    { label: "Band 5", minUnits: 5_000_001, maxUnits: 999_999_999, proRataPercent: 40 },
+  ],
+};
+
+const avgProRata =
+  PRELIST_DATA.bands.reduce((s, b) => s + b.proRataPercent, 0) /
+  (PRELIST_DATA.bands.length * 100);
+const allottedPct = Math.min(
+  (PRELIST_DATA.totalUnitsOffered / PRELIST_DATA.totalUnitsApplied) * 100 * avgProRata,
+  100,
+);
+const PRELIST_COMPUTED = {
+  estimatedAllottedUnits: Math.floor((allottedPct / 100) * PRELIST_DATA.totalUnitsApplied),
+  refundUnits: PRELIST_DATA.totalUnitsApplied - Math.floor((allottedPct / 100) * PRELIST_DATA.totalUnitsApplied),
+  refundApplicants: PRELIST_DATA.totalApplicants - PRELIST_DATA.approvedApplicants,
+  get estRefundValue() {
+    return this.refundUnits * PRELIST_DATA.offerPrice;
+  },
+};
 
 interface DispatchRecord {
   label: string;
@@ -62,6 +96,129 @@ export function DispatchNotificationPanel() {
   const generatePrelist = () => {
     setPrelistGenerated(true);
     toast.success("Issuer Pre-list report generated and ready for download.");
+  };
+
+  const downloadExcel = () => {
+    const { estimatedAllottedUnits, refundUnits, estRefundValue, refundApplicants } = PRELIST_COMPUTED;
+    const dateStr = new Date().toLocaleDateString("en-NG", { day: "2-digit", month: "long", year: "numeric" });
+
+    const wsData: (string | number)[][] = [
+      ["ISSUER PRE-LIST REPORT"],
+      ["Company", PRELIST_DATA.companyName],
+      ["Offer", PRELIST_DATA.offerName],
+      ["Date Generated", dateStr],
+      [],
+      ["OFFER SUMMARY", ""],
+      ["Metric", "Value"],
+      ["Total Units of Offer", PRELIST_DATA.totalUnitsOffered],
+      ["Total Units Applied", PRELIST_DATA.totalUnitsApplied],
+      ["Offer Price (₦)", PRELIST_DATA.offerPrice],
+      ["Est. Units to Allot", estimatedAllottedUnits],
+      ["Est. Units for Refund", refundUnits],
+      ["Est. Refund Value (₦)", estRefundValue],
+      [],
+      ["APPLICANT BREAKDOWN", ""],
+      ["Metric", "Count"],
+      ["Total Applicants", PRELIST_DATA.totalApplicants],
+      ["Approved Applicants", PRELIST_DATA.approvedApplicants],
+      ["Applicants for Refund", refundApplicants],
+      [],
+      ["ALLOTMENT BANDS", "", "", ""],
+      ["Band", "Min Applied Units", "Max Applied Units", "Pro-rata %"],
+      ...PRELIST_DATA.bands.map((b) => [
+        b.label,
+        b.minUnits,
+        b.maxUnits === 999_999_999 ? "No limit" : b.maxUnits,
+        `${b.proRataPercent}%`,
+      ]),
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [{ wch: 32 }, { wch: 24 }, { wch: 24 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Pre-list Summary");
+    XLSX.writeFile(wb, "issuer_prelist_access_holdings_2024.xlsx");
+    toast.success("Excel report downloaded.");
+  };
+
+  const downloadPDF = () => {
+    const { estimatedAllottedUnits, refundUnits, estRefundValue, refundApplicants } = PRELIST_COMPUTED;
+    const fmt = (n: number) => n.toLocaleString();
+    const dateStr = new Date().toLocaleDateString("en-NG", { day: "2-digit", month: "long", year: "numeric" });
+
+    const bandRows = PRELIST_DATA.bands
+      .map(
+        (b, i) => `<tr>
+          <td>Band ${i + 1}</td>
+          <td class="num">${fmt(b.minUnits)}</td>
+          <td class="num">${b.maxUnits === 999_999_999 ? "No limit" : fmt(b.maxUnits)}</td>
+          <td class="num">${b.proRataPercent}%</td>
+        </tr>`,
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>Issuer Pre-list — ${PRELIST_DATA.companyName}</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #111; padding: 48px; }
+        .header { border-bottom: 2px solid #111; padding-bottom: 12px; margin-bottom: 24px; }
+        .header h1 { font-size: 18px; font-weight: 700; }
+        .header p { font-size: 12px; color: #555; margin-top: 2px; }
+        .meta { display: flex; gap: 32px; margin-bottom: 28px; font-size: 11px; color: #666; }
+        .meta strong { color: #111; font-size: 12px; display: block; }
+        .section { margin-bottom: 24px; }
+        .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #888; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 6px 10px; background: #f5f5f5; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #ddd; }
+        td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .highlight { color: #1a56db; font-weight: 700; }
+        .footer { margin-top: 40px; font-size: 10px; color: #999; border-top: 1px solid #eee; padding-top: 10px; }
+        @media print { body { padding: 20px; } }
+      </style></head><body>
+      <div class="header">
+        <h1>Issuer Pre-list Report</h1>
+        <p>${PRELIST_DATA.offerName}</p>
+      </div>
+      <div class="meta">
+        <div><strong>${PRELIST_DATA.companyName}</strong>Issuer / Client</div>
+        <div><strong>${dateStr}</strong>Date Generated</div>
+        <div><strong>Meristem Registrars Limited</strong>Prepared By</div>
+      </div>
+      <div class="section">
+        <div class="section-title">Offer Summary</div>
+        <table><thead><tr><th>Metric</th><th class="num">Value</th></tr></thead><tbody>
+          <tr><td>Total Units of Offer</td><td class="num">${fmt(PRELIST_DATA.totalUnitsOffered)}</td></tr>
+          <tr><td>Total Units Applied</td><td class="num">${fmt(PRELIST_DATA.totalUnitsApplied)}</td></tr>
+          <tr><td>Offer Price</td><td class="num">₦${PRELIST_DATA.offerPrice.toFixed(2)}</td></tr>
+          <tr><td>Est. Units to Allot</td><td class="num highlight">${fmt(estimatedAllottedUnits)}</td></tr>
+          <tr><td>Est. Units for Refund</td><td class="num">${fmt(refundUnits)}</td></tr>
+          <tr><td>Est. Refund Value</td><td class="num">₦${(estRefundValue / 1e9).toFixed(2)}B</td></tr>
+        </tbody></table>
+      </div>
+      <div class="section">
+        <div class="section-title">Applicant Breakdown</div>
+        <table><thead><tr><th>Metric</th><th class="num">Count</th></tr></thead><tbody>
+          <tr><td>Total Applicants</td><td class="num">${fmt(PRELIST_DATA.totalApplicants)}</td></tr>
+          <tr><td>Approved Applicants</td><td class="num highlight">${fmt(PRELIST_DATA.approvedApplicants)}</td></tr>
+          <tr><td>Applicants for Refund</td><td class="num">${fmt(refundApplicants)}</td></tr>
+        </tbody></table>
+      </div>
+      <div class="section">
+        <div class="section-title">Allotment Bands</div>
+        <table><thead><tr><th>Band</th><th class="num">Min Applied</th><th class="num">Max Applied</th><th class="num">Pro-rata %</th></tr></thead>
+        <tbody>${bandRows}</tbody></table>
+      </div>
+      <div class="footer">This document is confidential and prepared exclusively for ${PRELIST_DATA.companyName}. Generated by Meristem Registrars Limited.</div>
+    </body></html>`;
+
+    const w = window.open("", "_blank", "width=860,height=700");
+    if (!w) { toast.error("Pop-up blocked. Please allow pop-ups and try again."); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
   };
 
   return (
@@ -261,13 +418,16 @@ export function DispatchNotificationPanel() {
               {prelistGenerated ? "Pre-list Ready" : "Generate Issuer Pre-list"}
             </Button>
             {prelistGenerated && (
-              <Button
-                variant="outline"
-                className="shrink-0"
-                onClick={() => toast.info("Download coming soon")}
-              >
-                Download
-              </Button>
+              <>
+                <Button variant="outline" className="shrink-0" onClick={downloadExcel} title="Download as Excel">
+                  <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                  Excel
+                </Button>
+                <Button variant="outline" className="shrink-0" onClick={downloadPDF} title="Download as PDF">
+                  <FileText className="h-4 w-4 mr-1.5" />
+                  PDF
+                </Button>
+              </>
             )}
           </div>
         </Card>

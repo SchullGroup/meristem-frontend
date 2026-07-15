@@ -53,7 +53,7 @@ interface AllotmentBand {
   band: string;
   minUnits: number;
   maxUnits: number;
-  allotmentFactor: string;
+  allotmentFactor: number;
   applicants: number;
   proposedAllotment: number;
 }
@@ -63,11 +63,11 @@ const fmtNum = (v: unknown) => Number(v).toLocaleString();
 const fmtPct = (v: unknown) => `${Number(v).toFixed(1)}%`;
 
 const INITIAL_BANDS: AllotmentBand[] = [
-  { id: "b1", band: "Band A — Retail", minUnits: 500, maxUnits: 10000, allotmentFactor: "100%", applicants: 41832, proposedAllotment: 152000000 },
-  { id: "b2", band: "Band B — Retail+", minUnits: 10001, maxUnits: 50000, allotmentFactor: "85%", applicants: 18450, proposedAllotment: 380000000 },
-  { id: "b3", band: "Band C — Mid-tier", minUnits: 50001, maxUnits: 500000, allotmentFactor: "70%", applicants: 9210, proposedAllotment: 640000000 },
-  { id: "b4", band: "Band D — HNI", minUnits: 500001, maxUnits: 5000000, allotmentFactor: "55%", applicants: 3100, proposedAllotment: 420000000 },
-  { id: "b5", band: "Band E — Institutional", minUnits: 5000001, maxUnits: 999999999, allotmentFactor: "40%", applicants: 480, proposedAllotment: 1500000000 },
+  { id: "b1", band: "Band A — Retail", minUnits: 500, maxUnits: 10000, allotmentFactor: 57, applicants: 41832, proposedAllotment: 152000000 },
+  { id: "b2", band: "Band B — Retail+", minUnits: 10001, maxUnits: 50000, allotmentFactor: 25, applicants: 18450, proposedAllotment: 380000000 },
+  { id: "b3", band: "Band C — Mid-tier", minUnits: 50001, maxUnits: 500000, allotmentFactor: 13, applicants: 9210, proposedAllotment: 640000000 },
+  { id: "b4", band: "Band D — HNI", minUnits: 500001, maxUnits: 5000000, allotmentFactor: 4, applicants: 3100, proposedAllotment: 420000000 },
+  { id: "b5", band: "Band E — Institutional", minUnits: 5000001, maxUnits: 999999999, allotmentFactor: 1, applicants: 480, proposedAllotment: 1500000000 },
 ];
 
 const SEC_REPORTS: SecReport[] = [
@@ -230,16 +230,31 @@ export function RegulatoryReportHub() {
     : [];
 
   const updateBand = <K extends keyof AllotmentBand>(id: string, key: K, value: AllotmentBand[K]) => {
-    setBands((prev) => prev.map((b) => (b.id === id ? { ...b, [key]: value } : b)));
+    setBands((prev) => {
+      const updated = prev.map((b) => (b.id === id ? { ...b, [key]: value } : b));
+      if (key === "allotmentFactor") {
+        const totalApplicants = prev.reduce((sum, b) => sum + b.applicants, 0);
+        const totalFactor = updated.reduce((sum, b) => sum + (b.allotmentFactor as number), 0);
+        if (totalFactor > 0) {
+          return updated.map((b) => ({
+            ...b,
+            applicants: Math.round(((b.allotmentFactor as number) / totalFactor) * totalApplicants),
+          }));
+        }
+      }
+      return updated;
+    });
   };
 
   const addBand = () => {
+    const last = bands[bands.length - 1];
+    const newMin = last ? last.maxUnits + 1 : 0;
     const newBand: AllotmentBand = {
       id: `b${Date.now()}`,
       band: `Band ${String.fromCharCode(65 + bands.length)} — New`,
-      minUnits: 0,
+      minUnits: newMin,
       maxUnits: 0,
-      allotmentFactor: "0%",
+      allotmentFactor: 0,
       applicants: 0,
       proposedAllotment: 0,
     };
@@ -263,10 +278,18 @@ export function RegulatoryReportHub() {
     setRejectedRows((prev) => prev.map((r) => (r.id === id ? { ...r, reason } : r)));
   };
 
+  const applyReasonToAll = (reason: string) => {
+    setRejectedRows((prev) => prev.map((r) => ({ ...r, reason })));
+    toast.success("Rejection reason applied to all rows.");
+  };
+
   const saveRejected = () => {
     toast.success("Rejection reasons updated.");
     setRejectedEditMode(false);
   };
+
+  const factorTotal = bands.reduce((sum, b) => sum + b.allotmentFactor, 0);
+  const totalBandApplicants = bands.reduce((sum, b) => sum + b.applicants, 0);
 
   const filteredRejected = rejectedRows.filter(
     (r) =>
@@ -415,7 +438,10 @@ export function RegulatoryReportHub() {
                           <BandInput value={band.maxUnits} onChange={(v) => updateBand(band.id, "maxUnits", Number(v))} className="text-right font-mono" />
                         </td>
                         <td className="px-3 py-2">
-                          <BandInput value={band.allotmentFactor} onChange={(v) => updateBand(band.id, "allotmentFactor", v)} className="text-right font-mono font-semibold" />
+                          <div className="flex items-center gap-1">
+                            <BandInput value={band.allotmentFactor} onChange={(v) => updateBand(band.id, "allotmentFactor", parseFloat(v) || 0)} className="text-right font-mono font-semibold" />
+                            <span className="text-xs text-muted-foreground shrink-0">%</span>
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-muted-foreground">
                           {band.applicants.toLocaleString()}
@@ -438,7 +464,7 @@ export function RegulatoryReportHub() {
                         <td className="px-4 py-2.5">{band.band}</td>
                         <td className="px-4 py-2.5 text-right font-mono">{band.minUnits.toLocaleString()}</td>
                         <td className="px-4 py-2.5 text-right font-mono">{band.maxUnits.toLocaleString()}</td>
-                        <td className="px-4 py-2.5 text-right font-mono font-semibold">{band.allotmentFactor}</td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold">{band.allotmentFactor.toFixed(1)}%</td>
                         <td className="px-4 py-2.5 text-right font-mono">{band.applicants.toLocaleString()}</td>
                         <td className="px-4 py-2.5 text-right font-mono">{band.proposedAllotment.toLocaleString()}</td>
                       </>
@@ -446,13 +472,31 @@ export function RegulatoryReportHub() {
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-border bg-muted/40">
+                  <td className="px-4 py-2.5 font-semibold text-sm" colSpan={3}>Total</td>
+                  <td className={`px-4 py-2.5 text-right font-mono font-bold text-sm ${factorTotal === 100 ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                    {factorTotal.toFixed(1)}%
+                    {factorTotal !== 100 && (
+                      <span className="ml-1.5 text-[10px] font-normal">
+                        ({factorTotal < 100 ? `${(100 - factorTotal).toFixed(1)}% short` : `${(factorTotal - 100).toFixed(1)}% over`})
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono font-semibold text-sm">{totalBandApplicants.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-muted-foreground text-sm">
+                    {bands.reduce((sum, b) => sum + b.proposedAllotment, 0).toLocaleString()}
+                  </td>
+                  {editMode && <td />}
+                </tr>
+              </tfoot>
             </table>
           </div>
 
           <div className="px-6 py-3 border-t border-border flex items-center justify-between shrink-0">
             <p className="text-xs text-muted-foreground">
               {bands.length} band{bands.length !== 1 ? "s" : ""} configured
-              {editMode && " · Applicants and Proposed Allotment are computed values"}
+              {editMode && " · Applicants redistribute automatically when factors change"}
             </p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => toast.info("Export for SEC coming soon")}>
@@ -546,11 +590,21 @@ export function RegulatoryReportHub() {
                       <td className="px-4 py-2.5 text-right font-mono">₦{row.amountPaid.toLocaleString()}</td>
                       <td className="px-4 py-2.5">
                         {rejectedEditMode ? (
-                          <input
-                            className="mrpsl-input h-8 text-sm w-full"
-                            value={row.reason}
-                            onChange={(e) => updateRejectedReason(row.id, e.target.value)}
-                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              className="mrpsl-input h-8 text-sm flex-1 min-w-0"
+                              value={row.reason}
+                              onChange={(e) => updateRejectedReason(row.id, e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => applyReasonToAll(row.reason)}
+                              className="shrink-0 text-[11px] text-primary hover:underline whitespace-nowrap cursor-pointer"
+                              title="Apply this reason to all rows"
+                            >
+                              Apply to all
+                            </button>
+                          </div>
                         ) : (
                           <Badge className="bg-red-100 text-red-700 border-0 text-[12px]">{row.reason}</Badge>
                         )}

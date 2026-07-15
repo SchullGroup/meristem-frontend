@@ -431,7 +431,7 @@ function InsertModal({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>Submit for Approval</Button>
+          <Button onClick={handleSubmit}>Add Transaction</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -444,14 +444,18 @@ interface ResolutionWorkspaceProps {
   item: FlaggedItem;
   onBack: () => void;
   onResolved: () => void;
+  skipPullHistory?: boolean;
+  onHistoryLoaded?: (id: string) => void;
 }
 
 export function ResolutionWorkspace({
   item,
   onBack,
   onResolved,
+  skipPullHistory = false,
+  onHistoryLoaded,
 }: ResolutionWorkspaceProps) {
-  const [pullHistoryLoaded, setPullHistoryLoaded] = useState(false);
+  const [pullHistoryLoaded, setPullHistoryLoaded] = useState(skipPullHistory);
   const [uploadedRows, setUploadedRows] = useState<CsvRow[]>([]);
   const [insertOpen, setInsertOpen] = useState(false);
   const [insertPrefill, setInsertPrefill] = useState<MissingEntry | null>(null);
@@ -491,6 +495,7 @@ export function ResolutionWorkspace({
         onLoaded={(rows) => {
           setUploadedRows(rows);
           setPullHistoryLoaded(true);
+          onHistoryLoaded?.(item.id);
         }}
       />
     );
@@ -562,6 +567,20 @@ export function ResolutionWorkspace({
               <HelpCircle className="h-3.5 w-3.5" />
               Missing Transactions from MRPSL ({missingEntries.length})
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-200 text-red-700 hover:bg-red-50 text-xs h-7"
+              onClick={() => {
+                toast.success(
+                  `${missingEntries.length} missing transaction${missingEntries.length !== 1 ? "s" : ""} added to MRPSL register.`,
+                );
+                handleInserted();
+              }}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add All Missing
+            </Button>
           </div>
           <div className="divide-y divide-border/40 text-sm">
             {missingEntries.map((m) => (

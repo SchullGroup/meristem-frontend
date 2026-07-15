@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Play, ShieldCheck, Send, FileText, Lock } from "lucide-react";
+import { Play, ShieldCheck, Send, FileText, Lock, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,10 +50,35 @@ export function ProvisionalAllotment({
   const [dispatched, setDispatched] = useState(false);
   const [computing, setComputing] = useState(false);
 
+  type SortKey = "holderName" | "unitsHeld" | "entitlementDue";
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ChevronsUpDown className="h-3.5 w-3.5 ml-1 opacity-40" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="h-3.5 w-3.5 ml-1 text-primary" />
+      : <ChevronDown className="h-3.5 w-3.5 ml-1 text-primary" />;
+  };
+
   const shareholders = MOCK_SHAREHOLDERS.map((r) => ({
     ...r,
     entitlementDue: Math.floor(r.unitsHeld / ratioDenominator),
-  }));
+  })).sort((a, b) => {
+    if (!sortKey) return 0;
+    const dir = sortDir === "asc" ? 1 : -1;
+    if (sortKey === "holderName") return a.holderName.localeCompare(b.holderName) * dir;
+    return (a[sortKey] - b[sortKey]) * dir;
+  });
   const totalEntitlementDue = shareholders.reduce((s, r) => s + r.entitlementDue, 0);
   const totalHeld = shareholders.reduce((s, r) => s + r.unitsHeld, 0);
   const totalValue = pricePerShare != null ? totalEntitlementDue * pricePerShare : null;
@@ -189,10 +214,22 @@ export function ProvisionalAllotment({
               <tr className="mrpsl-table-header">
                 <th className="text-left px-4 py-2.5 font-medium">#</th>
                 <th className="text-left px-4 py-2.5 font-medium">Account No</th>
-                <th className="text-left px-4 py-2.5 font-medium">Holder Name</th>
-                <th className="text-right px-4 py-2.5 font-medium">Units Held</th>
+                <th className="text-left px-4 py-2.5 font-medium">
+                  <button onClick={() => handleSort("holderName")} className="flex items-center cursor-pointer hover:text-foreground transition-colors">
+                    Holder Name <SortIcon col="holderName" />
+                  </button>
+                </th>
+                <th className="text-right px-4 py-2.5 font-medium">
+                  <button onClick={() => handleSort("unitsHeld")} className="flex items-center ml-auto cursor-pointer hover:text-foreground transition-colors">
+                    Units Held <SortIcon col="unitsHeld" />
+                  </button>
+                </th>
                 <th className="text-center px-4 py-2.5 font-medium">Ratio</th>
-                <th className="text-right px-4 py-2.5 font-medium">{entitlementLabel}</th>
+                <th className="text-right px-4 py-2.5 font-medium">
+                  <button onClick={() => handleSort("entitlementDue")} className="flex items-center ml-auto cursor-pointer hover:text-foreground transition-colors">
+                    {entitlementLabel} <SortIcon col="entitlementDue" />
+                  </button>
+                </th>
                 {pricePerShare != null && <th className="text-right px-4 py-2.5 font-medium">Value (₦)</th>}
                 <th className="text-right px-4 py-2.5 font-medium">Fractional</th>
               </tr>

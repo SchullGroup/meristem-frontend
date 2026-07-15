@@ -419,53 +419,21 @@ export default function RightsIssueReports() {
       </Card>
 
       {/* Filters */}
-      <Card className="mrpsl-card p-5">
-        <label className="mrpsl-label">Register</label>
-        <div className="flex items-center gap-3 mt-1.5">
-          <Select
-            value={reportRegister}
-            onValueChange={(v) => {
-              setReportRegister(v ?? "");
-              setReportGenerated(false);
-            }}
-          >
-            <SelectTrigger className="mrpsl-input w-64">
-              <SelectValue placeholder="Select Register" />
-            </SelectTrigger>
-            <SelectContent className="w-max">
-              {loadingRegisters ? (
-                <div className="py-10 flex items-center justify-center">
-                  <Loader2 className="animate-spin w-4 h-4" />
-                </div>
-              ) : (
-                <>
-                  <SelectItem value="">All Register</SelectItem>
-                  {activeRegisters?.content?.map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      <span className="font-bold">{r.registerName}</span> -{" "}
-                      <span className="text-xs translate-y-0.5">
-                        {r.symbol}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </>
-              )}
-            </SelectContent>
-          </Select>
-          <Button
-            size="xl"
-            className="px-6 font-semibold shrink-0"
-            onClick={handleRunReport}
-            disabled={isReportLoading}
-          >
-            {isReportLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              "Generate Report"
-            )}
-          </Button>
-        </div>
-      </Card>
+
+      <div className="flex items-center gap-3 mt-1.5">
+        <Button
+          size="xl"
+          className="px-6 font-semibold shrink-0"
+          onClick={handleRunReport}
+          disabled={isReportLoading}
+        >
+          {isReportLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            "Generate Report"
+          )}
+        </Button>
+      </div>
 
       {!reportGenerated ? (
         <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center text-muted-foreground min-h-70">

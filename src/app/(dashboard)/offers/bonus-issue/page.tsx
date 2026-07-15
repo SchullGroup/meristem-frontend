@@ -16,6 +16,7 @@ import {
   Search,
   Wand2,
   CheckCircle2,
+  MousePointerClick,
 } from "lucide-react";
 import { EmailPreviewModal } from "@/components/custom/shareholder-outreach-modals";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1270,6 +1271,17 @@ export default function BonusIssuePage() {
       : format(reportDateRange.from, "dd MMM yyyy")
     : undefined;
 
+  const [selectedBonusOfferId, setSelectedBonusOfferId] = useState<string>("");
+  const selectedBonusOffer =
+    BONUS_SETUP_PROFILES.find((p) => p.id === selectedBonusOfferId) ?? null;
+
+  const handleSelectBonusOffer = (id: string | null) => {
+    if (!id) return;
+    setSelectedBonusOfferId(id);
+    const profile = BONUS_SETUP_PROFILES.find((p) => p.id === id);
+    if (profile) loadSetup(profile);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -1280,6 +1292,72 @@ export default function BonusIssuePage() {
           Declare and automatically compute bonus share allotments
         </p>
       </div>
+
+      {/* Active offer selector */}
+      <Card className="mrpsl-card p-4">
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0 pt-0.5">
+            <Info className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Active Bonus Issue</span>
+          </div>
+          <div className="flex-1 min-w-60">
+            <Select
+              value={selectedBonusOfferId}
+              onValueChange={handleSelectBonusOffer}
+            >
+              <SelectTrigger className="mrpsl-input h-9 w-full max-w-sm">
+                <SelectValue placeholder="Select a bonus issue to work with…" />
+              </SelectTrigger>
+              <SelectContent>
+                {BONUS_SETUP_PROFILES.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedBonusOffer && (
+            <div className="flex items-center gap-4 flex-wrap text-sm">
+              <div>
+                <span className="mrpsl-label mr-1">Register:</span>
+                <span className="font-medium">
+                  {selectedBonusOffer.register}
+                </span>
+              </div>
+              <div>
+                <span className="mrpsl-label mr-1">Ratio:</span>
+                <span className="font-mono font-semibold">
+                  {selectedBonusOffer.ratio}
+                </span>
+              </div>
+              <div>
+                <span className="mrpsl-label mr-1">Qual. Date:</span>
+                <span className="font-mono">
+                  {format(selectedBonusOffer.qualificationDate, "dd MMM yyyy")}
+                </span>
+              </div>
+              <div>
+                <span className="mrpsl-label mr-1">Allotment Date:</span>
+                <span className="font-mono">
+                  {format(selectedBonusOffer.allotmentDate, "dd MMM yyyy")}
+                </span>
+              </div>
+              <Badge
+                className={`border-0 text-[11px] ${BONUS_SETUP_STATUS_STYLES[selectedBonusOffer.status]}`}
+              >
+                {BONUS_SETUP_STATUS_LABELS[selectedBonusOffer.status]}
+              </Badge>
+            </div>
+          )}
+          {!selectedBonusOffer && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Select a bonus issue above to begin processing.
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Tabs
         value={activeTab}
@@ -1299,7 +1377,8 @@ export default function BonusIssuePage() {
             <TabsTrigger
               key={v}
               value={v}
-              className="flex-none rounded-lg cursor-pointer px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              disabled={!selectedBonusOffer}
+              className="flex-none rounded-lg cursor-pointer px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all disabled:pointer-events-none disabled:opacity-40"
             >
               {label}
             </TabsTrigger>
@@ -1309,73 +1388,38 @@ export default function BonusIssuePage() {
         <div className="mt-6">
           {/* ── Provisional Allotment ── */}
           <TabsContent value="declaration">
-            <ProvisionalAllotment
-              offerName="Zenith Bank Bonus Issue 2024"
-              ratioLabel="1 bonus share for every 5 held"
-              ratioDenominator={5}
-              pricePerShare={null}
-              qualificationDateLabel="30 Jun 2024"
-              entitlementLabel="Bonus Shares Due"
-            />
+            {!selectedBonusOffer ? (
+              <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center min-h-70 gap-3">
+                <MousePointerClick className="h-10 w-10 text-muted-foreground/30" />
+                <p className="font-semibold text-sm text-foreground">
+                  No bonus issue selected
+                </p>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Select a bonus issue from the dropdown above to view and
+                  compute the provisional allotment schedule.
+                </p>
+              </Card>
+            ) : (
+              <ProvisionalAllotment
+                offerName={selectedBonusOffer.name}
+                ratioLabel={`${selectedBonusOffer.ratio} held`}
+                ratioDenominator={parseInt(
+                  selectedBonusOffer.ratio.match(/\d+$/)?.[0] ?? "5",
+                )}
+                pricePerShare={null}
+                qualificationDateLabel={format(
+                  selectedBonusOffer.qualificationDate,
+                  "dd MMM yyyy",
+                )}
+                entitlementLabel="Bonus Shares Due"
+              />
+            )}
           </TabsContent>
 
           {/* ── Approval ── */}
           <TabsContent value="auth" className="space-y-4">
             {authReviewing === null ? (
               <>
-                {/* Filters */}
-                <Card className="mrpsl-card p-4">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="relative w-64">
-                      <Input
-                        placeholder="Search ref or bonus name..."
-                        value={authListSearch}
-                        onChange={(e) => {
-                          setAuthListSearch(e.target.value);
-                          setAuthListPage(1);
-                        }}
-                        className="pl-9 mrpsl-input"
-                      />
-                    </div>
-                    <Select
-                      value={authListRegister || "all"}
-                      onValueChange={(v) => {
-                        setAuthListRegister(v === "all" ? "" : (v ?? ""));
-                        setAuthListPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="mrpsl-input w-48">
-                        <SelectValue placeholder="All Registers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingRegisters ? (
-                          <div className="py-10 flex items-center justify-center">
-                            <Loader2 className="animate-spin w-4 h-4" />
-                          </div>
-                        ) : (
-                          <>
-                            <SelectItem value="all">All Registers</SelectItem>
-                            {registerList?.map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r.registerId}
-                              >
-                                <span className="font-bold">
-                                  {r.registerName}
-                                </span>{" "}
-                                -{" "}
-                                <span className="text-xs translate-y-0.5">
-                                  {r.symbol}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </Card>
-
                 <Card className="mrpsl-card overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead className="mrpsl-table-header">
@@ -1661,59 +1705,6 @@ export default function BonusIssuePage() {
           <TabsContent value="icu" className="space-y-4">
             {icuReviewing === null ? (
               <>
-                {/* Filters */}
-                <Card className="mrpsl-card p-4">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="relative w-64">
-                      <Input
-                        placeholder="Search ref or bonus name..."
-                        value={icuListSearch}
-                        onChange={(e) => {
-                          setIcuListSearch(e.target.value);
-                          setIcuListPage(1);
-                        }}
-                        className="pl-9 mrpsl-input"
-                      />
-                    </div>
-                    <Select
-                      value={icuListRegister || "all"}
-                      onValueChange={(v) => {
-                        setIcuListRegister(v === "all" ? "" : (v ?? ""));
-                        setIcuListPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="mrpsl-input w-48">
-                        <SelectValue placeholder="All Registers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingRegisters ? (
-                          <div className="py-10 flex items-center justify-center">
-                            <Loader2 className="animate-spin w-4 h-4" />
-                          </div>
-                        ) : (
-                          <>
-                            <SelectItem value="all">All Registers</SelectItem>
-                            {registerList?.map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r.registerId}
-                              >
-                                <span className="font-bold">
-                                  {r.registerName}
-                                </span>{" "}
-                                -{" "}
-                                <span className="text-xs translate-y-0.5">
-                                  {r.symbol}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </Card>
-
                 <Card className="mrpsl-card overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead className="mrpsl-table-header">
@@ -2021,53 +2012,6 @@ export default function BonusIssuePage() {
                 {/* Filters */}
                 <Card className="mrpsl-card p-4">
                   <div className="grid grid-cols-[2fr_1fr_1fr] w-1/2 items-center gap-3">
-                    <div className="relative w-full">
-                      <Input
-                        placeholder="Search ref or bonus name..."
-                        value={allotListSearch}
-                        onChange={(e) => {
-                          setAllotListSearch(e.target.value);
-                          setAllotListPage(1);
-                        }}
-                        className="pl-9 mrpsl-input"
-                      />
-                    </div>
-                    <Select
-                      value={allotListRegister || "all"}
-                      onValueChange={(v) => {
-                        setAllotListRegister(v === "all" ? "" : (v ?? ""));
-                        setAllotListPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="mrpsl-input w-48">
-                        <SelectValue placeholder="All Registers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingRegisters ? (
-                          <div className="py-10 flex items-center justify-center">
-                            <Loader2 className="animate-spin w-4 h-4" />
-                          </div>
-                        ) : (
-                          <>
-                            <SelectItem value="all">All Registers</SelectItem>
-                            {registerList?.map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r.registerId}
-                              >
-                                <span className="font-bold">
-                                  {r.registerName}
-                                </span>{" "}
-                                -{" "}
-                                <span className="text-xs translate-y-0.5">
-                                  {r.symbol}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
                     <Select
                       value={allotListStatus}
                       onValueChange={(v) => {
@@ -2560,109 +2504,13 @@ export default function BonusIssuePage() {
               </div>
             </Card>
 
-            {/* Filters */}
-            <Card className="mrpsl-card p-5">
-              <div className="flex gap-6 mb-1.5">
-                <label className="mrpsl-label w-64">Register</label>
-                <label className="mrpsl-label w-64">Date Range</label>
-              </div>
-              <div className="flex items-center gap-3">
-                <Select
-                  value={reportRegister}
-                  onValueChange={(v) => {
-                    setReportRegister(v ?? "all");
-                    setReportGenerated(false);
-                  }}
-                >
-                  <SelectTrigger className="mrpsl-input w-64">
-                    <SelectValue placeholder="All Registers" />
-                  </SelectTrigger>
-                  <SelectContent className="w-max">
-                    {loadingRegisters ? (
-                      <div className="py-10 flex items-center justify-center">
-                        <Loader2 className="animate-spin w-4 h-4" />
-                      </div>
-                    ) : (
-                      <>
-                        <SelectItem value="">All Register</SelectItem>
-                        {registerList?.map((r) => (
-                          <SelectItem key={r.registerId} value={r.symbol}>
-                            <span className="font-bold">{r.registerName}</span>{" "}
-                            -{" "}
-                            <span className="text-xs translate-y-0.5">
-                              {r.symbol}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-                <Popover
-                  open={reportCalOpen}
-                  onOpenChange={(v, eventDetails) => {
-                    if (!v) {
-                      if (
-                        eventDetails.reason === "outside-press" ||
-                        eventDetails.reason === "escape-key" ||
-                        eventDetails.reason === "trigger-press"
-                      ) {
-                        setReportCalOpen(false);
-                      }
-                      return;
-                    }
-                    setReportCalOpen(v);
-                  }}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "mrpsl-input w-64 justify-start gap-2 px-3 font-normal text-sm",
-                        !reportDateLabel && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarRange className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="flex-1 text-left truncate">
-                        {reportDateLabel ?? "Select date range"}
-                      </span>
-                      {reportDateRange && (
-                        <span
-                          role="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            reportDateRangeRef.current = undefined;
-                            setReportDateRange(undefined);
-                          }}
-                          className="ml-auto rounded-full hover:bg-muted p-0.5"
-                        >
-                          <X className="h-3 w-3 text-muted-foreground" />
-                        </span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="range"
-                      selected={reportDateRange}
-                      onSelect={(r) => {
-                        reportDateRangeRef.current = r;
-                        setReportDateRange(r);
-                        if (r?.from && r?.to) setReportCalOpen(false);
-                      }}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Button
-                  size="xl"
-                  className="px-6 font-semibold shrink-0"
-                  onClick={handleRunReport}
-                >
-                  Generate Report
-                </Button>
-              </div>
-            </Card>
+            <Button
+              size="xl"
+              className="px-6 font-semibold shrink-0"
+              onClick={handleRunReport}
+            >
+              Generate Report
+            </Button>
 
             {isReportLoading ? (
               <div className="flex flex-col items-center justify-center py-20 bg-background border rounded-2xl border-dashed">

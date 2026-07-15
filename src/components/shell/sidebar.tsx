@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   ChevronRight,
   LogOut,
+  Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,7 +62,6 @@ const OPERATIONS_GROUPS = [
       { label: "Rights Issue", href: "/offers/rights-issue" },
       { label: "Bonus Issue", href: "/offers/bonus-issue" },
       { label: "Return Money", href: "/offers/return-money" },
-      { label: "Fund Subscription & Redemption", href: "/offers/fund-subscription" },
     ],
   },
   {
@@ -74,6 +74,14 @@ const OPERATIONS_GROUPS = [
       { label: "Certificate Split", href: "/certificates/split" },
       { label: "Consolidation", href: "/certificates/consolidation" },
       { label: "Transfer", href: "/certificates/transfer" },
+    ],
+  },
+  {
+    title: "Fund Administration",
+    icon: Landmark,
+    items: [
+      { label: "Fund Subscription", href: "/funds/subscription" },
+      { label: "Fund Redemption", href: "/funds/redemption" },
     ],
   },
   {
