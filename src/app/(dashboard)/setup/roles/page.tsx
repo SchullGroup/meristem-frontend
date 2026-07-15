@@ -51,14 +51,10 @@ import {
   DELETE_ROLE,
   EDIT_ROLE,
   PATCH_ROLE,
-  GET_PERMISSIONS_BY_ROLE,
 } from "@/actions/rolesAction";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { GET_USER_BY_ID } from "@/actions/userAction";
-
-// ─── Permission Matrix ────────────────────────────────────────────────────────
 
 interface SubmoduleDef {
   id: string;
@@ -1327,7 +1323,6 @@ export default function RolesPage() {
 
           <div className="px-3 py-2 border-b sticky top-13.25 bg-background/95 backdrop-blur z-10">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Filter roles…"
                 className="pl-8 h-8 text-sm mrpsl-input"

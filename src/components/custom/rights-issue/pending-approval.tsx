@@ -201,7 +201,6 @@ export default function RightsIssuePendingApproval({
         <Card className="mrpsl-card p-5">
           <div className="flex items-center gap-4">
             <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by reference or name..."
                 value={searchQuery}
