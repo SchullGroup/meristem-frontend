@@ -26,12 +26,15 @@ import {
   KycChangeFilters,
   KycChangeListResponse,
   KycDecisionRequest,
+  KycCancelRequest,
   KycUploadJob,
   ShareholderAccount,
   AdmonListResponse,
   AdmonDecisionRequest,
   BatchAdmonRequest,
   BatchAdmonResponse,
+  BatchAdmonReversalRequest,
+  BatchAdmonReversalResponse,
   AdmonReversalListResponse,
   HolderKycDocRequest,
   HolderSignatureRequest,
@@ -307,6 +310,22 @@ export const rejectKycChange = async (id: number, data: KycDecisionRequest) => {
   }
 };
 
+// Per KYC-BE-06: submitter-only withdrawal of a still-pending request.
+// See backend_changes.md for the endpoint spec as given by the backend team.
+export const cancelKycChange = async (id: number, data: KycCancelRequest) => {
+  try {
+    const res = await api.patch<ApiResponse<KycChange>>(
+      `/kyc-change-requests/${id}/cancel`,
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const batchAuthoriseKycChanges = async (data: BatchKycActionRequest) => {
   try {
     const res = await api.post<ApiResponse<BatchKycActionResponse>>(
@@ -495,6 +514,20 @@ export const batchRejectAdmons = async (data: BatchAdmonRequest) => {
   }
 };
 
+export const batchReturnAdmons = async (data: BatchAdmonRequest) => {
+  try {
+    const res = await api.post<ApiResponse<BatchAdmonResponse>>(
+      "/admon/batch-return",
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const createAdmonReversal = async (
   admonId: number,
   data: CreateAdmonReversalRequest,
@@ -552,6 +585,38 @@ export const rejectAdmonReversal = async (
   try {
     const res = await api.put<ApiResponse<AdmonReversal>>(
       `/admon/reversals/${reversalId}/reject`,
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const batchAuthoriseAdmonReversals = async (
+  data: BatchAdmonReversalRequest,
+) => {
+  try {
+    const res = await api.post<ApiResponse<BatchAdmonReversalResponse>>(
+      "/admon/reversals/batch-authorise",
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const batchRejectAdmonReversals = async (
+  data: BatchAdmonReversalRequest,
+) => {
+  try {
+    const res = await api.post<ApiResponse<BatchAdmonReversalResponse>>(
+      "/admon/reversals/batch-reject",
       data,
     );
 

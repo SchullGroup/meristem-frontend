@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { usePermission } from "@/hooks/usePermission";
+import { useRolePermission } from "@/hooks/usePermission";
 import { AlertTriangle, Check, FileText, Loader2 } from "lucide-react";
 import {
   Tooltip,
@@ -47,7 +47,7 @@ import { formatDate } from "@/lib/utils/format";
 
 export default function PendingAuth({ tab }: { tab: string }) {
   const { currentUser } = useStore();
-  const canApprove = usePermission(
+  const canApprove = useRolePermission(
     "account_maintenance.account_consolidation_approve.approve",
   );
 
@@ -68,7 +68,10 @@ export default function PendingAuth({ tab }: { tab: string }) {
   const [rejectComment, setRejectComment] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
-  const [previewDoc, setPreviewDoc] = useState<{ name: string; url: string } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
 
   const { data, isLoading, isError, error, refetch } = useGetConsolidations(
     {
@@ -361,7 +364,9 @@ export default function PendingAuth({ tab }: { tab: string }) {
                       {formatDate(row?.createdAt)}
                     </td>
                     <td className="p-3 font-mono text-xs text-muted-foreground">
-                      {row.destinationAccount?.registerSymbol ?? row.registerId ?? "—"}
+                      {row.destinationAccount?.registerSymbol ??
+                        row.registerId ??
+                        "—"}
                     </td>
                     <td className="p-3 font-mono text-muted-foreground">
                       {row?.sourceAccounts?.length > 0
@@ -380,7 +385,10 @@ export default function PendingAuth({ tab }: { tab: string }) {
                     <td className="p-3 max-w-45">
                       {(() => {
                         const reason = row.reason ?? row.comment;
-                        if (!reason) return <span className="text-muted-foreground/50">—</span>;
+                        if (!reason)
+                          return (
+                            <span className="text-muted-foreground/50">—</span>
+                          );
                         if (reason.length > 40)
                           return (
                             <TooltipProvider>
@@ -394,7 +402,11 @@ export default function PendingAuth({ tab }: { tab: string }) {
                               </Tooltip>
                             </TooltipProvider>
                           );
-                        return <span className="text-muted-foreground">{reason}</span>;
+                        return (
+                          <span className="text-muted-foreground">
+                            {reason}
+                          </span>
+                        );
                       })()}
                     </td>
                     <td className="p-3 text-muted-foreground text-center">
@@ -444,7 +456,9 @@ export default function PendingAuth({ tab }: { tab: string }) {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {canApprove ? "Review Account Consolidation" : "Consolidation Details"}
+              {canApprove
+                ? "Review Account Consolidation"
+                : "Consolidation Details"}
             </DialogTitle>
           </DialogHeader>
           {selected && (
@@ -463,16 +477,21 @@ export default function PendingAuth({ tab }: { tab: string }) {
               <div className="grid grid-cols-3 gap-3 text-sm">
                 <div>
                   <p className="mrpsl-section-title mb-0.5">SUBMITTED BY</p>
-                  <p className="font-medium">{selected.submittedBy ?? selected.initiatorName}</p>
+                  <p className="font-medium">
+                    {selected.submittedBy ?? selected.initiatorName}
+                  </p>
                 </div>
                 <div>
                   <p className="mrpsl-section-title mb-0.5">SUBMITTED AT</p>
-                  <p className="text-muted-foreground">{formatDate(selected.createdAt)}</p>
+                  <p className="text-muted-foreground">
+                    {formatDate(selected.createdAt)}
+                  </p>
                 </div>
                 <div>
                   <p className="mrpsl-section-title mb-0.5">REGISTER(S)</p>
                   <p className="font-mono text-xs text-muted-foreground leading-5">
-                    {selected.registerNames?.join(", ") ?? selected.destinationAccount.registerSymbol}
+                    {selected.registerNames?.join(", ") ??
+                      selected.destinationAccount.registerSymbol}
                   </p>
                 </div>
               </div>
@@ -481,11 +500,15 @@ export default function PendingAuth({ tab }: { tab: string }) {
               <div>
                 <p className="mrpsl-section-title mb-2">
                   {selected.sourceAccounts.length} SOURCE ACCOUNT
-                  {selected.sourceAccounts.length !== 1 ? "S" : ""} (to be deactivated)
+                  {selected.sourceAccounts.length !== 1 ? "S" : ""} (to be
+                  deactivated)
                 </p>
                 <div className="border border-border/60 rounded-xl divide-y divide-border/60">
                   {selected.sourceAccounts.map((acct, i) => (
-                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm"
+                    >
                       <div className="flex-1 min-w-0">
                         <span className="font-medium">{acct.holderName}</span>
                         <span className="text-muted-foreground font-mono ml-2 text-xs">
@@ -518,12 +541,16 @@ export default function PendingAuth({ tab }: { tab: string }) {
               <div>
                 <p className="mrpsl-section-title mb-2">DESTINATION ACCOUNT</p>
                 <div className="border border-border/60 rounded-xl px-4 py-3 space-y-0.5">
-                  <div className="font-semibold">{selected.destinationAccount.holderName}</div>
+                  <div className="font-semibold">
+                    {selected.destinationAccount.holderName}
+                  </div>
                   <div className="font-mono text-sm text-muted-foreground">
                     {selected.destinationAccount.accountNumber}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    <span className="font-mono">{selected.destinationAccount.registerSymbol}</span>
+                    <span className="font-mono">
+                      {selected.destinationAccount.registerSymbol}
+                    </span>
                     {" · "}
                     {selected.destinationAccount.registerName}
                   </div>
@@ -532,7 +559,9 @@ export default function PendingAuth({ tab }: { tab: string }) {
 
               {/* Combined holdings */}
               <div className="flex items-center justify-between px-4 py-3 bg-muted/40 rounded-xl border border-border/60">
-                <span className="text-sm text-muted-foreground">Combined holdings after merge</span>
+                <span className="text-sm text-muted-foreground">
+                  Combined holdings after merge
+                </span>
                 <span className="text-xl tabular-nums font-bold text-primary">
                   {selected.totalHoldings?.toLocaleString()}
                 </span>
@@ -544,7 +573,10 @@ export default function PendingAuth({ tab }: { tab: string }) {
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>
                     Cross-register consolidation — unified record will be under{" "}
-                    <strong>{selected.destinationAccount.registerSymbol}</strong>.
+                    <strong>
+                      {selected.destinationAccount.registerSymbol}
+                    </strong>
+                    .
                   </span>
                 </div>
               )}
@@ -560,32 +592,36 @@ export default function PendingAuth({ tab }: { tab: string }) {
               )}
 
               {/* Supporting documents */}
-              {selected.supportingDocuments && selected.supportingDocuments.length > 0 && (
-                <div>
-                  <p className="mrpsl-section-title mb-2">
-                    SUPPORTING DOCUMENTS ({selected.supportingDocuments.length})
-                  </p>
-                  <div className="space-y-2">
-                    {selected.supportingDocuments.map((doc, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-3 px-3 py-2 border border-border/60 rounded-lg"
-                      >
-                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="text-sm truncate flex-1">{doc.name}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="shrink-0 text-primary"
-                          onClick={() => setPreviewDoc(doc)}
+              {selected.supportingDocuments &&
+                selected.supportingDocuments.length > 0 && (
+                  <div>
+                    <p className="mrpsl-section-title mb-2">
+                      SUPPORTING DOCUMENTS (
+                      {selected.supportingDocuments.length})
+                    </p>
+                    <div className="space-y-2">
+                      {selected.supportingDocuments.map((doc, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 px-3 py-2 border border-border/60 rounded-lg"
                         >
-                          Preview
-                        </Button>
-                      </div>
-                    ))}
+                          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm truncate flex-1">
+                            {doc.name}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="shrink-0 text-primary"
+                            onClick={() => setPreviewDoc(doc)}
+                          >
+                            Preview
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Approval chain */}
               <div className="border border-border/60 rounded-xl p-4">
@@ -594,19 +630,28 @@ export default function PendingAuth({ tab }: { tab: string }) {
                 </h4>
                 <div className="space-y-4">
                   {[
-                    { label: `Submitted by ${selected.submittedBy ?? selected.initiatorName}`, done: true },
                     {
-                      label: canApprove ? "Authoriser — Pending your action" : "Authoriser — Pending",
+                      label: `Submitted by ${selected.submittedBy ?? selected.initiatorName}`,
+                      done: true,
+                    },
+                    {
+                      label: canApprove
+                        ? "Authoriser — Pending your action"
+                        : "Authoriser — Pending",
                       done: false,
                     },
                   ].map((step, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div
                         className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${
-                          step.done ? "bg-green-100" : "bg-amber-200 animate-pulse"
+                          step.done
+                            ? "bg-green-100"
+                            : "bg-amber-200 animate-pulse"
                         }`}
                       >
-                        {step.done && <Check className="h-3 w-3 text-green-600" />}
+                        {step.done && (
+                          <Check className="h-3 w-3 text-green-600" />
+                        )}
                       </div>
                       <div className="text-sm">{step.label}</div>
                     </div>
@@ -631,11 +676,18 @@ export default function PendingAuth({ tab }: { tab: string }) {
                       variant="destructive"
                       className="flex-1"
                       onClick={handleReject}
-                      disabled={rejectMutation.isPending || rejectComment.trim() === ""}
+                      disabled={
+                        rejectMutation.isPending || rejectComment.trim() === ""
+                      }
                     >
                       {rejectMutation.isPending ? (
-                        <><Loader2 className="w-4 h-4 mrpsl-loader" />Rejecting...</>
-                      ) : "Reject"}
+                        <>
+                          <Loader2 className="w-4 h-4 mrpsl-loader" />
+                          Rejecting...
+                        </>
+                      ) : (
+                        "Reject"
+                      )}
                     </Button>
                     <Button
                       className="flex-1"
@@ -643,14 +695,23 @@ export default function PendingAuth({ tab }: { tab: string }) {
                       disabled={approveMutation.isPending}
                     >
                       {approveMutation.isPending ? (
-                        <><Loader2 className="w-4 h-4 mrpsl-loader" />Authorising...</>
-                      ) : "Authorise Consolidation"}
+                        <>
+                          <Loader2 className="w-4 h-4 mrpsl-loader" />
+                          Authorising...
+                        </>
+                      ) : (
+                        "Authorise Consolidation"
+                      )}
                     </Button>
                   </div>
                 </>
               ) : (
                 <div className="pt-4 border-t border-border/60">
-                  <Button variant="outline" className="w-full" onClick={() => setReviewOpen(false)}>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setReviewOpen(false)}
+                  >
                     Close
                   </Button>
                 </div>
@@ -664,7 +725,9 @@ export default function PendingAuth({ tab }: { tab: string }) {
       <Dialog open={!!previewDoc} onOpenChange={() => setPreviewDoc(null)}>
         <DialogContent className="max-w-3xl h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="truncate pr-8">{previewDoc?.name}</DialogTitle>
+            <DialogTitle className="truncate pr-8">
+              {previewDoc?.name}
+            </DialogTitle>
           </DialogHeader>
           <div className="flex-1 min-h-0 rounded-lg overflow-hidden border border-border/60">
             {previewDoc && (
@@ -679,7 +742,7 @@ export default function PendingAuth({ tab }: { tab: string }) {
       </Dialog>
 
       <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
-        <DialogContent className="max-w-lg max-h-[700px] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-175 overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Reject {Array.from(selectedIds).length} Record

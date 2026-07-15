@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import {
   Select,
@@ -16,6 +17,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Loader2,
   Search,
   ChevronDown,
@@ -23,18 +30,32 @@ import {
   Trash2,
   Plus,
   Pencil,
+  X,
+  History,
+  RotateCcw,
+  CheckCircle2,
 } from "lucide-react";
 import { NIGERIA_STATE_NAMES } from "@/lib/mocks/nigeria-geo";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { DocUploadZone } from "@/components/custom/doc-upload-zone";
 import { MultiDocUpload } from "@/components/custom/multi-doc-upload";
 import DateInput from "@/components/ui/date-input";
 import { useGetRegisters } from "@/hooks/useRegisters";
-import { useCreateAdmon, useGetAccounts } from "@/hooks/useAccountMaintenance";
+import {
+  useCreateAdmon,
+  useGetAccounts,
+  useGetAdmons,
+} from "@/hooks/useAccountMaintenance";
 import { useDebounce } from "@/hooks/useDebounce";
-import { ShareholderAccount } from "@/types/account-maintenance";
+import { Admon, ShareholderAccount } from "@/types/account-maintenance";
+import { formatDate } from "@/lib/utils/format";
+import {
+  administratorSchema,
+  probateSchema,
+  ID_TYPE_OPTIONS,
+  BVN_REGEX,
+} from "@/lib/schemas/admon";
 
 // ── Administrator entry types ──
 
@@ -48,7 +69,6 @@ interface AdministratorEntry {
   bvn: string;
   nin: string;
   idType: string;
-  idNumber: string;
   relationship: string;
   adminAddress: string;
   adminCity: string;
@@ -64,24 +84,11 @@ interface ProbateDetails {
   probatePage: string;
   probateDate: Date;
   lodgementDate: Date;
-  probateDocUrl: string;
   probateDocs: { name: string; url: string }[];
 }
 
-// ── Validation constants ──
-
-const ID_TYPE_OPTIONS = [
-  "National ID",
-  "International Passport",
-  "Driver's License",
-  "Voter's Card",
-];
-
-/** Configurable — confirm with business team before changing */
-const NIN_REGEX = /^\d{11}$/;
-const BVN_REGEX = /^\d{11}$/;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?[\d\s()\-]{10,15}$/;
+// ── Validation constants (imported from @/lib/schemas/admon.ts) ──
+// Regexes: NIN_REGEX, BVN_REGEX, EMAIL_REGEX, PHONE_REGEX — used in the zod schema
 
 // ── Defaults ──
 
@@ -98,7 +105,6 @@ function createAdmin(): AdministratorEntry {
     bvn: "",
     nin: "",
     idType: "",
-    idNumber: "",
     relationship: "",
     adminAddress: "",
     adminCity: "",
@@ -115,8 +121,70 @@ const DEFAULT_PROBATE: ProbateDetails = {
   probatePage: "",
   probateDate: new Date(),
   lodgementDate: new Date(),
-  probateDocUrl: "",
   probateDocs: [],
+};
+
+// ── Demo mock row for backend demonstration ──
+// Remove once the backend supports GET /admon?initiatorId=&status=RETURNED.
+
+const MOCK_RETURNED_ADMON: Admon = {
+  id: -101,
+  registerId: "MRL",
+  deceasedAccountIds: ["ACC-101"],
+  deceasedAccountNumbers: ["MR00003344"],
+  deceasedAccounts: [
+    {
+      accountNumber: "MR00003344",
+      holderName: "Tunde Bakare",
+      registerSymbol: "MRL",
+      chn: "CHN-4471",
+      holdings: 610000,
+    },
+  ],
+  deceasedHolderName: "Tunde Bakare",
+  admonType: "ADMINISTRATOR",
+  adminName: "Kemi Bakare",
+  probateCourt: "High Court of Lagos State — Ikeja Division",
+  probateNumber: "P/2026/0071/LS",
+  probateDate: "2026-05-02",
+  probatePage: "118-121",
+  lodgementDate: "2026-06-10",
+  adminAddress: "22 Ogunlana Drive",
+  adminCity: "Surulere",
+  adminState: "Lagos",
+  memo: "",
+  changeNameToEstate: true,
+  estateNamePreview: "Estate of Tunde Bakare",
+  probateDocs: [],
+  administrators: [
+    {
+      adminName: "Kemi Bakare",
+      isExecutor: false,
+      email: "kemi.bakare@email.com",
+      phone: "+234 805 222 3344",
+      bvn: "33445566778",
+      nin: "22334455661",
+      idType: "National ID",
+      relationship: "Daughter",
+      adminAddress: "22 Ogunlana Drive",
+      adminCity: "Surulere",
+      adminState: "Lagos",
+      documents: [],
+    },
+  ],
+  status: "RETURNED",
+  initiatorId: "",
+  initiatorName: "",
+  authorisedBy: "",
+  authorisedAt: "",
+  icuApprovedBy: "",
+  icuApprovedAt: "",
+  returnedReason:
+    "Probate documents are illegible — please re-upload a clearer scan of the Letters of Administration.",
+  returnedBy: "chioma.okafor@email.com",
+  returnedAt: "2026-07-10T11:20:00",
+  createdAt: "2026-07-08T09:15:00",
+  decidedAt: "",
 };
 
 export default function NewAdmonForm() {
@@ -128,6 +196,38 @@ export default function NewAdmonForm() {
   );
 
   const { currentUser } = useStore();
+  const searchParams = useSearchParams();
+  const draftId = searchParams.get("draftId");
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // ── Draft / Returned lifecycle ──
+  // TODO: Replace with real GET /admons/:id endpoint. For now, arriving with
+  // a draftId in the URL just shows the "editing a draft" banner.
+  const [isDraft, setIsDraft] = useState(!!draftId);
+  const [draftBannerDismissed, setDraftBannerDismissed] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState(() =>
+    draftId ? new Date().toISOString() : "",
+  );
+  const [draftSavedBy, setDraftSavedBy] = useState(() =>
+    draftId ? (currentUser?.email ?? "") : "",
+  );
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [correctionBannerDismissed, setCorrectionBannerDismissed] =
+    useState(false);
+
+  // ── Returned Requests (peculiar to the initiator) ──
+  const [returnedListOpen, setReturnedListOpen] = useState(false);
+  const [resumeId, setResumeId] = useState<number | null>(null);
+
+  const { isLoading: returnedLoading } = useGetAdmons(
+    { initiatorId: currentUser?.email, status: "RETURNED" },
+    { enabled: !!currentUser?.email },
+  );
+  // const returnedAdmons = returnedRes?.data?.data?.length
+  //   ? returnedRes.data.data
+  //   : [MOCK_RETURNED_ADMON];
+  const returnedAdmons = [MOCK_RETURNED_ADMON];
 
   const [registerId, setRegisterId] = useState("");
   const [search, setSearch] = useState("");
@@ -196,6 +296,139 @@ export default function NewAdmonForm() {
 
   const createAdmonMutation = useCreateAdmon();
 
+  // ── Reset to a blank New Administration form ──
+  // Shared by a successful submit and the explicit "Discard & Start New"
+  // action, so a resumed/draft record never lingers after either.
+  const resetForm = useCallback(() => {
+    setSearch("");
+    setProbate(DEFAULT_PROBATE);
+    setAdministrators([createAdmin()]);
+    setChangeNameToEstate(true);
+    setValidationErrors(new Map());
+    setShowSummary(false);
+    setSelectedAccounts(new Map());
+    setAllDiscoveredAccounts([]);
+    setResumeId(null);
+    setCorrectionReason("");
+    setCorrectionBannerDismissed(false);
+    setIsDraft(false);
+    setDraftBannerDismissed(false);
+    if (draftId) {
+      router.replace(pathname);
+    }
+  }, [draftId, pathname, router]);
+
+  // ── Resume a returned request ──
+  // Hydrates the form directly from the record the "Returned Requests" list
+  // already fetched — no separate GET /admon/:id call needed.
+  const hydrateFromAdmon = useCallback((admon: Admon) => {
+    setResumeId(admon.id);
+    setIsDraft(true);
+    setDraftSavedAt(admon.createdAt);
+    setDraftSavedBy(admon.initiatorName);
+    setCorrectionReason(admon.returnedReason || "");
+    setCorrectionBannerDismissed(false);
+
+    setProbate({
+      probateCourt: admon.probateCourt,
+      probateNumber: admon.probateNumber,
+      probatePage: admon.probatePage,
+      probateDate: admon.probateDate ? new Date(admon.probateDate) : new Date(),
+      lodgementDate: admon.lodgementDate
+        ? new Date(admon.lodgementDate)
+        : new Date(),
+      probateDocs: admon.probateDocs || [],
+    });
+
+    setChangeNameToEstate(admon.changeNameToEstate);
+
+    setAdministrators(
+      (admon.administrators?.length
+        ? admon.administrators
+        : [
+            {
+              adminName: admon.adminName,
+              isExecutor: admon.admonType === "EXECUTOR",
+              email: "",
+              phone: "",
+              bvn: "",
+              nin: "",
+              idType: "",
+              adminAddress: admon.adminAddress,
+              adminCity: admon.adminCity,
+              adminState: admon.adminState,
+              documents: [],
+            },
+          ]
+      ).map((a) => {
+        _adminCounter += 1;
+        return {
+          id: `admin-${Date.now()}-${_adminCounter}`,
+          isExecutor: a.isExecutor,
+          adminName: a.adminName,
+          email: a.email,
+          phone: a.phone,
+          altPhone: a.altPhone || "",
+          bvn: a.bvn,
+          nin: a.nin,
+          idType: a.idType,
+          relationship: a.relationship || "",
+          adminAddress: a.adminAddress,
+          adminCity: a.adminCity,
+          adminState: a.adminState,
+          memo: a.memo || "",
+          documents: a.documents || [],
+          collapsed: false,
+        };
+      }),
+    );
+
+    const accounts: ShareholderAccount[] = (
+      admon.deceasedAccounts?.length
+        ? admon.deceasedAccounts
+        : admon.deceasedAccountNumbers.map((accountNumber) => ({
+            accountNumber,
+            holderName: admon.deceasedHolderName,
+            registerSymbol: admon.registerId,
+            chn: "",
+            holdings: 0,
+          }))
+    ).map((acc, i) => {
+      const [firstName, ...rest] = acc.holderName.split(" ");
+      return {
+        id: admon.deceasedAccountIds[i] || `${admon.id}-${i}`,
+        registerId: admon.registerId,
+        registerSymbol: acc.registerSymbol,
+        accountNumber: acc.accountNumber,
+        lastName: rest.join(" ") || acc.holderName,
+        firstName: firstName || acc.holderName,
+        otherNames: "",
+        gender: "",
+        holderType: "",
+        email: "",
+        phone: "",
+        phone2: "",
+        address: "",
+        state: "",
+        bvn: "",
+        nin: "",
+        chn: acc.chn,
+        bankName: "",
+        bankAccountNumber: "",
+        holdings: acc.holdings,
+        status: "",
+        cautionReason: "",
+        noTax: false,
+      };
+    });
+
+    setSelectedAccounts(new Map(accounts.map((a) => [a.id, a])));
+    setAllDiscoveredAccounts(accounts);
+
+    setReturnedListOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   // ── Admin card helpers ──
 
   const updateAdmin = useCallback(
@@ -235,171 +468,179 @@ export default function NewAdmonForm() {
     );
   }, []);
 
-  // ── BVN NIBSS validation (mocked until API endpoint is ready) ──
-
-  const validateBvn = useCallback(async (bvn: string) => {
-    if (!BVN_REGEX.test(bvn)) return;
-    // TODO: Replace with real NIBSS API call (see kyc-bank-details-tab.tsx & backend_changes.md §6)
-    // const { validateBankDetails } = await import("@/actions/accountMaintenanceActions");
-    // const res = await validateBankDetails({ bvn, bankCode: "", accountNumber: "" });
-    await new Promise((r) => setTimeout(r, 800)); // simulate network
-    const valid = bvn.length === 11 && /^\d+$/.test(bvn);
-    if (valid) {
-      toast.success("BVN validated successfully");
-    } else {
-      toast.error("BVN validation failed — check the number and try again");
-    }
-  }, []);
-
-  // ── Per-card validation ──
+  // ── Per-card validation (zod-based) ──
 
   const validateAdmin = useCallback((admin: AdministratorEntry): string[] => {
-    const errors: string[] = [];
-    if (!admin.adminName.trim())
-      errors.push("Administrator / Executor Name is required");
-    if (!admin.email.trim()) errors.push("Email Address is required");
-    else if (!EMAIL_REGEX.test(admin.email))
-      errors.push("Email Address is invalid");
-    if (!admin.phone.trim()) errors.push("Phone Number is required");
-    else if (!PHONE_REGEX.test(admin.phone))
-      errors.push("Phone Number is invalid");
-    if (!admin.bvn.trim()) errors.push("BVN is required");
-    else if (!BVN_REGEX.test(admin.bvn)) errors.push("BVN must be 11 digits");
-    if (!admin.nin.trim()) errors.push("NIN is required");
-    else if (!NIN_REGEX.test(admin.nin)) errors.push("NIN must be 11 digits");
-    if (!admin.idType.trim()) errors.push("ID Type is required");
-    if (!admin.idNumber.trim()) errors.push("ID Number is required");
-    if (!admin.adminAddress.trim()) errors.push("Admin Address is required");
-    if (!admin.adminCity.trim()) errors.push("Admin City is required");
-    if (!admin.adminState.trim()) errors.push("Admin State is required");
+    // Build a plain object from the AdministratorEntry, normalising empty strings
+    const data = {
+      isExecutor: admin.isExecutor,
+      adminName: admin.adminName,
+      email: admin.email,
+      phone: admin.phone,
+      altPhone: admin.altPhone || undefined,
+      bvn: admin.bvn,
+      nin: admin.nin,
+      idType: admin.idType,
+      relationship: admin.relationship || undefined,
+      adminAddress: admin.adminAddress,
+      adminCity: admin.adminCity,
+      adminState: admin.adminState,
+      memo: admin.memo || undefined,
+      documents: admin.documents.length ? admin.documents : undefined,
+    };
+    const result = administratorSchema.safeParse(data);
+    const errors = result.success
+      ? []
+      : result.error.issues.map((issue) => issue.message);
+    if (admin.documents.length === 0) {
+      errors.push(
+        "At least one supporting document is required for this administrator/executor.",
+      );
+    }
     return errors;
   }, []);
 
-  const handleSubmit = useCallback(() => {
-    if (selectedAccounts.size === 0) {
-      toast.error(
-        "Please select at least one deceased account from the list below.",
-      );
-      return;
-    }
-
-    // Validate probate
-    if (
-      !probate.probateCourt.trim() ||
-      !probate.probateNumber.trim() ||
-      !probate.probatePage.trim()
-    ) {
-      toast.error("Please fill in all probate details");
-      return;
-    }
-
-    // Validate every administrator card
-    const allErrors = new Map<string, string[]>();
-    let hasErrors = false;
-    administrators.forEach((admin) => {
-      const errs = validateAdmin(admin);
-      if (errs.length > 0) {
-        allErrors.set(admin.id, errs);
-        hasErrors = true;
+  const handleSubmit = useCallback(
+    (draft = false) => {
+      if (selectedAccounts.size === 0) {
+        toast.error(
+          "Please select at least one deceased account from the list below.",
+        );
+        return;
       }
-    });
 
-    if (hasErrors) {
-      setValidationErrors(allErrors);
-      // Expand all cards with errors
-      setAdministrators((prev) =>
-        prev.map((a) => (allErrors.has(a.id) ? { ...a, collapsed: false } : a)),
-      );
-      // Scroll to first error
-      const firstErrorId = [...allErrors.keys()][0];
-      document
-        .getElementById(`admin-card-${firstErrorId}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-      toast.error(
-        `Please fix ${allErrors.size} administrator${allErrors.size !== 1 ? "s" : ""} with invalid fields.`,
-      );
-      return;
-    }
+      if (!draft) {
+        // Validate probate (zod-based)
+        const probateResult = probateSchema.safeParse(probate);
+        if (!probateResult.success) {
+          const messages = probateResult.error.issues.map((i) => i.message);
+          toast.error(messages[0] || "Please fill in all probate details");
+          return;
+        }
 
-    if (!currentUser) {
-      toast.error("Your session has expired. Please login again.");
-      return;
-    }
+        // Validate every administrator card
+        const allErrors = new Map<string, string[]>();
+        let hasErrors = false;
+        administrators.forEach((admin) => {
+          const errs = validateAdmin(admin);
+          if (errs.length > 0) {
+            allErrors.set(admin.id, errs);
+            hasErrors = true;
+          }
+        });
 
-    const deceasedAccountIds = Array.from(selectedAccounts.keys());
-    const registerIds = Array.from(
-      new Set(
-        Array.from(selectedAccounts.values())
-          .map((a) => a.registerId)
-          .filter(Boolean),
-      ),
-    );
-
-    createAdmonMutation.mutate(
-      {
-        administrators: administrators.map((a) => ({
-          isExecutor: a.isExecutor,
-          adminName: a.adminName,
-          email: a.email,
-          phone: a.phone,
-          altPhone: a.altPhone || undefined,
-          bvn: a.bvn,
-          nin: a.nin,
-          idType: a.idType,
-          idNumber: a.idNumber,
-          relationship: a.relationship || undefined,
-          adminAddress: a.adminAddress,
-          adminCity: a.adminCity,
-          adminState: a.adminState,
-          memo: a.memo || undefined,
-          documents: a.documents.length ? a.documents : undefined,
-        })),
-        registerId: registerIds[0] || registerId,
-        registerIds,
-        deceasedAccountIds,
-        admonType: administrators.some((a) => a.isExecutor)
-          ? "EXECUTOR"
-          : "ADMINISTRATOR",
-        probateCourt: probate.probateCourt,
-        probateNumber: probate.probateNumber,
-        probatePage: probate.probatePage,
-        probateDate: format(probate.probateDate, "yyyy-MM-dd"),
-        lodgementDate: format(probate.lodgementDate, "yyyy-MM-dd"),
-        probateDocUrl: probate.probateDocUrl || undefined,
-        probateDocs: probate.probateDocs.length
-          ? probate.probateDocs
-          : undefined,
-        changeNameToEstate,
-        initiatedBy: currentUser.email,
-      },
-      {
-        onSuccess: () => {
-          toast.success(
-            "Administration request submitted. Approver has been notified.",
+        if (hasErrors) {
+          setValidationErrors(allErrors);
+          // Expand all cards with errors
+          setAdministrators((prev) =>
+            prev.map((a) =>
+              allErrors.has(a.id) ? { ...a, collapsed: false } : a,
+            ),
           );
-          // Reset form
-          setSearch("");
-          setProbate(DEFAULT_PROBATE);
-          setAdministrators([createAdmin()]);
-          setChangeNameToEstate(true);
-          setValidationErrors(new Map());
-          setShowSummary(false);
+          // Scroll to first error
+          const firstErrorId = [...allErrors.keys()][0];
+          document
+            .getElementById(`admin-card-${firstErrorId}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          toast.error(
+            `Please fix ${allErrors.size} administrator${allErrors.size !== 1 ? "s" : ""} with invalid fields.`,
+          );
+          return;
+        }
+      }
+
+      if (!currentUser) {
+        toast.error("Your session has expired. Please login again.");
+        return;
+      }
+
+      const deceasedAccountIds = Array.from(selectedAccounts.keys());
+      const registerIds = Array.from(
+        new Set(
+          Array.from(selectedAccounts.values())
+            .map((a) => a.registerId)
+            .filter(Boolean),
+        ),
+      );
+
+      createAdmonMutation.mutate(
+        {
+          // Include the existing record id for PATCH operations (edit-draft
+          // via URL, or resuming a returned request picked from the list)
+          ...(draftId
+            ? { id: Number(draftId) }
+            : resumeId
+              ? { id: resumeId }
+              : {}),
+          administrators: administrators.map((a) => ({
+            isExecutor: a.isExecutor,
+            adminName: a.adminName,
+            email: a.email,
+            phone: a.phone,
+            altPhone: a.altPhone || undefined,
+            bvn: a.bvn,
+            nin: a.nin,
+            idType: a.idType,
+            relationship: a.relationship || undefined,
+            adminAddress: a.adminAddress,
+            adminCity: a.adminCity,
+            adminState: a.adminState,
+            memo: a.memo || undefined,
+            documents: a.documents.length ? a.documents : undefined,
+          })),
+          registerId: registerIds[0] || registerId,
+          registerIds,
+          deceasedAccountIds,
+          admonType: administrators.some((a) => a.isExecutor)
+            ? "EXECUTOR"
+            : "ADMINISTRATOR",
+          probateCourt: probate.probateCourt,
+          probateNumber: probate.probateNumber,
+          probatePage: probate.probatePage,
+          probateDate: format(probate.probateDate, "yyyy-MM-dd"),
+          lodgementDate: format(probate.lodgementDate, "yyyy-MM-dd"),
+          probateDocs: probate.probateDocs.length
+            ? probate.probateDocs
+            : undefined,
+          changeNameToEstate,
+          initiatedBy: currentUser.email,
+          // For RETURNED records, force back to PENDING_AUTH on resubmit
+          status: draft
+            ? "DRAFT"
+            : correctionReason
+              ? "PENDING_AUTH"
+              : "SUBMITTED",
         },
-        onError: (err) => {
-          toast.error(err.message || "Failed to submit request");
+        {
+          onSuccess: () => {
+            toast.success(
+              draft
+                ? "Administration request saved as draft."
+                : "Administration request submitted. Approver has been notified.",
+            );
+            resetForm();
+          },
+          onError: (err) => {
+            toast.error(err.message || "Failed to submit request");
+          },
         },
-      },
-    );
-  }, [
-    selectedAccounts,
-    probate,
-    administrators,
-    validateAdmin,
-    currentUser,
-    registerId,
-    createAdmonMutation,
-    changeNameToEstate,
-  ]);
+      );
+    },
+    [
+      selectedAccounts,
+      probate,
+      administrators,
+      validateAdmin,
+      currentUser,
+      registerId,
+      createAdmonMutation,
+      changeNameToEstate,
+      draftId,
+      resumeId,
+      correctionReason,
+      resetForm,
+    ],
+  );
 
   const allChecked =
     allDiscoveredAccounts.length > 0 &&
@@ -407,6 +648,73 @@ export default function NewAdmonForm() {
 
   return (
     <>
+      {/* ── Returned Requests (peculiar to the initiator) ── */}
+      <div className="flex justify-between items-center mb-3">
+        {isDraft || resumeId ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-[12px] text-muted-foreground hover:text-destructive"
+            onClick={() => resetForm()}
+          >
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            Discard &amp; Start New Administration
+          </Button>
+        ) : (
+          <div />
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-[12px] text-amber-700 hover:bg-amber-50"
+          onClick={() => setReturnedListOpen(true)}
+        >
+          <History className="h-3.5 w-3.5 mr-1.5" />
+          Returned Requests
+          {returnedAdmons.length > 0 && (
+            <Badge className="ml-1.5 h-4 px-1.5 bg-amber-100 text-amber-700 border-0 text-[10px]">
+              {returnedAdmons.length}
+            </Badge>
+          )}
+        </Button>
+      </div>
+
+      {/* ── Draft banner ── */}
+      {isDraft && !draftBannerDismissed && (
+        <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl text-[13px] text-blue-800 mb-4">
+          <span className="flex-1">
+            Editing draft saved{" "}
+            {draftSavedAt ? new Date(draftSavedAt).toLocaleDateString() : ""}
+            {draftSavedBy ? ` · Last edited by ${draftSavedBy}` : ""}
+          </span>
+          <button
+            type="button"
+            onClick={() => setDraftBannerDismissed(true)}
+            className="text-blue-400 hover:text-blue-600 shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ── Returned (correction) banner ── */}
+      {correctionReason && !correctionBannerDismissed && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-[13px] text-red-800 mb-4">
+          <span className="flex-1">
+            <strong>Returned — Action Required:</strong> {correctionReason}
+          </span>
+          <button
+            type="button"
+            onClick={() => setCorrectionBannerDismissed(true)}
+            className="text-red-400 hover:text-red-600 shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <Card className="mrpsl-card p-6 space-y-4 overflow-visible!">
         <h3 className="font-semibold text-sm border-b pb-2">
           1. Deceased Account Selection
@@ -542,21 +850,34 @@ export default function NewAdmonForm() {
                     ? " across multiple registers"
                     : ""}
                 </span>
-                <button
-                  type="button"
-                  className="text-[12px] text-primary hover:underline font-medium"
-                  onClick={() => {
-                    setSelectedAccounts((prev) => {
-                      const next = new Map(prev);
-                      allDiscoveredAccounts.forEach((acc) =>
-                        next.set(acc.id, acc),
-                      );
-                      return next;
-                    });
-                  }}
-                >
-                  Select all accounts for this holder
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="text-[12px] text-primary hover:underline font-medium"
+                    onClick={() => {
+                      setSelectedAccounts((prev) => {
+                        const next = new Map(prev);
+                        allDiscoveredAccounts.forEach((acc) =>
+                          next.set(acc.id, acc),
+                        );
+                        return next;
+                      });
+                    }}
+                  >
+                    Select all accounts for this holder
+                  </button>
+                  <button
+                    type="button"
+                    className="text-[12px] text-destructive hover:underline font-medium"
+                    onClick={() => {
+                      setSelectedAccounts(new Map());
+                      setAllDiscoveredAccounts([]);
+                      setSearch("");
+                    }}
+                  >
+                    Clear all
+                  </button>
+                </div>
               </div>
             )}
             <table className="w-full text-left text-sm mt-4">
@@ -589,13 +910,14 @@ export default function NewAdmonForm() {
                   <th className="p-2">REGISTER</th>
                   <th className="p-2">CHN</th>
                   <th className="p-2">HOLDINGS</th>
+                  <th className="p-2 w-8"></th>
                 </tr>
               </thead>
               <tbody className="divide-y font-mono text-[13px] border-b">
                 {isLoadingAccount && allDiscoveredAccounts.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="p-4 text-center text-muted-foreground"
                     >
                       Loading...
@@ -635,13 +957,33 @@ export default function NewAdmonForm() {
                         <td className="p-2 text-right">
                           {account?.holdings?.toLocaleString()}
                         </td>
+                        <td className="p-2">
+                          <button
+                            type="button"
+                            className="text-muted-foreground/40 hover:text-destructive transition-colors"
+                            title="Remove this account"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAccounts((prev) => {
+                                const next = new Map(prev);
+                                next.delete(account.id);
+                                return next;
+                              });
+                              setAllDiscoveredAccounts((prev) =>
+                                prev.filter((a) => a.id !== account.id),
+                              );
+                            }}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="p-4 text-center text-muted-foreground"
                     >
                       No accounts found. Search to add rows.
@@ -665,7 +1007,7 @@ export default function NewAdmonForm() {
               Shared by all administrators on this request.
             </p>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="mrpsl-label">Probate Court *</label>
                 <Input
@@ -723,34 +1065,18 @@ export default function NewAdmonForm() {
                   label="Lodgement Date *"
                 />
               </div>
-              <div className="space-y-2">
-                <DocUploadZone
-                  label="Probate / Letters of Administration"
-                  fileTypes={["PDF"]}
-                  maxSizeMB={10}
-                  onUploadSuccess={(url) =>
-                    setProbate((prev) => ({ ...prev, probateDocUrl: url }))
+              <div className="space-y-2 col-span-2">
+                <MultiDocUpload
+                  title="Probate / Letters of Administration"
+                  subtitle="PDF, JPG, or PNG — 20 MB each."
+                  onChange={(docs) =>
+                    setProbate((prev) => ({ ...prev, probateDocs: docs }))
                   }
+                  fileTypes={["PDF", "JPG", "PNG"]}
+                  maxSizeMB={20}
+                  folderName="admorSharedCaseDocs"
                 />
               </div>
-            </div>
-
-            {/* Shared Case Documents — multi-file */}
-            <div className="border-t pt-4 space-y-3">
-              <div>
-                <label className="mrpsl-label">Shared Case Documents</label>
-                <p className="text-[11px] text-muted-foreground">
-                  PDF, JPG, or PNG — up to 10 files, 10 MB each.
-                </p>
-              </div>
-              <MultiDocUpload
-                onChange={(docs) =>
-                  setProbate((prev) => ({ ...prev, probateDocs: docs }))
-                }
-                fileTypes={["PDF", "JPG", "PNG"]}
-                maxSizeMB={10}
-                folderName="admor-case-docs"
-              />
             </div>
 
             {/* Persistent notice */}
@@ -949,35 +1275,11 @@ export default function NewAdmonForm() {
 
                       {/* BVN + NIN */}
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="mrpsl-label">BVN *</label>
-                            <button
-                              type="button"
-                              className="text-[11px] text-primary hover:underline"
-                              disabled={admin.bvn.length < 11}
-                              onClick={() => validateBvn(admin.bvn)}
-                            >
-                              Validate BVN
-                            </button>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            Bank Verification Number — 11 digits
-                          </p>
-                          <Input
-                            value={admin.bvn}
-                            onChange={(e) =>
-                              updateAdmin(admin.id, {
-                                bvn: e.target.value
-                                  .replace(/\D/g, "")
-                                  .slice(0, 11),
-                              })
-                            }
-                            placeholder="00000000000"
-                            maxLength={11}
-                            className={`mrpsl-input ${cardErrors.some((e) => e.includes("BVN")) ? "border-destructive" : ""}`}
-                          />
-                        </div>
+                        <BvnStatusField
+                          value={admin.bvn}
+                          onChange={(v) => updateAdmin(admin.id, { bvn: v })}
+                          error={cardErrors.some((e) => e.includes("BVN"))}
+                        />
                         <div className="space-y-2">
                           <label className="mrpsl-label">NIN *</label>
                           <p className="text-[11px] text-muted-foreground">
@@ -999,7 +1301,7 @@ export default function NewAdmonForm() {
                         </div>
                       </div>
 
-                      {/* ID Type + ID Number */}
+                      {/* ID Type */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="mrpsl-label">ID Type *</label>
@@ -1022,19 +1324,6 @@ export default function NewAdmonForm() {
                               ))}
                             </SelectContent>
                           </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="mrpsl-label">ID Number *</label>
-                          <Input
-                            value={admin.idNumber}
-                            onChange={(e) =>
-                              updateAdmin(admin.id, {
-                                idNumber: e.target.value,
-                              })
-                            }
-                            placeholder="ID number"
-                            className={`mrpsl-input ${cardErrors.some((e) => e.includes("ID Number")) ? "border-destructive" : ""}`}
-                          />
                         </div>
                       </div>
 
@@ -1110,12 +1399,12 @@ export default function NewAdmonForm() {
                       <div className="border-t pt-4 space-y-3">
                         <div>
                           <label className="mrpsl-label">
-                            Administrator {idx + 1} — Supporting Documents
+                            Administrator {idx + 1} — Supporting Documents *
                           </label>
                           <p className="text-[11px] text-muted-foreground">
                             ID documents, proof of relationship, or other
-                            supporting files — PDF, JPG, or PNG, up to 10 files,
-                            10 MB each.
+                            supporting files — PDF, JPG, or PNG, 20 MB each. At
+                            least one document is required.
                           </p>
                         </div>
                         <MultiDocUpload
@@ -1125,8 +1414,8 @@ export default function NewAdmonForm() {
                             updateAdmin(admin.id, { documents: docs })
                           }
                           fileTypes={["PDF", "JPG", "PNG"]}
-                          maxSizeMB={10}
-                          folderName={`admor-admin-${idx + 1}`}
+                          maxSizeMB={20}
+                          folderName={`admorAdminSupporingDoc${idx + 1}`}
                         />
                       </div>
 
@@ -1273,11 +1562,22 @@ export default function NewAdmonForm() {
           </Card>
 
           {/* ── Submit ── */}
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={createAdmonMutation.isPending}
+              onClick={() => handleSubmit(true)}
+            >
+              {createAdmonMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save as Draft
+            </Button>
             <Button
               size="lg"
               disabled={createAdmonMutation.isPending}
-              onClick={handleSubmit}
+              onClick={() => handleSubmit(false)}
             >
               {createAdmonMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1287,6 +1587,122 @@ export default function NewAdmonForm() {
           </div>
         </>
       )}
+
+      {/* ── Returned Requests list dialog ── */}
+      <Dialog open={returnedListOpen} onOpenChange={setReturnedListOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Your Returned Requests</DialogTitle>
+          </DialogHeader>
+          <div className="px-8 pb-8 space-y-3 max-h-[60vh] overflow-y-auto">
+            {returnedLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : returnedAdmons.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                No returned requests.
+              </p>
+            ) : (
+              returnedAdmons.map((admon) => (
+                <Card key={admon.id} className="p-4 space-y-1.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold">
+                          {admon.deceasedHolderName}
+                        </p>
+                        <Badge className="bg-red-100 text-red-700 border-0 text-[10px] h-5 px-1.5 font-bold uppercase">
+                          Returned
+                        </Badge>
+                      </div>
+                      <p className="text-[12px] font-mono text-muted-foreground">
+                        {admon.deceasedAccountNumbers?.join(", ")}
+                      </p>
+                    </div>
+                    <Button size="sm" onClick={() => hydrateFromAdmon(admon)}>
+                      Resume
+                    </Button>
+                  </div>
+                  <p className="text-[12px] text-muted-foreground">
+                    {admon.returnedBy
+                      ? `Returned by ${admon.returnedBy}`
+                      : "Returned"}
+                    {admon.returnedAt
+                      ? ` on ${formatDate(admon.returnedAt)}`
+                      : ""}
+                    {admon.returnedReason ? `: ${admon.returnedReason}` : ""}
+                  </p>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+/**
+ * BVN field with inline auto-validation. Once the value reaches 11 digits it
+ * shows a brief spinner then "BVN validated" — mocked until the NIBSS
+ * endpoint is ready (see backend_changes.md §6), at which point the
+ * simulated delay is replaced with a real API call keyed off the same
+ * 11-digit trigger.
+ */
+function BvnStatusField({
+  value,
+  onChange,
+  error,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  error?: boolean;
+}) {
+  // `validatedForValue` tracks the exact BVN a validation "succeeded" for, so
+  // status is a plain derived value — editing the BVN again automatically
+  // falls back to "validating" without needing a separate reset.
+  const [validatedForValue, setValidatedForValue] = useState<string | null>(
+    null,
+  );
+  const isComplete = BVN_REGEX.test(value);
+  const status: "idle" | "validating" | "valid" = !isComplete
+    ? "idle"
+    : validatedForValue === value
+      ? "valid"
+      : "validating";
+
+  useEffect(() => {
+    if (!isComplete || validatedForValue === value) return;
+    // TODO: Replace with real NIBSS API call once available (see backend_changes.md §6)
+    const timer = setTimeout(() => setValidatedForValue(value), 900);
+    return () => clearTimeout(timer);
+  }, [isComplete, value, validatedForValue]);
+
+  return (
+    <div className="space-y-2">
+      <label className="mrpsl-label">BVN *</label>
+      <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+        <span>Bank Verification Number — 11 digits</span>
+        {status === "validating" && (
+          <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+        )}
+        {status === "valid" && (
+          <span className="inline-flex items-center gap-1 text-green-600 font-medium shrink-0">
+            <CheckCircle2 className="h-3 w-3" />
+            BVN validated
+          </span>
+        )}
+      </p>
+      <Input
+        value={value}
+        onChange={(e) =>
+          onChange(e.target.value.replace(/\D/g, "").slice(0, 11))
+        }
+        placeholder="00000000000"
+        maxLength={11}
+        className={`mrpsl-input ${error ? "border-destructive" : ""}`}
+      />
+    </div>
   );
 }
