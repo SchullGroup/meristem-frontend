@@ -93,19 +93,6 @@ export function DocumentViewer({
                 )}
               </DialogDescription>
             </div>
-            {activeDoc && (
-              <a
-                href={activeDoc.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0"
-              >
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Open in new tab
-                </Button>
-              </a>
-            )}
           </div>
         </DialogHeader>
 
@@ -205,18 +192,34 @@ export function DocumentViewer({
           )}
         </div>
 
-        {/* Footer badge */}
-        {documents.length > 0 && activeDoc && (
-          <div className="shrink-0 border-t px-5 py-3 bg-muted/10 flex items-center gap-2">
-            <Badge variant="secondary" className="text-[10px] gap-1">
-              <DocTypeIcon url={activeDoc.url} />
-              {docType.toUpperCase()}
-            </Badge>
-            <span className="text-xs text-muted-foreground truncate">
-              {activeDoc.name}
-            </span>
-          </div>
-        )}
+        <div className="flex gap-3 justify-between items-center">
+          {/* Footer badge */}
+          {documents.length > 0 && activeDoc && (
+            <div className="shrink-0 border-t px-5 py-3 bg-muted/10 flex items-center gap-2">
+              <Badge variant="secondary" className="text-[10px] gap-1">
+                <DocTypeIcon url={activeDoc.url} />
+                {docType.toUpperCase()}
+              </Badge>
+              <span className="text-xs text-muted-foreground truncate">
+                {activeDoc.name}
+              </span>
+            </div>
+          )}
+
+          {activeDoc && (
+            <a
+              href={activeDoc.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0"
+            >
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open in new tab
+              </Button>
+            </a>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

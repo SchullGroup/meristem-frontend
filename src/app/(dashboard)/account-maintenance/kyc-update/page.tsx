@@ -26,14 +26,18 @@ import {
 import { Agent, GET_AGENTS } from "@/actions/agentAction";
 import { useQuery } from "@tanstack/react-query";
 import { KYCBulkUpload } from "@/components/custom/account-maintenance/kyc/kyc-bulk-upload";
+import { NibssBulkUpload } from "@/components/custom/account-maintenance/kyc/nibss-bulk-upload";
+import { KycChangesHistory } from "@/components/custom/account-maintenance/kyc/kyc-changes-history";
 import KYCHistory from "@/components/custom/account-maintenance/kyc/kyc-update-history";
 import { KycPersonalInfoTab } from "@/components/custom/account-maintenance/kyc/kyc-personal-info-tab";
 import { KycContactInfoTab } from "@/components/custom/account-maintenance/kyc/kyc-contact-info-tab";
 import { KycBankDetailsTab } from "@/components/custom/account-maintenance/kyc/kyc-bank-details-tab";
 import { KycDocumentsTab } from "@/components/custom/account-maintenance/kyc/kyc-documents-tab";
+import { CautionAccountButton } from "@/components/custom/account-maintenance/kyc/caution-account-button";
 import { useDebounce } from "@/hooks/useDebounce";
 import StatusBadge from "@/components/custom/status-badge";
 import { formatDate } from "@/lib/utils/format";
+import { cn } from "@/lib/utils";
 import { fullName, getInitials } from "@/lib/utils/shareholder";
 
 export default function KYCUpdatePage() {
@@ -47,7 +51,8 @@ export default function KYCUpdatePage() {
     });
 
   // ── UI state ──
-  const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [mode, setMode] = useState<"single" | "bulk" | "history">("single");
+  const [bulkType, setBulkType] = useState<"standard" | "nibss">("standard");
   const [innerTab, setInnerTab] = useState("personal");
   const [selectedRegister, setSelectedRegister] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -167,6 +172,13 @@ export default function KYCUpdatePage() {
           >
             Bulk Upload
           </Button>
+          <Button
+            variant={mode === "history" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setMode("history")}
+          >
+            History
+          </Button>
         </div>
 
         {mode === "single" && (
@@ -236,6 +248,10 @@ export default function KYCUpdatePage() {
                     {selectedShareholder.accountNumber}
                   </Badge>
                   <StatusBadge status={selectedShareholder?.status} />
+                  <CautionAccountButton
+                    selectedShareholder={selectedShareholder}
+                    onFieldSubmit={handleFieldSubmit}
+                  />
                 </div>
                 <div className="flex gap-4 mt-2 flex-wrap text-[13px]">
                   <div>
@@ -376,7 +392,40 @@ export default function KYCUpdatePage() {
       )}
 
       {/* ── Bulk upload ── */}
-      {mode === "bulk" && <KYCBulkUpload registerId={selectedRegister} />}
+      {mode === "bulk" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+            {(
+              [
+                { value: "standard", label: "Standard KYC" },
+                { value: "nibss", label: "NIBSS Live Mandate" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setBulkType(opt.value)}
+                className={cn(
+                  "px-4 py-1.5 rounded-md text-[13px] font-medium transition-colors",
+                  bulkType === opt.value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {bulkType === "standard" ? (
+            <KYCBulkUpload onViewChanges={() => setMode("history")} />
+          ) : (
+            <NibssBulkUpload onViewChanges={() => setMode("history")} />
+          )}
+        </div>
+      )}
+
+      {/* ── History ── */}
+      {mode === "history" && <KycChangesHistory />}
     </div>
   );
 }

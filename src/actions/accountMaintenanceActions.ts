@@ -28,6 +28,12 @@ import {
   KycDecisionRequest,
   KycCancelRequest,
   KycUploadJob,
+  KycBulkPreviewResponse,
+  KycBulkSubmitRequest,
+  KycBulkSubmitResponse,
+  NibssMandatePreviewResponse,
+  NibssMandateSubmitRequest,
+  NibssMandateSubmitResponse,
   ShareholderAccount,
   AdmonListResponse,
   AdmonDecisionRequest,
@@ -414,6 +420,80 @@ export const getKycChangesUploadJob = async (jobId: string) => {
   try {
     const res = await api.get<ApiResponse<KycUploadJob>>(
       `/accounts/kyc-changes/bulk-upload/${jobId}`,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// ── KYC bulk upload: preview + submit (see backend_changes.md §6a) ──
+
+export const previewKycBulkUpload = async (
+  file: File,
+  registerId?: string,
+) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (registerId) formData.append("registerId", registerId);
+
+    const res = await api.post<ApiResponse<KycBulkPreviewResponse>>(
+      "/accounts/kyc-changes/bulk-upload/preview",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const submitKycBulkUpload = async (data: KycBulkSubmitRequest) => {
+  try {
+    const res = await api.post<ApiResponse<KycBulkSubmitResponse>>(
+      "/accounts/kyc-changes/bulk-upload/submit",
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// ── NIBSS BVN mandate bulk upload: preview + submit (see backend_changes.md §6b) ──
+
+export const previewNibssMandateUpload = async (file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await api.post<ApiResponse<NibssMandatePreviewResponse>>(
+      "/accounts/kyc-changes/nibss-mandates/bulk-upload/preview",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const submitNibssMandateUpload = async (
+  data: NibssMandateSubmitRequest,
+) => {
+  try {
+    const res = await api.post<ApiResponse<NibssMandateSubmitResponse>>(
+      "/accounts/kyc-changes/nibss-mandates/bulk-upload/submit",
+      data,
     );
 
     return res.data;
