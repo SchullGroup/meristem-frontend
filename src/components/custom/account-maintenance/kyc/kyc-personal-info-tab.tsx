@@ -4,10 +4,11 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EditableField } from "@/components/custom/account-maintenance/editable-field";
 import { ShareholderAccount, KycChange } from "@/types/account-maintenance";
-import { Loader2 } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import { fullName } from "@/lib/utils/shareholder";
 import {
@@ -52,6 +53,8 @@ export function KycPersonalInfoTab({
       );
 
   // ── Tax Exempt toggle ──────────────────────────────────────────────────
+  const noTaxPending =
+    pendingChanges.find((c) => c.fieldChanged === "noTax") ?? null;
   const [taxReason, setTaxReason] = useState("");
   const [taxEvidence, setTaxEvidence] = useState<DoneEvidence[]>([]);
   const [taxSubmitting, setTaxSubmitting] = useState(false);
@@ -214,25 +217,37 @@ export function KycPersonalInfoTab({
       />
 
       {/* ── Tax Exempt ── */}
-      <div className="grid grid-cols-[200px_1fr_1fr] gap-6 items-start py-3 border-b border-border/20">
+      <div
+        className={`grid grid-cols-[200px_1fr_1fr] gap-6 items-start py-3 border-b border-border/20 ${
+          noTaxPending
+            ? "border-l-2 border-l-amber-400 pl-3 -ml-3 bg-amber-50/20 rounded-r-md"
+            : ""
+        }`}
+      >
         <span className="text-sm font-medium text-muted-foreground pt-1">
           Tax Exempt
         </span>
-        <div className="space-y-2 pt-1">
+        <div className="flex items-center gap-2 flex-wrap pt-0.5">
           <div className="flex items-center gap-3">
             <Checkbox
               id="tax-exempt-cb"
               checked={taxChecked}
               onCheckedChange={(c) => handleTaxToggle(!!c)}
+              disabled={!!noTaxPending}
             />
             <label
               htmlFor="tax-exempt-cb"
-              className="text-sm cursor-pointer select-none"
+              className={`text-sm select-none ${noTaxPending ? "text-muted-foreground/60" : "cursor-pointer"}`}
             >
               {taxChecked ? "Yes" : "No"}
             </label>
           </div>
-          {taxHint && (
+          {noTaxPending && (
+            <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] h-5 px-1.5 font-bold uppercase">
+              Pending
+            </Badge>
+          )}
+          {!noTaxPending && taxHint && (
             <p className="text-[12px] text-amber-600 animate-in fade-in">
               Fill in the reason and attach evidence, then click Submit for
               approval.
@@ -240,35 +255,53 @@ export function KycPersonalInfoTab({
           )}
         </div>
         <div className="space-y-2">
-          <Input
-            className="mrpsl-input text-sm"
-            placeholder="e.g. Pension fund exemption, diplomatic status…"
-            value={taxReason}
-            onChange={(e) => {
-              setTaxReason(e.target.value);
-              setTaxHint(false);
-            }}
-          />
-          <InlineEvidenceDropper
-            doneEvidence={taxEvidence}
-            onDoneEvidenceChange={(ev) => {
-              setTaxEvidence(ev);
-              if (ev.length > 0) setTaxHint(false);
-            }}
-          />
-          <Button
-            size="sm"
-            onClick={() => handleTaxSubmit(taxChecked)}
-            disabled={
-              !taxReason.trim() || taxEvidence.length === 0 || taxSubmitting
-            }
-            className="h-7 text-[12px]"
-          >
-            {taxSubmitting && (
-              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-            )}
-            Submit for approval
-          </Button>
+          {noTaxPending ? (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
+              <Clock className="h-3 w-3 shrink-0" />
+              <span className="truncate font-mono text-[11px]">
+                {taxChecked ? "Yes" : "No"} →{" "}
+                <span className="text-primary font-semibold">
+                  {noTaxPending.newValue === "true" ? "Yes" : "No"}
+                </span>
+              </span>
+              <span className="text-muted-foreground/60">
+                · {noTaxPending.initiatorName || "—"} ·{" "}
+                {formatDate(noTaxPending.createdAt)}
+              </span>
+            </div>
+          ) : (
+            <>
+              <Input
+                className="mrpsl-input text-sm"
+                placeholder="e.g. Pension fund exemption, diplomatic status…"
+                value={taxReason}
+                onChange={(e) => {
+                  setTaxReason(e.target.value);
+                  setTaxHint(false);
+                }}
+              />
+              <InlineEvidenceDropper
+                doneEvidence={taxEvidence}
+                onDoneEvidenceChange={(ev) => {
+                  setTaxEvidence(ev);
+                  if (ev.length > 0) setTaxHint(false);
+                }}
+              />
+              <Button
+                size="sm"
+                onClick={() => handleTaxSubmit(taxChecked)}
+                disabled={
+                  !taxReason.trim() || taxEvidence.length === 0 || taxSubmitting
+                }
+                className="h-7 text-[12px]"
+              >
+                {taxSubmitting && (
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                )}
+                Submit for approval
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </Card>
