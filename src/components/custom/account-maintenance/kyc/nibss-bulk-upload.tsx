@@ -21,8 +21,8 @@ import {
   XCircle,
   Clock,
   ArrowLeft,
-  X,
   History,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -475,115 +475,113 @@ export function NibssBulkUpload({ onViewChanges }: NibssBulkUploadProps = {}) {
               </span>
             </div>
 
-            <Card className="mrpsl-card overflow-hidden">
-              <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="mrpsl-table-header sticky top-0 z-10">
-                    <tr>
-                      <th className="p-2.5 w-8" />
-                      <th className="p-2.5 text-[11px] font-bold uppercase text-muted-foreground w-8">
-                        #
-                      </th>
-                      {NIBSS_PRIMARY_COLUMNS.map((c) => (
-                        <th
-                          key={c.key}
-                          className="p-2.5 text-[11px] font-bold uppercase text-muted-foreground whitespace-nowrap"
-                        >
-                          {c.label}
-                        </th>
-                      ))}
-                      <th className="p-2.5 text-[11px] font-bold uppercase text-muted-foreground w-24">
-                        Decision
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y text-[13px]">
-                    {rows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={NIBSS_PRIMARY_COLUMNS.length + 3}
-                          className="p-8 text-center text-muted-foreground"
-                        >
-                          No rows left — every row was removed.
-                        </td>
-                      </tr>
-                    ) : (
-                      rows.map((r) => {
-                        const isSelected = selectedRow === r.row;
-                        return (
-                          <tr
-                            key={r.row}
-                            onClick={() => setSelectedRow(r.row)}
-                            className={cn(
-                              "cursor-pointer transition-colors",
-                              isSelected
-                                ? "bg-primary/10 border-l-2 border-l-primary"
-                                : "hover:bg-muted/20 border-l-2 border-l-transparent",
-                            )}
-                          >
-                            <td className="p-2.5">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeRow(r.row);
-                                }}
-                                className="text-muted-foreground hover:text-destructive transition-colors"
-                                title="Remove this row"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                            <td className="p-2.5 font-mono text-[12px] text-muted-foreground">
-                              {r.row}
-                            </td>
-                            {NIBSS_PRIMARY_COLUMNS.map((c) => (
-                              <td
-                                key={c.key}
-                                className="p-2.5 font-mono text-[12px] whitespace-nowrap max-w-40 truncate"
-                                title={cellValue(r, c.key)}
-                              >
-                                {cellValue(r, c.key) || "—"}
-                              </td>
-                            ))}
-                            <td className="p-2.5">
-                              <ReviewDecisionBadge decision={r.decision} />
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Submit bar */}
-              <div className="flex items-center justify-between gap-4 flex-wrap p-3 border-t bg-muted/20">
+            {/* Submit bar */}
+            <div className="flex items-center justify-between gap-4 flex-wrap p-3 border-t bg-muted/20">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => requestLeaveReview("different-file")}
+              >
+                ← Upload a different file
+              </Button>
+              <div className="flex items-center gap-3">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={() => requestLeaveReview("different-file")}
+                  onClick={() => requestLeaveReview("start-over")}
                 >
-                  ← Upload a different file
+                  Start over
                 </Button>
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => requestLeaveReview("start-over")}
-                  >
-                    Start over
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSubmit}
-                    disabled={acceptedCount === 0}
-                  >
-                    Submit {acceptedCount} Row
-                    {acceptedCount !== 1 ? "s" : ""}
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  onClick={handleSubmit}
+                  disabled={acceptedCount === 0}
+                >
+                  Submit {acceptedCount} Row
+                  {acceptedCount !== 1 ? "s" : ""}
+                </Button>
               </div>
+            </div>
+
+            <Card className="mrpsl-card overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="mrpsl-table-header sticky top-0 z-10">
+                  <tr>
+                    <th className="p-2.5 text-[11px] font-bold uppercase text-muted-foreground w-8">
+                      #
+                    </th>
+                    {NIBSS_PRIMARY_COLUMNS.map((c) => (
+                      <th
+                        key={c.key}
+                        className="p-2.5 text-[11px] font-bold uppercase text-muted-foreground whitespace-nowrap"
+                      >
+                        {c.label}
+                      </th>
+                    ))}
+                    <th className="p-2.5 text-[11px] font-bold uppercase text-muted-foreground w-24">
+                      Decision
+                    </th>
+                    <th className="p-2.5 w-8" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-[13px]">
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={NIBSS_PRIMARY_COLUMNS.length + 3}
+                        className="p-8 text-center text-muted-foreground"
+                      >
+                        No rows left — every row was removed.
+                      </td>
+                    </tr>
+                  ) : (
+                    rows.map((r) => {
+                      const isSelected = selectedRow === r.row;
+                      return (
+                        <tr
+                          key={r.row}
+                          onClick={() => setSelectedRow(r.row)}
+                          className={cn(
+                            "cursor-pointer transition-colors",
+                            isSelected
+                              ? "bg-primary/10 border-l-2 border-l-primary"
+                              : "hover:bg-muted/20 border-l-2 border-l-transparent",
+                          )}
+                        >
+                          <td className="p-2.5 font-mono text-[12px] text-muted-foreground">
+                            {r.row}
+                          </td>
+                          {NIBSS_PRIMARY_COLUMNS.map((c) => (
+                            <td
+                              key={c.key}
+                              className="p-2.5 font-mono text-[12px] whitespace-nowrap max-w-40 truncate"
+                              title={cellValue(r, c.key)}
+                            >
+                              {cellValue(r, c.key) || "—"}
+                            </td>
+                          ))}
+                          <td className="p-2.5">
+                            <ReviewDecisionBadge decision={r.decision} />
+                          </td>
+                          <td className="p-2.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeRow(r.row);
+                              }}
+                              className="text-red-400 hover:text-destructive transition-colors"
+                              title="Remove this row"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </Card>
           </div>
         )}
