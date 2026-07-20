@@ -1,97 +1,206 @@
 "use client";
 
 import { useState } from "react";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { CaptureDematerialization } from "@/components/custom/cert-dematerialization/capture-demat";
-import CalloverDemat from "@/components/custom/cert-dematerialization/callover-demat";
-import AuthoriseDemat from "@/components/custom/cert-dematerialization/authorise-demat";
-import IcuApproveDemat from "@/components/custom/cert-dematerialization/icu-approve-demat";
-import LodgeDemat from "@/components/custom/cert-dematerialization/lodge-demat";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { DematVerification } from "@/components/custom/cert-dematerialization/demat-verification";
+import { DematCertificateCapture } from "@/components/custom/cert-dematerialization/demat-certificate-capture";
+import { DematHodApproval } from "@/components/custom/cert-dematerialization/demat-hod-approval";
+import { DematCooApproval } from "@/components/custom/cert-dematerialization/demat-coo-approval";
+import { DematIcuApproval } from "@/components/custom/cert-dematerialization/demat-icu-approval-new";
+import { DematLodgment } from "@/components/custom/cert-dematerialization/demat-lodgment-new";
+import { DematReversal } from "@/components/custom/cert-dematerialization/demat-reversal-new";
+import {
+  SEED_REQUESTS,
+  DematRequest,
+  DematStatus,
+} from "@/components/custom/cert-dematerialization/demat-types";
 
-const STEPS = [
-  { step: 1, label: "Capture", tab: "capture" },
-  { step: 2, label: "Callover", tab: "callover" },
-  { step: 3, label: "Authorisation", tab: "auth" },
-  { step: 4, label: "ICU Approval", tab: "icu" },
-  { step: 5, label: "Lodgment", tab: "lodgment" },
-];
+export default function DematerializationPage() {
+  const [requests, setRequests] = useState<DematRequest[]>(SEED_REQUESTS);
 
-export default function DematPage() {
-  const [activeTab, setActiveTab] = useState("capture");
+  const pendingHod = requests.filter((r) => r.status === "PENDING_HOD").length;
+  const pendingCoo = requests.filter((r) => r.status === "PENDING_COO").length;
+  const pendingIcu = requests.filter((r) => r.status === "PENDING_ICU").length;
+  const pendingLodgment = requests.filter(
+    (r) => r.status === "APPROVED",
+  ).length;
+
+  function approveHod(id: string) {
+    setRequests((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const value = r.totalUnits * r.unitPrice;
+        const nextStatus: DematStatus =
+          r.totalUnits > 10_000_000 || value > 5_000_000
+            ? "PENDING_COO"
+            : "PENDING_ICU";
+        return { ...r, status: nextStatus };
+      }),
+    );
+  }
+
+  function approveCoo(id: string) {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, status: "PENDING_ICU" as DematStatus } : r,
+      ),
+    );
+  }
+
+  function approveIcu(id: string) {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, status: "APPROVED" as DematStatus } : r,
+      ),
+    );
+  }
+
+  function rejectRequest(id: string, comment: string) {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status: "REJECTED" as DematStatus,
+              rejectionComment: comment,
+            }
+          : r,
+      ),
+    );
+  }
+
+  function lodgeRequest(id: string) {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, status: "LODGED" as DematStatus } : r,
+      ),
+    );
+  }
+
+  function createRequest(req: DematRequest) {
+    setRequests((prev) => [...prev, req]);
+  }
+
+  function editRequest(id: string, updates: Partial<DematRequest>) {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? { ...r, ...updates, status: "PENDING_HOD" as DematStatus }
+          : r,
+      ),
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Certificate Dematerialisation
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Convert physical certificates to electronic form at CSCS
-          </p>
-        </div>
-        {/* <Button onClick={() => setFormOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> New Demat Record
-        </Button> */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Dematerialisation</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Convert physical share certificates to electronic form.
+        </p>
       </div>
 
-      {/* Step progress bar */}
-      <div className="w-full flex items-center justify-between mb-8 relative">
-        <div className="absolute left-0 top-1/2 w-full h-0.5 bg-border -z-10" />
-        {STEPS.map((s) => (
-          <div
-            key={s.step}
-            className="flex flex-col items-center bg-background px-2 cursor-pointer"
-            onClick={() => setActiveTab(s.tab)}
+      <Tabs defaultValue="verification" className="w-full">
+        <TabsList className="flex flex-wrap gap-1 h-auto mb-5">
+          <TabsTrigger
+            value="verification"
+            className="gap-1.5 cursor-pointer px-3 py-2"
           >
-            <div
-              className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold border-2 ${activeTab === s.tab ? "border-primary bg-primary text-white" : "border-border bg-muted text-muted-foreground"}`}
-            >
-              {s.step}
-            </div>
-            <span
-              className={`text-[13px] mt-2 font-medium ${activeTab === s.tab ? "text-primary" : "text-muted-foreground"}`}
-            >
-              {s.label}
-            </span>
-          </div>
-        ))}
-      </div>
+            Verification
+          </TabsTrigger>
+          <TabsTrigger
+            value="capture"
+            className="gap-1.5 cursor-pointer px-3 py-2"
+          >
+            Certificate Capture
+          </TabsTrigger>
+          <TabsTrigger value="hod" className="gap-1.5 cursor-pointer px-3 py-2">
+            HOD Approval
+            {pendingHod > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {pendingHod}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="coo" className="gap-1.5 cursor-pointer px-3 py-2">
+            COO / CEO Approval
+            {pendingCoo > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {pendingCoo}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="icu" className="gap-1.5 cursor-pointer px-3 py-2">
+            ICU Approval
+            {pendingIcu > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {pendingIcu}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="lodgment"
+            className="gap-1.5 cursor-pointer px-3 py-2"
+          >
+            CSCS Lodgment
+            {pendingLodgment > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {pendingLodgment}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            value="reversal"
+            className="gap-1.5 cursor-pointer px-3 py-2"
+          >
+            Reversal
+          </TabsTrigger>
+        </TabsList>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v || "")}
-        className="w-full"
-      >
-        <div className="mt-2">
-          {/* ── Capture ── */}
-          <TabsContent value="capture" className="space-y-4">
-            <CaptureDematerialization
-              tab="capture"
-              setActiveTab={setActiveTab}
-            />
-          </TabsContent>
+        <TabsContent value="verification">
+          <DematVerification />
+        </TabsContent>
 
-          {/* ── Callover ── */}
-          <TabsContent value="callover" className="space-y-4">
-            <CalloverDemat tab="callover" />
-          </TabsContent>
+        <TabsContent value="capture">
+          <DematCertificateCapture
+            requests={requests}
+            onCreateRequest={createRequest}
+            onEditRequest={editRequest}
+          />
+        </TabsContent>
 
-          {/* ── Authorisation ── */}
-          <TabsContent value="auth" className="space-y-4">
-            <AuthoriseDemat tab="auth" />
-          </TabsContent>
+        <TabsContent value="hod">
+          <DematHodApproval
+            requests={requests}
+            onApprove={approveHod}
+            onReject={rejectRequest}
+          />
+        </TabsContent>
 
-          {/* ── ICU Approval ── */}
-          <TabsContent value="icu" className="space-y-4">
-            <IcuApproveDemat tab="icu" />
-          </TabsContent>
+        <TabsContent value="coo">
+          <DematCooApproval
+            requests={requests}
+            onApprove={approveCoo}
+            onReject={rejectRequest}
+          />
+        </TabsContent>
 
-          {/* ── Lodgment ── */}
-          <TabsContent value="lodgment" className="space-y-4">
-            <LodgeDemat tab="lodgment" />
-          </TabsContent>
-        </div>
+        <TabsContent value="icu">
+          <DematIcuApproval
+            requests={requests}
+            onApprove={approveIcu}
+            onReject={rejectRequest}
+          />
+        </TabsContent>
+
+        <TabsContent value="lodgment">
+          <DematLodgment requests={requests} onLodge={lodgeRequest} />
+        </TabsContent>
+
+        <TabsContent value="reversal">
+          <DematReversal requests={requests} />
+        </TabsContent>
       </Tabs>
     </div>
   );

@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UpdateReconciliation from "@/components/custom/certificate-reconciliation/update-reconciliation";
 import GeneralCertificateReconciliation from "@/components/custom/certificate-reconciliation/general-certificate-recon";
-import { RequeueLodgment } from "@/components/custom/certificate-reconciliation/requeue-lodgment";
 
 const tabTriggerClass =
   "rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground " +
@@ -29,7 +28,6 @@ function ReconciliationContent() {
       <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
         <TabsTrigger value="cscs"    className={tabTriggerClass}>CSCS Update Reconciliation</TabsTrigger>
         <TabsTrigger value="general" className={tabTriggerClass}>General Certificate Reconciliation</TabsTrigger>
-        <TabsTrigger value="requeue" className={tabTriggerClass}>Re-Queue For Lodgment</TabsTrigger>
       </TabsList>
 
       <div className="mt-6 space-y-4">
@@ -38,9 +36,6 @@ function ReconciliationContent() {
         </TabsContent>
         <TabsContent value="general" className="space-y-4">
           <GeneralCertificateReconciliation />
-        </TabsContent>
-        <TabsContent value="requeue" className="space-y-4">
-          <RequeueLodgment />
         </TabsContent>
       </div>
     </Tabs>

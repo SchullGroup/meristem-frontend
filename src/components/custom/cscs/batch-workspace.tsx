@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { StepRegistersRecords } from "./step-registers-records";
 import { StepResolveStates } from "./step-resolve-states";
 import { StepReviewBankChanges } from "./step-review-bank-changes";
-import { StepComputeTrades } from "./step-compute-trades";
+import { StepComputeTrades, MultiAccountGroup } from "./step-compute-trades";
 import { StepApplyHandoff } from "./step-apply-handoff";
 import { ProcessedLogView } from "./processed-log-view";
 
@@ -35,12 +35,12 @@ export function BatchWorkspace({ batch, onBack }: BatchWorkspaceProps) {
   const [activeStep, setActiveStep] = useState<StepNum>(1);
   const [completedSteps, setCompletedSteps] = useState<Set<StepNum>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("step");
-  const [jumpRegister, setJumpRegister] = useState<string | undefined>(
-    undefined,
-  );
+  const [jumpRegister, setJumpRegister] = useState<string | undefined>(undefined);
+  const [multiAccountGroups, setMultiAccountGroups] = useState<MultiAccountGroup[]>([]);
 
-  const markComplete = (step: StepNum) => {
+  const markComplete = (step: StepNum, excluded?: MultiAccountGroup[]) => {
     setCompletedSteps((prev) => new Set([...prev, step]));
+    if (step === 4 && excluded) setMultiAccountGroups(excluded);
     if (step < 5) setActiveStep((step + 1) as StepNum);
   };
 
@@ -156,13 +156,14 @@ export function BatchWorkspace({ batch, onBack }: BatchWorkspaceProps) {
         ) : activeStep === 4 ? (
           <StepComputeTrades
             batchRef={batch.batchRef}
-            onProceed={() => markComplete(4)}
+            onProceed={(excluded) => markComplete(4, excluded)}
             initialRegister={jumpRegister}
           />
         ) : (
           <StepApplyHandoff
             batchRef={batch.batchRef}
             onViewLog={() => setViewMode("log")}
+            multiAccountGroups={multiAccountGroups}
           />
         )}
       </div>

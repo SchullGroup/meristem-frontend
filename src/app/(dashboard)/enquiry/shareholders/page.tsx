@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { TrendingUp, Users, TrendingDown, X, Loader2 } from "lucide-react";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { ShareholderSearchInput } from "@/components/custom/shareholder-search-input";
@@ -45,9 +45,10 @@ const STATUS_ROW_BG: Record<string, string> = {
 
 export default function ShareholderRegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [registerFilter, setRegisterFilter] = useState("");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [statusFilter, setStatusFilter] = useState("");
 
   const [page, setPage] = useState(0);
