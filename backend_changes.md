@@ -104,28 +104,48 @@ The bank details tab now includes a "Validate with NIBSS" panel. Operators can e
 
 ---
 
-## 6. Bulk Upload — Preview + Submit
+## 6. Bulk Upload — Preview + Submit (KYC + NIBSS BVN Mandate)
 
 New: Bulk Upload — Preview + Submit Flow (Warrant Markoff Pattern)
 
-The current `POST /accounts/kyc-changes/bulk-upload` endpoint creates an async job and returns a `jobId`. This doesn't match the operator workflow. The frontend needs a two-step flow matching the warrant mark-off pattern.
+The bulk upload UI is now a simple 2-screen flow: **Upload** (download a CSV template, then upload the filled-in file) → **Preview** (review parsed rows, remove any bad ones) → **Submit**. On successful submit the user is returned to the Upload screen with a toast. There is no async job-polling screen — submit is a single request/response.
 
-### 6a. Preview Endpoint — `POST /accounts/kyc-changes/bulk-upload/preview`
+**Update:** the "no cover-letter/evidence upload step" note below is now stale for both upload types. KYC's actual frontend implementation (`kyc-bulk-upload.tsx` + `kyc-review-panel.tsx`) already requires a per-row review with a mandatory supporting-document attachment before approval, and NIBSS has just been updated to match (§6b). Treat "Preview" as "Preview + per-row Review" for both flows — this doc will be reconciled fully once the KYC side's contract below is updated to match.
 
-- **Request:** `multipart/form-data` with the uploaded `.xlsx` / `.csv` file + optional `registerId`
-- **Response:** Synchronous. Returns parsed row data with per-row validation status.
-- **Response shape:**
+Template downloads are generated entirely on the frontend (a CSV blob from a fixed column list) — the backend does **not** need a template download endpoint for either template type.
+
+There are two independent upload types, each needing its own preview/submit endpoint pair, because the row shape is completely different (KYC is a shareholder profile update; NIBSS is a full bank-mandate record). Both are KYC-domain submissions, not dividend-domain ones — see §6b.
+
+### 6a. KYC Bulk Update
+
+**Template columns** (in this order):
+
+```
+account_number, shareholder_name, email, phone, address, bank_name, bank_account_number, nin, bvn
+```
+
+Each row is a **full record**, not a single field/value change — whichever of the 8 non-key columns are populated on a row represent the fields to update for that `account_number`.
+
+#### Preview — `POST /accounts/kyc-changes/bulk-upload/preview`
+
+- **Request:** `multipart/form-data` with the uploaded `.csv` file + optional `registerId`.
+- **Response:** Synchronous. Returns parsed rows with per-row validation status.
   ```json
   {
     "rows": [
       {
-        "row": 1,
-        "accountNumber": "12345",
-        "field": "email",
-        "newValue": "new@example.com",
-        "reason": "Shareholder request",
+        "row": 2,
+        "accountNumber": "1234567",
+        "shareholderName": "string",
+        "email": "string",
+        "phone": "string",
+        "address": "string",
+        "bankName": "string",
+        "bankAccountNumber": "string",
+        "nin": "string",
+        "bvn": "string",
         "status": "valid" | "warning" | "error",
-        "errors": []
+        "errors": ["string"]
       }
     ],
     "totalRows": 50,
@@ -134,40 +154,134 @@ The current `POST /accounts/kyc-changes/bulk-upload` endpoint creates an async j
     "errorCount": 1
   }
   ```
-- **Validation rules** (applied per row):
-  - Account number must exist and belong to the selected register
-  - `field` must be a recognized KYC field name
-  - `newValue` must not be empty
-  - Bank changes (`bankName`, `bankAccountNumber`, `bvn`) flagged as high-risk (warning)
-  - Unknown fields → error
-- **Why preview:** The operator reviews the parsed rows, sees per-row valid/warning/error status, and removes invalid rows before submission.
+- **Validation rules** (per row):
+  - `account_number` must exist and belong to the selected register.
+  - At least one of the non-key columns must be non-empty (otherwise nothing to update → error).
+  - Changes to `bank_name` / `bank_account_number` / `bvn` → flagged `warning` (high-risk fields).
+  - Unknown/malformed rows → `error`.
 
-### 6b. Submit Endpoint — `POST /accounts/kyc-changes/bulk-upload/submit`
+#### Submit — `POST /accounts/kyc-changes/bulk-upload/submit`
 
 - **Request:**
   ```json
   {
     "rows": [
       {
-        "accountNumber": "12345",
-        "field": "email",
-        "newValue": "new@example.com",
-        "reason": "Shareholder request"
+        "accountNumber": "1234567",
+        "shareholderName": "string",
+        "email": "string",
+        "phone": "string",
+        "address": "string",
+        "bankName": "string",
+        "bankAccountNumber": "string",
+        "nin": "string",
+        "bvn": "string"
       }
     ],
     "initiatedBy": "operator@example.com",
     "registerId": "ABC"
   }
   ```
-- **Response:** A batch change request record (not one per row). Returns the batch status.
-- **Behavior:** Creates one `KycChange` record per row in the batch, linked by a shared batch ID.
-- **Why single batch:** The entire upload enters the approval queue as one batch, not 50 individual requests.
+  (only the rows the operator kept after reviewing the preview — any removed on the frontend are simply omitted)
+- **Response:** A batch record, not one per row — e.g. `{ "batchId": "string", "totalRows": 50, "status": "string" }`.
+- **Behavior:** One `KycChange` per populated field per row, all linked by a shared batch ID, entering the approval queue as a single batch.
+
+### 6b. NIBSS BVN Mandate Bulk Upload
+
+**Domain correction:** this is a **KYC** upload, not a dividend one — the earlier `/dividend/nibss-mandates/...` paths below were wrong and have been corrected. The source file is downloaded from the NIBSS eDMS portal; the operator uploads it, confirms the parsed data against the registry, and submits for approval. Every field in the file already corresponds to an existing shareholder/mandate field in the registry (bank details, BVN, etc.), so approved rows go into the same KYC Approvals queue as any other KYC change — see the Behavior note under Submit below.
+
+**Template columns** (in this order):
+
+```
+subscriberName, broker, chn, accountNumber, bank_sort_code, stockbrokerCode, symbol, units, amount, remark, bvn, nin, tin, next_kin, gender, type, bank_account_number, phone, email
+```
+
+`type` is `individual` or `corporate`.
+
+**Update:** this flow now has the same per-row review step as KYC (§6a): after preview, the operator opens each row in a review drawer, which looks up the existing registry record and compares it against the NIBSS CSV data field-by-field, then requires at least one supporting document to be attached before the row can be approved. Only approved rows are included in the submit payload — see the updated Submit request shape below. The earlier "no evidence/cover-letter attachment" note is superseded.
+
+#### Preview — `POST /accounts/kyc-changes/nibss-mandates/bulk-upload/preview` _(new endpoint, path TBC with backend team — nested under `/accounts/kyc-changes` since this is a KYC submission)_
+
+- **Request:** `multipart/form-data` with the uploaded `.csv` file.
+- **Response:** Synchronous, same shape as the KYC preview but with the NIBSS column set:
+  ```json
+  {
+    "rows": [
+      {
+        "row": 2,
+        "subscriberName": "string",
+        "broker": "string",
+        "chn": "string",
+        "accountNumber": "string",
+        "bankSortCode": "string",
+        "stockbrokerCode": "string",
+        "symbol": "string",
+        "units": "string",
+        "amount": "string",
+        "remark": "string",
+        "bvn": "string",
+        "nin": "string",
+        "tin": "string",
+        "nextKin": "string",
+        "gender": "string",
+        "type": "individual" | "corporate",
+        "bankAccountNumber": "string",
+        "phone": "string",
+        "email": "string",
+        "status": "valid" | "warning" | "error",
+        "errors": ["string"]
+      }
+    ],
+    "totalRows": 50,
+    "validCount": 48,
+    "warningCount": 1,
+    "errorCount": 1
+  }
+  ```
+
+#### Submit — `POST /accounts/kyc-changes/nibss-mandates/bulk-upload/submit` _(new endpoint, path TBC with backend team — nested under `/accounts/kyc-changes` since this is a KYC submission)_
+
+- **Request:**
+  ```json
+  {
+    "rows": [
+      {
+        "subscriberName": "string",
+        "broker": "string",
+        "chn": "string",
+        "accountNumber": "string",
+        "bankSortCode": "string",
+        "stockbrokerCode": "string",
+        "symbol": "string",
+        "units": "string",
+        "amount": "string",
+        "remark": "string",
+        "bvn": "string",
+        "nin": "string",
+        "tin": "string",
+        "nextKin": "string",
+        "gender": "string",
+        "type": "individual" | "corporate",
+        "bankAccountNumber": "string",
+        "phone": "string",
+        "email": "string",
+        "supportingDocuments": [{ "name": "string", "url": "string" }]
+      }
+    ],
+    "initiatedBy": "operator@example.com"
+  }
+  ```
+  Only rows the operator **approved** during review are included — rejected and unreviewed rows are omitted entirely (not just flagged). `supportingDocuments` should be required (at least one entry) per row, same as KYC's `KycRowPayload.supportingDocuments`.
+- **Response:** `{ "batchId": "string", "totalRows": number, "status": "string" }`.
+- **Behavior:** Same as §6a — each approved row becomes a `KycChange` (one per populated field, per §1), all linked by a shared batch ID, entering the **same KYC Approvals queue** as any other KYC change. NIBSS mandate changes are not a separate approval workflow; they should be indistinguishable from other KYC changes once submitted (e.g. `changeType` could be `BANK` or a new `NIBSS_MANDATE` value — backend's call, whichever fits the existing `changeType` enum better), and should appear in `GET /accounts/kyc-changes` / the KYC Change History view like anything else.
+
+**New requirement — BVN-based account search:** The review step looks up each row's existing registry record **by BVN**, not account number (a NIBSS mandate row isn't guaranteed to carry a matching registry account number). No such endpoint currently exists — the closest is the generic account search used elsewhere in this doc (`GET /api/accounts?q=`), which currently matches on account number/name. Please confirm whether that endpoint can be extended so `q` also matches `bvn`, or whether a dedicated lookup is preferred. Until this exists, the frontend mock is not calling any real endpoint for this lookup — see the "Frontend interim behavior" note below.
+
+**Frontend interim behavior (mock only, not for backend implementation):** with no BVN-search endpoint yet, the review drawer temporarily calls the existing `GET /api/accounts/{accountNumber}` endpoint using the row's `bvn` value as if it were an account number, purely so the demo has a real registry record to show. The mock CSV rows are seeded with a real account number (`9033387545`) in the `bvn` field to make this resolve. This is scaffolding for local demos only — once the BVN-search endpoint above exists, the frontend will switch to it and this workaround will be removed.
 
 ### Migration Path
 
-If changing the existing `POST /accounts/kyc-changes/bulk-upload` is too disruptive, create two new endpoints as described above and keep the old async endpoint for backward compatibility. The frontend will switch to the new preview/submit pattern.
-
----
+If changing the existing `POST /accounts/kyc-changes/bulk-upload` is too disruptive, create the new endpoints above and keep the old async endpoint for backward compatibility. The frontend now exclusively uses the new preview/submit pattern for both upload types.
 
 ## 7. `ShareholderAccount` Fields
 
@@ -194,6 +308,7 @@ Ticket as given by the backend team:
 > `PATCH /api/v1/kyc-change-requests/:id/cancel`
 >
 > Rules:
+>
 > - Only the original submitter (`submitted_by`) can cancel.
 > - Can only cancel when status is `pending_1st_approval` — not after 1st approval.
 > - Set status → `cancelled`.
@@ -221,7 +336,7 @@ Ticket as given by the backend team:
 
 ## 11. New: Deceased Account Search for ADMOR (ADMOR-BE-02)
 
-The Estate Administration (ADMOR) "New Administration" form now has a typeahead search box that queries for deceased account holders. The frontend currently uses the existing `GET /api/accounts` search endpoint as a temporary stand-in, but a dedicated endpoint is needed.
+The Estate Administration (ADMOR) "New Administration" form now has a typeahead search box that queries for deceased account holders. The frontend currently uses the existing `GET /api/accounts` search endpoint as a temporary stand-in, but a dedicated endpoint to fetch deceased accounts is needed.
 
 ### 11a. Endpoint — `GET /api/v1/admor/search-accounts?q=&registerId=(optional)`
 
@@ -434,5 +549,25 @@ The ADMOR "Approved" tab links to this page via `/dividends/new-mandate?account=
 
 - When `accountNumber` is omitted, behavior is unchanged (loads all accounts, as today).
 - When `accountNumber` is present, the response should only include unpaid dividends for that account.
+
+---
+
+# KYC Update — Cross-Account Change History (new)
+
+## 20. New: Search & Register Display on `GET /accounts/kyc-changes`
+
+The KYC Update page has a new "History" tab (`KycChangesHistory`) — a read-only, cross-account table of every KYC change (any status), separate from the KYC Approvals queue. It reuses the existing `GET /accounts/kyc-changes` endpoint but needs two additions:
+
+### 20a. Cross-field search (`q`)
+
+- **Add:** `q` query param on `GET /accounts/kyc-changes`, matching the pattern already requested for ADMOR search (§11a) — a single string that matches across the _shareholder's_ account number, holder name, BVN, NIN, and CHN (not `KycChange` fields directly, since the change record itself doesn't carry BVN/NIN/CHN — this requires a join back to the shareholder record).
+- Case-insensitive partial match on name; exact/partial match on the identifiers.
+- Combine with the existing `status`/`changeType`/`registerId`/`from`/`to` filters (AND logic).
+
+### 20b. Register on each `KycChange` record
+
+- **Add:** `registerSymbol` (or `registerId` + resolvable name) to each row returned by `GET /accounts/kyc-changes`.
+- Today `registerId` can be used to _filter_ the list, but the returned `KycChange` objects don't say which register a row belongs to — necessary for the History table since it's a cross-register view by default (no register filter applied).
+- **Frontend behavior today:** the History table renders "—" in the Register column until this field exists; already wired to display `row.registerSymbol` the moment the backend adds it, no frontend change needed.
 
 - **Action:** Add an optional `accountNumber` field to the `POST /dividend/mandate-payments/load` request body/filters, scoping the loaded queue to that account when provided.

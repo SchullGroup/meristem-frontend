@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Download,
   FileText,
   Loader2,
   CheckCircle2,
@@ -28,43 +27,34 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
-import { downloadCsvTemplate } from "@/lib/utils/csv-template";
 import {
-  KycBulkPreviewRow,
-  KycReviewRow,
-  KycReviewDecision,
+  NibssMandatePreviewRow,
+  NibssReviewRow,
 } from "@/types/account-maintenance";
-import { KycReviewDrawer } from "./kyc-review-drawer";
+import { NibssReviewDrawer } from "./nibss-review-drawer";
 
 type SubmitStatus = "processing" | "success" | "failed";
 
-// ── Template column definitions ────────────────────────────────────────────
-
-const KYC_TEMPLATE_FIELDS = [
-  "account_number",
-  "shareholder_name",
-  "email",
-  "phone",
-  "address",
-  "bank_name",
-  "bank_account_number",
-  "nin",
-  "bvn",
-];
-
 // ── Table column definitions ───────────────────────────────────────────────
 
-const KYC_PRIMARY_COLUMNS: { key: string; label: string }[] = [
-  { key: "shareholderName", label: "Shareholder" },
+const NIBSS_PRIMARY_COLUMNS: { key: string; label: string }[] = [
+  { key: "subscriberName", label: "Subscriber Name" },
   { key: "accountNumber", label: "Account No" },
+  { key: "symbol", label: "Symbol" },
   { key: "bvn", label: "BVN" },
 ];
 
-function cellValue(row: KycBulkPreviewRow, key: string): string {
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function cellValue(row: NibssMandatePreviewRow, key: string): string {
   return (row as unknown as Record<string, string>)[key] || "";
 }
 
-function ReviewDecisionBadge({ decision }: { decision: KycReviewDecision }) {
+function ReviewDecisionBadge({
+  decision,
+}: {
+  decision: NibssReviewRow["decision"];
+}) {
   if (decision === "accepted")
     return (
       <Badge className="bg-green-100 text-green-700 border-0 text-[10px]">
@@ -90,7 +80,7 @@ function ReviewDecisionBadge({ decision }: { decision: KycReviewDecision }) {
 }
 
 /** Convert raw preview rows into review rows with decision tracking. */
-function toReviewRows(rows: KycBulkPreviewRow[]): KycReviewRow[] {
+function toReviewRows(rows: NibssMandatePreviewRow[]): NibssReviewRow[] {
   return rows.map((r) => ({
     ...r,
     decision: "unreviewed" as const,
@@ -100,7 +90,7 @@ function toReviewRows(rows: KycBulkPreviewRow[]): KycReviewRow[] {
 
 // ── Mock data ──────────────────────────────────────────────────────────────
 
-const MOCK_KYC_NAMES = [
+const MOCK_NAMES = [
   "Adebayo Ogunlesi",
   "Chioma Eze",
   "Ibrahim Musa",
@@ -108,36 +98,54 @@ const MOCK_KYC_NAMES = [
   "Folake Adeyemi",
   "Tunde Bakare",
   "Aisha Bello",
-  "Emeka Nwankwo",
-  "Zainab Ibrahim",
-  "Olumide Afolabi",
+];
+const MOCK_SYMBOLS = [
+  "MTNN",
+  "DANGCEM",
+  "ETI",
+  "UBA",
+  "ZENITH",
+  "ACCESS",
+  "SEPLAT",
 ];
 
-function generateMockKycRows(count = 10): KycBulkPreviewRow[] {
+function generateMockNibssRows(count = 7): NibssMandatePreviewRow[] {
   return Array.from({ length: count }, (_, i) => ({
     row: i + 2,
-    accountNumber: "123456789",
-    shareholderName: MOCK_KYC_NAMES[i % MOCK_KYC_NAMES.length],
-    email: `holder${i + 1}@example.com`,
-    phone: `+234801${(2000000 + i).toString().slice(-7)}`,
-    address: `${i + 1} Marina Street, Lagos`,
-    bankName: i % 3 === 0 ? "GTBank" : i % 3 === 1 ? "Access Bank" : "UBA",
-    bankAccountNumber: String(3000000000 + i * 11111111),
+    subscriberName: MOCK_NAMES[i % MOCK_NAMES.length],
+    broker: `Broker ${i + 1} Securities Ltd`,
+    chn: `CHN-${8800 + i}`,
+    accountNumber: String(100000 + i * 1111).padStart(7, "0"),
+    bankSortCode: "000014",
+    stockbrokerCode: `SB-${100 + i}`,
+    symbol: MOCK_SYMBOLS[i % MOCK_SYMBOLS.length],
+    units: String(1000 * (i + 1)),
+    amount: String(5000 * (i + 1)),
+    remark: "e-Dividend mandate registration",
+    // Mock stand-in: 9033387545 is a real seeded account number, reused as
+    // every row's BVN so the account-number lookup below returns real data.
+    bvn: "9033387545",
     nin: String(11000000000 + i * 11111111),
-    bvn: String(22000000000 + i * 11111111),
-    status: "valid",
+    tin: String(33000000000 + i * 11111111),
+    nextKin: `Next of Kin ${i + 1}`,
+    gender: i % 2 === 0 ? "Male" : "Female",
+    type: i % 3 === 0 ? "corporate" : "individual",
+    bankAccountNumber: String(2000000000 + i * 11111111),
+    phone: `+234800${(1000000 + i).toString().slice(-7)}`,
+    email: `mandate${i + 1}@example.com`,
+    status: i % 5 === 0 ? "warning" : "valid",
     errors: [],
   }));
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-interface KYCBulkUploadProps {
+interface NibssBulkUploadProps {
   /** Navigate the user to the KYC change history after a successful submit. */
   onViewChanges?: () => void;
 }
 
-export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
+export function NibssBulkUpload({ onViewChanges }: NibssBulkUploadProps = {}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const currentUser = useStore((s) => s.currentUser);
 
@@ -146,7 +154,7 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState("");
 
-  const [kycRows, setKycRows] = useState<KycReviewRow[]>([]);
+  const [rows, setRows] = useState<NibssReviewRow[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
 
@@ -157,25 +165,27 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
     submittedAt: string;
   } | null>(null);
 
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaveConfirmTarget, setLeaveConfirmTarget] = useState<
+    "different-file" | "start-over" | null
+  >(null);
   const [showUnreviewedConfirm, setShowUnreviewedConfirm] = useState(false);
 
   const steps = ["Upload", "Review", "Submit"];
 
   // ── Derived ──────────────────────────────────────────────────────────
 
-  const acceptedCount = kycRows.filter((r) => r.decision === "accepted").length;
-  const rejectedCount = kycRows.filter((r) => r.decision === "rejected").length;
-  const unreviewedCount = kycRows.filter(
+  const acceptedCount = rows.filter((r) => r.decision === "accepted").length;
+  const rejectedCount = rows.filter((r) => r.decision === "rejected").length;
+  const unreviewedCount = rows.filter(
     (r) => r.decision === "unreviewed",
   ).length;
-  const selectedReviewRow = kycRows.find((r) => r.row === selectedRow) ?? null;
+  const selectedReviewRow = rows.find((r) => r.row === selectedRow) ?? null;
 
   // ── Actions ──────────────────────────────────────────────────────────
 
   const approveRow = useCallback(
     (rowNum: number, documents: { name: string; url: string }[]) => {
-      setKycRows((prev) =>
+      setRows((prev) =>
         prev.map((r) =>
           r.row === rowNum ? { ...r, decision: "accepted", documents } : r,
         ),
@@ -186,7 +196,7 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
   );
 
   const rejectRow = useCallback((rowNum: number) => {
-    setKycRows((prev) =>
+    setRows((prev) =>
       prev.map((r) => (r.row === rowNum ? { ...r, decision: "rejected" } : r)),
     );
     setSelectedRow(null);
@@ -195,16 +205,12 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
   function resetAll() {
     setStep(1);
     setPendingFile(null);
-    setKycRows([]);
+    setRows([]);
     setFileError("");
     setSelectedRow(null);
     setSubmitStatus(null);
     setSubmitMeta(null);
     if (inputRef.current) inputRef.current.value = "";
-  }
-
-  function handleDownloadTemplate() {
-    downloadCsvTemplate(KYC_TEMPLATE_FIELDS, "kyc-bulk-upload-template.csv");
   }
 
   function handleFile(f: File) {
@@ -223,32 +229,36 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
 
     setPendingFile(f);
     setPreviewLoading(true);
-    // Mock: simulate backend parsing + validation
+    // Mock: simulate backend parsing
     setTimeout(() => {
-      setKycRows(toReviewRows(generateMockKycRows()));
+      setRows(toReviewRows(generateMockNibssRows()));
       setPreviewLoading(false);
       setStep(2);
     }, 1800);
   }
 
   function removeRow(row: number) {
-    setKycRows((prev) => prev.filter((r) => r.row !== row));
+    setRows((prev) => prev.filter((r) => r.row !== row));
     if (selectedRow === row) setSelectedRow(null);
   }
 
   /** Guard against losing in-progress review decisions when leaving the Review step. */
-  function requestLeaveReview() {
+  function requestLeaveReview(target: "different-file" | "start-over") {
     if (acceptedCount + rejectedCount === 0) {
-      executeLeaveReview();
+      executeLeaveReview(target);
       return;
     }
-    setShowLeaveConfirm(true);
+    setLeaveConfirmTarget(target);
   }
 
-  function executeLeaveReview() {
-    setStep(1);
-    setKycRows([]);
-    setSelectedRow(null);
+  function executeLeaveReview(target: "different-file" | "start-over") {
+    if (target === "different-file") {
+      setStep(1);
+      setRows([]);
+      setSelectedRow(null);
+    } else {
+      setStep(1);
+    }
   }
 
   function handleSubmit() {
@@ -274,18 +284,28 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
     }
 
     // ── Build submission payload from approved rows ────────────────────
-    const submissionRows = kycRows
+    const submissionRows = rows
       .filter((r) => r.decision === "accepted")
       .map((r) => ({
+        subscriberName: r.subscriberName,
+        broker: r.broker,
+        chn: r.chn,
         accountNumber: r.accountNumber,
-        shareholderName: r.shareholderName,
-        email: r.email,
-        phone: r.phone,
-        address: r.address,
-        bankName: r.bankName,
-        bankAccountNumber: r.bankAccountNumber,
-        nin: r.nin,
+        bankSortCode: r.bankSortCode,
+        stockbrokerCode: r.stockbrokerCode,
+        symbol: r.symbol,
+        units: r.units,
+        amount: r.amount,
+        remark: r.remark,
         bvn: r.bvn,
+        nin: r.nin,
+        tin: r.tin,
+        nextKin: r.nextKin,
+        gender: r.gender,
+        type: r.type,
+        bankAccountNumber: r.bankAccountNumber,
+        phone: r.phone,
+        email: r.email,
         supportingDocuments: r.documents,
       }));
 
@@ -298,11 +318,11 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
     setStep(3);
 
     // Mock: simulate backend submission — replace with real API call.
-    // The payload `submissionRows` maps to KycBulkSubmitRequest.rows.
+    // The payload `submissionRows` maps to NibssMandateSubmitRequest.rows.
     setTimeout(() => {
       setSubmitStatus("success");
       toast.success(
-        `KYC bulk update submitted — ${submissionRows.length} row${submissionRows.length !== 1 ? "s" : ""} sent for approval.`,
+        `NIBSS BVN mandate batch submitted — ${submissionRows.length} row${submissionRows.length !== 1 ? "s" : ""} sent for processing.`,
         { duration: 8000 },
       );
     }, 2200);
@@ -350,9 +370,7 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
           })}
         </div>
 
-        {/* ──────────────────────────────────────────────────────────────── */}
-        {/* Step 1: Upload                                                 */}
-        {/* ──────────────────────────────────────────────────────────────── */}
+        {/* Step 1: Upload */}
         {step === 1 && (
           <div className="space-y-6">
             <div className="text-center">
@@ -434,29 +452,16 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
                 {fileError}
               </div>
             )}
-            <div className="flex justify-between items-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDownloadTemplate}
-              >
-                <Download className="h-3.5 w-3.5 mr-1" />
-                Download template
-              </Button>
-            </div>
           </div>
         )}
 
-        {/* ──────────────────────────────────────────────────────────────── */}
-        {/* Step 2: Review (split panel)                                   */}
-        {/* ──────────────────────────────────────────────────────────────── */}
+        {/* Step 2: Review (master table + drawer) */}
         {step === 2 && (
           <div className="space-y-0">
             {/* Summary bar */}
             <div className="flex items-center gap-3 flex-wrap text-[13px] text-muted-foreground mb-4 px-1">
               <span>
-                <strong className="text-foreground">{kycRows.length}</strong>{" "}
-                valid
+                <strong className="text-foreground">{rows.length}</strong> total
               </span>
               <span className="text-muted-foreground/40">·</span>
               <span className="text-green-700">
@@ -472,28 +477,40 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
 
             {/* Submit bar */}
             <div className="flex items-center justify-between gap-4 flex-wrap p-3 border-t bg-muted/20">
-              <Button variant="ghost" size="sm" onClick={requestLeaveReview}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => requestLeaveReview("different-file")}
+              >
                 ← Upload a different file
               </Button>
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={acceptedCount === 0}
-              >
-                Submit {acceptedCount} Row
-                {acceptedCount !== 1 ? "s" : ""}
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => requestLeaveReview("start-over")}
+                >
+                  Start over
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSubmit}
+                  disabled={acceptedCount === 0}
+                >
+                  Submit {acceptedCount} Row
+                  {acceptedCount !== 1 ? "s" : ""}
+                </Button>
+              </div>
             </div>
 
-            {/* Master table (full width — the review UI lives in a drawer now) */}
             <Card className="mrpsl-card overflow-hidden">
               <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header sticky top-0">
+                <thead className="mrpsl-table-header sticky top-0 z-10">
                   <tr>
                     <th className="p-2.5 text-[11px] font-bold uppercase text-muted-foreground w-8">
                       #
                     </th>
-                    {KYC_PRIMARY_COLUMNS.map((c) => (
+                    {NIBSS_PRIMARY_COLUMNS.map((c) => (
                       <th
                         key={c.key}
                         className="p-2.5 text-[11px] font-bold uppercase text-muted-foreground whitespace-nowrap"
@@ -508,17 +525,17 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y text-[13px]">
-                  {kycRows.length === 0 ? (
+                  {rows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={KYC_PRIMARY_COLUMNS.length + 3}
+                        colSpan={NIBSS_PRIMARY_COLUMNS.length + 3}
                         className="p-8 text-center text-muted-foreground"
                       >
-                        No valid rows found.
+                        No rows left — every row was removed.
                       </td>
                     </tr>
                   ) : (
-                    kycRows.map((r) => {
+                    rows.map((r) => {
                       const isSelected = selectedRow === r.row;
                       return (
                         <tr
@@ -534,7 +551,7 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
                           <td className="p-2.5 font-mono text-[12px] text-muted-foreground">
                             {r.row}
                           </td>
-                          {KYC_PRIMARY_COLUMNS.map((c) => (
+                          {NIBSS_PRIMARY_COLUMNS.map((c) => (
                             <td
                               key={c.key}
                               className="p-2.5 font-mono text-[12px] whitespace-nowrap max-w-40 truncate"
@@ -569,9 +586,7 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
           </div>
         )}
 
-        {/* ──────────────────────────────────────────────────────────────── */}
-        {/* Step 3: Submit                                                 */}
-        {/* ──────────────────────────────────────────────────────────────── */}
+        {/* Step 3: Submit */}
         {step === 3 && submitMeta && submitStatus && (
           <div className="space-y-6">
             <div
@@ -658,7 +673,7 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
         )}
       </Card>
 
-      <KycReviewDrawer
+      <NibssReviewDrawer
         open={selectedReviewRow !== null}
         onOpenChange={(o) => !o && setSelectedRow(null)}
         row={selectedReviewRow}
@@ -669,7 +684,10 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
       />
 
       {/* Discard review progress confirmation */}
-      <Dialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
+      <Dialog
+        open={leaveConfirmTarget !== null}
+        onOpenChange={(o) => !o && setLeaveConfirmTarget(null)}
+      >
         <DialogContent className="max-w-md px-4">
           <DialogHeader>
             <DialogTitle>Discard review progress?</DialogTitle>
@@ -681,15 +699,15 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
-              onClick={() => setShowLeaveConfirm(false)}
+              onClick={() => setLeaveConfirmTarget(null)}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={() => {
-                setShowLeaveConfirm(false);
-                executeLeaveReview();
+                if (leaveConfirmTarget) executeLeaveReview(leaveConfirmTarget);
+                setLeaveConfirmTarget(null);
               }}
             >
               Discard &amp; Leave
@@ -756,4 +774,4 @@ export const KYCBulkUpload = ({ onViewChanges }: KYCBulkUploadProps = {}) => {
       </Dialog>
     </>
   );
-};
+}
