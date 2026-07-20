@@ -210,6 +210,34 @@ export interface CertificatesParams {
   size?: number;
 }
 
+export type CertificateMovementType =
+  | "ISSUANCE"
+  | "TRANSFER"
+  | "LODGEMENT"
+  | "WITHDRAWAL"
+  | "DEMATERIALISATION"
+  | "CONSOLIDATION"
+  | "SPLIT";
+
+// Not yet returned by the certificates API — see ENQ-BE-06. Consumed today only
+// via the client-side mock in src/lib/utils/mockCertificateMovements.ts.
+export interface CertificateMovement {
+  id: string;
+  certificateNo: string;
+  movementType: CertificateMovementType;
+  narration: string;
+  transferNo?: string;
+  fromAccount?: string;
+  toAccount?: string;
+  unitsMoved?: number;
+  agentCode?: string;
+  agentName?: string;
+  agentType?: string;
+  initiatedBy?: string;
+  movementDate?: string;
+  status: string;
+}
+
 export type WarrantPaymentType =
   | "DIVIDEND_WARRANT"
   | "INTEREST_WARRANT"

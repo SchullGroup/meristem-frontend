@@ -233,6 +233,10 @@ export interface KycChange {
   priority?: string;
   icuApprovedBy?: string;
   reason?: string;
+
+  // Added for the cross-account KYC Change History view — not yet returned by
+  // GET /accounts/kyc-changes (see backend_changes.md). Falls back to "—".
+  registerSymbol?: string;
 }
 
 export interface KycFieldChange {
@@ -267,6 +271,10 @@ export interface KycChangeFilters {
   to?: string;
   page?: number;
   pageSize?: number;
+  // Cross-field search: account number, holder name, BVN, NIN, CHN — see
+  // backend_changes.md for the requested endpoint contract. Not yet
+  // implemented server-side.
+  q?: string;
 }
 
 export interface AccountKycHistoryFilters {
@@ -314,6 +322,122 @@ export interface KycUploadJob {
   errors: BulkUploadError[];
   createdAt: string;
   completedAt: string;
+}
+
+// ── KYC bulk upload: preview + submit (full-record template) ──
+
+export type BulkRowStatus = "valid" | "warning" | "error";
+
+export interface KycBulkPreviewRow {
+  row: number;
+  accountNumber: string;
+  shareholderName: string;
+  email: string;
+  phone: string;
+  address: string;
+  bankName: string;
+  bankAccountNumber: string;
+  nin: string;
+  bvn: string;
+  status: BulkRowStatus;
+  errors: string[];
+}
+
+export interface KycBulkPreviewResponse {
+  rows: KycBulkPreviewRow[];
+  totalRows: number;
+  validCount: number;
+  warningCount: number;
+  errorCount: number;
+}
+
+export interface KycRowPayload {
+  accountNumber: string;
+  shareholderName: string;
+  email: string;
+  phone: string;
+  address: string;
+  bankName: string;
+  bankAccountNumber: string;
+  nin: string;
+  bvn: string;
+  supportingDocuments?: { name: string; url: string }[];
+}
+
+export interface KycBulkSubmitRequest {
+  rows: KycRowPayload[];
+  initiatedBy: string;
+  registerId?: string;
+}
+
+export interface KycBulkSubmitResponse {
+  batchId: string;
+  totalRows: number;
+  status: string;
+}
+
+// ── KYC bulk upload: per-row review state (frontend-only) ──
+
+export type KycReviewDecision = "unreviewed" | "accepted" | "rejected";
+
+export interface KycReviewRow extends KycBulkPreviewRow {
+  decision: KycReviewDecision;
+  documents: { name: string; url: string }[];
+}
+
+// ── NIBSS BVN mandate bulk upload: preview + submit ──
+
+export interface NibssMandatePreviewRow {
+  row: number;
+  subscriberName: string;
+  broker: string;
+  chn: string;
+  accountNumber: string;
+  bankSortCode: string;
+  stockbrokerCode: string;
+  symbol: string;
+  units: string;
+  amount: string;
+  remark: string;
+  bvn: string;
+  nin: string;
+  tin: string;
+  nextKin: string;
+  gender: string;
+  type: string;
+  bankAccountNumber: string;
+  phone: string;
+  email: string;
+  status: BulkRowStatus;
+  errors: string[];
+}
+
+export interface NibssMandatePreviewResponse {
+  rows: NibssMandatePreviewRow[];
+  totalRows: number;
+  validCount: number;
+  warningCount: number;
+  errorCount: number;
+}
+
+export interface NibssMandateSubmitRequest {
+  rows: (Omit<NibssMandatePreviewRow, "row" | "status" | "errors"> & {
+    supportingDocuments?: { name: string; url: string }[];
+  })[];
+  initiatedBy: string;
+}
+
+export interface NibssMandateSubmitResponse {
+  batchId: string;
+  totalRows: number;
+  status: string;
+}
+
+// ── NIBSS bulk upload: per-row review state (frontend-only) ──
+
+export interface NibssReviewRow extends NibssMandatePreviewRow {
+  decision: KycReviewDecision;
+  documents: { name: string; url: string }[];
 }
 
 //////////// estate admor //////////////

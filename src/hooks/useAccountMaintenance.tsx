@@ -42,6 +42,10 @@ import {
   rejectHolderKycDocument,
   getHolderSignature,
   getHolderSignatureArchive,
+  previewKycBulkUpload,
+  submitKycBulkUpload,
+  previewNibssMandateUpload,
+  submitNibssMandateUpload,
 } from "@/actions/accountMaintenanceActions";
 import { ApiResponse } from "@/types";
 import {
@@ -78,6 +82,12 @@ import {
   KycDecisionRequest,
   KycCancelRequest,
   KycUploadJob,
+  KycBulkPreviewResponse,
+  KycBulkSubmitRequest,
+  KycBulkSubmitResponse,
+  NibssMandatePreviewResponse,
+  NibssMandateSubmitRequest,
+  NibssMandateSubmitResponse,
   ShareholderAccount,
   AdmonListResponse,
   AdmonDecisionRequest,
@@ -490,6 +500,73 @@ export const useGetBulkKycChangesUploadJob = (
   useQuery({
     queryKey: ["kyc-changes-upload", jobId],
     queryFn: () => getKycChangesUploadJob(jobId),
+    ...options,
+  });
+
+export const usePreviewKycBulkUpload = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycBulkPreviewResponse>,
+      Error,
+      { file: File; registerId?: string }
+    >,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: ({ file, registerId }) =>
+      previewKycBulkUpload(file, registerId),
+    ...options,
+  });
+
+export const useSubmitKycBulkUpload = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycBulkSubmitResponse>,
+      Error,
+      KycBulkSubmitRequest
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: submitKycBulkUpload,
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
+export const usePreviewNibssMandateUpload = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<NibssMandatePreviewResponse>,
+      Error,
+      { file: File }
+    >,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: ({ file }) => previewNibssMandateUpload(file),
+    ...options,
+  });
+
+export const useSubmitNibssMandateUpload = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<NibssMandateSubmitResponse>,
+      Error,
+      NibssMandateSubmitRequest
+    >,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: submitNibssMandateUpload,
     ...options,
   });
 
