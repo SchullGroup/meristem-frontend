@@ -496,52 +496,6 @@ function EmailBody({
 
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>
-      {/* ── Header: uploaded image or fallback dark green block ── */}
-      {headerImageUrl ? (
-        <img
-          src={headerImageUrl}
-          alt="Email header"
-          style={{
-            width: "100%",
-            display: "block",
-            maxHeight: "120px",
-            objectFit: "cover",
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            background: "#004023",
-            padding: "18px 32px",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "Arial, Helvetica, sans-serif",
-              fontWeight: 700,
-              fontSize: "15px",
-              color: "#ffffff",
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-            }}
-          >
-            Meristem Registrars &amp; Probate Services Ltd
-          </div>
-          <div
-            style={{
-              fontFamily: "Arial, Helvetica, sans-serif",
-              fontSize: "13px",
-              color: "#86c9a3",
-              marginTop: "3px",
-              letterSpacing: "0.06em",
-            }}
-          >
-            213 Herbert Macaulay Way, Yaba, Lagos · info@meristemregistrars.com
-          </div>
-        </div>
-      )}
-
       {/* ── Green offer banner ── */}
       <div
         style={{

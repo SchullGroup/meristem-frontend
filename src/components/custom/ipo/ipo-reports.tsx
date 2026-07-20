@@ -8,6 +8,10 @@ import {
   Loader2,
   AlertCircle,
   RefreshCcw,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import {
@@ -37,6 +41,15 @@ import {
 } from "@/hooks/useIPO";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { formatNumber } from "@/lib/utils/format";
+
+interface RangeRow {
+  id: string;
+  rangeLabel: string;
+  subscribers: number;
+  percentOfTotal: number;
+  totalUnits: number;
+  totalAmount: number;
+}
 
 const REPORT_TYPES = [
   "Application Offer",
@@ -158,6 +171,44 @@ export default function IPOReports() {
     }
   }, [reportRun, selectedReport, isReportLoading]);
 
+  const [rangeEditMode, setRangeEditMode] = useState(false);
+  const [localRangeRows, setLocalRangeRows] = useState<RangeRow[]>([]);
+
+  useEffect(() => {
+    if (rangeAnalysisData?.rows) {
+      setLocalRangeRows(
+        rangeAnalysisData.rows.map((r, i) => ({
+          id: `r${i}`,
+          rangeLabel: r.rangeLabel ?? "",
+          subscribers: r.subscribers ?? 0,
+          percentOfTotal: r.percentOfTotal ?? 0,
+          totalUnits: r.totalUnits ?? 0,
+          totalAmount: r.totalAmount ?? 0,
+        }))
+      );
+      setRangeEditMode(false);
+    }
+  }, [rangeAnalysisData]);
+
+  const addRangeRow = () => {
+    setLocalRangeRows((prev) => [
+      ...prev,
+      { id: Date.now().toString(), rangeLabel: "", subscribers: 0, percentOfTotal: 0, totalUnits: 0, totalAmount: 0 },
+    ]);
+  };
+
+  const updateRangeRow = (id: string, key: keyof Omit<RangeRow, "id">, value: string | number) => {
+    setLocalRangeRows((prev) => prev.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
+  };
+
+  const removeRangeRow = (id: string) => {
+    setLocalRangeRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const localTotalSubscribers = localRangeRows.reduce((s, r) => s + r.subscribers, 0);
+  const localGrandTotalUnits = localRangeRows.reduce((s, r) => s + r.totalUnits, 0);
+  const localGrandTotalAmount = localRangeRows.reduce((s, r) => s + r.totalAmount, 0);
+
   // Check overall error state
   const isReportError =
     isErrorAppOffer ||
@@ -266,38 +317,40 @@ export default function IPOReports() {
           ))}
         </div>
         <div className="border-t pt-4">
-          <label className="mrpsl-label">Register</label>
+          {/* <label className="mrpsl-label">Register</label> */}
           <div className="flex items-center gap-3 mt-1.5">
-            <Select
-              value={reportRegister}
-              onValueChange={(v) => {
-                setReportRegister(v ?? "all");
-                setReportRun(false);
-              }}
-            >
-              <SelectTrigger className="mrpsl-input w-64">
-                <SelectValue placeholder="All Registers" />
-              </SelectTrigger>
-              <SelectContent className="w-max">
-                {registersLoading ? (
-                  <div className="py-10 flex items-center justify-center">
-                    <Loader2 className="animate-spin w-4 h-4" />
-                  </div>
-                ) : (
-                  <>
-                    <SelectItem value="All">All Register</SelectItem>
-                    {activeRegisters?.content?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.symbol}>
-                        <span className="font-bold">{r.registerName}</span> -{" "}
-                        <span className="text-xs translate-y-0.5">
-                          {r.symbol}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
-              </SelectContent>
-            </Select>
+            {/* <div className="w-100">
+              <Select
+                value={reportRegister}
+                onValueChange={(v) => {
+                  setReportRegister(v ?? "all");
+                  setReportRun(false);
+                }}
+              >
+                <SelectTrigger className="mrpsl-input">
+                  <SelectValue placeholder="All Registers" />
+                </SelectTrigger>
+                <SelectContent className="w-max">
+                  {registersLoading ? (
+                    <div className="py-10 flex items-center justify-center">
+                      <Loader2 className="animate-spin w-4 h-4" />
+                    </div>
+                  ) : (
+                    <>
+                      <SelectItem value="All">All Register</SelectItem>
+                      {activeRegisters?.content?.map((r) => (
+                        <SelectItem key={r.registerId} value={r.symbol}>
+                          <span className="font-bold">{r.registerName}</span> -{" "}
+                          <span className="text-xs translate-y-0.5">
+                            {r.symbol}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div> */}
             <Button
               size="xl"
               className="px-6 font-semibold shrink-0"
@@ -366,9 +419,30 @@ export default function IPOReports() {
         <Card className="mrpsl-card overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/20">
             <span className="font-semibold text-sm">{selectedReport}</span>
-            <span className="text-[13px] text-muted-foreground">
-              Generated {format(new Date(), "dd MMM yyyy, HH:mm")}
-            </span>
+            <div className="flex items-center gap-3">
+              {selectedReport === "Range Analysis" && rangeAnalysisData && (
+                rangeEditMode ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={addRangeRow}>
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      Add Band
+                    </Button>
+                    <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setRangeEditMode(false)}>
+                      <X className="h-3.5 w-3.5 mr-1.5" />
+                      Done
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => setRangeEditMode(true)}>
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                    Edit
+                  </Button>
+                )
+              )}
+              <span className="text-[13px] text-muted-foreground">
+                Generated {format(new Date(), "dd MMM yyyy, HH:mm")}
+              </span>
+            </div>
           </div>
 
           {/* ── Application Offer ── */}
@@ -686,52 +760,96 @@ export default function IPOReports() {
                     <th className="px-4 py-2.5 text-right">% OF TOTAL</th>
                     <th className="px-4 py-2.5 text-right">TOTAL UNITS</th>
                     <th className="px-4 py-2.5 text-right">TOTAL AMOUNT (₦)</th>
+                    {rangeEditMode && <th className="px-4 py-2.5 w-10" />}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {(rangeAnalysisData.rows || []).map((r, i) => (
-                    <tr key={i} className="mrpsl-table-row">
-                      <td className="px-4 py-2.5 font-medium">
-                        {r?.rangeLabel}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono">
-                        {formatNumber(r?.subscribers)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full"
-                              style={{ width: `${r?.percentOfTotal}%` }}
+                  {localRangeRows.map((r) => (
+                    <tr key={r.id} className="mrpsl-table-row">
+                      {rangeEditMode ? (
+                        <>
+                          <td className="px-3 py-2">
+                            <input
+                              className="mrpsl-input h-8 text-sm w-full"
+                              value={r.rangeLabel}
+                              placeholder="e.g. 500,001 – 1,000,000"
+                              onChange={(e) => updateRangeRow(r.id, "rangeLabel", e.target.value)}
                             />
-                          </div>
-                          <span className="font-mono tabular w-10 text-right">
-                            {r?.percentOfTotal.toFixed(1)}%
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono">
-                        {formatNumber(r?.totalUnits)}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {formatNumber(r?.totalAmount)}
-                      </td>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              className="mrpsl-input h-8 text-sm w-full text-right font-mono"
+                              value={r.subscribers || ""}
+                              onChange={(e) => updateRangeRow(r.id, "subscribers", Number(e.target.value))}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="0.1"
+                              className="mrpsl-input h-8 text-sm w-full text-right font-mono"
+                              value={r.percentOfTotal || ""}
+                              onChange={(e) => updateRangeRow(r.id, "percentOfTotal", parseFloat(e.target.value) || 0)}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              className="mrpsl-input h-8 text-sm w-full text-right font-mono"
+                              value={r.totalUnits || ""}
+                              onChange={(e) => updateRangeRow(r.id, "totalUnits", Number(e.target.value))}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              className="mrpsl-input h-8 text-sm w-full text-right font-mono"
+                              value={r.totalAmount || ""}
+                              onChange={(e) => updateRangeRow(r.id, "totalAmount", Number(e.target.value))}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              onClick={() => removeRangeRow(r.id)}
+                              className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-red-50 hover:text-red-600 text-muted-foreground transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-2.5 font-medium">{r.rangeLabel}</td>
+                          <td className="px-4 py-2.5 text-right font-mono">{formatNumber(r.subscribers)}</td>
+                          <td className="px-4 py-2.5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-primary rounded-full"
+                                  style={{ width: `${r.percentOfTotal}%` }}
+                                />
+                              </div>
+                              <span className="font-mono tabular w-10 text-right">
+                                {r.percentOfTotal.toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono">{formatNumber(r.totalUnits)}</td>
+                          <td className="px-4 py-2.5 text-right font-mono font-semibold">{formatNumber(r.totalAmount)}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
                   <tr>
                     <td className="px-4 py-2.5">TOTAL</td>
-                    <td className="px-4 py-2.5 text-right">
-                      {formatNumber(rangeAnalysisData.totalSubscribers)}
-                    </td>
+                    <td className="px-4 py-2.5 text-right">{formatNumber(localTotalSubscribers)}</td>
                     <td className="px-4 py-2.5 text-right">100%</td>
-                    <td className="px-4 py-2.5 text-right">
-                      {formatNumber(rangeAnalysisData.grandTotalUnits)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      ₦{formatNumber(rangeAnalysisData.grandTotalAmount)}
-                    </td>
+                    <td className="px-4 py-2.5 text-right">{formatNumber(localGrandTotalUnits)}</td>
+                    <td className="px-4 py-2.5 text-right">₦{formatNumber(localGrandTotalAmount)}</td>
+                    {rangeEditMode && <td />}
                   </tr>
                 </tfoot>
               </table>

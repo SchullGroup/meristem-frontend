@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ReturnMoneyQueue } from "@/components/custom/return-money/return-money-queue";
-import { RefundBatchProcessing } from "@/components/custom/return-money/refund-batch-processing";
-import { AgentCommissionPanel } from "@/components/custom/return-money/agent-commission-panel";
+import { RedemptionRequest } from "@/components/custom/fund-subscription/redemption-request";
+import { RedemptionApproval } from "@/components/custom/fund-subscription/redemption-approval";
 import { Button } from "@/components/ui/button";
-import { CalendarRange, FileSpreadsheet, Printer } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { CalendarRange, FileSpreadsheet, Printer } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,54 +16,42 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const TABS = [
-  "queue",
-  "batch",
-  "commission",
-  "reports",
-] as const;
+const TABS = ["redemption", "approval", "reports"] as const;
 type TabValue = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabValue, string> = {
-  queue: "Return Money Queue",
-  batch: "Refund Batch Processing",
-  commission: "Agent Commission",
+  redemption: "Redemption Request",
+  approval: "Redemption Approval",
   reports: "Reports",
 };
 
 const REPORT_TYPES = [
-  "Return Money Summary",
-  "Return Money by Offer",
-  "Return Money by Register",
-  "Return Money Aging",
+  "Redemption Summary",
+  "Fund Register Movement",
+  "Pending Redemptions",
 ] as const;
 
-export default function ReturnMoneyPage() {
-  const [activeTab, setActiveTab] = useState<TabValue>("queue");
-
-  // Reports tab state
+export default function FundRedemptionPage() {
+  const [activeTab, setActiveTab] = useState<TabValue>("redemption");
   const [selectedReport, setSelectedReport] = useState<string>(REPORT_TYPES[0]);
   const [filterRegister, setFilterRegister] = useState("");
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Return Money Administration
-        </h1>
+        <h1 className="text-2xl font-bold tracking-tight">Fund Redemption</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Track and process refunds arising from over-subscription or rejected
-          applications from IPO / Public Offers, including agent commission
-          calculation.
+          Process unit redemption requests and manage approvals for fund
+          registers.
         </p>
       </div>
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab((v as TabValue) || "queue")}
+        onValueChange={(v) => setActiveTab((v as TabValue) || "redemption")}
         className="w-full"
       >
-        <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5 flex-wrap">
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
           {TABS.map((tab) => (
             <TabsTrigger
               key={tab}
@@ -77,16 +64,12 @@ export default function ReturnMoneyPage() {
         </TabsList>
 
         <div className="mt-6">
-          <TabsContent value="queue">
-            <ReturnMoneyQueue />
+          <TabsContent value="redemption">
+            <RedemptionRequest />
           </TabsContent>
 
-          <TabsContent value="batch">
-            <RefundBatchProcessing />
-          </TabsContent>
-
-          <TabsContent value="commission">
-            <AgentCommissionPanel />
+          <TabsContent value="approval">
+            <RedemptionApproval />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4">
@@ -115,29 +98,34 @@ export default function ReturnMoneyPage() {
 
             <Card className="mrpsl-card p-5">
               <div className="flex items-center gap-3 flex-wrap">
-                <div className="w-48">
-                <Select
-                  value={filterRegister}
-                  onValueChange={(v) => setFilterRegister(v ?? "")}
-                >
-                  <SelectTrigger className="mrpsl-input h-9 w-full">
-                    <SelectValue placeholder="All Registers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Registers</SelectItem>
-                    <SelectItem value="ACCESS">ACCESS</SelectItem>
-                    <SelectItem value="TRANSCORP">TRANSCORP</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="w-56">
+                  <Select
+                    value={filterRegister}
+                    onValueChange={(v) => setFilterRegister(v ?? "")}
+                  >
+                    <SelectTrigger className="mrpsl-input h-9 w-full">
+                      <SelectValue placeholder="All Fund Registers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Fund Registers</SelectItem>
+                      <SelectItem value="stanbic-dollar">
+                        Stanbic IBTC Dollar Fund
+                      </SelectItem>
+                      <SelectItem value="arm-discovery">
+                        ARM Discovery Balanced Fund
+                      </SelectItem>
+                      <SelectItem value="coronation-mm">
+                        Coronation Money Market Fund
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="flex-1" />
 
                 <Button
                   size="sm"
-                  onClick={() =>
-                    toast.info(`${selectedReport} report coming soon`)
-                  }
+                  onClick={() => toast.info(`${selectedReport} report coming soon`)}
                 >
                   <CalendarRange className="h-3.5 w-3.5 mr-1.5" />
                   Generate Report

@@ -81,7 +81,7 @@ const TABS = [
   "reports",
 ] as const;
 
-type TabValue = typeof TABS[number];
+type TabValue = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabValue, string> = {
   upload: "Subscription Data Upload",
@@ -100,7 +100,8 @@ export default function IPOPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("upload");
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
 
-  const selectedOffer = MOCK_PUBLIC_OFFERS.find((o) => o.id === selectedOfferId) ?? null;
+  const selectedOffer =
+    MOCK_PUBLIC_OFFERS.find((o) => o.id === selectedOfferId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -109,8 +110,8 @@ export default function IPOPage() {
           IPO / Public Offer Administration
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage subscriber lists, vetting, SEC clearance, allotment, and lodgement for
-          Initial Public Offers.
+          Manage subscriber lists, vetting, SEC clearance, allotment, and
+          lodgement for Initial Public Offers.
         </p>
       </div>
 
@@ -121,8 +122,11 @@ export default function IPOPage() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Active Offer</span>
           </div>
-          <div className="flex-1 min-w-[240px]">
-            <Select value={selectedOfferId} onValueChange={(v) => setSelectedOfferId(v ?? "")}>
+          <div className="flex-1 min-w-60">
+            <Select
+              value={selectedOfferId}
+              onValueChange={(v) => setSelectedOfferId(v ?? "")}
+            >
               <SelectTrigger className="mrpsl-input h-9 w-full max-w-sm">
                 <SelectValue placeholder="Select an offer to work with…" />
               </SelectTrigger>
@@ -143,13 +147,21 @@ export default function IPOPage() {
               </div>
               <div>
                 <span className="mrpsl-label mr-1">Price:</span>
-                <span className="font-mono font-semibold">₦{selectedOffer.offerPrice.toFixed(2)}</span>
+                <span className="font-mono font-semibold">
+                  ₦{selectedOffer.offerPrice.toFixed(2)}
+                </span>
               </div>
               <div>
                 <span className="mrpsl-label mr-1">Closing:</span>
-                <span>{selectedOffer.closingDate ? format(selectedOffer.closingDate, "dd MMM yyyy") : "—"}</span>
+                <span>
+                  {selectedOffer.closingDate
+                    ? format(selectedOffer.closingDate, "dd MMM yyyy")
+                    : "—"}
+                </span>
               </div>
-              <Badge className={`border-0 text-[11px] ${STATUS_COLORS[selectedOffer.status]}`}>
+              <Badge
+                className={`border-0 text-[11px] ${STATUS_COLORS[selectedOffer.status]}`}
+              >
                 {selectedOffer.status}
               </Badge>
             </div>
@@ -174,7 +186,7 @@ export default function IPOPage() {
               key={tab}
               value={tab}
               disabled={!selectedOffer && tab !== "upload"}
-              className="flex-none rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all disabled:pointer-events-none disabled:opacity-40"
+              className="flex-none rounded-lg px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all disabled:pointer-events-none disabled:opacity-40 cursor-pointer"
             >
               {TAB_LABELS[tab]}
             </TabsTrigger>
