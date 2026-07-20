@@ -21,9 +21,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, FileText, Loader2, Search } from "lucide-react";
+import { Eye, FileText, Loader2, RotateCcw, Search } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { useStore } from "@/lib/store";
+import { useRolePermission } from "@/hooks/usePermission";
 import { PaginationBar } from "../pagination-bar";
-import { useGetConsolidations } from "@/hooks/useAccountMaintenance";
+import {
+  useGetConsolidations,
+  useReverseConsolidation,
+} from "@/hooks/useAccountMaintenance";
 import { DataErrorState } from "../ipo/loaders";
 import { EntitlementTableSkeleton } from "../rights-issue/loaders";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -32,9 +39,17 @@ import { DateRange } from "react-day-picker";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { DateRangePicker } from "../date-range-picker";
 import { formatDate } from "@/lib/utils/format";
-import { Consolidation, ConsolidationAccount } from "@/types/account-maintenance";
+import {
+  Consolidation,
+  ConsolidationAccount,
+} from "@/types/account-maintenance";
 
 export default function History({ tab }: { tab: string }) {
+  const { currentUser } = useStore();
+  const canApprove = useRolePermission(
+    "account_maintenance.account_consolidation_approve.approve",
+  );
+
   const { data: activeRegisters, isLoading: isLoadingRegisters } =
     useGetRegisters({ size: 100, status: "ACTIVE" });
 
@@ -42,13 +57,19 @@ export default function History({ tab }: { tab: string }) {
   const [pageSize, setPageSize] = useState(20);
   const [register, setRegister] = useState("");
   const [status, setStatus] = useState<
-    "PENDING" | "APPROVED" | "REJECTED" | ""
+    "PENDING" | "APPROVED" | "REJECTED" | "REVERSED" | ""
   >("");
+  const [reversalTarget, setReversalTarget] = useState<Consolidation | null>(
+    null,
+  );
+  const [reversalReason, setReversalReason] = useState("");
   const [search, setSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const debouncedSearch = useDebounce(search, 500);
 
-  const [selectedRecord, setSelectedRecord] = useState<Consolidation | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<Consolidation | null>(
+    null,
+  );
 
   const { data, isLoading, isError, error, refetch } = useGetConsolidations(
     {
@@ -63,12 +84,40 @@ export default function History({ tab }: { tab: string }) {
     { enabled: tab === "history" },
   );
 
+  const reverseMutation = useReverseConsolidation();
+
   const filteredList = useMemo(() => {
     if (!data?.content) return [];
-    return data.content.filter(
-      (r) => r.status === "APPROVED" || r.status === "DECLINED",
-    );
+    const resolved = new Set([
+      "APPROVED",
+      "AUTHORISED",
+      "REJECTED",
+      "DECLINED",
+      "REVERSED",
+    ]);
+    return data.content.filter((r) => resolved.has(r.status));
   }, [data]);
+
+  function handleReverse() {
+    if (!reversalTarget || !currentUser) return;
+    reverseMutation.mutate(
+      {
+        id: reversalTarget.id,
+        data: { comment: reversalReason, authorisedBy: currentUser.email },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Consolidation reversed successfully");
+          setReversalTarget(null);
+          setReversalReason("");
+          refetch();
+        },
+        onError: (err) => {
+          toast.error(err.message || "Failed to reverse consolidation");
+        },
+      },
+    );
+  }
 
   const consolidations = filteredList;
   const totalPages = data?.pagination?.totalPages || 1;
@@ -81,7 +130,6 @@ export default function History({ tab }: { tab: string }) {
       {/* ── Filters ── */}
       <div className="flex gap-2 items-center flex-wrap mb-4 border p-5 rounded-xl">
         <div className="relative w-1/2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search CHN or holder…"
             className="pl-9 mrpsl-input w-full"
@@ -119,7 +167,8 @@ export default function History({ tab }: { tab: string }) {
             <SelectContent>
               <SelectItem value="">All Status</SelectItem>
               <SelectItem value="APPROVED">Approved</SelectItem>
-              <SelectItem value="DECLINED">Declined</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+              <SelectItem value="REVERSED">Reversed</SelectItem>
             </SelectContent>
           </Select>
 
@@ -156,12 +205,21 @@ export default function History({ tab }: { tab: string }) {
                   <th className="p-3 whitespace-nowrap">REASON</th>
                   <th className="p-3 text-center whitespace-nowrap">STATUS</th>
                   <th className="p-3 whitespace-nowrap">AUTHORISED BY</th>
+                  {canApprove && (
+                    <th className="p-3 whitespace-nowrap text-center">
+                      ACTIONS
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y text-[13px]">
                 {consolidations.length > 0 ? (
                   consolidations.map((row) => (
-                    <tr key={row.id} className="mrpsl-table-row cursor-pointer" onClick={() => setSelectedRecord(row)}>
+                    <tr
+                      key={row.id}
+                      className="mrpsl-table-row cursor-pointer"
+                      onClick={() => setSelectedRecord(row)}
+                    >
                       {/* Date */}
                       <td className="p-3 text-muted-foreground whitespace-nowrap">
                         {row.createdAt ? formatDate(row.createdAt) : "—"}
@@ -220,12 +278,12 @@ export default function History({ tab }: { tab: string }) {
 
                       {/* Reason */}
                       <td className="p-3 max-w-45">
-                        {row.comment ? (
+                        {(row.reason ?? row.comment) ? (
                           <span
-                            title={row.comment}
+                            title={row.reason ?? row.comment}
                             className="block truncate text-muted-foreground cursor-default"
                           >
-                            {row.comment}
+                            {row.reason ?? row.comment}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
@@ -239,16 +297,55 @@ export default function History({ tab }: { tab: string }) {
 
                       {/* Authorised by */}
                       <td className="p-3 text-muted-foreground whitespace-nowrap">
-                        {row.authorisedBy || (
-                          <span className="text-muted-foreground">—</span>
+                        {row.status === "REVERSED" ? (
+                          <span
+                            title={
+                              row.reversalComment
+                                ? `Reversal note: ${row.reversalComment}${row.reversedAt ? ` · ${formatDate(row.reversedAt)}` : ""}`
+                                : undefined
+                            }
+                            className="cursor-default"
+                          >
+                            {row.authorisedBy || "—"}
+                          </span>
+                        ) : (
+                          row.authorisedBy || (
+                            <span className="text-muted-foreground">—</span>
+                          )
                         )}
                       </td>
+
+                      {/* Actions */}
+                      {canApprove && (
+                        <td
+                          className="p-3 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {row.status === "APPROVED" ||
+                          row.status === "AUTHORISED" ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-amber-600 border-amber-300 hover:bg-amber-50 gap-1.5"
+                              onClick={() => {
+                                setReversalTarget(row);
+                                setReversalReason("");
+                              }}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              Reverse
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground/40">—</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={canApprove ? 10 : 9}
                       className="p-8 text-center text-muted-foreground"
                     >
                       No consolidations found
@@ -269,6 +366,65 @@ export default function History({ tab }: { tab: string }) {
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
       />
+
+      {/* Reversal confirmation dialog */}
+      <Dialog
+        open={!!reversalTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReversalTarget(null);
+            setReversalReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Reverse Consolidation #{reversalTarget?.id}
+            </DialogTitle>
+            <DialogDescription>
+              This action will reverse the approved consolidation. Please
+              provide a reason before proceeding.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 px-6">
+            <Textarea
+              placeholder="Enter reason for reversal…"
+              className="min-h-24 resize-none"
+              value={reversalReason}
+              onChange={(e) => setReversalReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReversalTarget(null);
+                setReversalReason("");
+              }}
+              disabled={reverseMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                reversalReason.trim() === "" || reverseMutation.isPending
+              }
+              onClick={handleReverse}
+            >
+              {reverseMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Reversing…
+                </>
+              ) : (
+                "Confirm Reversal"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConsolidationDetailModal
         record={selectedRecord}
@@ -320,6 +476,7 @@ const statusBadge = (status: string) => {
     AUTHORISED: "bg-green-100 text-green-800",
     REJECTED: "bg-red-100 text-red-700",
     DECLINED: "bg-red-100 text-red-700",
+    REVERSED: "bg-amber-100 text-amber-800",
   };
   return (
     <Badge
@@ -344,7 +501,12 @@ function DocPreviewDialog({
   onClose: () => void;
 }) {
   return (
-    <Dialog open={!!doc} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog
+      open={!!doc}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DialogContent className="max-w-3xl h-[85vh] p-0 gap-0 flex flex-col">
         <DialogHeader className="px-6 py-4 shrink-0 border-b">
           <DialogTitle className="text-base truncate pr-8">
@@ -352,8 +514,8 @@ function DocPreviewDialog({
           </DialogTitle>
         </DialogHeader>
         <div className="flex-1 min-h-0 overflow-hidden">
-          {doc && (
-            isPdf(doc.url) ? (
+          {doc &&
+            (isPdf(doc.url) ? (
               <iframe
                 src={doc.url}
                 title={doc.name}
@@ -369,8 +531,7 @@ function DocPreviewDialog({
                   className="object-contain p-4"
                 />
               </div>
-            )
-          )}
+            ))}
         </div>
       </DialogContent>
     </Dialog>
@@ -386,15 +547,24 @@ function ConsolidationDetailModal({
   record: Consolidation | null;
   onClose: () => void;
 }) {
-  const [previewDoc, setPreviewDoc] = useState<{ name: string; url: string } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
 
   if (!record) return null;
 
-  const sourceTotal = record.sourceAccounts?.reduce((s, a) => s + (a.holdings ?? 0), 0) ?? 0;
+  const sourceTotal =
+    record.sourceAccounts?.reduce((s, a) => s + (a.holdings ?? 0), 0) ?? 0;
 
   return (
     <>
-      <Dialog open={!!record} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <Dialog
+        open={!!record}
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+      >
         <DialogContent className="max-w-2xl h-[85vh] p-0 gap-0 flex flex-col">
           <DialogHeader className="px-8 pt-8 pb-4 shrink-0">
             <div className="flex items-center gap-3">
@@ -414,7 +584,9 @@ function ConsolidationDetailModal({
             <div className="grid grid-cols-3 gap-4 text-xs">
               <div>
                 <p className="text-muted-foreground mb-0.5">Register</p>
-                <p className="font-mono font-semibold text-primary">{record.registerId || "—"}</p>
+                <p className="font-mono font-semibold text-primary">
+                  {record.registerId || "—"}
+                </p>
               </div>
               <div>
                 <p className="text-muted-foreground mb-0.5">Submitted By</p>
@@ -434,26 +606,38 @@ function ConsolidationDetailModal({
               {record.sourceAccounts?.length > 0 ? (
                 <div className="divide-y rounded-lg border overflow-hidden">
                   {record.sourceAccounts.map((acc, i) => (
-                    <div key={i} className="flex items-center justify-between px-3 py-2.5 text-xs bg-muted/5">
+                    <div
+                      key={i}
+                      className="flex items-center justify-between px-3 py-2.5 text-xs bg-muted/5"
+                    >
                       <div className="min-w-0">
                         <p className="font-medium">{acc.holderName || "—"}</p>
-                        <p className="font-mono text-muted-foreground">{acc.accountNumber || "—"}</p>
+                        <p className="font-mono text-muted-foreground">
+                          {acc.accountNumber || "—"}
+                        </p>
                       </div>
                       <p className="font-mono font-semibold shrink-0 ml-4">
-                        {acc.holdings > 0
-                          ? acc.holdings.toLocaleString()
-                          : <span className="text-muted-foreground font-normal">—</span>
-                        }
+                        {acc.holdings > 0 ? (
+                          acc.holdings.toLocaleString()
+                        ) : (
+                          <span className="text-muted-foreground font-normal">
+                            —
+                          </span>
+                        )}
                       </p>
                     </div>
                   ))}
                   <div className="flex items-center justify-between px-3 py-2 bg-muted/20 text-xs font-semibold">
                     <span className="text-muted-foreground">Source total</span>
-                    <span className="font-mono">{sourceTotal.toLocaleString()}</span>
+                    <span className="font-mono">
+                      {sourceTotal.toLocaleString()}
+                    </span>
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">No source accounts recorded.</p>
+                <p className="text-xs text-muted-foreground">
+                  No source accounts recorded.
+                </p>
               )}
             </div>
 
@@ -463,68 +647,122 @@ function ConsolidationDetailModal({
                 Destination Account
               </p>
               <div className="rounded-lg border px-3 py-2.5 bg-primary/5 border-primary/20 text-xs space-y-0.5">
-                <p className="font-medium">{record.destinationAccount?.holderName || "—"}</p>
-                <p className="font-mono text-muted-foreground">{record.destinationAccount?.accountNumber || "—"}</p>
+                <p className="font-medium">
+                  {record.destinationAccount?.holderName || "—"}
+                </p>
+                <p className="font-mono text-muted-foreground">
+                  {record.destinationAccount?.accountNumber || "—"}
+                </p>
               </div>
             </div>
 
             {/* Combined total */}
             <div className="flex items-center justify-between rounded-lg border px-3 py-2.5 bg-muted/20 text-xs">
-              <span className="text-muted-foreground">Combined total holdings</span>
+              <span className="text-muted-foreground">
+                Combined total holdings
+              </span>
               <span className="font-bold font-mono text-primary text-base">
-                {record.totalHoldings > 0
-                  ? record.totalHoldings.toLocaleString()
-                  : <span className="text-muted-foreground font-normal text-sm">—</span>
-                }
+                {record.totalHoldings > 0 ? (
+                  record.totalHoldings.toLocaleString()
+                ) : (
+                  <span className="text-muted-foreground font-normal text-sm">
+                    —
+                  </span>
+                )}
               </span>
             </div>
 
             {/* Reason */}
             {record.comment && (
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5">Reason</p>
-                <p className="text-xs bg-muted/20 rounded-lg px-3 py-2.5 border leading-relaxed">{record.comment}</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-1.5">
+                  Reason
+                </p>
+                <p className="text-xs bg-muted/20 rounded-lg px-3 py-2.5 border leading-relaxed">
+                  {record.comment}
+                </p>
               </div>
             )}
 
             {/* Rejection comment */}
             {record.rejectionComment && (
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-destructive mb-1.5">Rejection Comment</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-destructive mb-1.5">
+                  Rejection Comment
+                </p>
                 <p className="text-xs bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2.5 leading-relaxed text-destructive">
                   {record.rejectionComment}
                 </p>
               </div>
             )}
 
-            {/* Supporting documents */}
-            {record.supportingDocuments && record.supportingDocuments.length > 0 && (
+            {/* Reversal info */}
+            {record.status === "REVERSED" && (
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">
-                  Supporting Documents ({record.supportingDocuments.length})
+                <p className="text-xs font-bold uppercase tracking-wide text-amber-700 mb-1.5">
+                  Reversal Information
                 </p>
-                <div className="space-y-2">
-                  {record.supportingDocuments.map((doc, i) => (
-                    <div key={i} className="flex items-center gap-3 rounded-lg border px-3 py-2.5 bg-muted/10">
-                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="flex-1 truncate text-xs font-mono">{doc.name || `Document ${i + 1}`}</span>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDoc(doc)}
-                        className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors cursor-pointer font-medium shrink-0"
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Preview
-                      </button>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-1.5 text-xs">
+                  {record.reversedAt && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">
+                        Reversed at:
+                      </span>
+                      <span className="font-medium">
+                        {formatDate(record.reversedAt)}
+                      </span>
                     </div>
-                  ))}
+                  )}
+                  {record.reversalComment && (
+                    <div>
+                      <span className="text-muted-foreground">
+                        Reversal note:
+                      </span>
+                      <p className="mt-0.5 leading-relaxed">
+                        {record.reversalComment}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
+
+            {/* Supporting documents */}
+            {record.supportingDocuments &&
+              record.supportingDocuments.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">
+                    Supporting Documents ({record.supportingDocuments.length})
+                  </p>
+                  <div className="space-y-2">
+                    {record.supportingDocuments.map((doc, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 rounded-lg border px-3 py-2.5 bg-muted/10"
+                      >
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="flex-1 truncate text-xs font-mono">
+                          {doc.name || `Document ${i + 1}`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewDoc(doc)}
+                          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors cursor-pointer font-medium shrink-0"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Preview
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
 
           <DialogFooter className="px-8 py-4 shrink-0 border-t">
-            <Button variant="outline" onClick={onClose}>Close</Button>
+            <Button variant="outline" onClick={onClose}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

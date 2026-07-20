@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   ChevronRight,
   LogOut,
+  Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useGetKycChanges } from "@/hooks/useAccountMaintenance";
+
+const KYC_APPROVALS_HREF = "/account-maintenance/kyc-approvals";
 
 const NAV_GROUPS = [
   {
@@ -56,6 +60,7 @@ const OPERATIONS_GROUPS = [
     title: "Offer Administration",
     icon: TrendingUp,
     items: [
+      { label: "Offer Setup", href: "/offers/offer-setup" },
       { label: "IPO / Public Offer", href: "/offers/ipo" },
       { label: "Rights Issue", href: "/offers/rights-issue" },
       { label: "Bonus Issue", href: "/offers/bonus-issue" },
@@ -72,6 +77,14 @@ const OPERATIONS_GROUPS = [
       { label: "Certificate Split", href: "/certificates/split" },
       { label: "Consolidation", href: "/certificates/consolidation" },
       { label: "Transfer", href: "/certificates/transfer" },
+    ],
+  },
+  {
+    title: "Fund Administration",
+    icon: Landmark,
+    items: [
+      { label: "Fund Subscription", href: "/funds/subscription" },
+      { label: "Fund Redemption", href: "/funds/redemption" },
     ],
   },
   {
@@ -97,7 +110,7 @@ const OPERATIONS_GROUPS = [
       },
       { label: "KYC Update", href: "/account-maintenance/kyc-update" },
       { label: "KYC Approvals", href: "/account-maintenance/kyc-approvals" },
-      { label: "Administration (ADMON)", href: "/account-maintenance/admon" },
+      { label: "Administration (ADMOR)", href: "/account-maintenance/admor" },
     ],
   },
   {
@@ -123,14 +136,18 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, setCurrentUser, pendingApprovals } = useStore();
+  const { currentUser, setCurrentUser, setUserPermissions, pendingApprovals } =
+    useStore();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     Setup: true,
     "Certificate Management": true,
   });
   const [logoutOpen, setLogoutOpen] = useState(false);
   const isFirstRender = useRef(true);
-
+  const { data: kycPendingRes } = useGetKycChanges(
+    { status: "PENDING", page: 0, pageSize: 1 },
+    { enabled: !!currentUser },
+  );
   useEffect(() => {
     [...NAV_GROUPS, ...OPERATIONS_GROUPS].forEach((group) => {
       if (group.items?.some((item) => pathname.startsWith(item.href))) {
@@ -152,17 +169,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const isSuperAdmin = currentUser?.roles?.includes("SUPER_ADMIN") ?? false;
 
-  const visibleNavGroups = [...NAV_GROUPS, ...OPERATIONS_GROUPS].map((group) => {
-    if (group.title === "Setup" && !isSuperAdmin) {
-      return {
-        ...group,
-        items: group.items.filter(
-          (item) => item.href !== "/setup/roles" && item.href !== "/setup/users",
-        ),
-      };
-    }
-    return group;
-  });
+  const visibleNavGroups = [...NAV_GROUPS, ...OPERATIONS_GROUPS].map(
+    (group) => {
+      if (group.title === "Setup" && !isSuperAdmin) {
+        return {
+          ...group,
+          items: group.items.filter(
+            (item) =>
+              item.href !== "/setup/roles" && item.href !== "/setup/users",
+          ),
+        };
+      }
+      return group;
+    },
+  );
 
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
@@ -170,12 +190,15 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setUserPermissions([]);
     router.push("/login");
   };
 
   const pendingCount = pendingApprovals.filter(
     (a) => a.status === "PENDING",
   ).length;
+
+  const kycApprovalsCount = kycPendingRes?.total ?? 0;
 
   return (
     <>
@@ -270,7 +293,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                   key={item.href}
                                   href={item.href}
                                   className={cn(
-                                    "flex items-center pl-10 pr-3 py-1.5 rounded-lg text-[13px] transition-colors relative whitespace-nowrap",
+                                    "flex items-center justify-between gap-2 pl-10 pr-3 py-1.5 rounded-lg text-[13px] transition-colors relative whitespace-nowrap",
                                     isActive
                                       ? "bg-primary/8 text-primary font-semibold"
                                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -279,7 +302,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                                   {isActive && (
                                     <div className="absolute left-7.5 w-0.5 h-3.5 bg-primary rounded-full" />
                                   )}
-                                  {item.label}
+                                  <span className="truncate">{item.label}</span>
+                                  {item.href === KYC_APPROVALS_HREF &&
+                                    kycApprovalsCount > 0 && (
+                                      <Badge
+                                        variant="destructive"
+                                        className="h-4.5 px-1.5 text-[11px] rounded-full shrink-0"
+                                      >
+                                        {kycApprovalsCount}
+                                      </Badge>
+                                    )}
                                 </Link>
                               );
                             },

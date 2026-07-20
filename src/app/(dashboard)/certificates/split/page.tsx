@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, Scissors, AlertCircle, X, Pencil, Loader2 } from "lucide-react";
+import { Check, Scissors, AlertCircle, X, Pencil, Loader2, Plus, History } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,6 +57,7 @@ type PendingSplit = {
   authorizerRole?: string;
   authorizedAt?: string;
   status: string;
+  comment?: string;
 };
 
 type SplitProp = {
@@ -81,10 +82,16 @@ type SplitProp = {
   certificateId: string;
 };
 
+const STATUS_BADGE: Record<string, string> = {
+  PENDING:  "bg-amber-100 text-amber-800",
+  APPROVED: "bg-green-100 text-green-800",
+  REJECTED: "bg-red-100 text-red-800",
+};
+
 export default function SplitPage() {
   const user = getUser();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("split");
+  const [activeTab, setActiveTab] = useState("history");
   const [activeCert, setActiveCert] = useState<SplitProp | null>(null);
   const [certFound, setCertFound] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -95,9 +102,7 @@ export default function SplitPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
   const [batchComment, setBatchComment] = useState("");
-  const [editingRejected, setEditingRejected] = useState<PendingSplit | null>(
-    null,
-  );
+  const [editingRejected, setEditingRejected] = useState<PendingSplit | null>(null);
   const [numParts, setNumParts] = useState("2");
   const [partUnits, setPartUnits] = useState(["", ""]);
   const [splitReason, setSplitReason] = useState("");
@@ -137,6 +142,7 @@ export default function SplitPage() {
       setSearchTerm(search);
       setActiveSearchTerm(search);
       setCertFound(true);
+      setActiveTab("split");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -147,6 +153,28 @@ export default function SplitPage() {
   });
 
   const splitslist = splitsData?.data?.content;
+
+  // All splits for the history tab
+  const allMappedSplits: PendingSplit[] = (splitslist || []).map((s: SplitProp) => ({
+    id: s.id,
+    date: s.submittedAt ? formatCustomDate(s.submittedAt) : "-",
+    origCert: s.sourceCertNumber || "-",
+    holder: s.holderName || "-",
+    account: s.accountNumber || "-",
+    register: s.registerId || "-",
+    registerSymbol: s.registerSymbol || "-",
+    totalUnits: s.totalUnits || 0,
+    parts: s.parts || 0,
+    partUnits: s.splits?.map((split: { units: number }) => split.units) || [],
+    partUnitsIds: s.splits?.map((p: { certNumber: string }) => p.certNumber) || [],
+    submittedBy: s.submittedBy || "-",
+    sourceCertId: s.sourceCertId,
+    authorizedBy: s.authorizedBy || "-",
+    authorizerRole: s.authorizerRole || "-",
+    authorizedAt: formatCustomDate(s.authorizedAt) || "-",
+    status: s.status || "-",
+    comment: s.reason || "",
+  }));
 
   const mappedSplits: PendingSplit[] = (splitslist || [])
     ?.filter((s: { status: string }) => s?.status !== "REJECTED")
@@ -161,40 +189,9 @@ export default function SplitPage() {
       totalUnits: s.totalUnits || 0,
       parts: s.parts || 0,
       partUnits: s.splits?.map((split: { units: number }) => split.units) || [],
-      partUnitsIds:
-        s.splits?.map(
-          (partNumber: { certNumber: string }) => partNumber.certNumber,
-        ) || [],
+      partUnitsIds: s.splits?.map((partNumber: { certNumber: string }) => partNumber.certNumber) || [],
       submittedBy: s.submittedBy || "-",
       sourceCertId: s.sourceCertId,
-      authoriserComment: s.authoriserComment || "-",
-      authorizedBy: s.authorizedBy || "-",
-      authorizerRole: s.authorizerRole || "-",
-      authorizedAt: formatCustomDate(s.authorizedAt) || "-",
-      status: s.status || "-",
-    }));
-
-  const mappedRejectedSplits = (splitslist || [])
-    ?.filter((s: { status: string }) => s?.status === "REJECTED")
-    .map((s: SplitProp) => ({
-      id: s.id,
-      sourceCertId: s.sourceCertId,
-      date: s.submittedAt ? formatCustomDate(s.submittedAt) : "-",
-      origCert: s.sourceCertNumber || "-",
-      holder: s.holderName || "-",
-      account: s.accountNumber || "-",
-      register: s.registerId || "-",
-      registerSymbol: s.registerSymbol || "-",
-      totalUnits: s.totalUnits || 0,
-      parts: s.parts || 0,
-      partUnits: s.splits?.map((split: { units: number }) => split.units) || [],
-      partUnitsIds:
-        s.splits?.map(
-          (partNumber: { certNumber: string }) => partNumber.certNumber,
-        ) || [],
-      submittedBy: s.submittedBy || "-",
-      comment: s.reason || "",
-      authoriserComment: s.authoriserComment || "-",
       authorizedBy: s.authorizedBy || "-",
       authorizerRole: s.authorizerRole || "-",
       authorizedAt: formatCustomDate(s.authorizedAt) || "-",
@@ -232,6 +229,7 @@ export default function SplitPage() {
       setLookUpDataState(null);
       setActiveSearchTerm("");
       setSearchTerm("");
+      setActiveTab("history");
     },
     onError: (error) => {
       toast.error(error.message || "Failed to submit split request");
@@ -241,9 +239,7 @@ export default function SplitPage() {
   const approveSplitMutation = useMutation({
     mutationFn: APPROVE_CERTIFICATE_SPLIT,
     onSuccess: (data) => {
-      toast.success(
-        data.data.message || "Split request approved successfully!",
-      );
+      toast.success(data.data.message || "Split request approved successfully!");
       queryClient.invalidateQueries({ queryKey: ["pending-splits"] });
       setReviewOpen(false);
       disableCertificateMutation.mutate({
@@ -259,9 +255,7 @@ export default function SplitPage() {
   const rejectSplitMutation = useMutation({
     mutationFn: REJECT_CERTIFICATE_SPLIT,
     onSuccess: (data) => {
-      toast.success(
-        data.data.message || "Split request rejected successfully!",
-      );
+      toast.success(data.data.message || "Split request rejected successfully!");
       queryClient.invalidateQueries({ queryKey: ["pending-splits"] });
       setReviewOpen(false);
     },
@@ -273,9 +267,7 @@ export default function SplitPage() {
   const batchApproveMutation = useMutation({
     mutationFn: BATCH_CERTIFICATE_SPLIT_DECISION,
     onSuccess: (data) => {
-      toast.success(
-        data.data.message || "Split request approved successfully!",
-      );
+      toast.success(data.data.message || "Split request approved successfully!");
       queryClient.invalidateQueries({ queryKey: ["pending-splits"] });
       setReviewOpen(false);
     },
@@ -382,12 +374,45 @@ export default function SplitPage() {
     setBatchRejectOpen(false);
   }
 
+  // Navigate to New Split tab pre-filled with rejected split data
+  function handleEditFromHistory(split: PendingSplit) {
+    setActiveCert({
+      id: split.id,
+      sourceCertId: split.sourceCertId,
+      certificateId: split.sourceCertId || split.id,
+      registerSymbol: split.registerSymbol,
+      status: split.status,
+      submittedAt: split.date,
+      sourceCertNumber: split.origCert,
+      holderName: split.holder,
+      accountNumber: split.account,
+      registerId: split.register,
+      totalUnits: split.totalUnits,
+      parts: split.parts,
+      submittedBy: split.submittedBy,
+      splits: split.partUnits.map((u, i) => ({
+        units: u,
+        certNumber: split.partUnitsIds?.[i] || "",
+      })),
+      authorizedBy: split.authorizedBy,
+      authorizerRole: split.authorizerRole,
+      authorizedAt: split.authorizedAt,
+    });
+    setEditingRejected(split);
+    setCertFound(true);
+    setNumParts(String(split.parts));
+    setPartUnits(split.partUnits.map(String));
+    setSplitReason("");
+    setActiveTab("split");
+  }
+
   const pendingSplits = mappedSplits.filter(
     (row) => row.status === "PENDING" && !rejectedIds.has(row.id),
   );
   const approvedSplits = mappedSplits.filter(
     (row) => row.status === "APPROVED",
   );
+  const allSplitsPg = usePagination(allMappedSplits);
   const splitPg = usePagination(pendingSplits);
   const approvedPg = usePagination(approvedSplits);
   const visibleSplitIds = splitPg.paged.map((r) => r.id);
@@ -410,10 +435,16 @@ export default function SplitPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v || "split")}
+        onValueChange={(v) => setActiveTab(v || "history")}
         className="w-full"
       >
         <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
+          <TabsTrigger
+            value="history"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            All Certificate Splits
+          </TabsTrigger>
           <TabsTrigger
             value="split"
             className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
@@ -435,83 +466,146 @@ export default function SplitPage() {
         </TabsList>
 
         <div className="mt-6">
-          <TabsContent value="split" className="space-y-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              {mappedRejectedSplits?.length > 0 &&
-                mappedRejectedSplits?.map((split: any) => {
-                  const isEditingThis = editingRejected?.id === split.id;
 
-                  const handleEditRejected = () => {
-                    setActiveCert(split);
-                    setEditingRejected(split);
-                    setCertFound(true);
-                    setNumParts(String(split.parts));
-                    setPartUnits(split.partUnits.map(String));
-                    setSplitReason("");
-                  };
+          {/* ── All Certificate Splits (history) ── */}
+          <TabsContent value="history" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Full history of all certificate split requests across all statuses.
+                </p>
+              </div>
+              <Button
+                className="gap-1.5"
+                onClick={() => {
+                  setEditingRejected(null);
+                  setActiveCert(null);
+                  setCertFound(false);
+                  setPartUnits(["", ""]);
+                  setNumParts("2");
+                  setSplitReason("");
+                  setActiveTab("split");
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                New Certificate Split
+              </Button>
+            </div>
 
-                  return (
-                    <Card
-                      key={split.id}
-                      onClick={handleEditRejected}
-                      className={`mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer transition-shadow ${isEditingThis
-                          ? "ring-2 ring-red-400 shadow-md"
-                          : "hover:shadow-md"
-                        }`}
+            <Card className="mrpsl-card overflow-hidden">
+              <table className="w-full text-left text-sm">
+                <thead className="mrpsl-table-header">
+                  <tr>
+                    <th className="p-3">DATE</th>
+                    <th className="p-3">ORIGINAL CERT</th>
+                    <th className="p-3">HOLDER</th>
+                    <th className="p-3">ACCOUNT</th>
+                    <th className="p-3 text-right">TOTAL UNITS</th>
+                    <th className="p-3">PARTS</th>
+                    <th className="p-3">SUBMITTED BY</th>
+                    <th className="p-3">STATUS</th>
+                    <th className="p-3 text-right">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-[13px]">
+                  {allSplitsPg.paged.map((row) => (
+                    <tr
+                      key={row.id}
+                      className={`mrpsl-table-row ${row.status === "REJECTED" ? "bg-red-50/30" : ""}`}
                     >
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                        <div className="flex-1 space-y-1">
-                          <div className="font-semibold text-sm text-red-800">
-                            Request Rejected
-                            {isEditingThis && (
-                              <span className="ml-2 text-xs font-normal bg-red-200 text-red-800 px-1.5 py-0.5 rounded">
-                                Editing
-                              </span>
+                      <td className="p-3 text-muted-foreground whitespace-nowrap">{row.date}</td>
+                      <td className="p-3 font-mono whitespace-nowrap">{row.origCert}</td>
+                      <td className="p-3 font-medium whitespace-nowrap">{row.holder}</td>
+                      <td className="p-3 font-mono text-muted-foreground whitespace-nowrap">{row.account}</td>
+                      <td className="p-3 text-right tabular-nums font-semibold whitespace-nowrap">
+                        {row.totalUnits.toLocaleString()}
+                      </td>
+                      <td className="p-3 whitespace-nowrap">
+                        <Badge className="bg-blue-100 text-blue-800 border-0 text-[12px]">
+                          {row.parts} parts
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-muted-foreground whitespace-nowrap">{row.submittedBy}</td>
+                      <td className="p-3 whitespace-nowrap">
+                        <Badge
+                          className={`border-0 text-[12px] ${STATUS_BADGE[row.status] ?? "bg-gray-100 text-gray-700"}`}
+                        >
+                          {row.status === "PENDING" ? "Pending Approval" : row.status === "APPROVED" ? "Approved" : "Rejected"}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-right whitespace-nowrap">
+                        {row.status === "REJECTED" ? (
+                          <div className="flex flex-col items-end gap-1.5">
+                            {row.comment && (
+                              <p className="text-[11px] text-red-600 max-w-45 text-right leading-tight">
+                                {row.comment}
+                              </p>
                             )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-300 text-red-700 hover:bg-red-50 gap-1.5"
+                              onClick={() => handleEditFromHistory(row)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit Certificate Split
+                            </Button>
                           </div>
-                          <div className="text-[13px] text-red-700">
-                            <span className="font-mono">{split.origCert}</span>
-                            {split.comment && (
-                              <span className="ml-2 text-red-600/80">
-                                — {split.comment}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        ) : (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="border-red-300 text-red-700 hover:bg-red-100 gap-1.5"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditRejected();
-                            }}
+                            onClick={() => openReview(row)}
                           >
-                            <Pencil className="h-3.5 w-3.5" /> Edit &amp;
-                            Resubmit
+                            View
                           </Button>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-            </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {allSplitsPg.total === 0 && (
+                    <tr>
+                      <td colSpan={9} className="p-14 text-center text-muted-foreground">
+                        <History className="h-8 w-8 mx-auto mb-3 opacity-20" />
+                        No certificate split requests yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </Card>
+            <TablePagination
+              page={allSplitsPg.page}
+              pageSize={allSplitsPg.pageSize}
+              totalPages={allSplitsPg.totalPages}
+              from={allSplitsPg.from}
+              to={allSplitsPg.to}
+              total={allSplitsPg.total}
+              onPageChange={allSplitsPg.setPage}
+              onPageSizeChange={allSplitsPg.setPageSize}
+            />
+          </TabsContent>
+
+          {/* ── New Split ── */}
+          <TabsContent value="split" className="space-y-4">
             {editingRejected && (
               <Card className="mrpsl-card p-3 border-l-4 border-l-amber-400 bg-amber-50/60 border-amber-200 flex items-center gap-3">
                 <Pencil className="h-4 w-4 text-amber-600 shrink-0" />
                 <p className="text-[13px] text-amber-800 font-medium flex-1">
                   Editing rejected request for{" "}
-                  <span className="font-semibold">
-                    {editingRejected.origCert}
-                  </span>{" "}
-                  — make your changes below and resubmit.
+                  <span className="font-semibold">{editingRejected.origCert}</span>
+                  {editingRejected.comment && (
+                    <span className="ml-1 font-normal text-amber-700">
+                      — Rejection reason: &ldquo;{editingRejected.comment}&rdquo;
+                    </span>
+                  )}
+                  . Make your changes below and resubmit.
                 </p>
                 <button
                   onClick={() => {
                     setEditingRejected(null);
                     setCertFound(false);
+                    setActiveCert(null);
                   }}
                   className="text-amber-500 hover:text-amber-700"
                 >
@@ -539,7 +633,7 @@ export default function SplitPage() {
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </div>
                   ) : lookUpDataState?.length > 0 ? (
-                    <div className="mt-4 pt-4 border-t animate-in fade-in space-y-4 max-h-[400px] overflow-y-auto">
+                    <div className="mt-4 pt-4 border-t animate-in fade-in space-y-4 max-h-100 overflow-y-auto">
                       {lookUpDataState?.map((item: any) => (
                         <div
                           key={item.id}
@@ -685,6 +779,7 @@ export default function SplitPage() {
             </div>
           </TabsContent>
 
+          {/* ── Pending Approvals ── */}
           <TabsContent value="auth" className="space-y-4">
             {selectedIds.size > 0 && (
               <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-xl">
@@ -801,6 +896,7 @@ export default function SplitPage() {
             />
           </TabsContent>
 
+          {/* ── Approved ── */}
           <TabsContent value="approved" className="space-y-4">
             <Card className="mrpsl-card overflow-hidden">
               <table className="w-full text-left text-sm">
@@ -870,6 +966,7 @@ export default function SplitPage() {
         </div>
       </Tabs>
 
+      {/* ── Review dialog ── */}
       <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -974,11 +1071,6 @@ export default function SplitPage() {
                         done: selected.authorizedBy !== "-" ? true : false,
                         time: selected.authorizedAt,
                       },
-                      // {
-                      //   label: "ICU Final Review — Approved",
-                      //   done: true,
-                      //   time: selected.date + ", 14:00",
-                      // },
                     ])().map(
                       (step, i) =>
                         step.done && (
@@ -1049,6 +1141,7 @@ export default function SplitPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Batch reject dialog ── */}
       <Dialog open={batchRejectOpen} onOpenChange={setBatchRejectOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>

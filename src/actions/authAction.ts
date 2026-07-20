@@ -1,3 +1,4 @@
+import { GET_USER_BY_ID } from "@/actions/userAction";
 // "use server";
 
 import api from "@/services/api";

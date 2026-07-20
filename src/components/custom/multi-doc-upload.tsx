@@ -1,15 +1,14 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import {
   FileText,
   X,
   CheckCircle2,
   Loader2,
-  ExternalLink,
+  Eye,
   Plus,
   Upload,
-  ImageIcon,
   FileIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +17,7 @@ import { GetPDFUrl } from "@/lib/utils/get-file-url";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { DocumentViewer } from "@/components/custom/document-viewer";
 
 interface DocEntry {
   id: string;
@@ -33,6 +33,8 @@ interface MultiDocUploadProps {
   fileTypes?: string[];
   maxSizeMB?: number;
   folderName?: string;
+  title?: string;
+  subtitle?: string;
 }
 
 const FILE_TYPES = ["PDF", "JPG", "PNG"];
@@ -41,7 +43,13 @@ const ACCEPT = FILE_TYPES.map((t) => FILE_TYPE_ACCEPT[t] ?? "")
   .join(",");
 
 function newEntry(): DocEntry {
-  return { id: crypto.randomUUID(), name: "", file: null, url: "", status: "idle" };
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    file: null,
+    url: "",
+    status: "idle",
+  };
 }
 
 function isImage(file: File) {
@@ -50,43 +58,63 @@ function isImage(file: File) {
 
 export function MultiDocUpload({
   onChange,
-  fileTypes = FILE_TYPES,
-  maxSizeMB = 10,
+  maxSizeMB = 30,
   folderName = "kyc",
+  title = "Supporting Documents",
+  subtitle = "PDF, JPG or PNG ",
 }: MultiDocUploadProps) {
   const [entries, setEntries] = useState<DocEntry[]>([newEntry()]);
 
-  const notify = useCallback(
-    (updated: DocEntry[]) => {
-      onChange(
-        updated
-          .filter((e) => e.status === "done" && e.url)
-          .map((e) => ({ name: e.name || e.file?.name || "Document", url: e.url })),
-      );
-    },
-    [onChange],
-  );
+  // `onChange` is a fresh inline function on every parent render — read the
+  // latest one via a ref so the effect below only re-fires when `entries`
+  // itself actually changes, not whenever the parent re-renders.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+
+  // Report the current set of successfully uploaded documents to the parent
+  // *after* render, once `entries` settles — never synchronously inside a
+  // setEntries updater, which would update the parent while this component
+  // is still mid-render ("Cannot update a component while rendering a
+  // different component").
+  useEffect(() => {
+    onChangeRef.current(
+      entries
+        .filter((e) => e.status === "done" && e.url)
+        .map((e) => ({
+          name: e.name || e.file?.name || "Document",
+          url: e.url,
+        })),
+    );
+  }, [entries]);
 
   const update = useCallback(
     (id: string, patch: Partial<DocEntry>, updatedList?: DocEntry[]) => {
-      setEntries((prev) => {
-        const next = (updatedList ?? prev).map((e) =>
+      setEntries((prev) =>
+        (updatedList ?? prev).map((e) =>
           e.id === id ? { ...e, ...patch } : e,
-        );
-        notify(next);
-        return next;
-      });
+        ),
+      );
     },
-    [notify],
+    [],
   );
 
   const handleFile = useCallback(
     async (id: string, file: File, currentEntries: DocEntry[]) => {
       if (file.size > maxSizeMB * 1024 * 1024) {
-        update(id, { status: "error", errorMsg: `File too large — max ${maxSizeMB} MB` }, currentEntries);
+        update(
+          id,
+          { status: "error", errorMsg: `File too large — max ${maxSizeMB} MB` },
+          currentEntries,
+        );
         return;
       }
-      update(id, { file, status: "uploading", errorMsg: undefined }, currentEntries);
+      update(
+        id,
+        { file, status: "uploading", errorMsg: undefined },
+        currentEntries,
+      );
 
       try {
         const mimeType = file.type.toLowerCase();
@@ -95,31 +123,42 @@ export function MultiDocUpload({
 
         if (mimeType === "application/pdf" || ext === "pdf") {
           response = await GetPDFUrl(file, folderName);
-        } else if (["image/jpeg", "image/png", "image/jpg"].includes(mimeType) || ["jpeg", "png", "jpg"].includes(ext)) {
+        } else if (
+          ["image/jpeg", "image/png", "image/jpg"].includes(mimeType) ||
+          ["jpeg", "png", "jpg"].includes(ext)
+        ) {
           response = await GetImageUrl(file, folderName);
         } else {
-          update(id, { status: "error", errorMsg: "Unsupported format — use PDF, PNG or JPG", file: null });
+          update(id, {
+            status: "error",
+            errorMsg: "Unsupported format — use PDF, PNG or JPG",
+            file: null,
+          });
           return;
         }
 
         if (response?.type === "success") {
           update(id, { url: response.result as string, status: "done" });
         } else {
-          update(id, { status: "error", errorMsg: (response?.result as string) || "Upload failed", file: null });
+          update(id, {
+            status: "error",
+            errorMsg: "Upload failed",
+            file: null,
+          });
         }
-      } catch (err: any) {
-        update(id, { status: "error", errorMsg: err.message || "Upload failed", file: null });
+      } catch {
+        update(id, {
+          status: "error",
+          errorMsg: "Upload failed",
+          file: null,
+        });
       }
     },
     [maxSizeMB, folderName, update],
   );
 
   const removeEntry = (id: string) => {
-    setEntries((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      notify(next);
-      return next;
-    });
+    setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
   const addEntry = () => setEntries((prev) => [...prev, newEntry()]);
@@ -127,12 +166,16 @@ export function MultiDocUpload({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-          Supporting Documents
-        </span>
-        <span className="text-[10px] text-muted-foreground/60">
-          PDF, JPG, PNG · Max {maxSizeMB} MB each
-        </span>
+        {title && (
+          <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            {title}
+          </span>
+        )}
+        {subtitle && (
+          <span className="text-[10px] text-muted-foreground/60">
+            {subtitle} (max {maxSizeMB} MB each)
+          </span>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -144,7 +187,14 @@ export function MultiDocUpload({
             onNameChange={(name) => update(entry.id, { name })}
             onFile={(file) => handleFile(entry.id, file, entries)}
             onRemove={() => removeEntry(entry.id)}
-            onClear={() => update(entry.id, { file: null, url: "", status: "idle", errorMsg: undefined })}
+            onClear={() =>
+              update(entry.id, {
+                file: null,
+                url: "",
+                status: "idle",
+                errorMsg: undefined,
+              })
+            }
           />
         ))}
       </div>
@@ -172,7 +222,14 @@ interface DocRowProps {
   onClear: () => void;
 }
 
-function DocRow({ entry, accept, onNameChange, onFile, onRemove, onClear }: DocRowProps) {
+function DocRow({
+  entry,
+  accept,
+  onNameChange,
+  onFile,
+  onRemove,
+  onClear,
+}: DocRowProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -205,7 +262,9 @@ function DocRow({ entry, accept, onNameChange, onFile, onRemove, onClear }: DocR
         {entry.status === "uploading" ? (
           <div className="flex items-center gap-2.5 px-3 py-2.5 border border-primary/20 bg-primary/5 rounded-lg">
             <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
-            <p className="text-xs text-primary truncate">Uploading {entry.file?.name}…</p>
+            <p className="text-xs text-primary truncate">
+              Uploading {entry.file?.name}…
+            </p>
           </div>
         ) : (
           <>
@@ -224,7 +283,10 @@ function DocRow({ entry, accept, onNameChange, onFile, onRemove, onClear }: DocR
               tabIndex={0}
               onClick={() => inputRef.current?.click()}
               onKeyDown={(e) => e.key === "Enter" && inputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
               onDragLeave={() => setDragging(false)}
               onDrop={(e) => {
                 e.preventDefault();
@@ -234,23 +296,38 @@ function DocRow({ entry, accept, onNameChange, onFile, onRemove, onClear }: DocR
               }}
               className={cn(
                 "border-2 border-dashed rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer transition-colors group",
-                dragging ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/50 hover:bg-primary/5",
-                entry.status === "error" && "border-destructive/40 bg-destructive/5",
+                dragging
+                  ? "border-primary bg-primary/5"
+                  : "border-border/60 hover:border-primary/50 hover:bg-primary/5",
+                entry.status === "error" &&
+                  "border-destructive/40 bg-destructive/5",
               )}
             >
-              <Upload className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                entry.status === "error" ? "text-destructive" : "text-muted-foreground group-hover:text-primary",
-              )} />
+              <Upload
+                className={cn(
+                  "h-4 w-4 shrink-0 transition-colors",
+                  entry.status === "error"
+                    ? "text-destructive"
+                    : "text-muted-foreground group-hover:text-primary",
+                )}
+              />
               <div className="flex-1 min-w-0">
-                <p className={cn(
-                  "text-[12px] font-medium transition-colors",
-                  entry.status === "error" ? "text-destructive" : "text-muted-foreground group-hover:text-primary",
-                )}>
-                  {entry.status === "error" ? entry.errorMsg : "Click or drag to upload"}
+                <p
+                  className={cn(
+                    "text-[12px] font-medium transition-colors",
+                    entry.status === "error"
+                      ? "text-destructive"
+                      : "text-muted-foreground group-hover:text-primary",
+                  )}
+                >
+                  {entry.status === "error"
+                    ? entry.errorMsg
+                    : "Click or drag to upload"}
                 </p>
                 {entry.status !== "error" && (
-                  <p className="text-[10px] text-muted-foreground/50">PDF, JPG, PNG</p>
+                  <p className="text-[10px] text-muted-foreground/50">
+                    PDF, JPG, PNG
+                  </p>
                 )}
               </div>
             </div>
@@ -261,8 +338,16 @@ function DocRow({ entry, accept, onNameChange, onFile, onRemove, onClear }: DocR
   );
 }
 
-function DocThumbnail({ entry, onRemove }: { entry: DocEntry; onRemove: () => void }) {
-  const isPdf = entry.file?.type === "application/pdf" || entry.file?.name.endsWith(".pdf");
+function DocThumbnail({
+  entry,
+  onRemove,
+}: {
+  entry: DocEntry;
+  onRemove: () => void;
+}) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const isPdf =
+    entry.file?.type === "application/pdf" || entry.file?.name.endsWith(".pdf");
   const isImg = entry.file ? isImage(entry.file) : false;
   const sizeMB = entry.file ? (entry.file.size / 1024 / 1024).toFixed(2) : null;
 
@@ -271,7 +356,11 @@ function DocThumbnail({ entry, onRemove }: { entry: DocEntry; onRemove: () => vo
       {/* Thumbnail area */}
       <div className="shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-green-200 bg-white flex items-center justify-center">
         {isImg && entry.url ? (
-          <img src={entry.url} alt={entry.name} className="w-full h-full object-cover" />
+          <img
+            src={entry.url}
+            alt={entry.name}
+            className="w-full h-full object-cover"
+          />
         ) : isPdf ? (
           <div className="w-full h-full bg-red-50 flex items-center justify-center">
             <FileText className="h-5 w-5 text-red-500" />
@@ -291,7 +380,9 @@ function DocThumbnail({ entry, onRemove }: { entry: DocEntry; onRemove: () => vo
             {entry.name || entry.file?.name}
           </p>
         </div>
-        <p className="text-[11px] text-green-700/70 truncate mt-0.5">{entry.file?.name}</p>
+        <p className="text-[11px] text-green-700/70 truncate mt-0.5">
+          {entry.file?.name}
+        </p>
         {sizeMB && (
           <p className="text-[10px] text-green-600/60 mt-0.5">{sizeMB} MB</p>
         )}
@@ -308,17 +399,26 @@ function DocThumbnail({ entry, onRemove }: { entry: DocEntry; onRemove: () => vo
           <X className="h-3.5 w-3.5" />
         </button>
         {entry.url && (
-          <a
-            href={entry.url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
             className="flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100"
           >
-            <ExternalLink className="h-3 w-3" />
+            <Eye className="h-3 w-3" />
             Preview
-          </a>
+          </button>
         )}
       </div>
+
+      {entry.url && (
+        <DocumentViewer
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          documents={[
+            { name: entry.name || entry.file?.name || "Document", url: entry.url },
+          ]}
+        />
+      )}
     </div>
   );
 }

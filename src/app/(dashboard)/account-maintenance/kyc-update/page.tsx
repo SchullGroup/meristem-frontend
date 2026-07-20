@@ -25,15 +25,19 @@ import {
 } from "@/hooks/useAccountMaintenance";
 import { Agent, GET_AGENTS } from "@/actions/agentAction";
 import { useQuery } from "@tanstack/react-query";
-import { KYCBulkUpload } from "@/components/custom/account-maintenance/kyc-bulk-upload";
-import KYCHistory from "@/components/custom/account-maintenance/kyc-update-history";
-import { KycPersonalInfoTab } from "@/components/custom/account-maintenance/kyc-personal-info-tab";
-import { KycContactInfoTab } from "@/components/custom/account-maintenance/kyc-contact-info-tab";
-import { KycBankDetailsTab } from "@/components/custom/account-maintenance/kyc-bank-details-tab";
-import { KycDocumentsTab } from "@/components/custom/account-maintenance/kyc-documents-tab";
+import { KYCBulkUpload } from "@/components/custom/account-maintenance/kyc/kyc-bulk-upload";
+import { NibssBulkUpload } from "@/components/custom/account-maintenance/kyc/nibss-bulk-upload";
+import { KycChangesHistory } from "@/components/custom/account-maintenance/kyc/kyc-changes-history";
+import KYCHistory from "@/components/custom/account-maintenance/kyc/kyc-update-history";
+import { KycPersonalInfoTab } from "@/components/custom/account-maintenance/kyc/kyc-personal-info-tab";
+import { KycContactInfoTab } from "@/components/custom/account-maintenance/kyc/kyc-contact-info-tab";
+import { KycBankDetailsTab } from "@/components/custom/account-maintenance/kyc/kyc-bank-details-tab";
+import { KycDocumentsTab } from "@/components/custom/account-maintenance/kyc/kyc-documents-tab";
+import { CautionAccountButton } from "@/components/custom/account-maintenance/kyc/caution-account-button";
 import { useDebounce } from "@/hooks/useDebounce";
 import StatusBadge from "@/components/custom/status-badge";
 import { formatDate } from "@/lib/utils/format";
+import { cn } from "@/lib/utils";
 import { fullName, getInitials } from "@/lib/utils/shareholder";
 
 export default function KYCUpdatePage() {
@@ -47,15 +51,13 @@ export default function KYCUpdatePage() {
     });
 
   // ── UI state ──
-  const [mode, setMode] = useState<"single" | "bulk">("single");
+  const [mode, setMode] = useState<"single" | "bulk" | "history">("single");
+  const [bulkType, setBulkType] = useState<"standard" | "nibss">("standard");
   const [innerTab, setInnerTab] = useState("personal");
   const [selectedRegister, setSelectedRegister] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedShareholder, setSelectedShareholder] =
     useState<ShareholderAccount | null>(null);
-  const [supportingDocs, setSupportingDocs] = useState<
-    { name: string; url: string }[]
-  >([]);
 
   // ── Account search ──
   const debouncedSearch = useDebounce(searchTerm, 500);
@@ -95,6 +97,7 @@ export default function KYCUpdatePage() {
     field: string,
     newValue: string,
     reason: string,
+    evidence: { name: string; url: string }[],
   ) => {
     if (!currentUser) return;
     try {
@@ -103,9 +106,7 @@ export default function KYCUpdatePage() {
         data: {
           changeType,
           changes: [{ field, newValue }],
-          supportingDocuments: supportingDocs.length
-            ? supportingDocs
-            : undefined,
+          supportingDocuments: evidence.length ? evidence : undefined,
           initiatedBy: currentUser.email,
           reason,
         },
@@ -116,7 +117,7 @@ export default function KYCUpdatePage() {
       toast.error(
         err instanceof Error ? err.message : "Failed to submit change",
       );
-      throw err; // Re-throw so the EditableField knows it failed
+      throw err;
     }
   };
 
@@ -170,6 +171,13 @@ export default function KYCUpdatePage() {
             onClick={() => setMode("bulk")}
           >
             Bulk Upload
+          </Button>
+          <Button
+            variant={mode === "history" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setMode("history")}
+          >
+            History
           </Button>
         </div>
 
@@ -240,6 +248,10 @@ export default function KYCUpdatePage() {
                     {selectedShareholder.accountNumber}
                   </Badge>
                   <StatusBadge status={selectedShareholder?.status} />
+                  <CautionAccountButton
+                    selectedShareholder={selectedShareholder}
+                    onFieldSubmit={handleFieldSubmit}
+                  />
                 </div>
                 <div className="flex gap-4 mt-2 flex-wrap text-[13px]">
                   <div>
@@ -324,7 +336,6 @@ export default function KYCUpdatePage() {
                   pendingChanges={pendingChanges}
                   isSubmitting={createKycMutation.isPending}
                   onFieldSubmit={handleFieldSubmit}
-                  onSupportingDocsChange={setSupportingDocs}
                 />
               </TabsContent>
 
@@ -353,6 +364,9 @@ export default function KYCUpdatePage() {
                   registerSymbol={selectedShareholder.registerSymbol}
                   holderName={fullName(selectedShareholder)}
                   currentUserEmail={currentUser?.email ?? ""}
+                  onFieldSubmit={handleFieldSubmit}
+                  isSubmitting={createKycMutation.isPending}
+                  accountNumber={selectedShareholder.accountNumber}
                 />
               </TabsContent>
 
@@ -378,7 +392,40 @@ export default function KYCUpdatePage() {
       )}
 
       {/* ── Bulk upload ── */}
-      {mode === "bulk" && <KYCBulkUpload registerId={selectedRegister} />}
+      {mode === "bulk" && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+            {(
+              [
+                { value: "standard", label: "Standard KYC" },
+                { value: "nibss", label: "NIBSS Live Mandate" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setBulkType(opt.value)}
+                className={cn(
+                  "px-4 py-1.5 rounded-md text-[13px] font-medium transition-colors",
+                  bulkType === opt.value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {bulkType === "standard" ? (
+            <KYCBulkUpload onViewChanges={() => setMode("history")} />
+          ) : (
+            <NibssBulkUpload onViewChanges={() => setMode("history")} />
+          )}
+        </div>
+      )}
+
+      {/* ── History ── */}
+      {mode === "history" && <KycChangesHistory />}
     </div>
   );
 }

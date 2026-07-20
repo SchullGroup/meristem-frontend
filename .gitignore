@@ -41,3 +41,4 @@ yarn-error.log*
 next-env.d.ts
 
 backend_changes.md
+docs/api.json

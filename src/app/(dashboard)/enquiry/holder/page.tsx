@@ -57,9 +57,29 @@ import {
 import type {
   Shareholder,
   Certificate,
+  CertificateMovementType,
   HolderStatement,
   DividendStatement,
 } from "@/types/enquiry";
+import {
+  printStatementOfAccount,
+  printDividendStatement,
+  printSignatureOnFile,
+  REGISTRAR_NAME,
+  REGISTRAR_ADDRESS,
+  BRAND_COLOR,
+} from "@/lib/utils/printEnquiryDocuments";
+import { buildMockCertificateMovements } from "@/lib/utils/mockCertificateMovements";
+
+const MOVEMENT_BADGE_CLASS: Record<CertificateMovementType, string> = {
+  ISSUANCE: "bg-blue-100 text-blue-800",
+  TRANSFER: "bg-purple-100 text-purple-800",
+  LODGEMENT: "bg-amber-100 text-amber-800",
+  WITHDRAWAL: "bg-gray-100 text-gray-700",
+  DEMATERIALISATION: "bg-teal-100 text-teal-800",
+  CONSOLIDATION: "bg-indigo-100 text-indigo-800",
+  SPLIT: "bg-orange-100 text-orange-800",
+};
 
 function InlineDatePicker({
   date,
@@ -207,7 +227,7 @@ export default function HolderEnquiryPage() {
   });
   const transfers = trnData?.content ?? [];
 
-  // Admon tab
+  // ADMOR tab
   const admPg = useServerPagination();
   const { data: admData, isLoading: isAdmLoading } = useQuery({
     queryKey: ["holderAdmon", holderId, admPg.page, admPg.pageSize],
@@ -284,6 +304,10 @@ export default function HolderEnquiryPage() {
   const [printCert, setPrintCert] = useState<Certificate | null>(null);
   const [certViewOnly, setCertViewOnly] = useState(false);
   const certPrintRef = useRef<HTMLDivElement>(null);
+  // Placeholder history until ENQ-BE-06 ships a real movements[] endpoint
+  const certMovements = printCert
+    ? buildMockCertificateMovements(printCert)
+    : [];
 
   function openPrintModal(cert: Certificate | null, viewOnly = false) {
     setPrintCert(cert);
@@ -694,7 +718,7 @@ export default function HolderEnquiryPage() {
                 value="adm"
                 className="mrpsl-tabs-trigger text-[13px] px-4"
               >
-                Admon
+                ADMOR
               </TabsTrigger>
             </TabsList>
 
@@ -707,20 +731,22 @@ export default function HolderEnquiryPage() {
                       <th className="p-3">DATE ISSUED</th>
                       <th className="p-3 text-right">UNITS</th>
                       <th className="p-3">STATUS</th>
+                      <th className="p-3">TRANSFER NO</th>
+                      <th className="p-3">AGENT</th>
                       <th className="p-3 text-right">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y font-mono text-[13px]">
                     {isCertLoading ? (
                       <tr>
-                        <td colSpan={5} className="p-12 text-center">
+                        <td colSpan={7} className="p-12 text-center">
                           <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
                         </td>
                       </tr>
                     ) : certificates.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={5}
+                          colSpan={7}
                           className="p-12 text-center text-muted-foreground font-sans"
                         >
                           No certificates found.
@@ -760,6 +786,10 @@ export default function HolderEnquiryPage() {
                               {cert.status}
                             </Badge>
                           </td>
+                          <td className="p-3 text-muted-foreground">
+                            {cert.transferNo || "—"}
+                          </td>
+                          <td className="p-3">{cert.stockbrokerCode || "—"}</td>
                           <td className="p-3 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
@@ -1134,6 +1164,11 @@ export default function HolderEnquiryPage() {
             <p className="text-sm text-muted-foreground mt-0.5">
               {holder?.lastName}, {holder?.firstName} · {holder?.registerSymbol}
             </p>
+            {holder?.contact?.address && (
+              <p className="text-[12px] text-muted-foreground mt-1">
+                {holder.contact.address}
+              </p>
+            )}
           </DialogHeader>
           {/* Date filters */}
           <div className="px-6 py-4 border-b bg-muted/10 flex items-end gap-4 shrink-0">
@@ -1256,7 +1291,10 @@ export default function HolderEnquiryPage() {
               variant="outline"
               className="gap-1.5"
               disabled={!statement}
-              onClick={() => toast.success("Statement downloaded as PDF")}
+              onClick={() =>
+                statement &&
+                printStatementOfAccount(statement, holder?.contact?.address)
+              }
             >
               <FileText className="h-4 w-4" /> Download PDF
             </Button>
@@ -1280,6 +1318,11 @@ export default function HolderEnquiryPage() {
             <p className="text-sm text-muted-foreground mt-0.5">
               {holder?.lastName}, {holder?.firstName} · {holder?.registerSymbol}
             </p>
+            {holder?.contact?.address && (
+              <p className="text-[12px] text-muted-foreground mt-1">
+                {holder.contact.address}
+              </p>
+            )}
           </DialogHeader>
           {/* Date filters */}
           <div className="px-6 py-4 border-b bg-muted/10 flex items-end gap-4 shrink-0">
@@ -1382,41 +1425,43 @@ export default function HolderEnquiryPage() {
                           </div>
                         </td>
                       </tr>
-                    ) : dividendStatement.dividends.map((r, i) => (
-                      <tr key={i} className="hover:bg-accent/5">
-                        <td className="px-4 py-3 font-mono whitespace-nowrap">
-                          {r.dividendNo}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          {r.declDate}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          {r.paymentDate ?? "—"}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          {r.rate.toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
-                          {r.gross.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono text-red-600 whitespace-nowrap">
-                          {r.wht.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono font-semibold whitespace-nowrap">
-                          {r.net.toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            className={`border-0 text-[12px] ${r.status === "PAID" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
-                          >
-                            {r.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {r.method ?? "—"}
-                        </td>
-                      </tr>
-                    ))}
+                    ) : (
+                      dividendStatement.dividends.map((r, i) => (
+                        <tr key={i} className="hover:bg-accent/5">
+                          <td className="px-4 py-3 font-mono whitespace-nowrap">
+                            {r.dividendNo}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                            {r.declDate}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                            {r.paymentDate ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono">
+                            {r.rate.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
+                            {r.gross.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-red-600 whitespace-nowrap">
+                            {r.wht.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-semibold whitespace-nowrap">
+                            {r.net.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              className={`border-0 text-[12px] ${r.status === "PAID" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
+                            >
+                              {r.status}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {r.method ?? "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </>
@@ -1427,7 +1472,13 @@ export default function HolderEnquiryPage() {
               variant="outline"
               className="gap-1.5"
               disabled={!dividendStatement}
-              onClick={() => toast.success("Dividend statement downloaded")}
+              onClick={() =>
+                dividendStatement &&
+                printDividendStatement(
+                  dividendStatement,
+                  holder?.contact?.address,
+                )
+              }
             >
               <DollarSign className="h-4 w-4" /> Download Statement
             </Button>
@@ -1494,7 +1545,20 @@ export default function HolderEnquiryPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => toast.success("Signature printed")}
+              disabled={!sigOnFile?.signatureUrl}
+              onClick={() =>
+                holder &&
+                printSignatureOnFile(
+                  {
+                    name: `${holder.lastName}, ${holder.firstName}`,
+                    accountNumber: holder.accountNumber,
+                    registerSymbol: holder.registerSymbol,
+                    chn: holder.chn,
+                    address: holder.contact?.address,
+                  },
+                  sigOnFile,
+                )
+              }
             >
               <Printer className="mr-1.5 h-3.5 w-3.5" /> Print
             </Button>
@@ -1587,7 +1651,7 @@ export default function HolderEnquiryPage() {
         open={activeModal === "print"}
         onOpenChange={(o) => !o && setActiveModal(null)}
       >
-        <DialogContent className="max-w-md flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-2xl flex flex-col max-h-[85vh] overflow-y-auto p-0 gap-0">
           <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
             <DialogTitle>
               {certViewOnly ? "View Certificate" : "Print Share Certificate"}
@@ -1596,14 +1660,35 @@ export default function HolderEnquiryPage() {
               {holder?.accountNumber} — {holder?.lastName}, {holder?.firstName}
             </p>
           </DialogHeader>
-          <div className="px-6 py-5 space-y-4">
-            <div ref={certPrintRef} className="space-y-3 print:p-8">
-              <div className="hidden print:block text-center mb-4">
-                <h2 className="text-lg font-bold">Share Certificate</h2>
-                <p className="text-sm text-muted-foreground">
-                  {holder?.registerSymbol}
-                </p>
+          <div className="px-6 py-5 space-y-4 overflow-y-auto">
+            <div ref={certPrintRef} className="space-y-5 print:p-8">
+              <div className="hidden print:block mb-6">
+                <div
+                  className="flex items-center justify-between border-b-2 pb-3 mb-4"
+                  style={{ borderColor: BRAND_COLOR }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/logo.svg" alt="Meristem" className="h-10" />
+                  <div className="text-right">
+                    <div
+                      className="text-[11px] font-bold uppercase tracking-wide"
+                      style={{ color: BRAND_COLOR }}
+                    >
+                      {REGISTRAR_NAME}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {REGISTRAR_ADDRESS}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h2 className="text-lg font-bold">Share Certificate</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {holder?.registerSymbol}
+                  </p>
+                </div>
               </div>
+
               <div className="rounded-xl border bg-muted/10 p-4 space-y-3 text-sm">
                 {[
                   {
@@ -1636,6 +1721,17 @@ export default function HolderEnquiryPage() {
                     value: printCert?.dateIssued ?? "—",
                   },
                   { label: "Status", value: printCert?.status ?? "—" },
+                  {
+                    label: "Transfer No",
+                    value: printCert?.transferNo ?? "—",
+                  },
+                  {
+                    label: "Stockbroker Code",
+                    value: printCert?.stockbrokerCode ?? "—",
+                  },
+                  ...(printCert?.notes
+                    ? [{ label: "Notes", value: printCert.notes }]
+                    : []),
                 ].map(({ label, value }) => (
                   <div
                     key={label}
@@ -1646,6 +1742,56 @@ export default function HolderEnquiryPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Movement history — only rendered (and printed) when present */}
+              {certMovements.length > 0 && (
+                <div>
+                  <h3 className="mrpsl-section-title border-b pb-2 mb-3">
+                    Movement History
+                  </h3>
+                  <table className="w-full text-left text-sm">
+                    <thead className="mrpsl-table-header bg-muted/30">
+                      <tr>
+                        <th className="p-2 text-[11px]">DATE</th>
+                        <th className="p-2 text-[11px]">TYPE</th>
+                        <th className="p-2 text-[11px]">NARRATION</th>
+                        <th className="p-2 text-[11px]">AGENT</th>
+                        <th className="p-2 text-[11px]">REFERENCE</th>
+                        <th className="p-2 text-[11px]">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-[12.5px]">
+                      {certMovements.map((m) => (
+                        <tr key={m.id}>
+                          <td className="p-2 text-muted-foreground">
+                            {m.movementDate ?? "—"}
+                          </td>
+                          <td className="p-2">
+                            <Badge
+                              className={`border-0 text-[11px] ${MOVEMENT_BADGE_CLASS[m.movementType]}`}
+                            >
+                              {m.movementType}
+                            </Badge>
+                          </td>
+                          <td className="p-2">{m.narration}</td>
+                          <td className="p-2">
+                            {m.agentName
+                              ? `${m.agentName}${m.agentType ? ` · ${m.agentType}` : ""}`
+                              : "—"}
+                          </td>
+                          <td className="p-2 font-mono text-muted-foreground">
+                            {m.transferNo ?? "—"}
+                          </td>
+                          <td className="p-2">{m.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="text-[11px] text-muted-foreground mt-2">
+                    Preview data — pending backend integration
+                  </p>
+                </div>
+              )}
             </div>
             {!certViewOnly && (
               <p className="text-[13px] text-muted-foreground print:hidden">
@@ -1654,7 +1800,7 @@ export default function HolderEnquiryPage() {
               </p>
             )}
           </div>
-          <div className="px-6 pb-6 flex gap-3 shrink-0">
+          <div className="px-6 py-4 border-t flex gap-3 shrink-0">
             <Button
               variant="outline"
               className={certViewOnly ? "w-full" : "flex-1"}

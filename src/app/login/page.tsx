@@ -22,6 +22,7 @@ import {
   REQUEST_PASSWORD_RESET,
   VERIFY_OTP,
 } from "@/actions/authAction";
+import { GET_PERMISSIONS_BY_ROLE } from "@/actions/rolesAction";
 import { useMutation } from "@tanstack/react-query";
 import { setUserSession } from "@/services/AuthServices";
 
@@ -31,7 +32,7 @@ type Step = "credentials" | "2fa" | "forgot" | "forgot-sent";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { currentUser, setCurrentUser } = useStore();
+  const { currentUser, setCurrentUser, setUserPermissions } = useStore();
 
   // ── Flow state ------────────────────
   const [step, setStep] = useState<Step>("credentials");
@@ -83,6 +84,15 @@ export default function LoginPage() {
         if (token) {
           setUserSession(userObject, token);
           setCurrentUser(userObject);
+          GET_PERMISSIONS_BY_ROLE(userObject.roles ?? [])
+            .then((res) => {
+              if (res?.isSuccessful && res?.data?.permissions) {
+                setUserPermissions(
+                  res.data.permissions.map((p: { name: string }) => p.name),
+                );
+              }
+            })
+            .catch(() => {});
           router.replace("/");
         } else {
           setError("Session token not found. Please try again.");
@@ -106,6 +116,15 @@ export default function LoginPage() {
         const { token, ...userObject } = data.data;
         setUserSession(userObject, token);
         setCurrentUser(userObject);
+        GET_PERMISSIONS_BY_ROLE(userObject.roles ?? [])
+          .then((res) => {
+            if (res?.isSuccessful && res?.data?.permissions) {
+              setUserPermissions(
+                res.data.permissions.map((p: { name: string }) => p.name),
+              );
+            }
+          })
+          .catch(() => {});
         router.replace("/");
       } else {
         setError(data?.responseMessage || "Verification failed.");

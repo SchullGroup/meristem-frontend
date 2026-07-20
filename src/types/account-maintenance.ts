@@ -2,27 +2,40 @@ export interface ConsolidationAccount {
   accountNumber: string;
   holderName: string;
   holdings: number;
+  registerName?: string;
+  registerSymbol?: string;
+  status?: string;
 }
 
 export interface DestinationAccount {
   accountNumber: string;
   holderName: string;
+  registerName?: string;
+  registerSymbol?: string;
+  status?: string;
 }
 
 export interface Consolidation {
   id: number;
   registerId: string;
+  registerNames?: string[];
   sourceAccounts: ConsolidationAccount[];
   destinationAccount: DestinationAccount;
   totalHoldings: number;
   comment: string;
+  reason?: string;
   status: string;
   initiatorId: string;
   initiatorName: string;
-  authorisedBy: string;
-  rejectionComment: string;
+  submittedBy?: string;
+  authorisedBy: string | null;
+  rejectedBy?: string | null;
+  rejectionComment: string | null;
+  rejectionReason?: string | null;
+  reversalComment?: string | null;
+  reversedAt?: string | null;
   createdAt: string;
-  decidedAt: string;
+  decidedAt: string | null;
   supportingDocuments?: { name: string; url: string }[];
 }
 
@@ -131,6 +144,7 @@ export interface ShareholderAccount {
   registerId: string;
   registerSymbol: string;
   accountNumber: string;
+  rgAccountNumber?: string;
 
   lastName: string;
   firstName: string;
@@ -219,6 +233,10 @@ export interface KycChange {
   priority?: string;
   icuApprovedBy?: string;
   reason?: string;
+
+  // Added for the cross-account KYC Change History view — not yet returned by
+  // GET /accounts/kyc-changes (see backend_changes.md). Falls back to "—".
+  registerSymbol?: string;
 }
 
 export interface KycFieldChange {
@@ -240,6 +258,10 @@ export interface KycDecisionRequest {
   authorisedBy: string;
 }
 
+export interface KycCancelRequest {
+  cancelledBy: string;
+}
+
 export interface KycChangeFilters {
   status?: string;
   changeType?: string;
@@ -249,6 +271,10 @@ export interface KycChangeFilters {
   to?: string;
   page?: number;
   pageSize?: number;
+  // Cross-field search: account number, holder name, BVN, NIN, CHN — see
+  // backend_changes.md for the requested endpoint contract. Not yet
+  // implemented server-side.
+  q?: string;
 }
 
 export interface AccountKycHistoryFilters {
@@ -298,7 +324,123 @@ export interface KycUploadJob {
   completedAt: string;
 }
 
-//////////// estate admon //////////////
+// ── KYC bulk upload: preview + submit (full-record template) ──
+
+export type BulkRowStatus = "valid" | "warning" | "error";
+
+export interface KycBulkPreviewRow {
+  row: number;
+  accountNumber: string;
+  shareholderName: string;
+  email: string;
+  phone: string;
+  address: string;
+  bankName: string;
+  bankAccountNumber: string;
+  nin: string;
+  bvn: string;
+  status: BulkRowStatus;
+  errors: string[];
+}
+
+export interface KycBulkPreviewResponse {
+  rows: KycBulkPreviewRow[];
+  totalRows: number;
+  validCount: number;
+  warningCount: number;
+  errorCount: number;
+}
+
+export interface KycRowPayload {
+  accountNumber: string;
+  shareholderName: string;
+  email: string;
+  phone: string;
+  address: string;
+  bankName: string;
+  bankAccountNumber: string;
+  nin: string;
+  bvn: string;
+  supportingDocuments?: { name: string; url: string }[];
+}
+
+export interface KycBulkSubmitRequest {
+  rows: KycRowPayload[];
+  initiatedBy: string;
+  registerId?: string;
+}
+
+export interface KycBulkSubmitResponse {
+  batchId: string;
+  totalRows: number;
+  status: string;
+}
+
+// ── KYC bulk upload: per-row review state (frontend-only) ──
+
+export type KycReviewDecision = "unreviewed" | "accepted" | "rejected";
+
+export interface KycReviewRow extends KycBulkPreviewRow {
+  decision: KycReviewDecision;
+  documents: { name: string; url: string }[];
+}
+
+// ── NIBSS BVN mandate bulk upload: preview + submit ──
+
+export interface NibssMandatePreviewRow {
+  row: number;
+  subscriberName: string;
+  broker: string;
+  chn: string;
+  accountNumber: string;
+  bankSortCode: string;
+  stockbrokerCode: string;
+  symbol: string;
+  units: string;
+  amount: string;
+  remark: string;
+  bvn: string;
+  nin: string;
+  tin: string;
+  nextKin: string;
+  gender: string;
+  type: string;
+  bankAccountNumber: string;
+  phone: string;
+  email: string;
+  status: BulkRowStatus;
+  errors: string[];
+}
+
+export interface NibssMandatePreviewResponse {
+  rows: NibssMandatePreviewRow[];
+  totalRows: number;
+  validCount: number;
+  warningCount: number;
+  errorCount: number;
+}
+
+export interface NibssMandateSubmitRequest {
+  rows: (Omit<NibssMandatePreviewRow, "row" | "status" | "errors"> & {
+    supportingDocuments?: { name: string; url: string }[];
+  })[];
+  initiatedBy: string;
+}
+
+export interface NibssMandateSubmitResponse {
+  batchId: string;
+  totalRows: number;
+  status: string;
+}
+
+// ── NIBSS bulk upload: per-row review state (frontend-only) ──
+
+export interface NibssReviewRow extends NibssMandatePreviewRow {
+  decision: KycReviewDecision;
+  documents: { name: string; url: string }[];
+}
+
+//////////// estate admor //////////////
 
 export interface Admon {
   id: number;
@@ -306,6 +448,15 @@ export interface Admon {
 
   deceasedAccountIds: string[];
   deceasedAccountNumbers: string[];
+
+  /** Detailed account info for the review panel (accounts, register, holdings, CHN). */
+  deceasedAccounts?: {
+    accountNumber: string;
+    holderName: string;
+    registerSymbol: string;
+    chn: string;
+    holdings: number;
+  }[];
 
   deceasedHolderName: string;
 
@@ -326,12 +477,31 @@ export interface Admon {
 
   memo: string;
 
-  changeAddressToAdmin: boolean;
   changeNameToEstate: boolean;
 
   estateNamePreview: string;
 
-  probateDocUrl: string;
+  /** The single estate bank account that receives dividends from all deceased accounts after approval. */
+  estateAccountNumber?: string;
+
+  probateDocs: { name: string; url: string }[];
+
+  administrators?: {
+    adminName: string;
+    isExecutor: boolean;
+    email: string;
+    phone: string;
+    altPhone?: string;
+    bvn: string;
+    nin: string;
+    idType: string;
+    relationship?: string;
+    adminAddress: string;
+    adminCity: string;
+    adminState: string;
+    memo?: string;
+    documents?: { name: string; url: string }[];
+  }[];
 
   status: string;
 
@@ -339,7 +509,19 @@ export interface Admon {
   initiatorName: string;
 
   authorisedBy: string;
-  rejectionComment: string;
+  authorisedAt: string;
+  icuApprovedBy: string;
+  icuApprovedAt: string;
+
+  /** Reason provided when the request is returned to initiator for fixes. */
+  returnedReason?: string;
+  returnedBy?: string;
+  returnedAt?: string;
+
+  /** Who rejected this permanently (terminal). */
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionComment?: string;
 
   createdAt: string;
   decidedAt: string;
@@ -359,8 +541,14 @@ export interface AdmonReversal {
 
   initiatorId: string;
   initiatorName: string;
+  submittedAt: string;
 
   authorisedBy: string;
+  authorisedAt: string;
+
+  icuApprovedBy: string;
+  icuApprovedAt: string;
+
   rejectionComment: string;
 
   createdAt: string;
@@ -383,13 +571,33 @@ export interface AdmonReversalFilters {
   pageSize?: number;
 }
 
+export interface AdministratorRequest {
+  isExecutor: boolean;
+  adminName: string;
+  email: string;
+  phone: string;
+  altPhone?: string;
+  bvn: string;
+  nin: string;
+  idType: string;
+  relationship?: string;
+  adminAddress: string;
+  adminCity: string;
+  adminState: string;
+  memo?: string;
+  documents?: { name: string; url: string }[];
+}
+
 export interface CreateAdmonRequest {
+  /** Set when updating an existing draft (PATCH). Omit for new records (POST). */
+  id?: number;
   registerId: string;
+  registerIds?: string[];
   deceasedAccountIds: string[];
 
-  admonType: string;
+  administrators: AdministratorRequest[];
 
-  adminName: string;
+  admonType: string;
 
   probateCourt: string;
   probateNumber: string;
@@ -398,23 +606,21 @@ export interface CreateAdmonRequest {
 
   lodgementDate: string;
 
-  adminAddress: string;
-  adminCity: string;
-  adminState: string;
-
-  memo: string;
-
-  changeAddressToAdmin: boolean;
   changeNameToEstate: boolean;
 
-  probateDocUrl: string;
+  probateDocs?: { name: string; url: string }[];
 
   initiatedBy: string;
+
+  /** "DRAFT" | "SUBMITTED" — defaults to SUBMITTED if omitted */
+  status?: string;
 }
 
 export interface AdmonDecisionRequest {
   comment: string;
   authorisedBy: string;
+  /** "APPROVE" | "RETURN" | "REJECT" */
+  action?: string;
 }
 
 export interface CreateAdmonReversalRequest {
@@ -465,4 +671,17 @@ export interface BatchAdmonResponse {
   rejected: number;
   skipped: number;
   details: Admon[];
+}
+
+export interface BatchAdmonReversalRequest {
+  ids: string[];
+  comment: string;
+  authorisedBy: string;
+}
+
+export interface BatchAdmonReversalResponse {
+  authorised: number;
+  rejected: number;
+  skipped: number;
+  details: AdmonReversal[];
 }

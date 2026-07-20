@@ -1,65 +1,131 @@
 "use client";
 
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import NewConsolidation from "@/components/custom/certificate-consolidation/new-consolidation";
-import PendingConsolidationApprovals from "@/components/custom/certificate-consolidation/pending-approval";
-import { ApprovedConsolidations } from "@/components/custom/certificate-consolidation/approved-consolidations";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { ConsolidationSuggested } from "@/components/custom/certificate-consolidation/consolidation-suggested";
+import { ConsolidationRequests } from "@/components/custom/certificate-consolidation/consolidation-requests";
+import { ConsolidationIcu } from "@/components/custom/certificate-consolidation/consolidation-icu";
+import {
+  SEED_CONSOLIDATION_REQUESTS,
+  ConsolidationRequest,
+  ConsolidationStatus,
+  SuggestedConsolidation,
+  MOCK_HOLDERS,
+  MockHolder,
+} from "@/components/custom/certificate-consolidation/consolidation-mock";
 
 export default function ConsolidationPage() {
-  const [activeTab, setActiveTab] = useState("new");
+  const [requests, setRequests] = useState<ConsolidationRequest[]>(SEED_CONSOLIDATION_REQUESTS);
+  const [activeTab, setActiveTab] = useState<string>("suggested");
+  const [prefillHolder, setPrefillHolder] = useState<MockHolder | null>(null);
+  const [prefillRegister, setPrefillRegister] = useState<string>("");
+
+  const pendingCount = requests.filter((r) => r.status === "PENDING").length;
+  const icuPendingCount = pendingCount;
+
+  function createRequest(req: ConsolidationRequest) {
+    setRequests((prev) => [...prev, req]);
+  }
+
+  function editRequest(id: string, updates: Partial<ConsolidationRequest>) {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, ...updates, status: "PENDING" as ConsolidationStatus } : r
+      )
+    );
+  }
+
+  function approveRequest(id: string) {
+    setRequests((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        return {
+          ...r,
+          status: "APPROVED" as ConsolidationStatus,
+          approvedBy: "ICU Manager",
+          approvedAt: "16 Jul 2026",
+          certificates: r.certificates.map((c) => ({ ...c, status: "DEACTIVATED" as const })),
+        };
+      })
+    );
+  }
+
+  function rejectRequest(id: string, comment: string) {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              status: "REJECTED" as ConsolidationStatus,
+              rejectionComment: comment,
+              rejectedBy: "ICU Manager",
+              rejectedAt: "16 Jul 2026",
+            }
+          : r
+      )
+    );
+  }
+
+  function handleCreateFromSuggestion(suggestion: SuggestedConsolidation) {
+    const holder = MOCK_HOLDERS.find((h) => h.bvn === suggestion.bvn) || null;
+    setPrefillHolder(holder);
+    setPrefillRegister(suggestion.register);
+    setActiveTab("requests");
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Certificate Consolidation
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Merge multiple certificates for a single account into one
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Certificate Consolidation</h1>
+        <p className="text-muted-foreground">
+          Combine multiple share certificates across accounts into a single consolidated certificate.
+        </p>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab(v || "new")}
-        className="w-full"
-      >
-        <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
-          <TabsTrigger
-            value="new"
-            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-          >
-            New Consolidation
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="flex flex-wrap gap-1 h-auto">
+          <TabsTrigger value="suggested">System Suggestions</TabsTrigger>
+          <TabsTrigger value="requests">
+            Consolidation Requests
+            {requests.length > 0 && (
+              <Badge className="ml-2">{requests.length}</Badge>
+            )}
           </TabsTrigger>
-          <TabsTrigger
-            value="auth"
-            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-          >
-            Pending Approvals
-          </TabsTrigger>
-          <TabsTrigger
-            value="approved"
-            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
-          >
-            Approved
+          <TabsTrigger value="icu">
+            ICU Approval
+            {icuPendingCount > 0 && (
+              <Badge className="ml-2">{icuPendingCount}</Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
-        <div className="mt-6">
-          <TabsContent value="new" className="space-y-6">
-            <NewConsolidation setTab={setActiveTab} />
-          </TabsContent>
+        <TabsContent value="suggested">
+          <ConsolidationSuggested onCreateFromSuggestion={handleCreateFromSuggestion} />
+        </TabsContent>
 
-          <TabsContent value="auth" className="space-y-4">
-            <PendingConsolidationApprovals />
-          </TabsContent>
-          <TabsContent value="approved" className="space-y-4">
-            <ApprovedConsolidations />
-          </TabsContent>
-        </div>
+        <TabsContent value="requests">
+          <ConsolidationRequests
+            requests={requests}
+            onCreateRequest={createRequest}
+            onEditRequest={editRequest}
+            prefillHolder={prefillHolder}
+            prefillRegister={prefillRegister}
+            onPrefillConsumed={() => {
+              setPrefillHolder(null);
+              setPrefillRegister("");
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="icu">
+          <ConsolidationIcu
+            requests={requests.filter((r) => r.status === "PENDING")}
+            allRequests={requests}
+            onApprove={approveRequest}
+            onReject={rejectRequest}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   );

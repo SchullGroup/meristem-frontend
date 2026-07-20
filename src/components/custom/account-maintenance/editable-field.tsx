@@ -16,6 +16,10 @@ import { PenLine, Loader2, X, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { KycChange } from "@/types/account-maintenance";
 import { formatDate } from "@/lib/utils/format";
+import {
+  InlineEvidenceDropper,
+  DoneEvidence,
+} from "@/components/custom/account-maintenance/inline-evidence-dropper";
 
 interface EditableFieldProps {
   label: string;
@@ -25,9 +29,14 @@ interface EditableFieldProps {
   selectOptions?: { value: string; label: string }[];
   pendingChange: KycChange | null;
   readOnly?: boolean;
-  extraInput?: React.ReactNode;
-  onSubmit: (newValue: string, reason: string) => Promise<void>;
+  onSubmit: (
+    newValue: string,
+    reason: string,
+    evidence: DoneEvidence[],
+  ) => Promise<void>;
   isSubmitting?: boolean;
+  /** Extra content between reason and buttons (validation status, etc.) */
+  children?: React.ReactNode;
 }
 
 export function EditableField({
@@ -37,13 +46,14 @@ export function EditableField({
   selectOptions,
   pendingChange,
   readOnly = false,
-  extraInput,
   onSubmit,
-  isSubmitting: _isSubmitting = false, // kept for parent-driven loading if needed
+  isSubmitting: _isSubmitting = false,
+  children,
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [newValue, setNewValue] = useState("");
   const [reason, setReason] = useState("");
+  const [evidence, setEvidence] = useState<DoneEvidence[]>([]);
   const [localSubmitting, setLocalSubmitting] = useState(false);
 
   const isSubmitting = localSubmitting || _isSubmitting;
@@ -54,6 +64,7 @@ export function EditableField({
     if (isDisabled) return;
     setNewValue("");
     setReason("");
+    setEvidence([]);
     setIsEditing(true);
   };
 
@@ -61,16 +72,18 @@ export function EditableField({
     setIsEditing(false);
     setNewValue("");
     setReason("");
+    setEvidence([]);
   };
 
   const handleSubmit = async () => {
-    if (!reason.trim() || !newValue.trim()) return;
+    if (!newValue.trim() || !reason.trim() || evidence.length === 0) return;
     setLocalSubmitting(true);
     try {
-      await onSubmit(newValue.trim(), reason.trim());
+      await onSubmit(newValue.trim(), reason.trim(), evidence);
       setIsEditing(false);
       setNewValue("");
       setReason("");
+      setEvidence([]);
     } catch {
       // Error toast already shown by parent — keep editing open so user can retry
     } finally {
@@ -78,7 +91,10 @@ export function EditableField({
     }
   };
 
-  const canSubmit = newValue.trim().length > 0 && reason.trim().length > 0;
+  const canSubmit =
+    newValue.trim().length > 0 &&
+    reason.trim().length > 0 &&
+    evidence.length > 0;
 
   const renderInput = () => {
     switch (inputType) {
@@ -122,7 +138,7 @@ export function EditableField({
   return (
     <div
       className={cn(
-        "grid grid-cols-[200px_1fr_1fr] gap-6 items-start py-3 border-b border-border/20 last:border-0 transition-all",
+        "grid grid-cols-[200px_1fr_1fr] gap-6 items-start py-3 border-b border-border/20 last:border-0 transition-colors",
         isEditing &&
           "border-l-2 border-l-primary pl-3 -ml-3 bg-primary/2 rounded-r-md",
         hasPending &&
@@ -130,14 +146,12 @@ export function EditableField({
           "border-l-2 border-l-amber-400 pl-3 -ml-3 bg-amber-50/20 rounded-r-md",
       )}
     >
-      {/* Column 1: Label */}
       <div className="flex items-center gap-2 pt-0.5">
         <span className="text-sm font-medium text-muted-foreground">
           {label}
         </span>
       </div>
 
-      {/* Column 2: Current Value */}
       <div className="flex items-center gap-2 flex-wrap pt-0.5">
         <span className="text-sm font-medium">{currentValue || "—"}</span>
         {hasPending && (
@@ -147,11 +161,9 @@ export function EditableField({
         )}
       </div>
 
-      {/* Column 3: New Value / Actions */}
       <div>
         {isEditing ? (
           <div className="space-y-2.5">
-            {extraInput && <div>{extraInput}</div>}
             {renderInput()}
             <Input
               className="mrpsl-input text-sm"
@@ -159,6 +171,16 @@ export function EditableField({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
+
+            {/* Built-in evidence dropper */}
+            <InlineEvidenceDropper
+              doneEvidence={evidence}
+              onDoneEvidenceChange={setEvidence}
+            />
+
+            {/* Extra slot (e.g. bank validation) */}
+            {children}
+
             <div className="flex items-center gap-2 pt-0.5">
               <Button
                 size="sm"
@@ -183,10 +205,16 @@ export function EditableField({
             </div>
           </div>
         ) : hasPending ? (
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap">
             <Clock className="h-3 w-3 shrink-0" />
-            <span className="truncate">
-              {pendingChange.initiatorName || "—"} ·{" "}
+            <span className="truncate font-mono text-[11px]">
+              {currentValue || "—"} →{" "}
+              <span className="text-primary font-semibold">
+                {pendingChange.newValue}
+              </span>
+            </span>
+            <span className="text-muted-foreground/60">
+              · {pendingChange.initiatorName || "—"} ·{" "}
               {formatDate(pendingChange.createdAt)}
             </span>
           </div>
@@ -199,11 +227,7 @@ export function EditableField({
             <PenLine className="h-3.5 w-3.5" />
             Edit
           </button>
-        ) : (
-          <span className="text-[12px] text-muted-foreground/50 italic">
-            Contact admin to update
-          </span>
-        )}
+        ) : null}
       </div>
     </div>
   );

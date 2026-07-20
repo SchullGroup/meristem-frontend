@@ -11,6 +11,7 @@ import {
   Search,
   Check,
   Minus,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,12 +50,11 @@ import {
   UPDATE_PERMISSIONS,
   DELETE_ROLE,
   EDIT_ROLE,
+  PATCH_ROLE,
 } from "@/actions/rolesAction";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-// ─── Permission Matrix ────────────────────────────────────────────────────────
 
 interface SubmoduleDef {
   id: string;
@@ -77,65 +77,485 @@ interface ModuleDef {
 
 const PERMISSION_MATRIX: ModuleDef[] = [
   {
-    id: "account",
-    label: "Account Management",
-    colorClass: "border-l-blue-500",
+    id: "setup",
+    label: "Setup",
+    colorClass: "border-l-rose-500",
     submodules: [
       {
-        id: "account",
-        label: "Shareholder Accounts",
+        id: "principals",
+        label: "Principals",
         actions: {
-          read: "account:read",
-          write: "account:create",
-          approve: ["account:update", "account:delete"],
+          read: "setup.principals.read",
+          write: "setup.principals.write",
+        },
+      },
+      {
+        id: "registers",
+        label: "Registers",
+        actions: {
+          read: "setup.registers.read",
+          write: "setup.registers.write",
+        },
+      },
+      {
+        id: "roles",
+        label: "Roles",
+        adminOnly: true,
+        actions: { read: "setup.roles.read", write: "setup.roles.write" },
+      },
+      {
+        id: "users",
+        label: "Users",
+        adminOnly: true,
+        actions: { read: "setup.users.read", write: "setup.users.write" },
+      },
+      {
+        id: "agents",
+        label: "Agents",
+        actions: { read: "setup.agents.read", write: "setup.agents.write" },
+      },
+      {
+        id: "other_parameters",
+        label: "Other Parameters",
+        actions: {
+          read: "setup.other_parameters.read",
+          write: "setup.other_parameters.write",
         },
       },
     ],
   },
   {
-    id: "certificate",
-    label: "Certificate Management",
-    colorClass: "border-l-green-500",
-    submodules: [
-      {
-        id: "certificate",
-        label: "Certificate Operations",
-        actions: {
-          read: "certificate:read",
-          write: "certificate:create",
-          approve: ["certificate:update", "certificate:delete"],
-        },
-      },
-    ],
-  },
-  {
-    id: "dividend",
-    label: "Dividend Management",
-    colorClass: "border-l-amber-500",
-    submodules: [
-      {
-        id: "dividend",
-        label: "Dividend Processing",
-        actions: {
-          read: "dividend:read",
-          write: "dividend:create",
-          approve: ["dividend:update", "dividend:delete"],
-        },
-      },
-    ],
-  },
-  {
-    id: "offer",
+    id: "offer_administration",
     label: "Offer Administration",
     colorClass: "border-l-violet-500",
     submodules: [
       {
-        id: "offer",
-        label: "Offers & Issues",
+        id: "ipo_upload",
+        label: "IPO — Upload",
         actions: {
-          read: "offer:read",
-          write: "offer:write",
-          approve: ["offer:update", "offer:delete"],
+          read: "offer_administration.ipo_upload.read",
+          write: "offer_administration.ipo_upload.write",
+        },
+      },
+      {
+        id: "ipo_approval",
+        label: "IPO — Approval",
+        actions: {
+          read: "offer_administration.ipo_approval.read",
+          approve: ["offer_administration.ipo_approval.approve"],
+        },
+      },
+      {
+        id: "ipo_icu_approval",
+        label: "IPO — ICU Approval",
+        actions: {
+          read: "offer_administration.ipo_icu_approval.read",
+          approve: ["offer_administration.ipo_icu_approval.approve"],
+        },
+      },
+      {
+        id: "ipo_lodgement",
+        label: "IPO — Lodgement",
+        actions: {
+          read: "offer_administration.ipo_lodgement.read",
+          write: "offer_administration.ipo_lodgement.write",
+        },
+      },
+      {
+        id: "rights_declaration",
+        label: "Rights — Declaration",
+        actions: {
+          read: "offer_administration.rights_declaration.read",
+          write: "offer_administration.rights_declaration.write",
+        },
+      },
+      {
+        id: "rights_approval",
+        label: "Rights — Approval",
+        actions: {
+          read: "offer_administration.rights_approval.read",
+          approve: ["offer_administration.rights_approval.approve"],
+        },
+      },
+      {
+        id: "rights_icu_approval",
+        label: "Rights — ICU Approval",
+        actions: {
+          read: "offer_administration.rights_icu_approval.read",
+          approve: ["offer_administration.rights_icu_approval.approve"],
+        },
+      },
+      {
+        id: "rights_allotment",
+        label: "Rights — Allotment",
+        actions: {
+          read: "offer_administration.rights_allotment.read",
+          write: "offer_administration.rights_allotment.write",
+          approve: ["offer_administration.rights_allotment.approve"],
+        },
+      },
+      {
+        id: "bonus_declaration",
+        label: "Bonus — Declaration",
+        actions: {
+          read: "offer_administration.bonus_declaration.read",
+          write: "offer_administration.bonus_declaration.write",
+        },
+      },
+      {
+        id: "bonus_approval",
+        label: "Bonus — Approval",
+        actions: {
+          read: "offer_administration.bonus_approval.read",
+          approve: ["offer_administration.bonus_approval.approve"],
+        },
+      },
+      {
+        id: "bonus_icu_approval",
+        label: "Bonus — ICU Approval",
+        actions: {
+          read: "offer_administration.bonus_icu_approval.read",
+          approve: ["offer_administration.bonus_icu_approval.approve"],
+        },
+      },
+      {
+        id: "bonus_allotment",
+        label: "Bonus — Allotment",
+        actions: {
+          read: "offer_administration.bonus_allotment.read",
+          write: "offer_administration.bonus_allotment.write",
+          approve: ["offer_administration.bonus_allotment.approve"],
+        },
+      },
+      {
+        id: "return_money",
+        label: "Return Money",
+        actions: {
+          read: "offer_administration.return_money.read",
+          write: "offer_administration.return_money.write",
+          approve: ["offer_administration.return_money.approve"],
+        },
+      },
+    ],
+  },
+  {
+    id: "certificate_management",
+    label: "Certificate Management",
+    colorClass: "border-l-green-500",
+    submodules: [
+      {
+        id: "cscs_updates_upload",
+        label: "CSCS Updates — Upload",
+        actions: {
+          read: "certificate_management.cscs_updates_upload.read",
+          write: "certificate_management.cscs_updates_upload.write",
+        },
+      },
+      {
+        id: "cscs_updates_approve",
+        label: "CSCS Updates — Approve",
+        actions: {
+          read: "certificate_management.cscs_updates_approve.read",
+          approve: ["certificate_management.cscs_updates_approve.approve"],
+        },
+      },
+      {
+        id: "reconciliation_view",
+        label: "Reconciliation — View",
+        actions: { read: "certificate_management.reconciliation_view.read" },
+      },
+      {
+        id: "reconciliation_update",
+        label: "Reconciliation — Update",
+        actions: {
+          read: "certificate_management.reconciliation_update.read",
+          write: "certificate_management.reconciliation_update.write",
+          approve: ["certificate_management.reconciliation_update.approve"],
+        },
+      },
+      {
+        id: "dematerialisation_capture",
+        label: "Dematerialisation — Capture",
+        actions: {
+          read: "certificate_management.dematerialisation_capture.read",
+          write: "certificate_management.dematerialisation_capture.write",
+        },
+      },
+      {
+        id: "dematerialisation_approve",
+        label: "Dematerialisation — Approve",
+        actions: {
+          read: "certificate_management.dematerialisation_approve.read",
+          approve: ["certificate_management.dematerialisation_approve.approve"],
+        },
+      },
+      {
+        id: "dematerialisation_icu",
+        label: "Dematerialisation — ICU",
+        actions: {
+          read: "certificate_management.dematerialisation_icu.read",
+          approve: ["certificate_management.dematerialisation_icu.approve"],
+        },
+      },
+      {
+        id: "dematerialisation_lodge",
+        label: "Dematerialisation — Lodge",
+        actions: {
+          read: "certificate_management.dematerialisation_lodge.read",
+          write: "certificate_management.dematerialisation_lodge.write",
+        },
+      },
+      {
+        id: "certificate_split",
+        label: "Certificate Split",
+        actions: {
+          read: "certificate_management.certificate_split.read",
+          write: "certificate_management.certificate_split.write",
+          approve: ["certificate_management.certificate_split.approve"],
+        },
+      },
+      {
+        id: "certificate_consolidation",
+        label: "Certificate Consolidation",
+        actions: {
+          read: "certificate_management.certificate_consolidation.read",
+          write: "certificate_management.certificate_consolidation.write",
+          approve: ["certificate_management.certificate_consolidation.approve"],
+        },
+      },
+      {
+        id: "certificate_transfer",
+        label: "Certificate Transfer",
+        actions: {
+          read: "certificate_management.certificate_transfer.read",
+          write: "certificate_management.certificate_transfer.write",
+          approve: ["certificate_management.certificate_transfer.approve"],
+        },
+      },
+    ],
+  },
+  {
+    id: "dividend_management",
+    label: "Dividend Management",
+    colorClass: "border-l-amber-500",
+    submodules: [
+      {
+        id: "declaration_initiate",
+        label: "Declaration — Initiate",
+        actions: {
+          read: "dividend_management.declaration_initiate.read",
+          write: "dividend_management.declaration_initiate.write",
+        },
+      },
+      {
+        id: "declaration_approve_1st",
+        label: "Declaration — Approve (1st)",
+        actions: {
+          read: "dividend_management.declaration_approve_1st.read",
+          approve: ["dividend_management.declaration_approve_1st.approve"],
+        },
+      },
+      {
+        id: "declaration_icu_approve",
+        label: "Declaration — ICU Approve",
+        actions: {
+          read: "dividend_management.declaration_icu_approve.read",
+          approve: ["dividend_management.declaration_icu_approve.approve"],
+        },
+      },
+      {
+        id: "new_mandate_initiate",
+        label: "New Mandate — Initiate",
+        actions: {
+          read: "dividend_management.new_mandate_initiate.read",
+          write: "dividend_management.new_mandate_initiate.write",
+        },
+      },
+      {
+        id: "new_mandate_approve_1st",
+        label: "New Mandate — Approve (1st)",
+        actions: {
+          read: "dividend_management.new_mandate_approve_1st.read",
+          approve: ["dividend_management.new_mandate_approve_1st.approve"],
+        },
+      },
+      {
+        id: "new_mandate_icu_approve",
+        label: "New Mandate — ICU Approve",
+        actions: {
+          read: "dividend_management.new_mandate_icu_approve.read",
+          approve: ["dividend_management.new_mandate_icu_approve.approve"],
+        },
+      },
+      {
+        id: "payment_initiate",
+        label: "Payment — Initiate",
+        actions: {
+          read: "dividend_management.payment_initiate.read",
+          write: "dividend_management.payment_initiate.write",
+        },
+      },
+      {
+        id: "payment_approve",
+        label: "Payment — Approve",
+        actions: {
+          read: "dividend_management.payment_approve.read",
+          approve: ["dividend_management.payment_approve.approve"],
+        },
+      },
+      {
+        id: "dividend_split",
+        label: "Dividend Split",
+        actions: {
+          read: "dividend_management.dividend_split.read",
+          write: "dividend_management.dividend_split.write",
+          approve: ["dividend_management.dividend_split.approve"],
+        },
+      },
+      {
+        id: "warrant_mark_off",
+        label: "Warrant Mark-Off",
+        actions: {
+          read: "dividend_management.warrant_mark_off.read",
+          write: "dividend_management.warrant_mark_off.write",
+          approve: ["dividend_management.warrant_mark_off.approve"],
+        },
+      },
+      {
+        id: "reports_view",
+        label: "Reports — View",
+        actions: { read: "dividend_management.reports_view.read" },
+      },
+    ],
+  },
+  {
+    id: "fund_subscription_redemption",
+    label: "Fund Subscription / Redemption",
+    colorClass: "border-l-pink-500",
+    submodules: [
+      {
+        id: "create_subscriber",
+        label: "Create Subscriber",
+        actions: {
+          read: "fund_subscription_redemption.create_subscriber.read",
+          write: "fund_subscription_redemption.create_subscriber.write",
+        },
+      },
+      {
+        id: "subscription_initiate",
+        label: "Subscription — Initiate",
+        actions: {
+          read: "fund_subscription_redemption.subscription_initiate.read",
+          write: "fund_subscription_redemption.subscription_initiate.write",
+        },
+      },
+      {
+        id: "subscription_approve",
+        label: "Subscription — Approve",
+        actions: {
+          read: "fund_subscription_redemption.subscription_approve.read",
+          approve: [
+            "fund_subscription_redemption.subscription_approve.approve",
+          ],
+        },
+      },
+      {
+        id: "redemption_initiate",
+        label: "Redemption — Initiate",
+        actions: {
+          read: "fund_subscription_redemption.redemption_initiate.read",
+          write: "fund_subscription_redemption.redemption_initiate.write",
+        },
+      },
+      {
+        id: "redemption_approve",
+        label: "Redemption — Approve",
+        actions: {
+          read: "fund_subscription_redemption.redemption_approve.read",
+          approve: ["fund_subscription_redemption.redemption_approve.approve"],
+        },
+      },
+    ],
+  },
+  {
+    id: "account_maintenance",
+    label: "Account Maintenance",
+    colorClass: "border-l-sky-500",
+    submodules: [
+      {
+        id: "account_consolidation_submit",
+        label: "Account Consolidation — Submit",
+        actions: {
+          read: "account_maintenance.account_consolidation_submit.read",
+          write: "account_maintenance.account_consolidation_submit.write",
+        },
+      },
+      {
+        id: "account_consolidation_approve",
+        label: "Account Consolidation — Approve",
+        actions: {
+          read: "account_maintenance.account_consolidation_approve.read",
+          approve: [
+            "account_maintenance.account_consolidation_approve.approve",
+          ],
+        },
+      },
+      {
+        id: "account_consolidation_reverse",
+        label: "Account Consolidation — Reverse",
+        actions: {
+          read: "account_maintenance.account_consolidation_reverse.read",
+          approve: [
+            "account_maintenance.account_consolidation_reverse.approve",
+          ],
+        },
+      },
+      {
+        id: "kyc_update_submit",
+        label: "KYC Update — Submit",
+        actions: {
+          read: "account_maintenance.kyc_update_submit.read",
+          write: "account_maintenance.kyc_update_submit.write",
+        },
+      },
+      {
+        id: "kyc_update_approve_1st",
+        label: "KYC Update — Approve (1st)",
+        actions: {
+          read: "account_maintenance.kyc_update_approve_1st.read",
+          approve: ["account_maintenance.kyc_update_approve_1st.approve"],
+        },
+      },
+      {
+        id: "kyc_update_icu_approve",
+        label: "KYC Update — ICU Approve",
+        actions: {
+          read: "account_maintenance.kyc_update_icu_approve.read",
+          approve: ["account_maintenance.kyc_update_icu_approve.approve"],
+        },
+      },
+      {
+        id: "admon_submit",
+        label: "ADMON — Submit",
+        actions: {
+          read: "account_maintenance.admon_submit.read",
+          write: "account_maintenance.admon_submit.write",
+        },
+      },
+      {
+        id: "admon_approve",
+        label: "ADMON — Approve",
+        actions: {
+          read: "account_maintenance.admon_approve.read",
+          approve: ["account_maintenance.admon_approve.approve"],
+        },
+      },
+      {
+        id: "admon_reverse",
+        label: "ADMON — Reverse",
+        actions: {
+          read: "account_maintenance.admon_reverse.read",
+          approve: ["account_maintenance.admon_reverse.approve"],
         },
       },
     ],
@@ -143,75 +563,160 @@ const PERMISSION_MATRIX: ModuleDef[] = [
   {
     id: "enquiry",
     label: "Enquiry",
-    colorClass: "border-l-sky-500",
+    colorClass: "border-l-cyan-500",
     submodules: [
       {
-        id: "enquiry",
-        label: "Enquiry Access",
-        actions: {
-          read: "enquiry:read",
-          write: "enquiry:write",
-          approve: ["enquiry:update", "enquiry:delete"],
-        },
+        id: "holder_enquiry",
+        label: "Holder Enquiry",
+        actions: { read: "enquiry.holder_enquiry.read" },
+      },
+      {
+        id: "certificate_enquiry",
+        label: "Certificate Enquiry",
+        actions: { read: "enquiry.certificate_enquiry.read" },
+      },
+      {
+        id: "warrant_enquiry",
+        label: "Warrant Enquiry",
+        actions: { read: "enquiry.warrant_enquiry.read" },
+      },
+      {
+        id: "rights_enquiry",
+        label: "Rights Enquiry",
+        actions: { read: "enquiry.rights_enquiry.read" },
+      },
+      {
+        id: "agent_enquiry",
+        label: "Agent Enquiry",
+        actions: { read: "enquiry.agent_enquiry.read" },
       },
     ],
   },
   {
-    id: "report",
+    id: "reports",
     label: "Reports",
     colorClass: "border-l-teal-500",
     submodules: [
       {
-        id: "report",
-        label: "Report Generation",
+        id: "holder_reports",
+        label: "Holder Reports",
         actions: {
-          read: "report:read",
-          write: "report:write",
-          approve: ["report:update", "report:delete"],
+          read: "reports.holder_reports_view.read",
+          write: "reports.holder_reports_export.write",
         },
       },
-    ],
-  },
-  {
-    id: "audit",
-    label: "Audit",
-    colorClass: "border-l-orange-500",
-    submodules: [
       {
-        id: "audit",
-        label: "Audit Logs",
+        id: "dividend_reports",
+        label: "Dividend Reports",
         actions: {
-          read: "audit:read",
-          write: "audit:write",
-          approve: ["audit:update", "audit:delete"],
+          read: "reports.dividend_reports_view.read",
+          write: "reports.dividend_reports_export.write",
+        },
+      },
+      {
+        id: "certificate_reports",
+        label: "Certificate Reports",
+        actions: {
+          read: "reports.certificate_reports_view.read",
+          write: "reports.certificate_reports_export.write",
+        },
+      },
+      {
+        id: "issue_reports",
+        label: "Issue Reports",
+        actions: {
+          read: "reports.issue_reports_view.read",
+          write: "reports.issue_reports_export.write",
+        },
+      },
+      {
+        id: "sec_reports",
+        label: "SEC Reports",
+        actions: {
+          read: "reports.sec_reports_view.read",
+          write: "reports.sec_reports_export.write",
+        },
+      },
+      {
+        id: "audit_trail",
+        label: "Audit Trail",
+        actions: {
+          read: "reports.audit_trail_view.read",
+          write: "reports.audit_trail_export.write",
         },
       },
     ],
   },
   {
-    id: "setup_admin",
-    label: "Setup & Administration",
-    colorClass: "border-l-rose-500",
+    id: "admin_system",
+    label: "Admin (System)",
+    colorClass: "border-l-red-600",
     adminOnly: true,
     submodules: [
       {
-        id: "setup",
-        label: "System Setup",
+        id: "manage_caution_flags",
+        label: "Manage Caution Flags",
         adminOnly: true,
         actions: {
-          read: "setup:read",
-          write: "setup:write",
-          approve: ["setup:update", "setup:delete"],
+          read: "admin_system.manage_caution_flags.read",
+          write: "admin_system.manage_caution_flags.write",
+          approve: ["admin_system.manage_caution_flags.approve"],
         },
       },
       {
-        id: "admin",
-        label: "Administration",
+        id: "manage_extraction",
+        label: "Manage Extraction",
         adminOnly: true,
         actions: {
-          read: "admin:read",
-          write: "admin:write",
-          approve: ["admin:update", "admin:delete"],
+          read: "admin_system.manage_extraction.read",
+          write: "admin_system.manage_extraction.write",
+        },
+      },
+      {
+        id: "administration_auth",
+        label: "Administration Auth",
+        adminOnly: true,
+        actions: {
+          read: "admin_system.administration_auth.read",
+          write: "admin_system.administration_auth.write",
+          approve: ["admin_system.administration_auth.approve"],
+        },
+      },
+      {
+        id: "authorise_administration",
+        label: "Authorise Administration",
+        adminOnly: true,
+        actions: {
+          read: "admin_system.authorise_administration.read",
+          approve: ["admin_system.authorise_administration.approve"],
+        },
+      },
+      {
+        id: "authorise_advisors",
+        label: "Authorise Advisors",
+        adminOnly: true,
+        actions: {
+          read: "admin_system.authorise_advisors.read",
+          approve: ["admin_system.authorise_advisors.approve"],
+        },
+      },
+      {
+        id: "correct_holder_info",
+        label: "Correct Holder Info",
+        adminOnly: true,
+        actions: {
+          read: "admin_system.correct_holder_info.read",
+          write: "admin_system.correct_holder_info.write",
+          approve: ["admin_system.correct_holder_info.approve"],
+        },
+      },
+      {
+        id: "session_management",
+        label: "Session Management",
+        adminOnly: true,
+        actions: {
+          read: "admin_system.session_management.read",
+          write: "admin_system.session_management.write",
         },
       },
     ],
@@ -304,19 +809,36 @@ function ModulePermCard({
   onTogglePerm,
   onToggleFullAccess,
 }: ModuleCardProps) {
+  const storageKey = `roles-perm-collapsed-${module.id}`;
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const stored = localStorage.getItem(storageKey);
+    return stored !== null ? stored === "true" : true;
+  });
   const faState = getFullAccessState(module, permissions);
   const moduleDisabled = !isEditing || (!!module.adminOnly && !isSuperAdmin);
 
   return (
-    <div
-      className={cn(
-        "bg-card border border-border/60 rounded-xl overflow-hidden border-l-4",
-        module.colorClass,
-      )}
-    >
-      {/* Card header */}
-      <div className="px-4 py-3 bg-muted/20 border-b flex items-center justify-between">
+    <div className="bg-card border border-border/60 rounded-xl overflow-hidden">
+      {/* Card header — clicking anywhere on it toggles collapse */}
+      <button
+        type="button"
+        onClick={() =>
+          setCollapsed((c) => {
+            const next = !c;
+            localStorage.setItem(storageKey, String(next));
+            return next;
+          })
+        }
+        className="w-full px-4 py-3 bg-muted/20 border-b flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer"
+      >
         <div className="flex items-center gap-2">
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200",
+              collapsed && "-rotate-90",
+            )}
+          />
           {module.adminOnly && (
             <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           )}
@@ -325,11 +847,14 @@ function ModulePermCard({
           </h3>
         </div>
 
-        {/* Full Access toggle */}
+        {/* Full Access toggle — stop propagation so it doesn't collapse the card */}
         <button
           type="button"
           disabled={moduleDisabled}
-          onClick={() => !moduleDisabled && onToggleFullAccess(module)}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!moduleDisabled) onToggleFullAccess(module);
+          }}
           className={cn(
             "flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md border transition-all",
             moduleDisabled ? "cursor-default opacity-50" : "cursor-pointer",
@@ -344,101 +869,103 @@ function ModulePermCard({
           {faState === "partial" && <Minus className="h-3 w-3" />}
           Full Access
         </button>
-      </div>
+      </button>
 
-      {/* Submodule table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-120">
-          <thead>
-            <tr className="border-b bg-muted/10">
-              <th className="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Submodule
-              </th>
-              <th className="text-center px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground w-24">
-                Read
-              </th>
-              <th className="text-center px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground w-36">
-                Write / Initiate
-              </th>
-              <th className="text-center px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground w-24">
-                Approve
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/40">
-            {module.submodules.map((sub) => {
-              const rowLocked = !!sub.adminOnly && !isSuperAdmin;
-              const rowDisabled = !isEditing || rowLocked;
+      {/* Submodule table — hidden when collapsed */}
+      {!collapsed && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-120">
+            <thead>
+              <tr className="border-b bg-muted/10">
+                <th className="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Submodule
+                </th>
+                <th className="text-center px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground w-24">
+                  Read
+                </th>
+                <th className="text-center px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground w-36">
+                  Write / Initiate
+                </th>
+                <th className="text-center px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground w-24">
+                  Approve
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/40">
+              {module.submodules.map((sub) => {
+                const rowLocked = !!sub.adminOnly && !isSuperAdmin;
+                const rowDisabled = !isEditing || rowLocked;
 
-              const readChecked = permissions.includes(sub.actions.read);
-              const writeChecked =
-                sub.actions.write != null
-                  ? permissions.includes(sub.actions.write)
+                const readChecked = permissions.includes(sub.actions.read);
+                const writeChecked =
+                  sub.actions.write != null
+                    ? permissions.includes(sub.actions.write)
+                    : null;
+                const approveChecked = sub.actions.approve?.length
+                  ? sub.actions.approve.every((p) => permissions.includes(p))
                   : null;
-              const approveChecked = sub.actions.approve?.length
-                ? sub.actions.approve.every((p) => permissions.includes(p))
-                : null;
 
-              return (
-                <tr key={sub.id} className={cn(rowLocked && "opacity-60")}>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      {rowLocked && (
-                        <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                return (
+                  <tr key={sub.id} className={cn(rowLocked && "opacity-60")}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        {rowLocked && (
+                          <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="font-medium text-[13px]">
+                          {sub.label}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Read */}
+                    <td className="px-4 py-3 text-center">
+                      <Checkbox
+                        checked={readChecked}
+                        disabled={rowDisabled}
+                        onCheckedChange={() => onTogglePerm(sub, "read")}
+                        className="mx-auto cursor-pointer"
+                      />
+                    </td>
+
+                    {/* Write / Initiate */}
+                    <td className="px-4 py-3 text-center">
+                      {writeChecked !== null ? (
+                        <Checkbox
+                          checked={writeChecked}
+                          disabled={rowDisabled}
+                          onCheckedChange={() => onTogglePerm(sub, "write")}
+                          className="mx-auto cursor-pointer"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground/30 text-base">
+                          —
+                        </span>
                       )}
-                      <span className="font-medium text-[13px]">
-                        {sub.label}
-                      </span>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Read */}
-                  <td className="px-4 py-3 text-center">
-                    <Checkbox
-                      checked={readChecked}
-                      disabled={rowDisabled}
-                      onCheckedChange={() => onTogglePerm(sub, "read")}
-                      className="mx-auto cursor-pointer"
-                    />
-                  </td>
-
-                  {/* Write / Initiate */}
-                  <td className="px-4 py-3 text-center">
-                    {writeChecked !== null ? (
-                      <Checkbox
-                        checked={writeChecked}
-                        disabled={rowDisabled}
-                        onCheckedChange={() => onTogglePerm(sub, "write")}
-                        className="mx-auto cursor-pointer"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground/30 text-base">
-                        —
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Approve */}
-                  <td className="px-4 py-3 text-center">
-                    {approveChecked !== null ? (
-                      <Checkbox
-                        checked={approveChecked}
-                        disabled={rowDisabled}
-                        onCheckedChange={() => onTogglePerm(sub, "approve")}
-                        className="mx-auto cursor-pointer"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground/30 text-base">
-                        —
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    {/* Approve */}
+                    <td className="px-4 py-3 text-center">
+                      {approveChecked !== null ? (
+                        <Checkbox
+                          checked={approveChecked}
+                          disabled={rowDisabled}
+                          onCheckedChange={() => onTogglePerm(sub, "approve")}
+                          className="mx-auto cursor-pointer"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground/30 text-base">
+                          —
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -503,8 +1030,8 @@ export default function RolesPage() {
           (r.description || "").toLowerCase().includes(q),
       )
       .sort((a: Role, b: Role) => {
-        if (a.isBuiltIn && !b.isBuiltIn) return -1;
-        if (!a.isBuiltIn && b.isBuiltIn) return 1;
+        if (a.reserved && !b.reserved) return -1;
+        if (!a.reserved && b.reserved) return 1;
         return a.name.localeCompare(b.name);
       });
   }, [roles, roleSearch]);
@@ -713,23 +1240,28 @@ export default function RolesPage() {
       }
     }
 
-    if (!activeRole.isBuiltIn && editPermissions.length === 0) {
+    if (!activeRole.reserved && editPermissions.length === 0) {
       toast.error("Please select at least one permission.");
       return;
     }
 
     setEditSaving(true);
     try {
-      await EDIT_ROLE({
-        roleId: activeRole.id,
-        name: trimmed,
-        description: editDesc,
-      });
-      if (!activeRole.isBuiltIn) {
-        await UPDATE_PERMISSIONS(
-          { permissionNames: editPermissions },
-          activeRole.id,
-        );
+      if (activeRole.reserved) {
+        // Built-in: name is read-only; only update description via dedicated endpoint
+        await EDIT_ROLE({
+          roleId: activeRole.id,
+          name: activeRole.name,
+          description: editDesc,
+        });
+      } else {
+        // Custom: update name + description + permissions in one PATCH
+        await PATCH_ROLE({
+          roleId: activeRole.id,
+          name: trimmed,
+          description: editDesc,
+          permissionNames: editPermissions,
+        });
       }
       toast.success("Role updated successfully.");
       queryClient.invalidateQueries({ queryKey: ["roles"] });
@@ -791,7 +1323,6 @@ export default function RolesPage() {
 
           <div className="px-3 py-2 border-b sticky top-13.25 bg-background/95 backdrop-blur z-10">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Filter roles…"
                 className="pl-8 h-8 text-sm mrpsl-input"
@@ -830,7 +1361,7 @@ export default function RolesPage() {
                         <span className="text-sm font-semibold truncate">
                           {role.name}
                         </span>
-                        {role.isBuiltIn && (
+                        {role.reserved && (
                           <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
                         )}
                       </div>
@@ -846,12 +1377,12 @@ export default function RolesPage() {
                       </span>
                       <Badge
                         className={`border-0 text-[10px] px-1.5 py-0.5 leading-none font-semibold ${
-                          role.isBuiltIn
+                          role.reserved
                             ? "bg-amber-100 text-amber-700"
                             : "bg-blue-100 text-blue-700"
                         }`}
                       >
-                        {role.isBuiltIn ? "Built-in" : "Custom"}
+                        {role.reserved ? "Built-in" : "Custom"}
                       </Badge>
                     </div>
                   </button>
@@ -877,7 +1408,7 @@ export default function RolesPage() {
                   <>
                     <div className="flex items-center gap-2 mb-1">
                       <h2 className="text-xl font-bold">{activeRole?.name}</h2>
-                      {activeRole?.isBuiltIn ? (
+                      {activeRole?.reserved ? (
                         <Badge className="border-0 bg-amber-100 text-amber-700 text-[11px]">
                           Built-in
                         </Badge>
@@ -904,7 +1435,7 @@ export default function RolesPage() {
                   <Button variant="outline" size="sm" onClick={openEditPanel}>
                     <Edit2 className="h-4 w-4 mr-2" /> Edit Role
                   </Button>
-                  {!activeRole?.isBuiltIn && activeRole?.userCount === 0 && (
+                  {!activeRole?.reserved && activeRole?.userCount === 0 && (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -921,7 +1452,7 @@ export default function RolesPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h3 className="font-semibold">Permissions</h3>
-                {activeRole?.isBuiltIn && (
+                {activeRole?.reserved && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                     <Lock className="h-3 w-3" /> Built-in role — permissions
                     cannot be modified
@@ -934,7 +1465,7 @@ export default function RolesPage() {
                 )}
               </div>
 
-              {!isLoading && !activeRole?.isBuiltIn && (
+              {!isLoading && !activeRole?.reserved && (
                 <div className="flex gap-2 shrink-0">
                   {isEditMode ? (
                     <>
@@ -990,7 +1521,7 @@ export default function RolesPage() {
             )}
 
             {/* Sticky bottom action bar when in edit mode */}
-            {!isLoading && isEditMode && !activeRole?.isBuiltIn && (
+            {!isLoading && isEditMode && !activeRole?.reserved && (
               <div className="flex justify-end gap-3 pt-4 pb-2 border-t sticky bottom-0 bg-muted/10 backdrop-blur">
                 <Button variant="outline" onClick={cancelEdit}>
                   Cancel
@@ -1020,12 +1551,12 @@ export default function RolesPage() {
       >
         <SheetContent
           side="right"
-          className="w-[min(90vw,900px)] sm:max-w-none flex flex-col gap-0 p-0"
+          className="w-[min(90vw,900px)] flex flex-col gap-0 p-0"
         >
           <SheetHeader className="px-6 py-5 border-b shrink-0">
             <SheetTitle className="text-base font-semibold">
               Edit Role
-              {activeRole?.isBuiltIn && (
+              {activeRole?.reserved && (
                 <span className="ml-2 text-[11px] font-normal text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 align-middle">
                   Built-in
                 </span>
@@ -1049,8 +1580,8 @@ export default function RolesPage() {
                   }}
                   placeholder="e.g. Operations Manager"
                   className="mrpsl-input"
-                  readOnly={activeRole?.isBuiltIn}
-                  disabled={activeRole?.isBuiltIn}
+                  readOnly={activeRole?.reserved}
+                  disabled={activeRole?.reserved}
                 />
                 {editNameError && (
                   <p className="text-xs text-destructive">{editNameError}</p>
@@ -1066,7 +1597,7 @@ export default function RolesPage() {
                   rows={3}
                 />
               </div>
-              {activeRole?.isBuiltIn && (
+              {activeRole?.reserved && (
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-1.5">
                   <Lock className="h-3.5 w-3.5 shrink-0" />
                   Built-in role — name is read-only and permissions cannot be
@@ -1080,7 +1611,7 @@ export default function RolesPage() {
               <div>
                 <h3 className="font-semibold text-sm">Permissions</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {activeRole?.isBuiltIn
+                  {activeRole?.reserved
                     ? "Permissions are locked for built-in roles."
                     : "Select at least one permission."}
                 </p>
@@ -1091,7 +1622,7 @@ export default function RolesPage() {
                     key={module.id}
                     module={module}
                     permissions={editPermissions}
-                    isEditing={!activeRole?.isBuiltIn}
+                    isEditing={!activeRole?.reserved}
                     isSuperAdmin={isSuperAdmin}
                     onTogglePerm={handleTogglePermEdit}
                     onToggleFullAccess={handleToggleFullAccessEdit}
@@ -1143,7 +1674,7 @@ export default function RolesPage() {
       >
         <SheetContent
           side="right"
-          className="w-[min(90vw,900px)] sm:max-w-none flex flex-col gap-0 p-0"
+          className="w-[min(90vw,900px)] flex flex-col gap-0 p-0"
         >
           <SheetHeader className="px-6 py-5 border-b shrink-0">
             <SheetTitle className="text-base font-semibold">

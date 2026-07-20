@@ -145,7 +145,9 @@ export default function PrincipalsPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Principals</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            Principals
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage issuer client companies whose shareholder registers are
             maintained by MRPSL
@@ -249,44 +251,46 @@ export default function PrincipalsPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Input
-          type="search"
-          placeholder="Search principals..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full sm:w-64 mrpsl-input"
-        />
-        <Select
-          value={billingFilter}
-          onValueChange={(v) => setBillingFilter(v || "")}
-        >
-          <SelectTrigger className="w-36 mrpsl-input">
-            <SelectValue placeholder="Billing Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="">Billing Category</SelectItem>
-              <SelectItem value="A">Category A</SelectItem>
-              <SelectItem value="B">Category B</SelectItem>
-              <SelectItem value="C">Category C</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v || "")}
-        >
-          <SelectTrigger className="w-36 mrpsl-input">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">Status</SelectItem>
-            <SelectItem value="ACTIVE">Active</SelectItem>
-            <SelectItem value="INACTIVE">Inactive</SelectItem>
-            <SelectItem value="SUSPENDED">Suspended</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-row gap-2 items-center">
+        <div className="grid grid-cols-[2fr_1fr_1fr] gap-2 w-1/2">
+          <Input
+            type="search"
+            placeholder="Search principals..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full mrpsl-input"
+          />
+          <Select
+            value={billingFilter}
+            onValueChange={(v) => setBillingFilter(v || "")}
+          >
+            <SelectTrigger className="w-full mrpsl-input">
+              <SelectValue placeholder="Billing Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="">All</SelectItem>
+                <SelectItem value="A">Category A</SelectItem>
+                <SelectItem value="B">Category B</SelectItem>
+                <SelectItem value="C">Category C</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v || "")}
+          >
+            <SelectTrigger className="w-full mrpsl-input">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All</SelectItem>
+              <SelectItem value="ACTIVE">Active</SelectItem>
+              <SelectItem value="INACTIVE">Inactive</SelectItem>
+              <SelectItem value="SUSPENDED">Suspended</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         {(search !== "" || billingFilter !== "" || statusFilter !== "") && (
           <Button
             variant="ghost"
@@ -295,6 +299,7 @@ export default function PrincipalsPage() {
               setBillingFilter("");
               setStatusFilter("");
             }}
+            className="shrink-0"
           >
             Clear Filters
           </Button>

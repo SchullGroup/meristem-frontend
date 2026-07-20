@@ -14,10 +14,18 @@ import {
   AlertCircle,
   Loader2,
   Search,
+  Wand2,
+  CheckCircle2,
+  MousePointerClick,
 } from "lucide-react";
 import { EmailPreviewModal } from "@/components/custom/shareholder-outreach-modals";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ICULodgment from "@/components/custom/ipo/lodgment";
+import { CSCSReversalsWorkspace } from "@/components/custom/offer-administration/cscs-reversals-workspace";
+import { ProvisionalAllotment } from "@/components/custom/rights-issue/provisional-allotment";
+import { DispatchNotificationPanel } from "@/components/custom/offer-administration/dispatch-notification-panel";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -47,32 +55,9 @@ import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
-import { useGetRegisters } from "@/hooks/useRegisters";
 import { useReactToPrint } from "react-to-print";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  CREATE_BONUS_ISSUE_DECLARATION,
-  GET_DECLARATIONS,
-  GET_SHAREHOLDERS_BY_DECLARATION_ID,
-  GET_DECLARATION_BY_ID,
-  APPROVE_DECLARATION,
-  SUBMIT_DECLARATION_FOR_APPROVAL,
-  COMPUTE_BONUS_ISSUE_DECLARATION,
-  REJECT_DECLARATION,
-  APPROVE_DECLARATION_BY_ICU,
-  RETURN_DECLARATION_TO_OPS,
-  GET_DELCARED_BONUS_ALLOTMENTS,
-  PROCESS_BONUS_ISSUE_ALLOTMENT,
-  EXPORT_DELCARED_BONUS_ALLOTMENTS,
-  GENERATE_BONUS_REPORT,
-} from "@/actions/bonusIssuesAction";
-import { GET_USERS } from "@/actions/userAction";
-import { getUser } from "@/services/AuthServices";
-import { useUserDetails } from "@/hooks/useUserDetails";
 import { formatCustomDate, formatDateOnly } from "@/utils/helperFunctions";
 import ExportToExcel from "@/components/custom/ExportToExcel";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useDebounce } from "@/hooks/useDebounce";
 
 export interface BonusDeclaration {
   id: string;
@@ -105,11 +90,608 @@ export interface BonusDeclaration {
 
 const PAGE_SIZE = 20;
 
+interface BonusSetupProfile {
+  id: string;
+  name: string;
+  register: string;
+  ratio: string;
+  qualificationDate: Date;
+  closureDate: Date;
+  allotmentDate: Date;
+  roundingRule: string;
+  narrative: string;
+  status: "DRAFT" | "PENDING_AUTH" | "PENDING_ICU" | "ICU_APPROVED";
+}
+
+/** Mirrors the records created in Offer Setup → Bonus Issue Setup tab. */
+const BONUS_SETUP_PROFILES: BonusSetupProfile[] = [
+  {
+    id: "bs-1",
+    name: "Zenith Bank Bonus Issue 2024",
+    register: "Zenith Bank Ord. Shares",
+    ratio: "1 for 5",
+    qualificationDate: new Date("2024-06-30"),
+    closureDate: new Date("2024-07-15"),
+    allotmentDate: new Date("2024-08-01"),
+    roundingRule: "ROUND_DOWN",
+    narrative: "One bonus share for every five held at qualification date.",
+    status: "ICU_APPROVED",
+  },
+];
+
+const BONUS_SETUP_STATUS_LABELS: Record<BonusSetupProfile["status"], string> = {
+  DRAFT: "Draft",
+  PENDING_AUTH: "Pending Approval",
+  PENDING_ICU: "Pending ICU",
+  ICU_APPROVED: "ICU Approved",
+};
+
+const BONUS_SETUP_STATUS_STYLES: Record<BonusSetupProfile["status"], string> = {
+  DRAFT: "bg-gray-100 text-gray-700",
+  PENDING_AUTH: "bg-amber-100 text-amber-800",
+  PENDING_ICU: "bg-amber-100 text-amber-800",
+  ICU_APPROVED: "bg-green-100 text-green-800",
+};
+
 const BONUS_REPORT_TYPES = [
   "Bonus Entitlement Register",
   "Shareholder Bonus Allotment List",
   "Summary of Bonus Shares Issued",
   "Exception and Rounding Report",
+  "Bonus Report",
+];
+
+/* ─── mock data ─── */
+
+const MOCK_USERS: Record<string, { name: string; role: string }> = {
+  "user-001": { name: "Emeka Okonkwo", role: "Operations Manager" },
+  "user-002": { name: "Chioma Nwosu", role: "ICU Analyst" },
+};
+
+const MOCK_ENTITLEMENTS: {
+  id: string;
+  accountNumber: string;
+  name: string;
+  shareholderName: string;
+  unitsAtQualDate: number;
+  bonusDue: number;
+  fractionalRemainder: number;
+  address: string;
+  state: string;
+}[] = [
+  {
+    id: "ent-01",
+    accountNumber: "ZB2024-001",
+    name: "ADEBISI OLUWASEUN PETERS",
+    shareholderName: "ADEBISI OLUWASEUN PETERS",
+    unitsAtQualDate: 50000,
+    bonusDue: 10000,
+    fractionalRemainder: 0.0,
+    address: "12 Adeniyi Jones Avenue, Ikeja",
+    state: "Lagos",
+  },
+  {
+    id: "ent-02",
+    accountNumber: "ZB2024-002",
+    name: "CHUKWUEMEKA OBIORA OKAFOR",
+    shareholderName: "CHUKWUEMEKA OBIORA OKAFOR",
+    unitsAtQualDate: 75000,
+    bonusDue: 15000,
+    fractionalRemainder: 0.0,
+    address: "45 Trans Amadi Road, Port Harcourt",
+    state: "Rivers",
+  },
+  {
+    id: "ent-03",
+    accountNumber: "ZB2024-003",
+    name: "FATIMA ABDULLAHI YUSUF",
+    shareholderName: "FATIMA ABDULLAHI YUSUF",
+    unitsAtQualDate: 22001,
+    bonusDue: 4400,
+    fractionalRemainder: 0.2,
+    address: "8 Bompai Road, Kano",
+    state: "Kano",
+  },
+  {
+    id: "ent-04",
+    accountNumber: "ZB2024-004",
+    name: "MICHAEL KOLADE ADEYEMI",
+    shareholderName: "MICHAEL KOLADE ADEYEMI",
+    unitsAtQualDate: 137000,
+    bonusDue: 27400,
+    fractionalRemainder: 0.0,
+    address: "22 Ring Road, Ibadan",
+    state: "Oyo",
+  },
+  {
+    id: "ent-05",
+    accountNumber: "ZB2024-005",
+    name: "NGOZI CHIDINMA OKAFOR",
+    shareholderName: "NGOZI CHIDINMA OKAFOR",
+    unitsAtQualDate: 11000,
+    bonusDue: 2200,
+    fractionalRemainder: 0.0,
+    address: "7 Ogui Road, Enugu",
+    state: "Enugu",
+  },
+  {
+    id: "ent-06",
+    accountNumber: "ZB2024-006",
+    name: "IBRAHIM USMAN HASSAN",
+    shareholderName: "IBRAHIM USMAN HASSAN",
+    unitsAtQualDate: 83503,
+    bonusDue: 16700,
+    fractionalRemainder: 0.6,
+    address: "15 Sultan Road, Sokoto",
+    state: "Sokoto",
+  },
+  {
+    id: "ent-07",
+    accountNumber: "ZB2024-007",
+    name: "BLESSING ADESANYA ORIMOTO",
+    shareholderName: "BLESSING ADESANYA ORIMOTO",
+    unitsAtQualDate: 213000,
+    bonusDue: 42600,
+    fractionalRemainder: 0.0,
+    address: "33 Oba Akenzua Street, Benin City",
+    state: "Edo",
+  },
+  {
+    id: "ent-08",
+    accountNumber: "ZB2024-008",
+    name: "AMAKA CHISOM EZENWACHI",
+    shareholderName: "AMAKA CHISOM EZENWACHI",
+    unitsAtQualDate: 35700,
+    bonusDue: 7140,
+    fractionalRemainder: 0.0,
+    address: "10 Nnamdi Azikiwe Road, Onitsha",
+    state: "Anambra",
+  },
+  {
+    id: "ent-09",
+    accountNumber: "ZB2024-009",
+    name: "TUNDE FASHOLA KAYODE",
+    shareholderName: "TUNDE FASHOLA KAYODE",
+    unitsAtQualDate: 98002,
+    bonusDue: 19600,
+    fractionalRemainder: 0.4,
+    address: "56 Adeola Odeku Street, Victoria Island",
+    state: "Lagos",
+  },
+  {
+    id: "ent-10",
+    accountNumber: "ZB2024-010",
+    name: "AISHA IBRAHIM BELLO",
+    shareholderName: "AISHA IBRAHIM BELLO",
+    unitsAtQualDate: 57000,
+    bonusDue: 11400,
+    fractionalRemainder: 0.0,
+    address: "28 Murtala Mohammed Way, Kaduna",
+    state: "Kaduna",
+  },
+  {
+    id: "ent-11",
+    accountNumber: "ZB2024-011",
+    name: "PETER OKOYE NWACHUKWU",
+    shareholderName: "PETER OKOYE NWACHUKWU",
+    unitsAtQualDate: 43000,
+    bonusDue: 8600,
+    fractionalRemainder: 0.0,
+    address: "9 Aba Road, Port Harcourt",
+    state: "Rivers",
+  },
+  {
+    id: "ent-12",
+    accountNumber: "ZB2024-012",
+    name: "GRACE OMOLARA ADELEKE",
+    shareholderName: "GRACE OMOLARA ADELEKE",
+    unitsAtQualDate: 18700,
+    bonusDue: 3740,
+    fractionalRemainder: 0.0,
+    address: "3 Akin Olugbade Street, Victoria Island",
+    state: "Lagos",
+  },
+  {
+    id: "ent-13",
+    accountNumber: "ZB2024-013",
+    name: "SAMUEL ADEWALE BABATUNDE",
+    shareholderName: "SAMUEL ADEWALE BABATUNDE",
+    unitsAtQualDate: 61000,
+    bonusDue: 12200,
+    fractionalRemainder: 0.0,
+    address: "17 Zik Avenue, Awka",
+    state: "Anambra",
+  },
+  {
+    id: "ent-14",
+    accountNumber: "ZB2024-014",
+    name: "OBIAGELI NKECHI OKONKWO",
+    shareholderName: "OBIAGELI NKECHI OKONKWO",
+    unitsAtQualDate: 29001,
+    bonusDue: 5800,
+    fractionalRemainder: 0.2,
+    address: "44 Oguta Road, Owerri",
+    state: "Imo",
+  },
+  {
+    id: "ent-15",
+    accountNumber: "ZB2024-015",
+    name: "JOHN EMEKA IGWE",
+    shareholderName: "JOHN EMEKA IGWE",
+    unitsAtQualDate: 71500,
+    bonusDue: 14300,
+    fractionalRemainder: 0.0,
+    address: "6 Agbor Road, Asaba",
+    state: "Delta",
+  },
+];
+
+const MOCK_BROKER_SUMMARY = [
+  {
+    stockbroker: "Stanbic IBTC Stockbrokers",
+    eligibleShareholders: 5412,
+    unitsAtQualDate: 12450000,
+    bonusSharesIssued: 2490000,
+    fractionalUnits: 412.4,
+    percentageOfTotalNewShares: 55.33,
+  },
+  {
+    stockbroker: "Meristem Stockbrokers Ltd",
+    eligibleShareholders: 4318,
+    unitsAtQualDate: 7890000,
+    bonusSharesIssued: 1578000,
+    fractionalUnits: 231.8,
+    percentageOfTotalNewShares: 35.07,
+  },
+  {
+    stockbroker: "CardinalStone Securities",
+    eligibleShareholders: 3117,
+    unitsAtQualDate: 2160000,
+    bonusSharesIssued: 432000,
+    fractionalUnits: 89.2,
+    percentageOfTotalNewShares: 9.6,
+  },
+];
+
+const MOCK_BONUS_REPORT = [
+  {
+    shareAccountNo: "ZB2024-001",
+    name: "ADEBISI OLUWASEUN PETERS",
+    certificateNo: "CERT-BNS001",
+    bonusUnits: 10000,
+    unitsBefore: 50000,
+    unitsAfter: 60000,
+    email: "adebisi.peters@email.com",
+    phone: "08012345678",
+    chn: "C0045678AK",
+    stockbroker: "Stanbic IBTC Stockbrokers",
+    stockbrokerCode: "STANBIC",
+  },
+  {
+    shareAccountNo: "ZB2024-002",
+    name: "CHUKWUEMEKA OBIORA OKAFOR",
+    certificateNo: "CERT-BNS002",
+    bonusUnits: 15000,
+    unitsBefore: 75000,
+    unitsAfter: 90000,
+    email: "chukwuemeka.okafor@email.com",
+    phone: "08098765432",
+    chn: "C0034521BK",
+    stockbroker: "Meristem Stockbrokers Ltd",
+    stockbrokerCode: "MERISTEM",
+  },
+  {
+    shareAccountNo: "ZB2024-003",
+    name: "FATIMA ABDULLAHI YUSUF",
+    certificateNo: "CERT-BNS003",
+    bonusUnits: 4400,
+    unitsBefore: 22001,
+    unitsAfter: 26401,
+    email: "fatima.yusuf@email.com",
+    phone: "07067891234",
+    chn: "C0056712CK",
+    stockbroker: "CardinalStone Securities",
+    stockbrokerCode: "CARDINAL",
+  },
+  {
+    shareAccountNo: "ZB2024-004",
+    name: "MICHAEL KOLADE ADEYEMI",
+    certificateNo: "CERT-BNS004",
+    bonusUnits: 27400,
+    unitsBefore: 137000,
+    unitsAfter: 164400,
+    email: "michael.adeyemi@email.com",
+    phone: "08056789012",
+    chn: "C0023456DK",
+    stockbroker: "Stanbic IBTC Stockbrokers",
+    stockbrokerCode: "STANBIC",
+  },
+  {
+    shareAccountNo: "ZB2024-005",
+    name: "NGOZI CHIDINMA OKAFOR",
+    certificateNo: "CERT-BNS005",
+    bonusUnits: 2200,
+    unitsBefore: 11000,
+    unitsAfter: 13200,
+    email: "ngozi.okafor@email.com",
+    phone: "09012345670",
+    chn: "C0067890EK",
+    stockbroker: "Meristem Stockbrokers Ltd",
+    stockbrokerCode: "MERISTEM",
+  },
+  {
+    shareAccountNo: "ZB2024-006",
+    name: "IBRAHIM USMAN HASSAN",
+    certificateNo: "CERT-BNS006",
+    bonusUnits: 16700,
+    unitsBefore: 83503,
+    unitsAfter: 100203,
+    email: "ibrahim.hassan@email.com",
+    phone: "08034567890",
+    chn: "C0012345FK",
+    stockbroker: "Stanbic IBTC Stockbrokers",
+    stockbrokerCode: "STANBIC",
+  },
+  {
+    shareAccountNo: "ZB2024-007",
+    name: "BLESSING ADESANYA ORIMOTO",
+    certificateNo: "CERT-BNS007",
+    bonusUnits: 42600,
+    unitsBefore: 213000,
+    unitsAfter: 255600,
+    email: "blessing.orimoto@email.com",
+    phone: "07089012345",
+    chn: "C0078901GK",
+    stockbroker: "CardinalStone Securities",
+    stockbrokerCode: "CARDINAL",
+  },
+  {
+    shareAccountNo: "ZB2024-008",
+    name: "AMAKA CHISOM EZENWACHI",
+    certificateNo: "CERT-BNS008",
+    bonusUnits: 7140,
+    unitsBefore: 35700,
+    unitsAfter: 42840,
+    email: "amaka.ezenwachi@email.com",
+    phone: "08045678901",
+    chn: "C0090123HK",
+    stockbroker: "Meristem Stockbrokers Ltd",
+    stockbrokerCode: "MERISTEM",
+  },
+  {
+    shareAccountNo: "ZB2024-009",
+    name: "TUNDE FASHOLA KAYODE",
+    certificateNo: "CERT-BNS009",
+    bonusUnits: 19600,
+    unitsBefore: 98002,
+    unitsAfter: 117602,
+    email: "tunde.kayode@email.com",
+    phone: "08023456789",
+    chn: "C0034512IK",
+    stockbroker: "Stanbic IBTC Stockbrokers",
+    stockbrokerCode: "STANBIC",
+  },
+  {
+    shareAccountNo: "ZB2024-010",
+    name: "AISHA IBRAHIM BELLO",
+    certificateNo: "CERT-BNS010",
+    bonusUnits: 11400,
+    unitsBefore: 57000,
+    unitsAfter: 68400,
+    email: "aisha.bello@email.com",
+    phone: "07056789012",
+    chn: "C0045623JK",
+    stockbroker: "CardinalStone Securities",
+    stockbrokerCode: "CARDINAL",
+  },
+  {
+    shareAccountNo: "ZB2024-011",
+    name: "PETER OKOYE NWACHUKWU",
+    certificateNo: "CERT-BNS011",
+    bonusUnits: 8600,
+    unitsBefore: 43000,
+    unitsAfter: 51600,
+    email: "peter.nwachukwu@email.com",
+    phone: "09034567890",
+    chn: "C0056734KK",
+    stockbroker: "Meristem Stockbrokers Ltd",
+    stockbrokerCode: "MERISTEM",
+  },
+  {
+    shareAccountNo: "ZB2024-012",
+    name: "GRACE OMOLARA ADELEKE",
+    certificateNo: "CERT-BNS012",
+    bonusUnits: 3740,
+    unitsBefore: 18700,
+    unitsAfter: 22440,
+    email: "grace.adeleke@email.com",
+    phone: "08078901234",
+    chn: "C0067845LK",
+    stockbroker: "Stanbic IBTC Stockbrokers",
+    stockbrokerCode: "STANBIC",
+  },
+  {
+    shareAccountNo: "ZB2024-013",
+    name: "SAMUEL ADEWALE BABATUNDE",
+    certificateNo: "CERT-BNS013",
+    bonusUnits: 12200,
+    unitsBefore: 61000,
+    unitsAfter: 73200,
+    email: "samuel.babatunde@email.com",
+    phone: "08089012345",
+    chn: "C0078956MK",
+    stockbroker: "CardinalStone Securities",
+    stockbrokerCode: "CARDINAL",
+  },
+  {
+    shareAccountNo: "ZB2024-014",
+    name: "OBIAGELI NKECHI OKONKWO",
+    certificateNo: "CERT-BNS014",
+    bonusUnits: 5800,
+    unitsBefore: 29001,
+    unitsAfter: 34801,
+    email: "obiageli.okonkwo@email.com",
+    phone: "07045678901",
+    chn: "C0090067NK",
+    stockbroker: "Meristem Stockbrokers Ltd",
+    stockbrokerCode: "MERISTEM",
+  },
+  {
+    shareAccountNo: "ZB2024-015",
+    name: "JOHN EMEKA IGWE",
+    certificateNo: "CERT-BNS015",
+    bonusUnits: 14300,
+    unitsBefore: 71500,
+    unitsAfter: 85800,
+    email: "john.igwe@email.com",
+    phone: "08012398765",
+    chn: "C0023178OK",
+    stockbroker: "Stanbic IBTC Stockbrokers",
+    stockbrokerCode: "STANBIC",
+  },
+];
+
+const MOCK_REPORT_DATA: Record<string, unknown[]> = {
+  "bonus-entitlement-register": MOCK_ENTITLEMENTS,
+  "shareholder-bonus-allotment-list": MOCK_ENTITLEMENTS,
+  "exception-and-rounding-report": MOCK_ENTITLEMENTS.filter(
+    (e) => e.fractionalRemainder > 0,
+  ),
+  "bonus-report": MOCK_BONUS_REPORT,
+  "summary-of-bonus-shares-issued": MOCK_BROKER_SUMMARY,
+};
+
+const MOCK_SUMMARY_META = {
+  totalShareholders: 12847,
+  totalUnitsAtQualDate: 22500000,
+  totalBonusSharesIssued: 4500000,
+  totalFractionalUnits: 733.4,
+  percentageOfTotalNewShares: 100.0,
+};
+
+const MOCK_ALLOTMENT_SUMMARY = {
+  totalShareholders: 12847,
+  totalBonusShares: 4500000,
+  previousStockInIssue: 22500000,
+  newStockInIssue: 27000000,
+  totalPaperSharesCreated: 4230,
+  totalCscShares: 8617,
+  totalFractionalSharesRounded: 4,
+};
+
+const MOCK_CSCS_ERRORS = [
+  {
+    accountNumber: "ZB2024-003",
+    name: "FATIMA ABDULLAHI YUSUF",
+    chn: "C0056712CK",
+    bonusDue: 4400,
+    reason: "Invalid CHN format",
+  },
+  {
+    accountNumber: "ZB2024-006",
+    name: "IBRAHIM USMAN HASSAN",
+    chn: "C0012345FK",
+    bonusDue: 16700,
+    reason: "Account dormant",
+  },
+  {
+    accountNumber: "ZB2024-009",
+    name: "TUNDE FASHOLA KAYODE",
+    chn: "C0034512IK",
+    bonusDue: 19600,
+    reason: "Name mismatch on CSCS record",
+  },
+  {
+    accountNumber: "ZB2024-014",
+    name: "OBIAGELI NKECHI OKONKWO",
+    chn: "C0090067NK",
+    bonusDue: 5800,
+    reason: "Duplicate entry detected",
+  },
+];
+const MOCK_CSCS_CREDITED = MOCK_ENTITLEMENTS.filter(
+  (e) =>
+    !["ZB2024-003", "ZB2024-006", "ZB2024-009", "ZB2024-014"].includes(
+      e.accountNumber,
+    ),
+);
+
+const INITIAL_MOCK_DECLARATIONS: BonusDeclaration[] = [
+  {
+    id: "decl-pending-auth",
+    ref: "BNS/2024/001",
+    registerId: "reg-zenith",
+    registerName: "Zenith Bank Ord. Shares",
+    bonusName: "Zenith Bank Bonus Issue 2024",
+    ratio: "1:5",
+    roundingRule: "ROUND DOWN",
+    qualificationDate: "2024-06-30",
+    closureDate: "2024-07-15",
+    allotmentDate: "2024-08-01",
+    narrative: "One bonus share for every five held at qualification date.",
+    status: "PENDING_AUTH",
+    totalShareholders: 12847,
+    totalBonusShares: 4500000,
+    totalFractionalRemainder: 733.4,
+    icuApprovedBy: "",
+    icuApprovedAt: "",
+    submittedByName: "Emeka Okonkwo",
+    submittedAt: "2024-07-16T09:30:00Z",
+    totalCertificatedHolders: 4230,
+    totalCscsHolders: 8617,
+  },
+  {
+    id: "decl-pending-icu",
+    ref: "BNS/2024/002",
+    registerId: "reg-zenith",
+    registerName: "Zenith Bank Ord. Shares",
+    bonusName: "Zenith Bank Bonus Issue 2024",
+    ratio: "1:5",
+    roundingRule: "ROUND DOWN",
+    qualificationDate: "2024-06-30",
+    closureDate: "2024-07-15",
+    allotmentDate: "2024-08-01",
+    narrative: "One bonus share for every five held at qualification date.",
+    status: "PENDING_ICU",
+    totalShareholders: 12847,
+    totalBonusShares: 4500000,
+    totalFractionalRemainder: 733.4,
+    icuApprovedBy: "",
+    icuApprovedAt: "",
+    authorizedBy: "user-001",
+    authorizedAt: "2024-07-17T10:15:00Z",
+    authorizedReason: "All entitlement figures verified and in order.",
+    submittedByName: "Emeka Okonkwo",
+    submittedAt: "2024-07-16T09:30:00Z",
+    totalCertificatedHolders: 4230,
+    totalCscsHolders: 8617,
+  },
+  {
+    id: "decl-icu-approved",
+    ref: "BNS/2024/003",
+    registerId: "reg-zenith",
+    registerName: "Zenith Bank Ord. Shares",
+    bonusName: "Zenith Bank Bonus Issue 2024",
+    ratio: "1:5",
+    roundingRule: "ROUND DOWN",
+    qualificationDate: "2024-06-30",
+    closureDate: "2024-07-15",
+    allotmentDate: "2024-08-01",
+    narrative: "One bonus share for every five held at qualification date.",
+    status: "ICU_APPROVED",
+    totalShareholders: 12847,
+    totalBonusShares: 4500000,
+    totalFractionalRemainder: 733.4,
+    icuApprovedBy: "user-002",
+    icuApprovedAt: "2024-07-18T11:00:00Z",
+    authorizedBy: "user-001",
+    authorizedAt: "2024-07-17T10:15:00Z",
+    authorizedReason: "All entitlement figures verified and in order.",
+    submittedByName: "Emeka Okonkwo",
+    submittedAt: "2024-07-16T09:30:00Z",
+    totalCertificatedHolders: 4230,
+    totalCscsHolders: 8617,
+  },
 ];
 
 function getVisiblePages(current: number, total: number): (number | "…")[] {
@@ -326,20 +908,7 @@ function EntitlementTfoot({
 }
 
 /* Declaration detail card — reused in both Approval and ICU */
-function DeclDetailCard({
-  decl,
-}: {
-  decl: {
-    registerName: string;
-    bonusName: string;
-    ratio: string;
-    roundingRule: string;
-    qualificationDate: string;
-    closureDate: string;
-    allotmentDate: string;
-    narrative: string;
-  };
-}) {
+function DeclDetailCard({ decl }: { decl: BonusDeclaration | null }) {
   if (!decl) return null;
   return (
     <Card className="mrpsl-card p-4">
@@ -395,27 +964,9 @@ function DeclDetailCard({
 /* ─── main component ─── */
 
 export default function BonusIssuePage() {
-  const { data: registersData, isLoading: loadingRegisters } =
-    useGetRegisters();
-  const queryClient = useQueryClient();
-  const user = getUser();
-  const registerList = registersData?.content;
   const { shareholders } = useStore();
 
   const [activeTab, setActiveTab] = useState("declaration");
-
-  // Declaration
-  const [computed, setComputed] = useState(false);
-  const [computePage, setComputePage] = useState(1);
-  const [date1, setDate1] = useState<Date>();
-  const [date2, setDate2] = useState<Date>();
-  const [date3, setDate3] = useState<Date>();
-  const [selectedRegister, setSelectedRegister] = useState<string>("");
-  const [bonusName, setBonusName] = useState<string>("");
-  const [ratioNumerator, setRatioNumerator] = useState<string>("1");
-  const [ratioDenominator, setRatioDenominator] = useState<string>("4");
-  const [roundingRule, setRoundingRule] = useState<string>("ROUND_DOWN");
-  const [narrative, setNarrative] = useState<string>("");
 
   // Approval (2-step)
   const [authReviewing, setAuthReviewing] = useState<string | null>(null);
@@ -435,7 +986,6 @@ export default function BonusIssuePage() {
   const [icuPage, setIcuPage] = useState(1);
 
   // Allotment
-  const [allotmentProcessed, setAllotmentProcessed] = useState(false);
   const [allotPage, setAllotPage] = useState(1);
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
   const [allotReviewing, setAllotReviewing] = useState<string | null>(null);
@@ -444,28 +994,27 @@ export default function BonusIssuePage() {
   const [allotmentProcessedMap, setAllotmentProcessedMap] = useState<
     Record<string, boolean>
   >({});
+  const [isAllotmentProcessing, setIsAllotmentProcessing] = useState(false);
+  const [isExportingAllotments, setIsExportingAllotments] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Auth tab list filters
   const [authListPage, setAuthListPage] = useState(1);
   const [authListPageSize, setAuthListPageSize] = useState(PAGE_SIZE);
   const [authListSearch, setAuthListSearch] = useState("");
   const [authListRegister, setAuthListRegister] = useState("");
-  const debouncedAuthSearch = useDebounce(authListSearch, 500);
 
   // ICU tab list filters
   const [icuListPage, setIcuListPage] = useState(1);
   const [icuListPageSize, setIcuListPageSize] = useState(PAGE_SIZE);
   const [icuListSearch, setIcuListSearch] = useState("");
   const [icuListRegister, setIcuListRegister] = useState("");
-  const debouncedIcuSearch = useDebounce(icuListSearch, 500);
 
   // Allotment tab list filters
   const [allotListPage, setAllotListPage] = useState(1);
   const [allotListPageSize, setAllotListPageSize] = useState(PAGE_SIZE);
   const [allotListSearch, setAllotListSearch] = useState("");
   const [allotListRegister, setAllotListRegister] = useState("");
-  const [allotListStatus, setAllotListStatus] = useState("ICU_APPROVED");
-  const debouncedAllotSearch = useDebounce(allotListSearch, 500);
 
   // Reports
   const [selectedReport, setSelectedReport] = useState(BONUS_REPORT_TYPES[0]);
@@ -490,324 +1039,247 @@ export default function BonusIssuePage() {
     handlePrint();
   };
 
-  const [createdDeclarationId, setCreatedDeclarationId] = useState<
-    string | null
-  >(null);
-  const [resTotalBonusShares, setResTotalBonusShares] = useState<number>(0);
-  const [resTotalFractionalRemainder, setResTotalFractionalRemainder] =
-    useState<number>(0);
-
-  // Rejected banner (declaration tab) — lightweight, no pagination needed
-  const { data: rejectedBannerData } = useQuery({
-    queryKey: ["bonus-declarations", "banner"],
-    queryFn: () => GET_DECLARATIONS({ pageSize: 50 }),
-  });
-  const rejectedList = rejectedBannerData?.data?.content?.filter(
-    (declaration: { status: string }) =>
-      declaration.status === "AUTH_REJECTED" ||
-      declaration.status === "ICU_REJECTED",
+  // Mock declarations state
+  const [mockDeclarations, setMockDeclarations] = useState<BonusDeclaration[]>(
+    INITIAL_MOCK_DECLARATIONS,
   );
 
-  // Auth tab — paginated, filterable
-  const { data: authDeclarationsData, isLoading: isAuthDeclarationsLoading } =
-    useQuery({
-      queryKey: [
-        "bonus-declarations",
-        "auth",
-        authListPage,
-        authListPageSize,
-        debouncedAuthSearch,
-        authListRegister,
-      ],
-      queryFn: () =>
-        GET_DECLARATIONS({
-          page: authListPage,
-          pageSize: authListPageSize,
-          search: debouncedAuthSearch || undefined,
-          registerId: authListRegister || undefined,
-          status: "PENDING_AUTH",
-        }),
-    });
-  const authDeclarationList = authDeclarationsData?.data?.content;
-  const authDeclarationTotal = authDeclarationsData?.data?.totalElements ?? 0;
+  // Declaration tab compute state
+  const [computed, setComputed] = useState(false);
+  const [sendingToIcu, setSendingToIcu] = useState(false);
+  const [declarationPage, setDeclarationPage] = useState(1);
 
-  // ICU tab — paginated, status fixed to PENDING_ICU
-  const { data: icuDeclarationsData, isLoading: isIcuDeclarationsLoading } =
-    useQuery({
-      queryKey: [
-        "bonus-declarations",
-        "icu",
-        icuListPage,
-        icuListPageSize,
-        debouncedIcuSearch,
-        icuListRegister,
-      ],
-      queryFn: () =>
-        GET_DECLARATIONS({
-          page: icuListPage,
-          pageSize: icuListPageSize,
-          search: debouncedIcuSearch || undefined,
-          registerId: icuListRegister || undefined,
-          status: "PENDING_ICU",
-        }),
-    });
-  const icuDeclarationList = icuDeclarationsData?.data?.content;
-  const icuDeclarationTotal = icuDeclarationsData?.data?.totalElements ?? 0;
+  // ICU approval flow — track just-approved state so review stays open
+  const [icuJustApproved, setIcuJustApproved] = useState(false);
 
-  // Allotment tab — paginated, filterable
-  const { data: allotDeclarationsData, isLoading: isAllotDeclarationsLoading } =
-    useQuery({
-      queryKey: [
-        "bonus-declarations",
-        "allotment",
-        allotListPage,
-        allotListPageSize,
-        debouncedAllotSearch,
-        allotListRegister,
-        allotListStatus,
-      ],
-      queryFn: () =>
-        GET_DECLARATIONS({
-          page: allotListPage,
-          pageSize: allotListPageSize,
-          search: debouncedAllotSearch || undefined,
-          registerId: allotListRegister || undefined,
-          status: allotListStatus,
-        }),
-    });
-  const allotDeclarationList = allotDeclarationsData?.data?.content;
-  const allotDeclarationTotal = allotDeclarationsData?.data?.totalElements ?? 0;
+  // Lodgement tab
+  const [lodgementReviewing, setLodgementReviewing] = useState<string | null>(
+    null,
+  );
+  const [lodgementPage, setLodgementPage] = useState(1);
+
+  // Reversals tab
+  const [cscsFileUploaded, setCscsFileUploaded] = useState(false);
+  const [cscsFile, setCscsFile] = useState<File | null>(null);
+  const [cscsReviewingId, setCscsReviewingId] = useState<string | null>(null);
+
+  // ── Derived data from mock ──
+
+  const authDeclarationList = mockDeclarations.filter(
+    (d) => d.status === "PENDING_AUTH",
+  );
+  const authDeclarationTotal = authDeclarationList.length;
+  const isAuthDeclarationsLoading = false;
+
+  const icuDeclarationList = mockDeclarations.filter(
+    (d) => d.status === "PENDING_ICU",
+  );
+  const icuDeclarationTotal = icuDeclarationList.length;
+  const isIcuDeclarationsLoading = false;
+
+  const allotDeclarationList = mockDeclarations.filter(
+    (d) => d.status === "ALLOTTED",
+  );
+  const allotDeclarationTotal = allotDeclarationList.length;
+  const isAllotDeclarationsLoading = false;
+
   const currentReviewingId =
     activeTab === "auth" ? authReviewing : icuReviewing;
-
   const reviewPage = activeTab === "auth" ? authPage : icuPage;
 
-  const { data: activeReviewData, isLoading: isActiveReviewLoading } = useQuery(
-    {
-      queryKey: ["bonus-declaration", currentReviewingId],
-      queryFn: () => GET_DECLARATION_BY_ID(currentReviewingId as string),
-      enabled: !!currentReviewingId,
-    },
-  );
-
-  const activeReview = activeReviewData?.data;
+  const activeReview = currentReviewingId
+    ? (mockDeclarations.find((d) => d.id === currentReviewingId) ?? null)
+    : null;
+  const isActiveReviewLoading = false;
 
   const activeAllotment = allotReviewing ? allotReviewingRow : activeReview;
 
-  const {
-    userName,
-    userRole,
-    isLoading: isUserDetailsLoading,
-  } = useUserDetails(activeReview?.authorizedBy);
+  // Entitlements (paginated mock)
+  const PAGE_ENTS = 10;
+  const entitlementList = MOCK_ENTITLEMENTS.slice(
+    (reviewPage - 1) * PAGE_ENTS,
+    reviewPage * PAGE_ENTS,
+  );
+  const entitlementTotal = MOCK_ENTITLEMENTS.length;
+  const isEntitlementLoading = false;
 
-  const { data: entitlementData, isLoading: isEntitlementLoading } = useQuery({
-    queryKey: ["bonus-entitlements", currentReviewingId, reviewPage],
-    queryFn: () =>
-      GET_SHAREHOLDERS_BY_DECLARATION_ID(currentReviewingId as string, {
-        page: reviewPage,
-        pageSize: 10,
-      }),
-    enabled: !!currentReviewingId,
-  });
+  // Allotments (paginated mock)
+  const allotmentsList = MOCK_ENTITLEMENTS.slice(
+    (allotPage - 1) * PAGE_ENTS,
+    allotPage * PAGE_ENTS,
+  );
+  const allotmentsTotal = MOCK_ENTITLEMENTS.length;
+  const isAllotmentsLoading = false;
 
-  const entitlementList = entitlementData?.data?.entitlements?.content;
-  const entitlementTotal =
-    entitlementData?.data?.entitlements?.totalElements || 0;
+  // Declaration tab entitlement pagination
+  const declarationEntitlementList = MOCK_ENTITLEMENTS.slice(
+    (declarationPage - 1) * PAGE_ENTS,
+    declarationPage * PAGE_ENTS,
+  );
 
-  const { data: computeEntitlementData, isLoading: isComputeLoading } =
-    useQuery({
-      queryKey: [
-        "bonus-entitlements-compute",
-        createdDeclarationId,
-        computePage,
-      ],
-      queryFn: () =>
-        GET_SHAREHOLDERS_BY_DECLARATION_ID(createdDeclarationId as string, {
-          page: computePage,
-          pageSize: 10,
-        }),
-      enabled: !!createdDeclarationId,
-    });
+  // Lodgement tab derived data
+  const lodgementDeclarationList = mockDeclarations.filter(
+    (d) => d.status === "ICU_APPROVED",
+  );
+  const lodgementReviewingRow = lodgementReviewing
+    ? (mockDeclarations.find((d) => d.id === lodgementReviewing) ?? null)
+    : null;
+  const lodgementEntitlementList = MOCK_ENTITLEMENTS.slice(
+    (lodgementPage - 1) * PAGE_ENTS,
+    lodgementPage * PAGE_ENTS,
+  );
 
-  const computeEntitlementList =
-    computeEntitlementData?.data?.entitlements?.content;
-  const computeEntitlementTotal =
-    computeEntitlementData?.data?.entitlements?.totalElements || 0;
+  // ICU rejected count — used for the amber banner on the ICU list view
+  const icuRejectedCount = mockDeclarations.filter(
+    (d) => d.status === "ICU_REJECTED",
+  ).length;
 
-  const { data: allotmentsData, isLoading: isAllotmentsLoading } = useQuery({
-    queryKey: ["bonus-allotments", allotReviewing, allotPage],
-    queryFn: () =>
-      GET_DELCARED_BONUS_ALLOTMENTS(allotReviewing as string, {
-        page: allotPage,
-        pageSize: 10,
-      }),
-    enabled: !!allotReviewing,
-  });
-
-  const allotmentsList = allotmentsData?.data?.entitlements?.content;
-  const allotmentsTotal =
-    allotmentsData?.data?.entitlements?.totalElements || 0;
-
-  const { data: allUsersData } = useQuery({
-    queryKey: ["users"],
-    queryFn: GET_USERS,
-  });
-
+  // User lookup
   const getUserByIdFn = (userId?: string) => {
     if (!userId) return { name: "-", role: "-" };
-    const user = allUsersData?.data?.find(
-      (u: {
-        id: string;
-        firstName: string;
-        lastName: string;
-        roles: string[];
-      }) => u.id === userId,
-    );
-    if (!user) {
-      return { name: userId, role: "-" };
-    }
-    return {
-      name: `${user.firstName} ${user.lastName}`.trim(),
-      role: user.roles?.join(", ") || "-",
-    };
+    return MOCK_USERS[userId] ?? { name: userId, role: "-" };
   };
 
-  const createDeclarationMutation = useMutation({
-    mutationFn: CREATE_BONUS_ISSUE_DECLARATION,
-    onSuccess: (data) => {
-      const createdId = data?.data?.id;
-      const fractional = data?.data?.totalFractionalRemainder;
-      const totalBonus = data?.data?.totalBonusShares;
+  const userName = activeReview?.authorizedBy
+    ? (MOCK_USERS[activeReview.authorizedBy]?.name ?? "-")
+    : "-";
+  const userRole = activeReview?.authorizedBy
+    ? (MOCK_USERS[activeReview.authorizedBy]?.role ?? "-")
+    : "-";
+  const isUserDetailsLoading = false;
 
-      setCreatedDeclarationId(createdId);
-      setResTotalFractionalRemainder(fractional);
-      setResTotalBonusShares(totalBonus);
+  // Report data
+  const reportPath =
+    selectedReport === "Shareholder Bonus Allotment List"
+      ? "shareholder-bonus-allotment-list"
+      : selectedReport === "Summary of Bonus Shares Issued"
+        ? "summary-of-bonus-shares-issued"
+        : selectedReport === "Exception and Rounding Report"
+          ? "exception-and-rounding-report"
+          : selectedReport === "Bonus Report"
+            ? "bonus-report"
+            : "bonus-entitlement-register";
 
-      toast.success("Declaration created successfully.");
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declarations"],
-      });
+  const reportDateFrom = reportDateRange?.from
+    ? reportDateRange.from.toISOString().split("T")[0]
+    : undefined;
+  const reportDateTo = reportDateRange?.to
+    ? reportDateRange.to.toISOString().split("T")[0]
+    : undefined;
 
-      setComputed(true);
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  const isReportLoading = false;
 
-  const approveDeclarationMutation = useMutation({
-    mutationFn: APPROVE_DECLARATION,
-    onSuccess: () => {
-      toast.success("Declaration approved successfully.");
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declarations"],
-      });
-      setAuthReviewing(null);
-      setAuthComment("");
-      closeModal();
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fetchedReportList: any[] = reportGenerated
+    ? (MOCK_REPORT_DATA[reportPath] ?? [])
+    : [];
 
-  const approveDeclarationByIcuMutation = useMutation({
-    mutationFn: APPROVE_DECLARATION_BY_ICU,
-    onSuccess: () => {
-      toast.success("Declaration approved successfully.");
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declarations"],
-      });
-      setAuthReviewing(null);
-      setAuthComment("");
-      setIcuReviewing(null);
-      setIcuComment("");
-      closeModal();
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  const fetchedReportData =
+    reportPath === "summary-of-bonus-shares-issued" ? MOCK_SUMMARY_META : null;
 
-  const rejectDeclarationMutation = useMutation({
-    mutationFn: REJECT_DECLARATION,
-    onSuccess: () => {
-      toast.success("Declaration rejected successfully.");
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declarations"],
-      });
-      setAuthReviewing(null);
-      setAuthComment("");
-      closeModal();
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  const fetchedReportTotal = fetchedReportList.length;
 
-  const icuReturnMutation = useMutation({
-    mutationFn: RETURN_DECLARATION_TO_OPS,
-    onSuccess: () => {
-      toast.success("Declaration returned successfully.");
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declarations"],
-      });
-      setAuthReviewing(null);
-      setAuthComment("");
-      closeModal();
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  const reportStart = (reportPage - 1) * PAGE_SIZE;
+  const reportRows = fetchedReportList.slice(
+    reportStart,
+    reportStart + PAGE_SIZE,
+  );
+  const reportTotal = fetchedReportTotal;
+
+  const reportDateLabel = reportDateRange?.from
+    ? reportDateRange.to
+      ? `${format(reportDateRange.from, "dd MMM yyyy")} – ${format(reportDateRange.to, "dd MMM yyyy")}`
+      : format(reportDateRange.from, "dd MMM yyyy")
+    : undefined;
+
+  // ── Handlers ──
+
+  const closeModal = () => {
+    setApprovalModal(null);
+    setModalComment("");
+  };
 
   const handleAuthApprove = (mode: "ops" | "icu") => {
-    if (mode === "ops") {
-      const payload = {
-        decision: "APPROVED",
-        comment: modalComment,
-        createdBy: user?.email,
-      };
-      approveDeclarationMutation.mutate({
-        declarationId: authReviewing || icuReviewing,
-        payload,
-      });
-    } else {
-      const payload = {
-        decision: "APPROVED",
-        comment: modalComment,
-        createdBy: user?.email,
-      };
-      approveDeclarationByIcuMutation.mutate({
-        declarationId: authReviewing || icuReviewing,
-        payload,
-      });
-    }
+    const declId = authReviewing || icuReviewing;
+    if (!declId) return;
+    setIsConfirming(true);
+    setTimeout(() => {
+      if (mode === "ops") {
+        setMockDeclarations((prev) =>
+          prev.map((d) =>
+            d.id === declId
+              ? {
+                  ...d,
+                  status: "PENDING_ICU",
+                  authorizedBy: "user-001",
+                  authorizedAt: new Date().toISOString(),
+                  authorizedReason: modalComment || "Approved by OPS.",
+                }
+              : d,
+          ),
+        );
+        toast.success("Declaration approved successfully.");
+        setAuthReviewing(null);
+        setAuthComment("");
+      } else {
+        setMockDeclarations((prev) =>
+          prev.map((d) =>
+            d.id === declId
+              ? {
+                  ...d,
+                  status: "ICU_APPROVED",
+                  icuApprovedBy: "user-002",
+                  icuApprovedAt: new Date().toISOString(),
+                }
+              : d,
+          ),
+        );
+        toast.success("Declaration approved and cleared for allotment.");
+        // Stay on the review screen — show success banner with email CTA
+        setIcuJustApproved(true);
+      }
+      setIsConfirming(false);
+      closeModal();
+    }, 800);
   };
 
   const handleAuthReject = () => {
-    const payload = {
-      decision: "REJECTED",
-      comment: modalComment,
-      createdBy: user?.email,
-    };
-    rejectDeclarationMutation.mutate({
-      declarationId: authReviewing || icuReviewing,
-      payload,
-    });
+    const declId = authReviewing || icuReviewing;
+    if (!declId) return;
+    setIsConfirming(true);
+    setTimeout(() => {
+      setMockDeclarations((prev) =>
+        prev.map((d) =>
+          d.id === declId ? { ...d, status: "AUTH_REJECTED" } : d,
+        ),
+      );
+      toast.success("Declaration rejected.");
+      setAuthReviewing(null);
+      setAuthComment("");
+      setIsConfirming(false);
+      closeModal();
+    }, 600);
   };
 
   const handleIcuReturn = () => {
-    const payload = {
-      decision: "REJECTED",
-      comment: modalComment,
-      createdBy: user?.email,
-    };
-
-    icuReturnMutation.mutate({
-      declarationId: icuReviewing,
-      payload,
-    });
+    const declId = icuReviewing;
+    if (!declId) return;
+    setIsConfirming(true);
+    setTimeout(() => {
+      setMockDeclarations((prev) =>
+        prev.map((d) =>
+          d.id === declId ? { ...d, status: "ICU_REJECTED" } : d,
+        ),
+      );
+      toast.error(
+        "Declaration rejected. It has been returned to Offer Setup for editing.",
+      );
+      setIcuReviewing(null);
+      setIcuComment("");
+      setIcuJustApproved(false);
+      setIsConfirming(false);
+      closeModal();
+    }, 600);
   };
 
   const handleConfirmClick = () => {
@@ -826,357 +1298,71 @@ export default function BonusIssuePage() {
     }
   };
 
-  const closeModal = () => {
-    setApprovalModal(null);
-    setModalComment("");
-  };
-
-  const submitForApprovalMutation = useMutation({
-    mutationFn: SUBMIT_DECLARATION_FOR_APPROVAL,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declarations"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declaration", authReviewing || icuReviewing],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-entitlements", authReviewing || icuReviewing],
-      });
-      toast.success("Declaration submitted successfully.");
-      // Keep review screen open to see updated status/buttons
-      // setAuthReviewing(null);
-      setAuthComment("");
-      setComputed(false);
-      setSelectedRegister("");
-      setBonusName("");
-      setRatioNumerator("");
-      setRatioDenominator("");
-      setRoundingRule("");
-      setDate1(undefined);
-      setDate2(undefined);
-      setDate3(undefined);
-      setNarrative("");
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const computeMutation = useMutation({
-    mutationFn: COMPUTE_BONUS_ISSUE_DECLARATION,
-    onSuccess: () => {
-      toast.success("Declaration computed successfully.");
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declarations"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declaration", activeReview?.id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-entitlements", activeReview?.id],
-      });
-      submitForApprovalMutation.mutate({
-        declarationId: activeReview?.id,
-      });
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-  /* handlers */
-  const handleApprove = () => {
-    submitForApprovalMutation.mutate({
-      declarationId: createdDeclarationId,
-    });
-  };
-
-  const handleApproveAndCompute = (id: string) => {
-    computeMutation.mutate({
-      declarationId: id,
-    });
-  };
-
-  const handleCompute = () => {
-    if (!selectedRegister) {
-      toast.error("Please select a register");
-      return;
-    }
-    if (!bonusName) {
-      toast.error("Please enter a bonus name");
-      return;
-    }
-    if (!ratioNumerator || !ratioDenominator) {
-      toast.error("Please enter a bonus ratio");
-      return;
-    }
-    if (!roundingRule) {
-      toast.error("Please select a rounding rule");
-      return;
-    }
-    if (!date1 || !date2 || !date3) {
-      toast.error("Please select all dates");
-      return;
-    }
-    const payload = {
-      declarationId: createdDeclarationId,
-      createdBy: user?.email,
-      registerId: selectedRegister,
-      bonusName,
-      ratio: `${ratioNumerator}:${ratioDenominator}`,
-      roundingRule,
-      qualificationDate: format(date1, "yyyy-MM-dd"),
-      closureDate: format(date2, "yyyy-MM-dd"),
-      allotmentDate: format(date3, "yyyy-MM-dd"),
-      narrative,
-    };
-
-    createDeclarationMutation.mutate(payload);
-  };
-
-  const processAllotmentMutation = useMutation({
-    mutationFn: PROCESS_BONUS_ISSUE_ALLOTMENT,
-    onSuccess: () => {
-      toast.success("Allotment processed successfully.");
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declarations"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-allotments", allotReviewing],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-declaration", activeReview?.id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["bonus-entitlements", activeReview?.id],
-      });
-      setAllotmentProcessed(true);
-      setAllotPage(1);
-      toast.success(
-        "Allotment processed. Certificates and CSCS entries created.",
-      );
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const exportAllotmentsMutation = useMutation({
-    mutationFn: EXPORT_DELCARED_BONUS_ALLOTMENTS,
-    onSuccess: (data) => {
-      const blob = new Blob([data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `allotment-report-${allotReviewing || "export"}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success("Excel report exported successfully.");
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to export Excel report.");
-    },
-  });
-
-  const reportPath =
-    selectedReport === "Shareholder Bonus Allotment List"
-      ? "shareholder-bonus-allotment-list"
-      : selectedReport === "Summary of Bonus Shares Issued"
-        ? "summary-of-bonus-shares-issued"
-        : selectedReport === "Exception and Rounding Report"
-          ? "exception-and-rounding-report"
-          : "bonus-entitlement-register";
-
-  const reportDateFrom = reportDateRange?.from
-    ? reportDateRange.from.toISOString().split("T")[0]
-    : undefined;
-  const reportDateTo = reportDateRange?.to
-    ? reportDateRange.to.toISOString().split("T")[0]
-    : undefined;
-
-  const {
-    data: fetchedReportResponse,
-    isLoading: isReportLoading,
-    refetch: refetchReport,
-  } = useQuery({
-    queryKey: [
-      "bonusReport",
-      reportPath,
-      reportRegister,
-      reportDateFrom,
-      reportDateTo,
-    ],
-    queryFn: () =>
-      GENERATE_BONUS_REPORT(reportPath, {
-        registerId: reportRegister === "all" ? undefined : reportRegister,
-        dateFrom: reportDateFrom,
-        dateTo: reportDateTo,
-      }),
-    enabled: false,
-  });
-
-  const fetchedReportData = fetchedReportResponse?.data;
-
-  const fetchedReportList = (() => {
-    if (!fetchedReportData) return [];
-    if (reportPath === "summary-of-bonus-shares-issued") {
-      return fetchedReportData.brokerSummary || [];
-    }
-    if (reportPath === "bonus-entitlement-register") {
-      return (
-        fetchedReportData.entitlements?.content ||
-        fetchedReportData.entitlements ||
-        []
-      );
-    }
-    if (reportPath === "exception-and-rounding-report") {
-      return fetchedReportData.exceptions || [];
-    }
-    if (reportPath === "shareholder-bonus-allotment-list") {
-      return (
-        fetchedReportData.allotments?.content ||
-        fetchedReportData.allotments ||
-        []
-      );
-    }
-    return [];
-  })();
-
-  const fetchedReportTotal = (() => {
-    if (!fetchedReportData) return 0;
-    if (reportPath === "summary-of-bonus-shares-issued") {
-      return fetchedReportData.total || fetchedReportList.length;
-    }
-    if (reportPath === "bonus-entitlement-register") {
-      return (
-        fetchedReportData.entitlements?.totalElements ||
-        fetchedReportData.total ||
-        fetchedReportList.length
-      );
-    }
-    if (reportPath === "exception-and-rounding-report") {
-      return fetchedReportData.total || fetchedReportList.length;
-    }
-    if (reportPath === "shareholder-bonus-allotment-list") {
-      return (
-        fetchedReportData.allotments?.totalElements ||
-        fetchedReportData.total ||
-        fetchedReportList.length
-      );
-    }
-    return 0;
-  })();
-
-  const handleRunReport = async () => {
+  const handleRunReport = () => {
     const loadingToast = toast.loading("Generating report...");
-    try {
-      const result = await refetchReport();
+    setTimeout(() => {
       toast.dismiss(loadingToast);
-      if (result.error) {
-        toast.error(result.error?.message || "Failed to generate report");
-        return;
-      }
       setReportGenerated(true);
       setReportPage(1);
       toast.success(`${selectedReport} generated.`);
-    } catch (err) {
-      toast.dismiss(loadingToast);
-      toast.error(
-        (err as { message: string })?.message || "Failed to generate report",
-      );
-    }
+    }, 800);
   };
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = () => {
     setIsExportingExcel(true);
-    const filename = `${selectedReport.toLowerCase().replace(/\s+/g, "-")}-report.xlsx`;
     toast.info("Preparing Excel download...");
-    try {
-      const data = await GENERATE_BONUS_REPORT(reportPath, {
-        registerId: reportRegister === "all" ? undefined : reportRegister,
-        dateFrom: reportDateFrom,
-        dateTo: reportDateTo,
-        format: "excel",
-      });
-
-      const blob = new Blob([data], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+    setTimeout(() => {
       toast.success("Excel downloaded successfully.");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to download Excel report.");
-    } finally {
       setIsExportingExcel(false);
-    }
+    }, 1000);
   };
 
-  const handleEditDeclaration = (decl: BonusDeclaration) => {
-    const matchingRegister = registerList?.find(
-      (r: { registerName: string; registerId: string }) =>
-        r.registerName === decl.registerName,
-    );
-    setSelectedRegister(matchingRegister?.registerId || decl.registerId || "");
-    setBonusName(decl.bonusName || "");
-
-    if (decl.ratio && decl.ratio.includes(":")) {
-      const [num, den] = decl.ratio.split(":");
-      setRatioNumerator(num);
-      setRatioDenominator(den);
-    }
-
-    setRoundingRule(decl.roundingRule || "ROUND_DOWN");
-    setNarrative(decl.narrative || "");
-
-    if (decl.qualificationDate) {
-      const date = new Date(decl.qualificationDate);
-      if (!isNaN(date.getTime())) setDate1(date);
-    }
-    if (decl.closureDate) {
-      const date = new Date(decl.closureDate);
-      if (!isNaN(date.getTime())) setDate2(date);
-    }
-    if (decl.allotmentDate) {
-      const date = new Date(decl.allotmentDate);
-      if (!isNaN(date.getTime())) setDate3(date);
-    }
-
-    setCreatedDeclarationId(decl.id);
-    setResTotalBonusShares(decl.totalBonusShares || 0);
-    setResTotalFractionalRemainder(decl.totalFractionalRemainder || 0);
-    setComputed(true);
-
-    // Scroll to form
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleProcessAllotment = (row: BonusDeclaration) => {
+    if (!row?.id) return;
+    setIsAllotmentProcessing(true);
+    toast.info("Processing allotment…");
+    setTimeout(() => {
+      setMockDeclarations((prev) =>
+        prev.map((d) => (d.id === row.id ? { ...d, status: "ALLOTTED" } : d)),
+      );
+      setAllotmentProcessedMap((p) => ({ ...p, [row.id]: true }));
+      setAllotPage(1);
+      setIsAllotmentProcessing(false);
+      toast.success(
+        "Allotment processed. Certificates and CSCS entries created.",
+      );
+    }, 1500);
   };
 
-  const reportStart = (reportPage - 1) * PAGE_SIZE;
+  const handleApproveAndCompute = (_id?: string) => {
+    const loadingToast = toast.loading("Submitting for approval...");
+    setTimeout(() => {
+      toast.dismiss(loadingToast);
+      toast.success("Declaration submitted for approval.");
+    }, 800);
+  };
 
-  const reportRows = fetchedReportList.slice(
-    reportStart,
-    reportStart + PAGE_SIZE,
-  );
-  const reportTotal = fetchedReportTotal;
+  const handleExportAllotments = (rowId?: string) => {
+    if (!rowId) {
+      toast.error("No active allotment declaration selected.");
+      return;
+    }
+    setIsExportingAllotments(true);
+    toast.info("Exporting Excel report…");
+    setTimeout(() => {
+      toast.success("Excel report exported successfully.");
+      setIsExportingAllotments(false);
+    }, 1000);
+  };
 
-  /* date range label helper */
-  const reportDateLabel = reportDateRange?.from
-    ? reportDateRange.to
-      ? `${format(reportDateRange.from, "dd MMM yyyy")} – ${format(reportDateRange.to, "dd MMM yyyy")}`
-      : format(reportDateRange.from, "dd MMM yyyy")
-    : undefined;
+  const [selectedBonusOfferId, setSelectedBonusOfferId] = useState<string>("");
+  const selectedBonusOffer =
+    BONUS_SETUP_PROFILES.find((p) => p.id === selectedBonusOfferId) ?? null;
+
+  const handleSelectBonusOffer = (id: string | null) => {
+    if (!id) return;
+    setSelectedBonusOfferId(id);
+  };
 
   return (
     <div className="space-y-6">
@@ -1189,23 +1375,92 @@ export default function BonusIssuePage() {
         </p>
       </div>
 
+      {/* Active offer selector */}
+      <Card className="mrpsl-card p-4">
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0 pt-0.5">
+            <Info className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Active Bonus Issue</span>
+          </div>
+          <div className="flex-1 min-w-60">
+            <Select
+              value={selectedBonusOfferId}
+              onValueChange={handleSelectBonusOffer}
+            >
+              <SelectTrigger className="mrpsl-input h-9 w-full max-w-sm">
+                <SelectValue placeholder="Select a bonus issue to work with…" />
+              </SelectTrigger>
+              <SelectContent>
+                {BONUS_SETUP_PROFILES.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {selectedBonusOffer && (
+            <div className="flex items-center gap-4 flex-wrap text-sm">
+              <div>
+                <span className="mrpsl-label mr-1">Register:</span>
+                <span className="font-medium">
+                  {selectedBonusOffer.register}
+                </span>
+              </div>
+              <div>
+                <span className="mrpsl-label mr-1">Ratio:</span>
+                <span className="font-mono font-semibold">
+                  {selectedBonusOffer.ratio}
+                </span>
+              </div>
+              <div>
+                <span className="mrpsl-label mr-1">Qual. Date:</span>
+                <span className="font-mono">
+                  {format(selectedBonusOffer.qualificationDate, "dd MMM yyyy")}
+                </span>
+              </div>
+              <div>
+                <span className="mrpsl-label mr-1">Allotment Date:</span>
+                <span className="font-mono">
+                  {format(selectedBonusOffer.allotmentDate, "dd MMM yyyy")}
+                </span>
+              </div>
+              <Badge
+                className={`border-0 text-[11px] ${BONUS_SETUP_STATUS_STYLES[selectedBonusOffer.status]}`}
+              >
+                {BONUS_SETUP_STATUS_LABELS[selectedBonusOffer.status]}
+              </Badge>
+            </div>
+          )}
+          {!selectedBonusOffer && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Select a bonus issue above to begin processing.
+            </div>
+          )}
+        </div>
+      </Card>
+
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v || "")}
         className="w-full"
       >
-        <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
+        <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap justify-start">
           {[
-            ["declaration", "Declaration"],
-            ["auth", "Approval"],
+            ["declaration", "Provisional Allotment"],
+            ["auth", "Declaration Approval"],
             ["icu", "ICU Approval"],
-            ["allotment", "Allotment"],
+            ["lodgement", "CSCS Lodgement"],
+            ["reversals", "CSCS Reversals & Error Resolution"],
+            ["allotment", "Notification & Prelist Dispatch"],
             ["reports", "Reports"],
           ].map(([v, label]) => (
             <TabsTrigger
               key={v}
               value={v}
-              className="rounded-lg cursor-pointer px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              disabled={!selectedBonusOffer}
+              className="flex-none rounded-lg cursor-pointer px-4 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all disabled:pointer-events-none disabled:opacity-40"
             >
               {label}
             </TabsTrigger>
@@ -1213,305 +1468,238 @@ export default function BonusIssuePage() {
         </TabsList>
 
         <div className="mt-6">
-          {/* ── Declaration ── */}
-          <TabsContent value="declaration" className="space-y-6">
-            {rejectedList?.length > 0 && (
-              <div className="flex items-stretch gap-2 flex-wrap">
-                {rejectedList?.map((declaration: BonusDeclaration) => (
-                  <Card
-                    onClick={() => handleEditDeclaration(declaration)}
-                    key={declaration.id}
-                    className="mrpsl-card p-4 border-l-4 border-l-red-500 bg-red-50/40 border-red-200 cursor-pointer"
+          {/* ── Provisional Allotment ── */}
+          <TabsContent value="declaration">
+            {!selectedBonusOffer ? (
+              <Card className="mrpsl-card p-12 flex flex-col items-center justify-center text-center min-h-70 gap-3">
+                <MousePointerClick className="h-10 w-10 text-muted-foreground/30" />
+                <p className="font-semibold text-sm text-foreground">
+                  No bonus issue selected
+                </p>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Select a bonus issue from the dropdown above to view and
+                  compute the provisional allotment schedule.
+                </p>
+              </Card>
+            ) : !computed ? (
+              <Card className="mrpsl-card p-8 space-y-6">
+                <div>
+                  <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
+                    Bonus Issue Setup
+                  </p>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <div className="mrpsl-section-title">Bonus Name</div>
+                      <div className="font-semibold mt-0.5">
+                        {selectedBonusOffer.name}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mrpsl-section-title">Register</div>
+                      <div className="font-semibold mt-0.5">
+                        {selectedBonusOffer.register}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mrpsl-section-title">Bonus Ratio</div>
+                      <div className="font-mono font-semibold mt-0.5">
+                        {selectedBonusOffer.ratio}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mrpsl-section-title">
+                        Qualification Date
+                      </div>
+                      <div className="font-mono mt-0.5">
+                        {format(
+                          selectedBonusOffer.qualificationDate,
+                          "dd MMM yyyy",
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mrpsl-section-title">Closure Date</div>
+                      <div className="font-mono mt-0.5">
+                        {format(selectedBonusOffer.closureDate, "dd MMM yyyy")}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mrpsl-section-title">Allotment Date</div>
+                      <div className="font-mono mt-0.5">
+                        {format(
+                          selectedBonusOffer.allotmentDate,
+                          "dd MMM yyyy",
+                        )}
+                      </div>
+                    </div>
+                    <div className="col-span-3">
+                      <div className="mrpsl-section-title">Narrative</div>
+                      <div className="text-muted-foreground mt-0.5 italic text-[13px]">
+                        &quot;{selectedBonusOffer.narrative}&quot;
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    size="lg"
+                    className="h-12 px-8 text-base font-semibold"
+                    disabled={sendingToIcu}
+                    onClick={() => {
+                      const loadingToast = toast.loading(
+                        "Computing bonus allotment…",
+                      );
+                      setTimeout(() => {
+                        toast.dismiss(loadingToast);
+                        setComputed(true);
+                        setDeclarationPage(1);
+                        toast.success("Bonus allotment computed successfully.");
+                      }, 1200);
+                    }}
                   >
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0 max-w-1003">
-                        <p className="text-sm font-semibold text-red-800">
-                          Declaration Rejected — Ref: {declaration?.ref}
-                        </p>
-                        <p className="text-[13px] text-red-700 mt-0.5">
-                          Authorizer comment:{" "}
-                          {declaration?.authorizedReason ||
-                            "No comment provided."}
-                        </p>
-                        <p className="text-[13px] text-muted-foreground mt-1">
-                          Please review the declaration and resubmit for
-                          approval.
-                        </p>
+                    <Wand2 className="mr-2 h-5 w-5" /> Compute Bonus Allotment
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {/* Stats row */}
+                <div className="grid grid-cols-4 gap-3">
+                  {[
+                    {
+                      label: "Total Shareholders",
+                      value: (12847).toLocaleString(),
+                      color: "text-foreground",
+                    },
+                    {
+                      label: "Total Bonus Shares",
+                      value: (4500000).toLocaleString(),
+                      color: "text-green-700",
+                    },
+                    {
+                      label: "Total Fractional",
+                      value: "733.4",
+                      color: "text-amber-600",
+                    },
+                    {
+                      label: "Ratio Used",
+                      value: selectedBonusOffer.ratio,
+                      color: "text-foreground",
+                    },
+                  ].map((s) => (
+                    <Card key={s.label} className="mrpsl-card p-3">
+                      <div className="mrpsl-section-title">{s.label}</div>
+                      <div
+                        className={cn(
+                          "text-xl font-mono font-bold mt-1",
+                          s.color,
+                        )}
+                      >
+                        {s.value}
                       </div>
-                      <button className="rounded-full hover:bg-red-100 p-0.5">
-                        <X className="h-3.5 w-3.5 text-red-600" />
-                      </button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2">
-                <Card className="mrpsl-card p-6">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="mrpsl-label">Register *</label>
-                        <Select
-                          value={selectedRegister}
-                          onValueChange={(val) =>
-                            setSelectedRegister(val ?? "")
-                          }
-                        >
-                          <SelectTrigger className="mrpsl-input">
-                            <SelectValue placeholder="Select Register" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {loadingRegisters ? (
-                              <div className="py-10 flex items-center justify-center">
-                                <Loader2 className="animate-spin w-4 h-4" />
-                              </div>
-                            ) : (
-                              <>
-                                <SelectItem value="">All Register</SelectItem>
-                                {registerList?.map((r) => (
-                                  <SelectItem
-                                    key={r.registerId}
-                                    value={r.symbol}
-                                  >
-                                    <span className="font-bold">
-                                      {r.registerName}
-                                    </span>{" "}
-                                    -{" "}
-                                    <span className="text-xs translate-y-0.5">
-                                      {r.symbol}
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="mrpsl-label">Bonus Name *</label>
-                        <Input
-                          placeholder="e.g. 2025 Bonus Issue 1-for-4"
-                          className="mrpsl-input"
-                          value={bonusName}
-                          onChange={(e) => setBonusName(e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="mrpsl-label">Bonus Ratio</label>
-                        <div className="flex items-center gap-3">
-                          <Input
-                            type="number"
-                            value={ratioNumerator}
-                            onChange={(e) => setRatioNumerator(e.target.value)}
-                            className="w-16 font-mono mrpsl-input"
-                          />
-                          <span className="text-sm font-medium">for</span>
-                          <Input
-                            type="number"
-                            value={ratioDenominator}
-                            onChange={(e) =>
-                              setRatioDenominator(e.target.value)
-                            }
-                            className="w-16 font-mono mrpsl-input"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="mrpsl-label">Rounding Rule</label>
-                        <Select
-                          value={roundingRule}
-                          onValueChange={(val) =>
-                            setRoundingRule(val ?? "down")
-                          }
-                        >
-                          <SelectTrigger className="mrpsl-input">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ROUND_DOWN">
-                              Round Down
-                            </SelectItem>
-                            <SelectItem value="ROUND_UP">Round Up</SelectItem>
-                            <SelectItem value="ROUND_NEAREST">
-                              Round to Nearest
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      {(
-                        [
-                          ["Qualification Date *", date1, setDate1],
-                          ["Closure Date *", date2, setDate2],
-                          ["Allotment Date *", date3, setDate3],
-                        ] as const
-                      ).map(([lbl, val, setter]) => (
-                        <div key={lbl} className="space-y-2">
-                          <label className="mrpsl-label">{lbl}</label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className="w-full mrpsl-input justify-start text-left font-normal"
-                              >
-                                {val ? (
-                                  format(val, "PPP")
-                                ) : (
-                                  <span className="text-muted-foreground">
-                                    Pick a date
-                                  </span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={val}
-                                onSelect={setter}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="mrpsl-label">Narrative</label>
-                      <Textarea
-                        placeholder="Additional context..."
-                        className="resize-none"
-                        value={narrative}
-                        onChange={(e) => setNarrative(e.target.value)}
-                      />
-                    </div>
-
-                    <Button onClick={handleCompute}>
-                      {createdDeclarationId
-                        ? "Recompute Bonus"
-                        : "Compute Bonus"}{" "}
-                      {createDeclarationMutation.isPending && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                    </Button>
-                  </div>
-                </Card>
-              </div>
-
-              <div className="col-span-1">
-                <Card className="bg-blue-50 border-blue-200 p-5">
-                  <div className="flex items-center gap-2 mb-3 text-blue-800">
-                    <Info className="h-5 w-5" />
-                    <h3 className="font-semibold">System Rules</h3>
-                  </div>
-                  <ul className="space-y-3 text-sm text-blue-900/80">
-                    <li className="flex gap-2">
-                      <span>•</span> Bonus is computed on units held as at
-                      Qualification Date
-                    </li>
-                    <li className="flex gap-2">
-                      <span>•</span> Fractional entitlements are rounded down;
-                      fractions are pooled into the fractional account
-                    </li>
-                    <li className="flex gap-2">
-                      <span>•</span> Initiator cannot authorise their own
-                      declaration
-                    </li>
-                    <li className="flex gap-2">
-                      <span>•</span> Register must be Active — blocked if
-                      Inactive or Transaction Disabled
-                    </li>
-                    <li className="flex gap-2">
-                      <span>•</span> Once authorised, records are immutable
-                      unless reversed and re-initiated
-                    </li>
-                  </ul>
-                </Card>
-              </div>
-            </div>
-
-            {computed && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Card className="p-4 bg-primary/5 border-primary/20">
-                    <div className="mrpsl-section-title text-primary">
-                      Total New Shares
-                    </div>
-                    <div className="text-3xl font-mono mt-1 font-bold">
-                      {resTotalBonusShares?.toLocaleString()}
-                    </div>
-                  </Card>
-                  <Card className="p-4 bg-amber-50 border-amber-200">
-                    <div className="mrpsl-section-title text-amber-700">
-                      Fractional Shares (To Fractional Acct)
-                    </div>
-                    <div className="text-3xl font-mono mt-1 font-bold text-amber-600">
-                      {resTotalFractionalRemainder?.toLocaleString()}
-                    </div>
-                  </Card>
+                    </Card>
+                  ))}
                 </div>
 
+                {/* Entitlement table */}
                 <Card className="mrpsl-card overflow-hidden">
-                  <table className="w-full text-left text-sm">
-                    <thead className="mrpsl-table-header">
-                      <tr>
-                        <th className="p-3">ACCOUNT NO</th>
-                        <th className="p-3">HOLDER NAME</th>
-                        <th className="p-3 text-right">UNITS AT QUAL DATE</th>
-                        <th className="p-3 text-right">BONUS DUE</th>
-                        <th className="p-3 text-right">FRACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y font-mono text-[13px]">
-                      {isComputeLoading ? (
-                        Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                          <tr key={i}>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-28" />
-                            </td>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-36" />
-                            </td>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-20 ml-auto" />
-                            </td>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-16 ml-auto" />
-                            </td>
-                            <td className="p-3">
-                              <Skeleton className="h-4 w-14 ml-auto" />
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <EntitlementTableRows rows={computeEntitlementList} />
-                      )}
-                    </tbody>
-                  </table>
+                  <div className="px-4 py-3 border-b bg-muted/10">
+                    <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Provisional Allotment Schedule —{" "}
+                      {MOCK_ENTITLEMENTS.length.toLocaleString()} shareholders
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-[13px]">
+                      <BonusTableHead />
+                      <tbody className="divide-y">
+                        <EntitlementTableRows
+                          rows={declarationEntitlementList}
+                          startIdx={(declarationPage - 1) * PAGE_ENTS}
+                        />
+                      </tbody>
+                      <EntitlementTfoot
+                        rows={declarationEntitlementList}
+                        total={MOCK_ENTITLEMENTS.length}
+                      />
+                    </table>
+                  </div>
                   <PaginationBar
-                    page={computePage}
-                    total={computeEntitlementTotal}
-                    onPageChange={setComputePage}
+                    page={declarationPage}
+                    total={MOCK_ENTITLEMENTS.length}
+                    onPageChange={setDeclarationPage}
+                    pageSize={PAGE_ENTS}
                   />
                 </Card>
 
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <ExportToExcel
-                    data={computeEntitlementList}
-                    name="bonus-entitlement"
-                  />
-                  <Button size="lg" onClick={handleApprove}>
-                    Submit for Approval
-                    {submitForApprovalMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {/* Action buttons */}
+                <div className="flex items-center gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => toast.success("Pre-list downloaded")}
+                  >
+                    <Download className="mr-2 h-4 w-4" /> Download Pre-list
+                    (CSV)
+                  </Button>
+                  <Button
+                    size="lg"
+                    disabled={sendingToIcu}
+                    onClick={() => {
+                      if (!selectedBonusOffer) return;
+                      setSendingToIcu(true);
+                      setTimeout(() => {
+                        setMockDeclarations((prev) => [
+                          ...prev,
+                          {
+                            id: `decl-new-${Date.now()}`,
+                            ref: `BNS/2024/${String(prev.length + 1).padStart(3, "0")}`,
+                            registerId: "reg-zenith",
+                            registerName: selectedBonusOffer.register,
+                            bonusName: selectedBonusOffer.name,
+                            ratio: "1:5",
+                            roundingRule: selectedBonusOffer.roundingRule,
+                            qualificationDate:
+                              selectedBonusOffer.qualificationDate
+                                .toISOString()
+                                .split("T")[0],
+                            closureDate: selectedBonusOffer.closureDate
+                              .toISOString()
+                              .split("T")[0],
+                            allotmentDate: selectedBonusOffer.allotmentDate
+                              .toISOString()
+                              .split("T")[0],
+                            narrative: selectedBonusOffer.narrative,
+                            status: "PENDING_ICU",
+                            totalShareholders: 12847,
+                            totalBonusShares: 4500000,
+                            totalFractionalRemainder: 733.4,
+                            icuApprovedBy: "",
+                            icuApprovedAt: "",
+                            authorizedBy: "user-001",
+                            authorizedAt: new Date().toISOString(),
+                            authorizedReason:
+                              "Computed and submitted for ICU approval.",
+                            submittedByName: "System",
+                            submittedAt: new Date().toISOString(),
+                            totalCertificatedHolders: 4230,
+                            totalCscsHolders: 8617,
+                          },
+                        ]);
+                        toast.success("Declaration sent to ICU for approval.");
+                        setComputed(false);
+                        setSendingToIcu(false);
+                        setActiveTab("icu");
+                      }, 1200);
+                    }}
+                  >
+                    {sendingToIcu ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                        Sending…
+                      </>
+                    ) : (
+                      "Send to ICU for Approval"
                     )}
                   </Button>
                 </div>
@@ -1523,60 +1711,6 @@ export default function BonusIssuePage() {
           <TabsContent value="auth" className="space-y-4">
             {authReviewing === null ? (
               <>
-                {/* Filters */}
-                <Card className="mrpsl-card p-4">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="relative w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search ref or bonus name..."
-                        value={authListSearch}
-                        onChange={(e) => {
-                          setAuthListSearch(e.target.value);
-                          setAuthListPage(1);
-                        }}
-                        className="pl-9 mrpsl-input"
-                      />
-                    </div>
-                    <Select
-                      value={authListRegister || "all"}
-                      onValueChange={(v) => {
-                        setAuthListRegister(v === "all" ? "" : (v ?? ""));
-                        setAuthListPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="mrpsl-input w-48">
-                        <SelectValue placeholder="All Registers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingRegisters ? (
-                          <div className="py-10 flex items-center justify-center">
-                            <Loader2 className="animate-spin w-4 h-4" />
-                          </div>
-                        ) : (
-                          <>
-                            <SelectItem value="all">All Registers</SelectItem>
-                            {registerList?.map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r.registerId}
-                              >
-                                <span className="font-bold">
-                                  {r.registerName}
-                                </span>{" "}
-                                -{" "}
-                                <span className="text-xs translate-y-0.5">
-                                  {r.symbol}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </Card>
-
                 <Card className="mrpsl-card overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead className="mrpsl-table-header">
@@ -1759,8 +1893,7 @@ export default function BonusIssuePage() {
                       label: "Total Shares After Issue",
                       // value: "18,000,301",
                       value:
-                        activeReview?.totalSharesAfterIssue?.toLocaleString() ||
-                        0,
+                        MOCK_ALLOTMENT_SUMMARY.newStockInIssue.toLocaleString(),
                       color: "text-foreground",
                     },
                   ].map((s) => (
@@ -1820,16 +1953,9 @@ export default function BonusIssuePage() {
                     size="lg"
                     className="h-12 text-base font-semibold w-full"
                     onClick={() => handleApproveAndCompute(activeReview?.id)}
-                    disabled={
-                      computeMutation.isPending ||
-                      submitForApprovalMutation.isPending
-                    }
+                    disabled={false}
                   >
                     Submit for Approval
-                    {(computeMutation.isPending ||
-                      submitForApprovalMutation.isPending) && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
                   </Button>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
@@ -1862,60 +1988,16 @@ export default function BonusIssuePage() {
           <TabsContent value="icu" className="space-y-4">
             {icuReviewing === null ? (
               <>
-                {/* Filters */}
-                <Card className="mrpsl-card p-4">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="relative w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search ref or bonus name..."
-                        value={icuListSearch}
-                        onChange={(e) => {
-                          setIcuListSearch(e.target.value);
-                          setIcuListPage(1);
-                        }}
-                        className="pl-9 mrpsl-input"
-                      />
-                    </div>
-                    <Select
-                      value={icuListRegister || "all"}
-                      onValueChange={(v) => {
-                        setIcuListRegister(v === "all" ? "" : (v ?? ""));
-                        setIcuListPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="mrpsl-input w-48">
-                        <SelectValue placeholder="All Registers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingRegisters ? (
-                          <div className="py-10 flex items-center justify-center">
-                            <Loader2 className="animate-spin w-4 h-4" />
-                          </div>
-                        ) : (
-                          <>
-                            <SelectItem value="all">All Registers</SelectItem>
-                            {registerList?.map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r.registerId}
-                              >
-                                <span className="font-bold">
-                                  {r.registerName}
-                                </span>{" "}
-                                -{" "}
-                                <span className="text-xs translate-y-0.5">
-                                  {r.symbol}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
+                {icuRejectedCount > 0 && (
+                  <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <p className="text-sm font-medium text-amber-800">
+                      {icuRejectedCount} declaration
+                      {icuRejectedCount !== 1 ? "s" : ""} were rejected and
+                      returned to Offer Setup for editing.
+                    </p>
                   </div>
-                </Card>
-
+                )}
                 <Card className="mrpsl-card overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead className="mrpsl-table-header">
@@ -2043,6 +2125,7 @@ export default function BonusIssuePage() {
                     onClick={() => {
                       setIcuReviewing(null);
                       setIcuComment("");
+                      setIcuJustApproved(false);
                     }}
                   >
                     <ArrowLeft className="h-4 w-4" /> Back to ICU Queue
@@ -2125,8 +2208,7 @@ export default function BonusIssuePage() {
                       label: "Total Shares After Issue",
                       // value: "18,000,301",
                       value:
-                        activeReview?.totalSharesAfterIssue?.toLocaleString() ||
-                        0,
+                        MOCK_ALLOTMENT_SUMMARY.newStockInIssue.toLocaleString(),
                       color: "text-foreground",
                     },
                   ].map((s) => (
@@ -2180,106 +2262,462 @@ export default function BonusIssuePage() {
                   />
                 </Card>
 
-                {/* Approve / Return to Ops */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* Approve / Reject — or success banner if just approved */}
+                {icuJustApproved ? (
+                  <div className="rounded-xl border border-green-200 bg-green-50 p-4 flex items-center gap-4">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-green-800">
+                        Declaration approved and cleared for allotment.
+                      </p>
+                      <p className="text-xs text-green-700 mt-0.5">
+                        A circular email can now be sent to shareholders.
+                      </p>
+                    </div>
+                    <Button onClick={() => setEmailPreviewOpen(true)}>
+                      <Mail className="mr-2 h-4 w-4" /> Send Circular Email
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="destructive"
+                      size="lg"
+                      className="h-12 text-base font-semibold"
+                      onClick={() =>
+                        setApprovalModal({ action: "reject", section: "icu" })
+                      }
+                    >
+                      Reject Declaration
+                    </Button>
+                    <Button
+                      size="lg"
+                      className="h-12 text-base font-semibold"
+                      onClick={() =>
+                        setApprovalModal({ action: "approve", section: "icu" })
+                      }
+                    >
+                      ICU Approve &amp; Clear for Allotment
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── CSCS Lodgement ── */}
+          <TabsContent value="lodgement" className="space-y-4">
+            {lodgementReviewing === null ? (
+              <Card className="mrpsl-card overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="px-4 py-3">DECLARATION REF</th>
+                      <th className="px-4 py-3">REGISTER</th>
+                      <th className="px-4 py-3">BONUS NAME</th>
+                      <th className="px-4 py-3 text-center">RATIO</th>
+                      <th className="px-4 py-3 text-right">ELIGIBLE SHs</th>
+                      <th className="px-4 py-3 text-right">NEW SHARES</th>
+                      <th className="px-4 py-3">ICU APPROVER</th>
+                      <th className="px-4 py-3">ICU DATE</th>
+                      <th className="px-4 py-3">STATUS</th>
+                      <th className="px-4 py-3 text-right">ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {lodgementDeclarationList.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={10}
+                          className="px-4 py-16 text-center text-sm text-muted-foreground font-medium"
+                        >
+                          No declarations pending CSCS lodgement
+                        </td>
+                      </tr>
+                    ) : (
+                      lodgementDeclarationList.map((declaration) => (
+                        <tr key={declaration.id} className="mrpsl-table-row">
+                          <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
+                            {declaration.ref}
+                          </td>
+                          <td className="px-4 py-3 font-semibold">
+                            {declaration.registerName}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {declaration.bonusName}
+                          </td>
+                          <td className="px-4 py-3 text-center font-mono">
+                            {declaration.ratio}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-right">
+                            {declaration.totalShareholders?.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
+                            {declaration.totalBonusShares?.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-[13px]">
+                            {getUserByIdFn(declaration.icuApprovedBy)?.name}
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-muted-foreground">
+                            {formatDateOnly(
+                              declaration.icuApprovedAt?.split("T")[0],
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                              ICU Approved
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setLodgementReviewing(declaration.id);
+                                setLodgementPage(1);
+                              }}
+                            >
+                              View Allotment
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+                <PaginationBar
+                  page={1}
+                  total={lodgementDeclarationList.length}
+                  onPageChange={() => {}}
+                />
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {/* Back button */}
+                <div className="flex items-center gap-3 flex-wrap">
                   <Button
-                    variant="destructive"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 -ml-2"
+                    onClick={() => setLodgementReviewing(null)}
+                  >
+                    <ArrowLeft className="h-4 w-4" /> Back to Lodgement Queue
+                  </Button>
+                  <div className="h-5 w-px bg-border mx-1" />
+                  <span className="font-mono text-sm font-semibold">
+                    {lodgementReviewingRow?.ref}
+                  </span>
+                  <span className="text-muted-foreground text-sm">
+                    · {lodgementReviewingRow?.registerName} ·{" "}
+                    {lodgementReviewingRow?.bonusName}
+                  </span>
+                  <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
+                    ICU Approved
+                  </Badge>
+                </div>
+
+                {/* Declaration detail card */}
+                <DeclDetailCard decl={lodgementReviewingRow} />
+
+                {/* 4 stat cards */}
+                <div className="grid grid-cols-4 gap-3">
+                  {[
+                    {
+                      label: "Eligible Shareholders",
+                      value:
+                        lodgementReviewingRow?.totalShareholders?.toLocaleString(),
+                      color: "text-foreground",
+                    },
+                    {
+                      label: "Total New Shares",
+                      value:
+                        lodgementReviewingRow?.totalBonusShares?.toLocaleString(),
+                      color: "text-green-700",
+                    },
+                    {
+                      label: "Fractional Shares",
+                      value:
+                        lodgementReviewingRow?.totalFractionalRemainder?.toLocaleString(),
+                      color: "text-amber-600",
+                    },
+                    {
+                      label: "Total Shares After Issue",
+                      value:
+                        MOCK_ALLOTMENT_SUMMARY.newStockInIssue.toLocaleString(),
+                      color: "text-foreground",
+                    },
+                  ].map((s) => (
+                    <Card key={s.label} className="mrpsl-card p-3">
+                      <div className="mrpsl-section-title">{s.label}</div>
+                      <div
+                        className={cn(
+                          "text-xl font-mono font-bold mt-1",
+                          s.color,
+                        )}
+                      >
+                        {s.value}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Entitlement table (read-only) */}
+                <Card className="mrpsl-card overflow-hidden">
+                  <div className="px-4 py-3 border-b bg-muted/10">
+                    <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
+                      Entitlement Schedule
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-[13px]">
+                      <BonusTableHead />
+                      <tbody className="divide-y">
+                        <EntitlementTableRows
+                          rows={lodgementEntitlementList}
+                          startIdx={(lodgementPage - 1) * PAGE_ENTS}
+                        />
+                      </tbody>
+                      <EntitlementTfoot
+                        rows={lodgementEntitlementList}
+                        total={MOCK_ENTITLEMENTS.length}
+                      />
+                    </table>
+                  </div>
+                  <PaginationBar
+                    page={lodgementPage}
+                    total={MOCK_ENTITLEMENTS.length}
+                    onPageChange={setLodgementPage}
+                    pageSize={PAGE_ENTS}
+                  />
+                </Card>
+
+                {/* Action buttons */}
+                <div className="flex items-center gap-3 justify-end">
+                  <Button
+                    variant="outline"
                     size="lg"
-                    className="h-12 text-base font-semibold"
                     onClick={() =>
-                      setApprovalModal({ action: "reject", section: "icu" })
+                      toast.success("CSCS lodgement file downloaded")
                     }
                   >
-                    Return to Ops
+                    <Download className="mr-2 h-4 w-4" /> Download CSCS
+                    Lodgement File
                   </Button>
                   <Button
                     size="lg"
-                    className="h-12 text-base font-semibold"
-                    onClick={() =>
-                      setApprovalModal({ action: "approve", section: "icu" })
-                    }
+                    onClick={() => {
+                      if (!lodgementReviewing) return;
+                      setMockDeclarations((prev) =>
+                        prev.map((d) =>
+                          d.id === lodgementReviewing
+                            ? { ...d, status: "CSCS_LODGED" }
+                            : d,
+                        ),
+                      );
+                      toast.success("Marked as lodged successfully");
+                      setLodgementReviewing(null);
+                    }}
                   >
-                    ICU Approve &amp; Clear for Allotment
+                    Mark as Lodged
                   </Button>
                 </div>
               </div>
             )}
           </TabsContent>
 
+          {/* ── CSCS Reversals & Error Resolution ── */}
+          <TabsContent value="reversals" className="space-y-4">
+            {!cscsFileUploaded ? (
+              <Card className="mrpsl-card p-8">
+                <div className="text-center space-y-4">
+                  <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Upload CSCS Response File
+                  </p>
+                  <div
+                    className="border-2 border-dashed rounded-xl p-12 flex flex-col items-center gap-3 cursor-pointer hover:border-primary transition-colors"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files[0];
+                      if (file) setCscsFile(file);
+                    }}
+                    onClick={() =>
+                      document.getElementById("cscs-file-input")?.click()
+                    }
+                  >
+                    <FileSpreadsheet className="h-10 w-10 text-muted-foreground/40" />
+                    <p className="text-sm font-medium text-foreground">
+                      {cscsFile
+                        ? cscsFile.name
+                        : "Drag & drop CSCS response file here"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      or click to browse — accepts .csv, .xlsx
+                    </p>
+                    <input
+                      id="cscs-file-input"
+                      type="file"
+                      className="hidden"
+                      accept=".csv,.xlsx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setCscsFile(file);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    size="lg"
+                    disabled={!cscsFile}
+                    onClick={() => {
+                      if (!cscsFile) return;
+                      const loadingToast = toast.loading(
+                        "Processing CSCS response file…",
+                      );
+                      setTimeout(() => {
+                        toast.dismiss(loadingToast);
+                        setCscsFileUploaded(true);
+                        toast.success("CSCS response file processed.");
+                      }, 1200);
+                    }}
+                  >
+                    Process File
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {/* Summary counts bar */}
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-semibold text-green-700">
+                    {MOCK_CSCS_CREDITED.length} holders credited
+                  </span>
+                  <span className="text-muted-foreground">·</span>
+                  <span className="text-sm font-semibold text-red-700">
+                    {MOCK_CSCS_ERRORS.length} holders with errors
+                  </span>
+                  <div className="flex-1" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setCscsFileUploaded(false);
+                      setCscsFile(null);
+                      setCscsReviewingId(null);
+                    }}
+                  >
+                    Upload New File
+                  </Button>
+                </div>
+
+                {/* Two-panel result view */}
+                <div className="grid grid-cols-2 gap-4">
+                  {/* LEFT: Successfully Lodged */}
+                  <Card className="mrpsl-card overflow-hidden border-green-200">
+                    <div className="px-4 py-3 bg-green-50 border-b border-green-200">
+                      <p className="text-[13px] font-bold text-green-800 uppercase tracking-widest">
+                        Successfully Lodged ({MOCK_CSCS_CREDITED.length})
+                      </p>
+                    </div>
+                    <div className="divide-y max-h-120 overflow-y-auto">
+                      {MOCK_CSCS_CREDITED.map((e) => (
+                        <div
+                          key={e.id}
+                          className="px-4 py-2.5 flex items-center gap-3 text-[13px]"
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{e.name}</div>
+                            <div className="text-muted-foreground">
+                              {e.accountNumber}
+                            </div>
+                          </div>
+                          <div className="text-green-700 font-mono font-semibold shrink-0">
+                            +{e.bonusDue.toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+
+                  {/* RIGHT: Lodgement Errors */}
+                  <Card className="mrpsl-card overflow-hidden border-red-200">
+                    <div className="px-4 py-3 bg-red-50 border-b border-red-200 flex items-center gap-3">
+                      <p className="text-[13px] font-bold text-red-800 uppercase tracking-widest flex-1">
+                        Lodgement Errors ({MOCK_CSCS_ERRORS.length})
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[12px] h-7 border-red-300 text-red-700 hover:bg-red-50"
+                        onClick={() =>
+                          toast.success(
+                            "Error list downloaded. Send to Verification Team for processing.",
+                          )
+                        }
+                      >
+                        <Download className="mr-1.5 h-3 w-3" />
+                        Download Error List
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="text-[12px] h-7 bg-red-600 hover:bg-red-700 text-white"
+                        onClick={() =>
+                          toast.success(
+                            `Reversal initiated for ${MOCK_CSCS_ERRORS.length} accounts. Forwarded to Verification Team.`,
+                          )
+                        }
+                      >
+                        Initiate All Reversals
+                      </Button>
+                    </div>
+                    <div className="divide-y">
+                      {MOCK_CSCS_ERRORS.map((e) => (
+                        <div
+                          key={e.accountNumber}
+                          className="px-4 py-3 space-y-2"
+                        >
+                          <div className="flex items-start gap-3 text-[13px]">
+                            <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium">{e.name}</div>
+                              <div className="text-muted-foreground">
+                                {e.accountNumber} · {e.chn}
+                              </div>
+                              <div className="text-red-600 text-[12px] mt-0.5">
+                                {e.reason}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className="font-mono text-[13px]">
+                                {e.bonusDue.toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-[12px] h-7 border-red-200 text-red-700 hover:bg-red-50"
+                            onClick={() =>
+                              toast.success(
+                                `Reversal initiated for ${e.name}. Forwarded to Verification Team.`,
+                              )
+                            }
+                          >
+                            Initiate Reversal
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Notification & Prelist Dispatch ── */}
           <TabsContent value="allotment" className="space-y-4">
             {allotReviewing === null ? (
               <>
-                {/* Filters */}
-                <Card className="mrpsl-card p-4">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="relative w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search ref or bonus name..."
-                        value={allotListSearch}
-                        onChange={(e) => {
-                          setAllotListSearch(e.target.value);
-                          setAllotListPage(1);
-                        }}
-                        className="pl-9 mrpsl-input"
-                      />
-                    </div>
-                    <Select
-                      value={allotListRegister || "all"}
-                      onValueChange={(v) => {
-                        setAllotListRegister(v === "all" ? "" : (v ?? ""));
-                        setAllotListPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="mrpsl-input w-48">
-                        <SelectValue placeholder="All Registers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {loadingRegisters ? (
-                          <div className="py-10 flex items-center justify-center">
-                            <Loader2 className="animate-spin w-4 h-4" />
-                          </div>
-                        ) : (
-                          <>
-                            <SelectItem value="all">All Registers</SelectItem>
-                            {registerList?.map((r) => (
-                              <SelectItem
-                                key={r.registerId}
-                                value={r.registerId}
-                              >
-                                <span className="font-bold">
-                                  {r.registerName}
-                                </span>{" "}
-                                -{" "}
-                                <span className="text-xs translate-y-0.5">
-                                  {r.symbol}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={allotListStatus}
-                      onValueChange={(v) => {
-                        setAllotListStatus(v ?? "ICU_APPROVED");
-                        setAllotListPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="mrpsl-input w-44">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ICU_APPROVED">
-                          Pending Allotment
-                        </SelectItem>
-                        <SelectItem value="ALLOTTED">Allotted</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </Card>
-
                 {/* Queue table */}
                 <Card className="mrpsl-card overflow-hidden">
                   <table className="w-full text-left text-sm">
@@ -2358,6 +2796,10 @@ export default function BonusIssuePage() {
                                 {declaration?.status === "ICU_APPROVED" ? (
                                   <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px] uppercase">
                                     Pending Allotment
+                                  </Badge>
+                                ) : declaration?.status === "CSCS_LODGED" ? (
+                                  <Badge className="bg-purple-100 text-purple-800 border-0 text-[13px] uppercase">
+                                    CSCS Lodged
                                   </Badge>
                                 ) : (
                                   <Badge className="bg-green-100 text-green-800 border-0 text-[13px] uppercase">
@@ -2530,24 +2972,10 @@ export default function BonusIssuePage() {
                           </Button>
                           <Button
                             size="lg"
-                            disabled={processAllotmentMutation.isPending}
-                            onClick={() => {
-                              if (!row?.id) return;
-                              toast.info("Processing allotment…");
-                              processAllotmentMutation.mutate(
-                                { declarationId: row.id },
-                                {
-                                  onSuccess: () => {
-                                    setAllotmentProcessedMap((p) => ({
-                                      ...p,
-                                      [row.id]: true,
-                                    }));
-                                  },
-                                },
-                              );
-                            }}
+                            disabled={isAllotmentProcessing}
+                            onClick={() => row && handleProcessAllotment(row)}
                           >
-                            {processAllotmentMutation.isPending ? (
+                            {isAllotmentProcessing ? (
                               <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Processing...
@@ -2566,9 +2994,7 @@ export default function BonusIssuePage() {
                               Shareholders Allotted
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-green-600">
-                              {allotmentsData?.data?.totalShareholders?.toLocaleString() ??
-                                row?.totalShareholders?.toLocaleString() ??
-                                "0"}
+                              {MOCK_ALLOTMENT_SUMMARY.totalShareholders.toLocaleString()}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4 border-t-4 border-t-blue-500">
@@ -2576,9 +3002,7 @@ export default function BonusIssuePage() {
                               New Shares Issued
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-blue-600">
-                              {allotmentsData?.data?.totalBonusShares?.toLocaleString() ??
-                                row?.totalBonusShares?.toLocaleString() ??
-                                "0"}
+                              {MOCK_ALLOTMENT_SUMMARY.totalBonusShares.toLocaleString()}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4 border-t-4 border-t-purple-500">
@@ -2586,7 +3010,7 @@ export default function BonusIssuePage() {
                               Previous Stock in Issue
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-purple-600">
-                              {/* 18,000,000 */} 0
+                              {MOCK_ALLOTMENT_SUMMARY.previousStockInIssue.toLocaleString()}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4 border-t-4 border-t-amber-500">
@@ -2594,7 +3018,7 @@ export default function BonusIssuePage() {
                               New Stock in Issue
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-amber-600">
-                              {/* 22,500,000 */} 0
+                              {MOCK_ALLOTMENT_SUMMARY.newStockInIssue.toLocaleString()}
                             </div>
                           </Card>
                         </div>
@@ -2604,8 +3028,7 @@ export default function BonusIssuePage() {
                               Paper Certificates Created
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1">
-                              {allotmentsData?.data?.totalPaperSharesCreated?.toLocaleString() ||
-                                0}
+                              {MOCK_ALLOTMENT_SUMMARY.totalPaperSharesCreated.toLocaleString()}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4">
@@ -2613,10 +3036,7 @@ export default function BonusIssuePage() {
                               CSCS Entries Updated
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1">
-                              {allotmentsData?.data?.totalCscShares?.toLocaleString() ??
-                                Math.floor(
-                                  (row?.totalShareholders || 0) * 0.65,
-                                ).toLocaleString()}
+                              {MOCK_ALLOTMENT_SUMMARY.totalCscShares.toLocaleString()}
                             </div>
                           </Card>
                           <Card className="mrpsl-card p-4">
@@ -2624,8 +3044,7 @@ export default function BonusIssuePage() {
                               Fractional Shares Rounded
                             </div>
                             <div className="text-2xl font-bold font-mono mt-1 text-amber-600">
-                              {allotmentsData?.data?.totalFractionalSharesRounded?.toLocaleString() ??
-                                "0"}
+                              {MOCK_ALLOTMENT_SUMMARY.totalFractionalSharesRounded.toLocaleString()}
                             </div>
                           </Card>
                         </div>
@@ -2637,19 +3056,10 @@ export default function BonusIssuePage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={exportAllotmentsMutation.isPending}
-                              onClick={() => {
-                                if (!row?.id) {
-                                  toast.error(
-                                    "No active allotment declaration selected.",
-                                  );
-                                  return;
-                                }
-                                toast.info("Exporting Excel report…");
-                                exportAllotmentsMutation.mutate(row.id);
-                              }}
+                              disabled={isExportingAllotments}
+                              onClick={() => handleExportAllotments(row?.id)}
                             >
-                              {exportAllotmentsMutation.isPending ? (
+                              {isExportingAllotments ? (
                                 <>
                                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                                   Exporting...
@@ -2752,109 +3162,13 @@ export default function BonusIssuePage() {
               </div>
             </Card>
 
-            {/* Filters */}
-            <Card className="mrpsl-card p-5">
-              <div className="flex gap-6 mb-1.5">
-                <label className="mrpsl-label w-64">Register</label>
-                <label className="mrpsl-label w-64">Date Range</label>
-              </div>
-              <div className="flex items-center gap-3">
-                <Select
-                  value={reportRegister}
-                  onValueChange={(v) => {
-                    setReportRegister(v ?? "all");
-                    setReportGenerated(false);
-                  }}
-                >
-                  <SelectTrigger className="mrpsl-input w-64">
-                    <SelectValue placeholder="All Registers" />
-                  </SelectTrigger>
-                  <SelectContent className="w-max">
-                    {loadingRegisters ? (
-                      <div className="py-10 flex items-center justify-center">
-                        <Loader2 className="animate-spin w-4 h-4" />
-                      </div>
-                    ) : (
-                      <>
-                        <SelectItem value="">All Register</SelectItem>
-                        {registerList?.map((r) => (
-                          <SelectItem key={r.registerId} value={r.symbol}>
-                            <span className="font-bold">{r.registerName}</span>{" "}
-                            -{" "}
-                            <span className="text-xs translate-y-0.5">
-                              {r.symbol}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-                <Popover
-                  open={reportCalOpen}
-                  onOpenChange={(v, eventDetails) => {
-                    if (!v) {
-                      if (
-                        eventDetails.reason === "outside-press" ||
-                        eventDetails.reason === "escape-key" ||
-                        eventDetails.reason === "trigger-press"
-                      ) {
-                        setReportCalOpen(false);
-                      }
-                      return;
-                    }
-                    setReportCalOpen(v);
-                  }}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "mrpsl-input w-64 justify-start gap-2 px-3 font-normal text-sm",
-                        !reportDateLabel && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarRange className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="flex-1 text-left truncate">
-                        {reportDateLabel ?? "Select date range"}
-                      </span>
-                      {reportDateRange && (
-                        <span
-                          role="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            reportDateRangeRef.current = undefined;
-                            setReportDateRange(undefined);
-                          }}
-                          className="ml-auto rounded-full hover:bg-muted p-0.5"
-                        >
-                          <X className="h-3 w-3 text-muted-foreground" />
-                        </span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="range"
-                      selected={reportDateRange}
-                      onSelect={(r) => {
-                        reportDateRangeRef.current = r;
-                        setReportDateRange(r);
-                        if (r?.from && r?.to) setReportCalOpen(false);
-                      }}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Button
-                  size="xl"
-                  className="px-6 font-semibold shrink-0"
-                  onClick={handleRunReport}
-                >
-                  Generate Report
-                </Button>
-              </div>
-            </Card>
+            <Button
+              size="xl"
+              className="px-6 font-semibold shrink-0"
+              onClick={handleRunReport}
+            >
+              Generate Report
+            </Button>
 
             {isReportLoading ? (
               <div className="flex flex-col items-center justify-center py-20 bg-background border rounded-2xl border-dashed">
@@ -2922,12 +3236,7 @@ export default function BonusIssuePage() {
                           {selectedReport}
                         </h2>
                         <div className="text-sm text-muted-foreground mt-1 flex justify-between">
-                          <span>
-                            Register:{" "}
-                            {registerList?.find(
-                              (r) => r.symbol === reportRegister,
-                            )?.registerName || "All Registers"}
-                          </span>
+                          <span>Register: {"All Registers"}</span>
                           <span>
                             Generated:{" "}
                             {format(new Date(), "dd MMM yyyy, HH:mm")}
@@ -3169,6 +3478,133 @@ export default function BonusIssuePage() {
                             onPageChange={setReportPage}
                           />
                         </Card>
+                      ) : selectedReport === "Bonus Report" ? (
+                        /* Bonus Report — Share Account No., Name, Cert No., Bonus Units, Before, After, Email, Phone, CHN, Broker */
+                        <Card className="mrpsl-card overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[13px]">
+                              <thead className="mrpsl-table-header">
+                                <tr>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Acct No.
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Shareholder Name
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Cert No.
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium text-right">
+                                    Bonus Units
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium text-right">
+                                    Units Before
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium text-right">
+                                    Units After
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Email
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Phone
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    CHN
+                                  </th>
+                                  <th className="px-3 py-2.5 font-medium">
+                                    Stockbroker / Code
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y font-mono text-xs">
+                                {fetchedReportList?.map(
+                                  (
+                                    row: {
+                                      accountNo?: string;
+                                      shareAccountNo?: string;
+                                      name?: string;
+                                      holderName?: string;
+                                      certificateNo?: string;
+                                      certNo?: string;
+                                      bonusUnits?: number;
+                                      unitsBefore?: number;
+                                      unitsHeld?: number;
+                                      unitsAfter?: number;
+                                      email?: string;
+                                      emailAddress?: string;
+                                      phone?: string;
+                                      phoneNumber?: string;
+                                      chn?: string;
+                                      stockbroker?: string;
+                                      stockbrokerCode?: string;
+                                    },
+                                    idx: number,
+                                  ) => (
+                                    <tr key={idx} className="mrpsl-table-row">
+                                      <td className="px-3 py-2">
+                                        {row.shareAccountNo ||
+                                          row.accountNo ||
+                                          "—"}
+                                      </td>
+                                      <td className="px-3 py-2 font-sans font-medium">
+                                        {row.name || row.holderName || "—"}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {row.certificateNo || row.certNo || "—"}
+                                      </td>
+                                      <td className="px-3 py-2 text-right text-primary font-semibold">
+                                        {row.bonusUnits?.toLocaleString() ??
+                                          "—"}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {(
+                                          row.unitsBefore ?? row.unitsHeld
+                                        )?.toLocaleString() ?? "—"}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {row.unitsAfter?.toLocaleString() ??
+                                          "—"}
+                                      </td>
+                                      <td className="px-3 py-2 font-sans">
+                                        {row.email || row.emailAddress || "—"}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {row.phone || row.phoneNumber || "—"}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {row.chn || "—"}
+                                      </td>
+                                      <td className="px-3 py-2 font-sans">
+                                        {row.stockbroker || "—"}
+                                        {row.stockbrokerCode && (
+                                          <span className="ml-1 text-muted-foreground">
+                                            / {row.stockbrokerCode}
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ),
+                                )}
+                                {fetchedReportList?.length === 0 && (
+                                  <tr>
+                                    <td
+                                      colSpan={10}
+                                      className="px-4 py-10 text-center text-muted-foreground font-sans"
+                                    >
+                                      No bonus report records found.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                          <PaginationBar
+                            page={reportPage}
+                            total={fetchedReportList?.length ?? 0}
+                            onPageChange={setReportPage}
+                          />
+                        </Card>
                       ) : (
                         /* Bonus Entitlement Register & Shareholder Bonus Allotment List */
                         <Card className="mrpsl-card overflow-hidden">
@@ -3211,48 +3647,26 @@ export default function BonusIssuePage() {
         open={emailPreviewOpen}
         onOpenChange={setEmailPreviewOpen}
         offerType="bonus"
-        companyName={
-          activeAllotment?.registerName || activeAllotment?.register || ""
-        }
+        companyName={activeAllotment?.registerName || ""}
         issueId={activeAllotment?.id}
         offerName={activeAllotment?.bonusName || ""}
         ratio={activeAllotment?.ratio || ""}
-        allotDate={
-          activeAllotment?.allotmentDate || activeAllotment?.allotDate || ""
-        }
+        allotDate={activeAllotment?.allotmentDate || ""}
         contactEmail="BonusIssue@meristemregistrars.com"
         shareholders={
           allotReviewing && allotmentsList?.length
-            ? allotmentsList
-                .slice(0, 5)
-                .map(
-                  (s: {
-                    name: string;
-                    shareholderId: string;
-                    id: string;
-                    accountNumber: string;
-                    address: string;
-                    state: string;
-                    unitsAtQualDate: number;
-                    holdings: number;
-                  }) => {
-                    const nameParts = (s.name || "").trim().split(/\s+/);
-                    return {
-                      id: s.shareholderId || s.id || "",
-                      accountNumber: s.accountNumber || "",
-                      firstName: nameParts[0] || "",
-                      lastName: nameParts.slice(1).join(" ") || "",
-                      address: s.address || "No Address Provided",
-                      state: s.state || "",
-                      holdings: s.unitsAtQualDate || s.holdings || 0,
-                    };
-                  },
-                )
+            ? allotmentsList.slice(0, 5).map((s) => ({
+                id: s.id || "",
+                accountNumber: s.accountNumber || "",
+                name: s.shareholderName || s.name || "",
+                address: s.address || "No Address Provided",
+                state: s.state || "",
+                holdings: s.unitsAtQualDate || 0,
+              }))
             : shareholders.slice(0, 5).map((s) => ({
                 id: s.id,
                 accountNumber: s.accountNumber,
-                firstName: s.firstName,
-                lastName: s.lastName,
+                name: `${s.firstName} ${s.lastName}`.trim(),
                 address: s.address,
                 state: s.state,
                 holdings: s.holdings,
@@ -3318,21 +3732,11 @@ export default function BonusIssuePage() {
                 }
                 className="flex-1"
                 onClick={handleConfirmClick}
-                disabled={
-                  approveDeclarationMutation.isPending ||
-                  approveDeclarationByIcuMutation.isPending ||
-                  rejectDeclarationMutation.isPending ||
-                  icuReturnMutation.isPending
-                }
+                disabled={isConfirming}
               >
                 Confirm{" "}
                 {approvalModal?.action === "approve" ? "Approval" : "Rejection"}
-                {(approveDeclarationMutation.isPending ||
-                  approveDeclarationByIcuMutation.isPending ||
-                  rejectDeclarationMutation.isPending ||
-                  icuReturnMutation.isPending) && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
+                {isConfirming && <Loader2 className="h-4 w-4 animate-spin" />}
               </Button>
             </div>
           </div>

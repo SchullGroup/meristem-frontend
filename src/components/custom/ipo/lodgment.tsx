@@ -10,13 +10,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -24,8 +17,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import type { DateRange } from "react-day-picker";
 import { IPO } from "@/types/ipo";
-import { useGetRegisters } from "@/hooks/useRegisters";
-import { DateRangePicker } from "../date-range-picker";
 import {
   useGetIpoBatchesLodgment,
   useDownloadIpoBatchLodgment,
@@ -48,12 +39,6 @@ import { PaginationBar } from "../pagination-bar";
 import { formatNumber } from "@/lib/utils/format";
 
 export default function ICULodgment({ tab }: { tab: string }) {
-  const { data: activeRegisters, isLoading: registersLoading } =
-    useGetRegisters({
-      size: 100,
-      status: "ACTIVE",
-    });
-
   // Lodgment drill-down
   const [lodgmentReviewing, setLodgmentReviewing] = useState<IPO | null>(null);
 
@@ -182,61 +167,6 @@ export default function ICULodgment({ tab }: { tab: string }) {
   if (lodgmentReviewing === null) {
     return (
       <div className="space-y-6">
-        {/* Filters */}
-        <Card className="mrpsl-card p-5">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="">
-                <label className="mrpsl-label">Register</label>
-                <Select
-                  value={authRegister}
-                  onValueChange={(value) => setAuthRegister(value || "")}
-                >
-                  <SelectTrigger className="mrpsl-input w-full">
-                    <SelectValue placeholder="All Registers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {registersLoading ? (
-                      <div className="py-10 flex items-center justify-center">
-                        <Loader2 className="animate-spin w-4 h-4" />
-                      </div>
-                    ) : (
-                      <>
-                        <SelectItem value="All">All Register</SelectItem>
-                        {activeRegisters?.content?.map((r) => (
-                          <SelectItem key={r.registerId} value={r.symbol}>
-                            <span className="font-bold">{r.registerName}</span>{" "}
-                            -{" "}
-                            <span className="text-xs translate-y-0.5">
-                              {r.symbol}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="">
-                <label className="mrpsl-label">Date Range</label>
-                <DateRangePicker
-                  date={authDateRange}
-                  setDate={setAuthDateRange}
-                />
-              </div>
-            </div>
-            <Button
-              size="xl"
-              className="self-end"
-              variant="ghost"
-              onClick={resetFilters}
-            >
-              Reset
-            </Button>
-          </div>
-        </Card>
-
         {/* Queue table */}
         <Card className="mrpsl-card overflow-hidden">
           <div className="px-4 py-3 border-b bg-muted/20">

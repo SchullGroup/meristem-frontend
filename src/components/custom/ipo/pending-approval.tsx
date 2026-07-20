@@ -5,17 +5,9 @@ import { format } from "date-fns";
 import { ArrowLeft, Check, Loader2, FileSpreadsheet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { DateRangePicker } from "@/components/custom/date-range-picker";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -26,8 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { DateRange } from "react-day-picker";
-import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   useGetPendingApprovals,
   useGetIpoBatch,
@@ -55,24 +45,7 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
     action: "approve" | "reject";
   } | null>(null);
 
-  // Pending Approval filters
-  const [authRegister, setAuthRegister] = useState<string>("");
-  const [authDateRange, setAuthDateRange] = useState<DateRange | undefined>(
-    undefined,
-  );
-
   // Queries
-  const { data: activeRegisters, isLoading: registersLoading } =
-    useGetRegisters(
-      {
-        size: 100,
-        status: "ACTIVE",
-      },
-      {
-        enabled: tab === "auth",
-      },
-    );
-
   const {
     data: pendingData,
     isLoading: pendingLoading,
@@ -81,17 +54,10 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
     refetch: refetchPending,
   } = useGetPendingApprovals(
     {
-      register: authRegister === "all" ? undefined : authRegister,
-      from: authDateRange?.from
-        ? format(authDateRange.from, "yyyy-MM-dd")
-        : undefined,
-      to: authDateRange?.to
-        ? format(authDateRange.to, "yyyy-MM-dd")
-        : undefined,
       page: currentPage,
       size: subscribersPageSize,
     },
-    { enabled: tab === "auth" && !reviewingBatch },
+    { enabled: tab === "approval" && !reviewingBatch },
   );
 
   const {
@@ -222,26 +188,12 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
     }
   };
 
-  const resetFilters = () => {
-    setAuthRegister("");
-    setAuthDateRange(undefined);
-    setCurrentPage(0);
-  };
-
   // ── Render Logic ──
 
   if (!reviewingBatch) {
     if (pendingError) {
       return (
         <div className="space-y-6">
-          <Card className="mrpsl-card p-5">
-            <div className="flex justify-between items-center">
-              <h2 className="font-semibold">Pending Approvals</h2>
-              <Button variant="ghost" size="sm" onClick={resetFilters}>
-                Reset Filters
-              </Button>
-            </div>
-          </Card>
           <DataErrorState
             message={returnErrorMessage(pendingErrorData as ErrorLike)}
             onRetry={refetchPending}
@@ -252,56 +204,6 @@ export default function PendingApprovalIPO({ tab }: { tab: string }) {
 
     return (
       <div className="space-y-6">
-        {/* Filters */}
-        <Card className="mrpsl-card p-5">
-          <div className="flex-1 flex gap-4">
-            <div className="">
-              <label className="mrpsl-label">Register</label>
-              <Select
-                value={authRegister}
-                onValueChange={(value) => setAuthRegister(value || "")}
-              >
-                <SelectTrigger className="mrpsl-input w-full">
-                  <SelectValue placeholder="All Registers" />
-                </SelectTrigger>
-                <SelectContent>
-                  {registersLoading ? (
-                    <div className="py-10 flex items-center justify-center">
-                      <Loader2 className="animate-spin w-4 h-4" />
-                    </div>
-                  ) : (
-                    <>
-                      <SelectItem value="all">All Register</SelectItem>
-                      {activeRegisters?.content?.map((r) => (
-                        <SelectItem key={r.registerId} value={r.symbol}>
-                          {r.registerName} - {r.symbol}
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="">
-              <label className="mrpsl-label">Date Range</label>
-              <DateRangePicker
-                date={authDateRange}
-                setDate={setAuthDateRange}
-              />
-            </div>
-
-            <Button
-              size="xl"
-              className="self-end"
-              variant="ghost"
-              onClick={resetFilters}
-            >
-              Reset
-            </Button>
-          </div>
-        </Card>
-
         {/* Batch list */}
         <Card className="mrpsl-card overflow-hidden">
           <div className="overflow-x-auto">

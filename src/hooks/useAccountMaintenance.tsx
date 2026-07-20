@@ -4,9 +4,12 @@ import {
   authoriseConsolidation,
   authoriseKycChange,
   batchAuthoriseAdmons,
+  batchAuthoriseAdmonReversals,
   batchAuthoriseConsolidations,
   batchAuthoriseKycChanges,
   batchRejectAdmons,
+  batchRejectAdmonReversals,
+  batchReturnAdmons,
   batchRejectConsolidations,
   batchRejectKycChanges,
   createAdmon,
@@ -26,8 +29,10 @@ import {
   getKycChangesUploadJob,
   rejectAdmon,
   rejectAdmonReversal,
+  cancelKycChange,
   rejectConsolidation,
   rejectKycChange,
+  reverseConsolidation,
   uploadConsolidations,
   uploadKycChanges,
   uploadHolderSignature,
@@ -36,6 +41,11 @@ import {
   verifyHolderKycDocument,
   rejectHolderKycDocument,
   getHolderSignature,
+  getHolderSignatureArchive,
+  previewKycBulkUpload,
+  submitKycBulkUpload,
+  previewNibssMandateUpload,
+  submitNibssMandateUpload,
 } from "@/actions/accountMaintenanceActions";
 import { ApiResponse } from "@/types";
 import {
@@ -70,12 +80,21 @@ import {
   KycChangeFilters,
   KycChangeListResponse,
   KycDecisionRequest,
+  KycCancelRequest,
   KycUploadJob,
+  KycBulkPreviewResponse,
+  KycBulkSubmitRequest,
+  KycBulkSubmitResponse,
+  NibssMandatePreviewResponse,
+  NibssMandateSubmitRequest,
+  NibssMandateSubmitResponse,
   ShareholderAccount,
   AdmonListResponse,
   AdmonDecisionRequest,
   BatchAdmonRequest,
   BatchAdmonResponse,
+  BatchAdmonReversalRequest,
+  BatchAdmonReversalResponse,
   AdmonReversalListResponse,
   HolderKycDocRequest,
   HolderSignatureRequest,
@@ -170,6 +189,21 @@ export const useRejectConsolidation = (
 ) =>
   useMutation({
     mutationFn: ({ id, data }) => rejectConsolidation(id, data),
+    ...options,
+  });
+
+export const useReverseConsolidation = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<Consolidation>,
+      Error,
+      { id: number; data: ConsolidationDecisionRequest }
+    >,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: ({ id, data }) => reverseConsolidation(id, data),
     ...options,
   });
 
@@ -373,6 +407,30 @@ export const useRejectKycChange = (
     },
   });
 };
+export const useCancelKycChange = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      {
+        id: number;
+        data: KycCancelRequest;
+      }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => cancelKycChange(id, data),
+    ...options,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+    },
+  });
+};
+
 export const useBatchAuthoriseKycChanges = (
   options?: Omit<
     UseMutationOptions<
@@ -445,6 +503,73 @@ export const useGetBulkKycChangesUploadJob = (
     ...options,
   });
 
+export const usePreviewKycBulkUpload = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycBulkPreviewResponse>,
+      Error,
+      { file: File; registerId?: string }
+    >,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: ({ file, registerId }) =>
+      previewKycBulkUpload(file, registerId),
+    ...options,
+  });
+
+export const useSubmitKycBulkUpload = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycBulkSubmitResponse>,
+      Error,
+      KycBulkSubmitRequest
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: submitKycBulkUpload,
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
+export const usePreviewNibssMandateUpload = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<NibssMandatePreviewResponse>,
+      Error,
+      { file: File }
+    >,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: ({ file }) => previewNibssMandateUpload(file),
+    ...options,
+  });
+
+export const useSubmitNibssMandateUpload = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<NibssMandateSubmitResponse>,
+      Error,
+      NibssMandateSubmitRequest
+    >,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: submitNibssMandateUpload,
+    ...options,
+  });
+
 export const useUploadHolderSignature = (
   options?: Omit<
     UseMutationOptions<ApiResponse<any>, Error, HolderSignatureRequest>,
@@ -478,6 +603,32 @@ export const useGetHolderSignature = (
   useQuery({
     queryKey: ["holder-signature", chn, registerSymbol],
     queryFn: () => getHolderSignature(chn, registerSymbol),
+    enabled: !!chn && !!registerSymbol,
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+
+export const useGetHolderSignatureArchive = (
+  chn: string,
+  registerSymbol: string,
+  options?: Omit<
+    UseQueryOptions<{
+      data: {
+        id: string;
+        signatureUrl: string;
+        status: "ACTIVE" | "ARCHIVED";
+        uploadedAt: string;
+        uploadedBy: string;
+        approvedAt?: string;
+        approvedBy?: string;
+      }[];
+    }>,
+    "queryKey" | "queryFn"
+  >,
+) =>
+  useQuery({
+    queryKey: ["holder-signature-archive", chn, registerSymbol],
+    queryFn: () => getHolderSignatureArchive(chn, registerSymbol),
     enabled: !!chn && !!registerSymbol,
     refetchOnWindowFocus: false,
     ...options,
@@ -704,6 +855,31 @@ export const useBatchRejectAdmons = (
   });
 };
 
+export const useBatchReturnAdmons = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<BatchAdmonResponse>,
+      Error,
+      BatchAdmonRequest
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: batchReturnAdmons,
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["admons"],
+      });
+    },
+
+    ...options,
+  });
+};
+
 export const useCreateAdmonReversal = (
   options?: Omit<
     UseMutationOptions<
@@ -782,6 +958,56 @@ export const useRejectAdmonReversal = (
 
   return useMutation({
     mutationFn: ({ reversalId, data }) => rejectAdmonReversal(reversalId, data),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["admon-reversals"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useBatchAuthoriseAdmonReversals = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<BatchAdmonReversalResponse>,
+      Error,
+      BatchAdmonReversalRequest
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: batchAuthoriseAdmonReversals,
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["admon-reversals"],
+      });
+    },
+
+    ...options,
+  });
+};
+
+export const useBatchRejectAdmonReversals = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<BatchAdmonReversalResponse>,
+      Error,
+      BatchAdmonReversalRequest
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: batchRejectAdmonReversals,
 
     onSuccess: () => {
       queryClient.invalidateQueries({
