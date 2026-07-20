@@ -20,7 +20,7 @@ interface KycBankDetailsTabProps {
     field: string,
     newValue: string,
     reason: string,
-    evidence?: { name: string; url: string }[],
+    evidence: { name: string; url: string }[],
   ) => Promise<void>;
 }
 
@@ -39,7 +39,7 @@ export function KycBankDetailsTab({
     (
       newValue: string,
       reason: string,
-      evidence?: { name: string; url: string }[],
+      evidence: { name: string; url: string }[],
     ) =>
       onFieldSubmit(
         selectedShareholder.accountNumber,
@@ -145,14 +145,14 @@ function AcctValidationField({
   submit: (
     nv: string,
     r: string,
-    ev?: { name: string; url: string }[],
+    ev: { name: string; url: string }[],
   ) => Promise<void>;
   isSubmitting: boolean;
 }) {
   const [status, setStatus] = useState<ValStatus>("idle");
 
   const wrappedSubmit = useCallback(
-    (nv: string, r: string, ev?: { name: string; url: string }[]) => {
+    (nv: string, r: string, ev: { name: string; url: string }[]) => {
       const digits = nv.replace(/\D/g, "");
       if (!digits) setStatus("idle");
       else if (digits.length > maxDigits) setStatus("error");

@@ -1,240 +1,713 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
-import { ArrowRightLeft, Filter } from "lucide-react";
+import { Upload, ClipboardList, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { UploadStagingCard, UploadResult } from "@/components/custom/offer-administration/upload-staging-card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  UploadStagingCard,
+  UploadResult,
+} from "@/components/custom/offer-administration/upload-staging-card";
 import { toast } from "sonner";
 
-interface TradeRecord {
+type EntryMode = "manual" | "bulk";
+type TxType = "acceptance" | "renunciation";
+type AgentType = "STOCKBROKER" | "BANK" | "COLLECTING_AGENT";
+
+const AGENT_TYPE_LABELS: Record<AgentType, string> = {
+  STOCKBROKER: "Stockbroker",
+  BANK: "Bank",
+  COLLECTING_AGENT: "Collecting Agent",
+};
+
+interface Submission {
   id: string;
-  originalHolder: string;
-  originalAccountNo: string;
-  newHolder: string;
-  newAccountNo: string;
-  rightsTransferred: number;
-  tradeDate: Date;
-  cscsReference: string;
-  status: "Confirmed" | "Pending" | "Rejected";
+  txType: TxType;
+  agentType: AgentType;
+  agentName: string;
+  chn: string;
+  cscsNumber: string;
+  registrarAccountNo: string;
+  additionalSharesApplied: number;
+  additionalAmountPaid: number;
+  totalAmountPaid: number;
+  unitsAccepted: number;
+  amountPayable: number;
+  holderName: string;
+  nextOfKin: string;
+  phone: string;
+  email: string;
+  dateOfBirth: string;
+  bankName: string;
+  accountNumber: string;
+  bvn: string;
+  tin: string;
+  submittedAt: string;
+  status: "PENDING" | "PROCESSED";
 }
 
-const MOCK_TRADES: TradeRecord[] = [
+const SEED_SUBMISSIONS: Submission[] = [
   {
-    id: "t1",
-    originalHolder: "Adebayo Oluwaseun",
-    originalAccountNo: "ACC-00123456",
-    newHolder: "Kolade Adeyemi",
-    newAccountNo: "ACC-00987654",
-    rightsTransferred: 2000,
-    tradeDate: new Date("2024-08-05"),
-    cscsReference: "CSCS-RT-2024-000451",
-    status: "Confirmed",
+    id: "s1",
+    txType: "acceptance",
+    agentType: "STOCKBROKER",
+    agentName: "Meristem Stockbrokers Ltd",
+    chn: "C0023456BK",
+    cscsNumber: "CSCS-000234561",
+    registrarAccountNo: "REG-00123456",
+    additionalSharesApplied: 5000,
+    additionalAmountPaid: 46250,
+    totalAmountPaid: 92500,
+    unitsAccepted: 0,
+    amountPayable: 0,
+    holderName: "NGOZI CHIDINMA OKAFOR",
+    nextOfKin: "Emeka Okafor",
+    phone: "08023456789",
+    email: "ngozi.okafor@email.com",
+    dateOfBirth: "1985-04-20",
+    bankName: "First Bank of Nigeria",
+    accountNumber: "3012345678",
+    bvn: "22098765432",
+    tin: "1234567890",
+    submittedAt: "07 Jul 2026",
+    status: "PENDING",
   },
   {
-    id: "t2",
-    originalHolder: "Chinwe Okafor-Nwosu",
-    originalAccountNo: "ACC-00234567",
-    newHolder: "Taiwo Babatunde",
-    newAccountNo: "ACC-00876543",
-    rightsTransferred: 5000,
-    tradeDate: new Date("2024-08-06"),
-    cscsReference: "CSCS-RT-2024-000452",
-    status: "Confirmed",
+    id: "s2",
+    txType: "renunciation",
+    agentType: "BANK",
+    agentName: "Access Bank PLC",
+    chn: "C0045678DK",
+    cscsNumber: "CSCS-000456782",
+    registrarAccountNo: "REG-00456789",
+    additionalSharesApplied: 0,
+    additionalAmountPaid: 0,
+    totalAmountPaid: 0,
+    unitsAccepted: 8000,
+    amountPayable: 74000,
+    holderName: "FATIMA ABUBAKAR MUSA",
+    nextOfKin: "Ibrahim Musa",
+    phone: "07034567890",
+    email: "fatima.musa@email.com",
+    dateOfBirth: "1990-11-15",
+    bankName: "Access Bank PLC",
+    accountNumber: "0123456789",
+    bvn: "22012345678",
+    tin: "0987654321",
+    submittedAt: "08 Jul 2026",
+    status: "PROCESSED",
   },
   {
-    id: "t3",
-    originalHolder: "Emeka Nwachukwu",
-    originalAccountNo: "ACC-00345678",
-    newHolder: "Blessing Okeke",
-    newAccountNo: "ACC-00765432",
-    rightsTransferred: 875,
-    tradeDate: new Date("2024-08-07"),
-    cscsReference: "CSCS-RT-2024-000453",
-    status: "Pending",
-  },
-  {
-    id: "t4",
-    originalHolder: "Yemi Olatunde-Bello",
-    originalAccountNo: "ACC-00567890",
-    newHolder: "Chidi Obiora",
-    newAccountNo: "ACC-00654321",
-    rightsTransferred: 532,
-    tradeDate: new Date("2024-08-08"),
-    cscsReference: "CSCS-RT-2024-000454",
-    status: "Confirmed",
-  },
-  {
-    id: "t5",
-    originalHolder: "Ngozi Eze",
-    originalAccountNo: "ACC-00678901",
-    newHolder: "Aisha Suleiman",
-    newAccountNo: "ACC-00543210",
-    rightsTransferred: 1200,
-    tradeDate: new Date("2024-08-09"),
-    cscsReference: "CSCS-RT-2024-000455",
-    status: "Rejected",
-  },
-  {
-    id: "t6",
-    originalHolder: "Sunday Okonkwo",
-    originalAccountNo: "ACC-00901234",
-    newHolder: "Michael Eze-Obiora",
-    newAccountNo: "ACC-00432109",
-    rightsTransferred: 3330,
-    tradeDate: new Date("2024-08-10"),
-    cscsReference: "CSCS-RT-2024-000456",
-    status: "Confirmed",
+    id: "s3",
+    txType: "acceptance",
+    agentType: "COLLECTING_AGENT",
+    agentName: "Coronation Registrars",
+    chn: "C0067890FK",
+    cscsNumber: "CSCS-000678903",
+    registrarAccountNo: "REG-00678901",
+    additionalSharesApplied: 12000,
+    additionalAmountPaid: 111000,
+    totalAmountPaid: 222000,
+    unitsAccepted: 0,
+    amountPayable: 0,
+    holderName: "AMAKA NGOZI OKONKWO",
+    nextOfKin: "Chukwuemeka Okonkwo",
+    phone: "08167890123",
+    email: "amaka.okonkwo@email.com",
+    dateOfBirth: "1978-09-03",
+    bankName: "Zenith Bank PLC",
+    accountNumber: "2012345678",
+    bvn: "22056789012",
+    tin: "5678901234",
+    submittedAt: "09 Jul 2026",
+    status: "PENDING",
   },
 ];
 
-const STATUS_STYLES: Record<TradeRecord["status"], string> = {
-  Confirmed: "bg-green-100 text-green-800 border-0",
-  Pending: "bg-amber-100 text-amber-800 border-0",
-  Rejected: "bg-red-100 text-red-800 border-0",
+let _nextId = 100;
+const nextId = () => String(_nextId++);
+
+const EMPTY_FORM = {
+  txType: "acceptance" as TxType,
+  agentType: "" as AgentType | "",
+  agentName: "",
+  chn: "",
+  cscsNumber: "",
+  registrarAccountNo: "",
+  additionalSharesApplied: "",
+  additionalAmountPaid: "",
+  totalAmountPaid: "",
+  unitsAccepted: "",
+  amountPayable: "",
+  holderName: "",
+  nextOfKin: "",
+  phone: "",
+  email: "",
+  dateOfBirth: "",
+  bankName: "",
+  accountNumber: "",
+  bvn: "",
+  tin: "",
 };
 
-export function RightsTrading() {
-  const [uploaded, setUploaded] = useState(false);
-  const [filter, setFilter] = useState<"All" | TradeRecord["status"]>("All");
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+      {children}
+    </p>
+  );
+}
 
-  const handleUpload = async (_file: File): Promise<UploadResult> => {
-    const result: UploadResult = { totalRows: 6 };
-    setUploaded(true);
-    toast.success("Rights trading file processed — 6 trade records imported.");
-    return result;
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <Label className="text-xs text-muted-foreground">{children}</Label>;
+}
+
+export function RightsTrading() {
+  const [mode, setMode] = useState<EntryMode>("manual");
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [submissions, setSubmissions] = useState<Submission[]>(SEED_SUBMISSIONS);
+  const [showForm, setShowForm] = useState(false);
+
+  const setField = (key: keyof typeof EMPTY_FORM, value: string) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  const resetForm = () => {
+    setForm(EMPTY_FORM);
+    setShowForm(false);
   };
 
-  const filtered = MOCK_TRADES.filter((t) => filter === "All" || t.status === filter);
+  const handleSubmit = () => {
+    if (!form.agentType || !form.agentName.trim() || !form.chn.trim() || !form.holderName.trim()) {
+      toast.error("Agent type, agent name, CHN, and holder name are required.");
+      return;
+    }
 
-  const totalTransferred = MOCK_TRADES.reduce((s, t) => s + t.rightsTransferred, 0);
-  const confirmed = MOCK_TRADES.filter((t) => t.status === "Confirmed").length;
-  const pending = MOCK_TRADES.filter((t) => t.status === "Pending").length;
-  const rejected = MOCK_TRADES.filter((t) => t.status === "Rejected").length;
+    const now = new Date();
+    const submittedAt = now.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+    const newSub: Submission = {
+      id: nextId(),
+      txType: form.txType,
+      agentType: form.agentType as AgentType,
+      agentName: form.agentName,
+      chn: form.chn,
+      cscsNumber: form.cscsNumber,
+      registrarAccountNo: form.registrarAccountNo,
+      additionalSharesApplied: Number(form.additionalSharesApplied) || 0,
+      additionalAmountPaid: Number(form.additionalAmountPaid) || 0,
+      totalAmountPaid: Number(form.totalAmountPaid) || 0,
+      unitsAccepted: Number(form.unitsAccepted) || 0,
+      amountPayable: Number(form.amountPayable) || 0,
+      holderName: form.holderName,
+      nextOfKin: form.nextOfKin,
+      phone: form.phone,
+      email: form.email,
+      dateOfBirth: form.dateOfBirth,
+      bankName: form.bankName,
+      accountNumber: form.accountNumber,
+      bvn: form.bvn,
+      tin: form.tin,
+      submittedAt,
+      status: "PENDING",
+    };
+
+    setSubmissions((prev) => [newSub, ...prev]);
+    resetForm();
+    toast.success("Submission captured successfully.");
+  };
+
+  const handleBulkUpload = async (_file: File): Promise<UploadResult> => {
+    toast.success("Bulk file processed — records imported.");
+    return { totalRows: 12 };
+  };
+
+  const pending = submissions.filter((s) => s.status === "PENDING").length;
+  const acceptanceCount = submissions.filter((s) => s.txType === "acceptance").length;
+  const renunciationCount = submissions.filter((s) => s.txType === "renunciation").length;
 
   return (
     <div className="space-y-5">
-      {/* Upload zone */}
-      <UploadStagingCard
-        label="Upload Rights Trading / Renunciation File"
-        description="Upload the CSCS-provided rights trading confirmation file (.csv or .txt). The system will reconcile each transfer against the provisional allotment schedule."
-        accept=".csv,.txt"
-        onUpload={handleUpload}
-      />
+      {/* Mode switcher */}
+      <div className="flex items-center gap-2">
+        {(["manual", "bulk"] as EntryMode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => setMode(m)}
+            className={`flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg font-medium transition-colors ${
+              mode === m
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {m === "manual" ? (
+              <ClipboardList className="h-4 w-4" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            {m === "manual" ? "Manual Entry" : "Bulk Upload"}
+          </button>
+        ))}
+      </div>
 
-      {/* Ledger — only shown after upload */}
-      {uploaded && (
+      {/* ── Bulk upload ─────────────────────────────────────────────── */}
+      {mode === "bulk" && (
+        <UploadStagingCard
+          label="Upload Rights Trading / Renunciation File"
+          description="Upload a CSV or Excel file containing rights trading and renunciation submissions from agents. Download the template to ensure the correct column format."
+          accept=".csv,.xlsx,.xls"
+          onUpload={handleBulkUpload}
+        />
+      )}
+
+      {/* ── Manual entry ────────────────────────────────────────────── */}
+      {mode === "manual" && (
         <>
-          {/* Summary stats */}
-          <div className="grid grid-cols-4 gap-3">
+          {!showForm ? (
+            <Button onClick={() => setShowForm(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add New Submission
+            </Button>
+          ) : (
+            <Card className="mrpsl-card p-5 space-y-6">
+              {/* Form header */}
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">New Submission</p>
+                <button
+                  onClick={resetForm}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              {/* Transaction Type */}
+              <div className="space-y-2.5">
+                <SectionHeading>Transaction Type</SectionHeading>
+                <RadioGroup
+                  value={form.txType}
+                  onValueChange={(v) => setField("txType", v)}
+                  className="flex gap-6"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="acceptance" id="tt-acceptance" />
+                    <Label
+                      htmlFor="tt-acceptance"
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      Full Acceptance / Additional Shares
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="renunciation" id="tt-renunciation" />
+                    <Label
+                      htmlFor="tt-renunciation"
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      Renunciation
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="border-t border-border" />
+
+              {/* Agent Information */}
+              <div className="space-y-3">
+                <SectionHeading>Agent Information</SectionHeading>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="space-y-1.5">
+                    <FieldLabel>Agent Type</FieldLabel>
+                    <Select
+                      value={form.agentType}
+                      onValueChange={(v) => setField("agentType", v ?? "")}
+                    >
+                      <SelectTrigger className="mrpsl-input w-full">
+                        <SelectValue placeholder="Select agent type…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="STOCKBROKER">Stockbroker</SelectItem>
+                        <SelectItem value="BANK">Bank</SelectItem>
+                        <SelectItem value="COLLECTING_AGENT">Collecting Agent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Agent Name</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="e.g. Meristem Stockbrokers Ltd"
+                      value={form.agentName}
+                      onChange={(e) => setField("agentName", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>CHN Number</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="e.g. C0023456BK"
+                      value={form.chn}
+                      onChange={(e) => setField("chn", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>CSCS Number</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="e.g. CSCS-000234561"
+                      value={form.cscsNumber}
+                      onChange={(e) => setField("cscsNumber", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Registrar Account Number</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="e.g. REG-00123456"
+                      value={form.registrarAccountNo}
+                      onChange={(e) => setField("registrarAccountNo", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-border" />
+
+              {/* Acceptance or Renunciation details */}
+              {form.txType === "acceptance" ? (
+                <div className="space-y-3">
+                  <SectionHeading>Full Acceptance / Additional Shares</SectionHeading>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                    <div className="space-y-1.5">
+                      <FieldLabel>No. of Additional Ordinary Shares Applied For</FieldLabel>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="mrpsl-input"
+                        placeholder="0"
+                        value={form.additionalSharesApplied}
+                        onChange={(e) => setField("additionalSharesApplied", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <FieldLabel>Additional Amount Paid (₦)</FieldLabel>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="mrpsl-input"
+                        placeholder="0.00"
+                        value={form.additionalAmountPaid}
+                        onChange={(e) => setField("additionalAmountPaid", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <FieldLabel>Total Amount Paid (₦)</FieldLabel>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="mrpsl-input"
+                        placeholder="Rights amount + additional"
+                        value={form.totalAmountPaid}
+                        onChange={(e) => setField("totalAmountPaid", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <SectionHeading>Renunciation</SectionHeading>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div className="space-y-1.5">
+                      <FieldLabel>Number of Ordinary Units Accepted</FieldLabel>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="mrpsl-input"
+                        placeholder="0"
+                        value={form.unitsAccepted}
+                        onChange={(e) => setField("unitsAccepted", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <FieldLabel>Amount Payable (₦)</FieldLabel>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="mrpsl-input"
+                        placeholder="0.00"
+                        value={form.amountPayable}
+                        onChange={(e) => setField("amountPayable", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t border-border" />
+
+              {/* Holder Details */}
+              <div className="space-y-3">
+                <SectionHeading>Holder Details</SectionHeading>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="space-y-1.5">
+                    <FieldLabel>Full Name</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="e.g. NGOZI CHIDINMA OKAFOR"
+                      value={form.holderName}
+                      onChange={(e) => setField("holderName", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Next of Kin</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="Full name of next of kin"
+                      value={form.nextOfKin}
+                      onChange={(e) => setField("nextOfKin", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Phone Number</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="e.g. 08023456789"
+                      value={form.phone}
+                      onChange={(e) => setField("phone", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Email Address</FieldLabel>
+                    <Input
+                      type="email"
+                      className="mrpsl-input"
+                      placeholder="e.g. name@email.com"
+                      value={form.email}
+                      onChange={(e) => setField("email", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Date of Birth</FieldLabel>
+                    <Input
+                      type="date"
+                      className="mrpsl-input"
+                      value={form.dateOfBirth}
+                      onChange={(e) => setField("dateOfBirth", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-border" />
+
+              {/* Bank Details */}
+              <div className="space-y-3">
+                <SectionHeading>Bank Details</SectionHeading>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <div className="space-y-1.5">
+                    <FieldLabel>Name of Bank</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="e.g. First Bank of Nigeria"
+                      value={form.bankName}
+                      onChange={(e) => setField("bankName", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>Account Number</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="10-digit account number"
+                      value={form.accountNumber}
+                      onChange={(e) => setField("accountNumber", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>BVN</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="11-digit BVN"
+                      value={form.bvn}
+                      onChange={(e) => setField("bvn", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <FieldLabel>TIN</FieldLabel>
+                    <Input
+                      className="mrpsl-input"
+                      placeholder="Tax identification number"
+                      value={form.tin}
+                      onChange={(e) => setField("tin", e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Form actions */}
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={resetForm}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSubmit}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Submit Entry
+                </Button>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* ── Summary + Submissions table ──────────────────────────────── */}
+      {submissions.length > 0 && (
+        <>
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Total Trades", value: MOCK_TRADES.length.toLocaleString() },
-              { label: "Confirmed", value: confirmed, highlight: "text-green-700" },
-              { label: "Pending", value: pending, highlight: "text-amber-700" },
+              { label: "Total Submissions", value: submissions.length, highlight: "" },
               {
-                label: "Total Rights Transferred",
-                value: totalTransferred.toLocaleString(),
+                label: "Full Acceptance / Additional",
+                value: acceptanceCount,
                 highlight: "text-primary",
+              },
+              {
+                label: "Renunciation",
+                value: renunciationCount,
+                highlight: "text-amber-700",
               },
             ].map(({ label, value, highlight }) => (
               <Card key={label} className="mrpsl-card p-3">
                 <p className="mrpsl-label">{label}</p>
-                <p className={`font-mono font-semibold text-lg mt-1 ${highlight ?? ""}`}>
+                <p className={`font-mono font-semibold text-lg mt-1 ${highlight}`}>
                   {value}
                 </p>
               </Card>
             ))}
           </div>
 
-          {/* Filter + Ledger table */}
           <Card className="mrpsl-card overflow-hidden">
             <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                <ClipboardList className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Rights Trading Ledger
+                  Submissions
                 </p>
+                {pending > 0 && (
+                  <Badge className="bg-amber-100 text-amber-800 border-0 text-[11px]">
+                    {pending} Pending
+                  </Badge>
+                )}
               </div>
-              <div className="flex items-center gap-1.5">
-                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                {(["All", "Confirmed", "Pending", "Rejected"] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setFilter(s)}
-                    className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-                      filter === s
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    {s}
-                    {s !== "All" && (
-                      <span className="ml-1 opacity-70">
-                        ({s === "Confirmed" ? confirmed : s === "Pending" ? pending : rejected})
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toast.info("Export coming soon.")}
+              >
+                Export
+              </Button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="mrpsl-table-header">
-                    <th className="text-left px-4 py-2.5 font-medium">Original Holder</th>
-                    <th className="text-left px-4 py-2.5 font-medium">New Holder</th>
-                    <th className="text-right px-4 py-2.5 font-medium">Rights Transferred</th>
-                    <th className="text-left px-4 py-2.5 font-medium">Trade Date</th>
-                    <th className="text-left px-4 py-2.5 font-medium">CSCS Reference</th>
-                    <th className="text-center px-4 py-2.5 font-medium">Status</th>
+                    <th className="text-left px-4 py-2.5 font-medium">HOLDER / CHN</th>
+                    <th className="text-left px-4 py-2.5 font-medium">AGENT</th>
+                    <th className="text-left px-4 py-2.5 font-medium">CSCS NO.</th>
+                    <th className="text-left px-4 py-2.5 font-medium">TYPE</th>
+                    <th className="text-right px-4 py-2.5 font-medium">UNITS / SHARES</th>
+                    <th className="text-right px-4 py-2.5 font-medium">AMOUNT (₦)</th>
+                    <th className="text-left px-4 py-2.5 font-medium">BANK</th>
+                    <th className="text-left px-4 py-2.5 font-medium">DATE</th>
+                    <th className="text-center px-4 py-2.5 font-medium">STATUS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((t) => (
-                    <tr key={t.id} className="mrpsl-table-row">
-                      <td className="px-4 py-2.5">
-                        <p className="font-medium">{t.originalHolder}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{t.originalAccountNo}</p>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <p className="font-medium">{t.newHolder}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{t.newAccountNo}</p>
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                        {t.rightsTransferred.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2.5 text-sm">
-                        {format(t.tradeDate, "dd MMM yyyy")}
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                        {t.cscsReference}
-                      </td>
-                      <td className="px-4 py-2.5 text-center">
-                        <Badge className={STATUS_STYLES[t.status]}>{t.status}</Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {submissions.map((s) => {
+                    const isAcceptance = s.txType === "acceptance";
+                    const units = isAcceptance
+                      ? s.additionalSharesApplied
+                      : s.unitsAccepted;
+                    const amount = isAcceptance ? s.totalAmountPaid : s.amountPayable;
+                    return (
+                      <tr key={s.id} className="mrpsl-table-row">
+                        <td className="px-4 py-2.5">
+                          <p className="font-medium text-sm">{s.holderName}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{s.chn}</p>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <p className="text-sm">{s.agentName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {AGENT_TYPE_LABELS[s.agentType]}
+                          </p>
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                          {s.cscsNumber || "—"}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <Badge
+                            className={`border-0 text-[11px] ${
+                              isAcceptance
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {isAcceptance ? "Acceptance" : "Renunciation"}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                          {units > 0 ? units.toLocaleString() : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                          {amount > 0 ? amount.toLocaleString() : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm text-muted-foreground">
+                          {s.bankName || "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm text-muted-foreground">
+                          {s.submittedAt}
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          <Badge
+                            className={`border-0 text-[11px] ${
+                              s.status === "PENDING"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {s.status === "PENDING" ? "Pending" : "Processed"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-              {filtered.length === 0 && (
-                <div className="py-10 text-center text-sm text-muted-foreground">
-                  No records match the selected filter.
-                </div>
-              )}
             </div>
           </Card>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => toast.info("Export coming soon")}>
-              Export Ledger
-            </Button>
+          <div className="flex justify-end">
             <Button
               size="sm"
-              onClick={() => toast.success("Traded rights reconciled and forwarded to Allotment Rules Engine.")}
+              onClick={() =>
+                toast.success(
+                  "Submissions forwarded to Returns Capture.",
+                )
+              }
             >
-              Reconcile & Forward to Allotment
+              Forward to Returns Capture
             </Button>
           </div>
         </>

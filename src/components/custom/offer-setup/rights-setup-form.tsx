@@ -38,7 +38,7 @@ interface RightsIssue {
   secApprovalDate: Date | null;
   eventId: string;
   tradedRightsSymbol: string;
-  receivingBanks: string[];
+  receivingBanks: { bankName: string; accountNumber: string }[];
   narration: string;
   status: OfferStatus;
 }
@@ -57,7 +57,10 @@ const MOCK_RIGHTS: RightsIssue[] = [
     secApprovalDate: new Date("2024-07-15"),
     eventId: "RTS-2024-001",
     tradedRightsSymbol: "FIDBNK-RT",
-    receivingBanks: ["Fidelity Bank PLC", "Access Bank PLC"],
+    receivingBanks: [
+      { bankName: "Fidelity Bank PLC", accountNumber: "5012345678" },
+      { bankName: "Access Bank PLC", accountNumber: "0234567890" },
+    ],
     narration: "Rights Issue at ₦9.25 per share.",
     status: "CLOSED",
   },
@@ -123,13 +126,14 @@ export function RightsSetupForm() {
 
   const addBank = () => {
     if (form.receivingBanks.length < 3) {
-      set("receivingBanks", [...form.receivingBanks, ""]);
+      set("receivingBanks", [...form.receivingBanks, { bankName: "", accountNumber: "" }]);
     }
   };
 
-  const updateBank = (index: number, value: string) => {
-    const updated = [...form.receivingBanks];
-    updated[index] = value;
+  const updateBank = (index: number, field: "bankName" | "accountNumber", value: string) => {
+    const updated = form.receivingBanks.map((b, i) =>
+      i === index ? { ...b, [field]: value } : b
+    );
     set("receivingBanks", updated);
   };
 
@@ -405,28 +409,38 @@ export function RightsSetupForm() {
               {form.receivingBanks.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-1">No banks added yet.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {form.receivingBanks.map((bank, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-muted-foreground w-5 shrink-0">{i + 1}.</span>
-                      <div className="flex-1">
-                        <Select value={bank} onValueChange={(v) => updateBank(i, v ?? "")}>
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground mt-2.5 shrink-0 w-4">{i + 1}.</span>
+                      <div className="flex-1 space-y-1.5">
+                        <Select
+                          value={bank.bankName}
+                          onValueChange={(v) => updateBank(i, "bankName", v ?? "")}
+                        >
                           <SelectTrigger className="h-9 w-full">
                             <SelectValue placeholder="Select bank…" />
                           </SelectTrigger>
                           <SelectContent>
                             {NIGERIAN_BANKS.filter(
-                              (b) => b === bank || !form.receivingBanks.includes(b)
+                              (b) => b === bank.bankName || !form.receivingBanks.some((rb) => rb.bankName === b)
                             ).map((b) => (
                               <SelectItem key={b} value={b}>{b}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        <input
+                          className="mrpsl-input h-9 w-full"
+                          placeholder="Account number"
+                          value={bank.accountNumber}
+                          onChange={(e) => updateBank(i, "accountNumber", e.target.value)}
+                          maxLength={10}
+                        />
                       </div>
                       <button
                         type="button"
                         onClick={() => removeBank(i)}
-                        className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+                        className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 mt-0.5"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReturnMoneyQueue } from "@/components/custom/return-money/return-money-queue";
 import { RefundBatchProcessing } from "@/components/custom/return-money/refund-batch-processing";
-import { RefundReconciliation } from "@/components/custom/return-money/refund-reconciliation";
 import { AgentCommissionPanel } from "@/components/custom/return-money/agent-commission-panel";
 import { Button } from "@/components/ui/button";
 import { CalendarRange, FileSpreadsheet, Printer } from "lucide-react";
@@ -22,7 +21,6 @@ const TABS = [
   "queue",
   "batch",
   "commission",
-  "reconciliation",
   "reports",
 ] as const;
 type TabValue = (typeof TABS)[number];
@@ -31,7 +29,6 @@ const TAB_LABELS: Record<TabValue, string> = {
   queue: "Return Money Queue",
   batch: "Refund Batch Processing",
   commission: "Agent Commission",
-  reconciliation: "Refund Reconciliation",
   reports: "Reports",
 };
 
@@ -92,10 +89,6 @@ export default function ReturnMoneyPage() {
             <AgentCommissionPanel />
           </TabsContent>
 
-          <TabsContent value="reconciliation">
-            <RefundReconciliation />
-          </TabsContent>
-
           <TabsContent value="reports" className="space-y-4">
             <Card className="mrpsl-card">
               <div className="p-4 border-b bg-muted/20">
@@ -122,11 +115,12 @@ export default function ReturnMoneyPage() {
 
             <Card className="mrpsl-card p-5">
               <div className="flex items-center gap-3 flex-wrap">
+                <div className="w-48">
                 <Select
                   value={filterRegister}
                   onValueChange={(v) => setFilterRegister(v ?? "")}
                 >
-                  <SelectTrigger className="mrpsl-input h-9 w-48">
+                  <SelectTrigger className="mrpsl-input h-9 w-full">
                     <SelectValue placeholder="All Registers" />
                   </SelectTrigger>
                   <SelectContent>
@@ -135,6 +129,7 @@ export default function ReturnMoneyPage() {
                     <SelectItem value="TRANSCORP">TRANSCORP</SelectItem>
                   </SelectContent>
                 </Select>
+                </div>
 
                 <div className="flex-1" />
 

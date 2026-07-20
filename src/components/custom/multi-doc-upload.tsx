@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import {
   FileText,
   X,
   CheckCircle2,
   Loader2,
-  ExternalLink,
+  Eye,
   Plus,
   Upload,
   FileIcon,
@@ -17,6 +17,7 @@ import { GetPDFUrl } from "@/lib/utils/get-file-url";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { DocumentViewer } from "@/components/custom/document-viewer";
 
 interface DocEntry {
   id: string;
@@ -57,39 +58,46 @@ function isImage(file: File) {
 
 export function MultiDocUpload({
   onChange,
-  fileTypes = FILE_TYPES,
-  maxSizeMB = 10,
+  maxSizeMB = 30,
   folderName = "kyc",
   title = "Supporting Documents",
   subtitle = "PDF, JPG or PNG ",
 }: MultiDocUploadProps) {
   const [entries, setEntries] = useState<DocEntry[]>([newEntry()]);
 
-  const notify = useCallback(
-    (updated: DocEntry[]) => {
-      onChange(
-        updated
-          .filter((e) => e.status === "done" && e.url)
-          .map((e) => ({
-            name: e.name || e.file?.name || "Document",
-            url: e.url,
-          })),
-      );
-    },
-    [onChange],
-  );
+  // `onChange` is a fresh inline function on every parent render — read the
+  // latest one via a ref so the effect below only re-fires when `entries`
+  // itself actually changes, not whenever the parent re-renders.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+
+  // Report the current set of successfully uploaded documents to the parent
+  // *after* render, once `entries` settles — never synchronously inside a
+  // setEntries updater, which would update the parent while this component
+  // is still mid-render ("Cannot update a component while rendering a
+  // different component").
+  useEffect(() => {
+    onChangeRef.current(
+      entries
+        .filter((e) => e.status === "done" && e.url)
+        .map((e) => ({
+          name: e.name || e.file?.name || "Document",
+          url: e.url,
+        })),
+    );
+  }, [entries]);
 
   const update = useCallback(
     (id: string, patch: Partial<DocEntry>, updatedList?: DocEntry[]) => {
-      setEntries((prev) => {
-        const next = (updatedList ?? prev).map((e) =>
+      setEntries((prev) =>
+        (updatedList ?? prev).map((e) =>
           e.id === id ? { ...e, ...patch } : e,
-        );
-        notify(next);
-        return next;
-      });
+        ),
+      );
     },
-    [notify],
+    [],
   );
 
   const handleFile = useCallback(
@@ -134,14 +142,14 @@ export function MultiDocUpload({
         } else {
           update(id, {
             status: "error",
-            errorMsg: (response?.result as string) || "Upload failed",
+            errorMsg: "Upload failed",
             file: null,
           });
         }
-      } catch (err: any) {
+      } catch {
         update(id, {
           status: "error",
-          errorMsg: err.message || "Upload failed",
+          errorMsg: "Upload failed",
           file: null,
         });
       }
@@ -150,11 +158,7 @@ export function MultiDocUpload({
   );
 
   const removeEntry = (id: string) => {
-    setEntries((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      notify(next);
-      return next;
-    });
+    setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
   const addEntry = () => setEntries((prev) => [...prev, newEntry()]);
@@ -341,6 +345,7 @@ function DocThumbnail({
   entry: DocEntry;
   onRemove: () => void;
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
   const isPdf =
     entry.file?.type === "application/pdf" || entry.file?.name.endsWith(".pdf");
   const isImg = entry.file ? isImage(entry.file) : false;
@@ -394,17 +399,26 @@ function DocThumbnail({
           <X className="h-3.5 w-3.5" />
         </button>
         {entry.url && (
-          <a
-            href={entry.url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
             className="flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100"
           >
-            <ExternalLink className="h-3 w-3" />
+            <Eye className="h-3 w-3" />
             Preview
-          </a>
+          </button>
         )}
       </div>
+
+      {entry.url && (
+        <DocumentViewer
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          documents={[
+            { name: entry.name || entry.file?.name || "Document", url: entry.url },
+          ]}
+        />
+      )}
     </div>
   );
 }

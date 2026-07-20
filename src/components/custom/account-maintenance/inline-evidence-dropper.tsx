@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Paperclip, X, Loader2, Upload, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
@@ -45,16 +45,29 @@ export function InlineEvidenceDropper({
   );
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const notify = (updated: EvidenceEntry[]) => {
-    onDoneEvidenceChange(
-      updated
+  // `onDoneEvidenceChange` is a fresh inline function on every parent render —
+  // read the latest one via a ref so the effect below only re-fires when
+  // `entries` itself actually changes, not whenever the parent re-renders.
+  const onDoneEvidenceChangeRef = useRef(onDoneEvidenceChange);
+  useEffect(() => {
+    onDoneEvidenceChangeRef.current = onDoneEvidenceChange;
+  });
+
+  // Report the current set of successfully uploaded evidence to the parent
+  // *after* render, once `entries` settles — never synchronously inside a
+  // setEntries updater, which would update the parent while this component
+  // is still mid-render ("Cannot update a component while rendering a
+  // different component").
+  useEffect(() => {
+    onDoneEvidenceChangeRef.current(
+      entries
         .filter((e) => e.status === "done" && e.url)
         .map((e) => ({
           name: e.name || e.file?.name || "Evidence",
           url: e.url,
         })),
     );
-  };
+  }, [entries]);
 
   const handleFile = async (file: File) => {
     const id = crypto.randomUUID();
@@ -65,11 +78,7 @@ export function InlineEvidenceDropper({
       url: "",
       status: "uploading",
     };
-    setEntries((prev) => {
-      const next = [...prev, entry];
-      notify(next);
-      return next;
-    });
+    setEntries((prev) => [...prev, entry]);
 
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -80,8 +89,8 @@ export function InlineEvidenceDropper({
       } else {
         res = await GetImageUrl(file, "kycEvidence");
       }
-      setEntries((prev) => {
-        const next = prev.map((e) =>
+      setEntries((prev) =>
+        prev.map((e) =>
           e.id === id
             ? res?.type === "success"
               ? { ...e, url: res.result as string, status: "done" as const }
@@ -92,30 +101,22 @@ export function InlineEvidenceDropper({
                   file: null,
                 }
             : e,
-        );
-        notify(next);
-        return next;
-      });
+        ),
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Upload failed";
-      setEntries((prev) => {
-        const next = prev.map((e) =>
+      setEntries((prev) =>
+        prev.map((e) =>
           e.id === id
             ? { ...e, status: "error" as const, errorMsg: msg, file: null }
             : e,
-        );
-        notify(next);
-        return next;
-      });
+        ),
+      );
     }
   };
 
   const removeEntry = (id: string) => {
-    setEntries((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      notify(next);
-      return next;
-    });
+    setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
   const close = () => {
@@ -138,7 +139,7 @@ export function InlineEvidenceDropper({
         <div className="space-y-2 rounded-lg border border-dashed border-border/60 bg-muted/5 p-3">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-              Evidence for this change
+              Evidence for this change <span className="text-destructive">*</span>
             </span>
             <button
               type="button"

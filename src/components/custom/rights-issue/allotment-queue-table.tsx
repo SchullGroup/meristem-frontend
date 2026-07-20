@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -69,7 +69,6 @@ export function AllotmentQueueTable({
       <Card className="mrpsl-card p-5">
         <div className="flex items-center gap-4">
           <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by reference or name..."
               value={searchQuery}
@@ -80,39 +79,7 @@ export function AllotmentQueueTable({
               className="pl-9 mrpsl-input"
             />
           </div>
-          <div className="max-w-xs">
-            <Select
-              value={selectedRegister}
-              onValueChange={(v) => {
-                setSelectedRegister(v || "");
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="mrpsl-input w-full">
-                <SelectValue placeholder="All Registers" />
-              </SelectTrigger>
-              <SelectContent>
-                {loadingRegisters ? (
-                  <div className="py-10 flex items-center justify-center">
-                    <Loader2 className="animate-spin w-4 h-4" />
-                  </div>
-                ) : (
-                  <>
-                    <SelectItem value="">All Register</SelectItem>
-                    {activeRegisters?.content?.map((r) => (
-                      <SelectItem key={r.registerId} value={r.symbol}>
-                        <span className="font-bold">{r.registerName}</span> -{" "}
-                        <span className="text-xs translate-y-0.5">
-                          {r.symbol}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
+          <div className="">
             <Select
               value={selectedStatus}
               onValueChange={(v) => setSelectedStatus(v ?? "all")}
