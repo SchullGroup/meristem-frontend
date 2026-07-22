@@ -425,6 +425,46 @@ export function printDeclarationSummaryReport(report: DividendReport): void {
   openPrintWindow(html);
 }
 
+export function printWarrantAdvice(declaration: {
+  paymentNumber?: string;
+  registerSymbol?: string;
+  dividendType?: string;
+  rate?: number;
+  qualificationDate?: string;
+  closureDate?: string;
+  paymentDate?: string;
+  grossLiability?: number;
+  whtAmount?: number;
+  netLiability?: number;
+  status?: string;
+}): void {
+  const summaryCards = [
+    { label: "Payment No", value: declaration.paymentNumber || "—" },
+    { label: "Register", value: declaration.registerSymbol || "—" },
+    { label: "Dividend Type", value: declaration.dividendType || "—" },
+    { label: "Status", value: declaration.status || "—" },
+  ];
+
+  const tableRows = `
+    <tr><td>Rate per Share</td><td class="number">${formatNaira(declaration.rate ?? 0)}</td></tr>
+    <tr><td>Qualification Date</td><td>${declaration.qualificationDate || "—"}</td></tr>
+    <tr><td>Closure Date</td><td>${declaration.closureDate || "—"}</td></tr>
+    <tr><td>Payment Date</td><td>${declaration.paymentDate || "—"}</td></tr>
+    <tr><td>Gross Liability</td><td class="number">${formatNaira(declaration.grossLiability ?? 0)}</td></tr>
+    <tr><td>WHT Amount</td><td class="number">${formatNaira(declaration.whtAmount ?? 0)}</td></tr>
+    <tr><td>Net Liability</td><td class="number">${formatNaira(declaration.netLiability ?? 0)}</td></tr>
+  `;
+
+  const html = generatePrintHTML(
+    "Dividend Warrant Advice",
+    summaryCards,
+    ["Item", "Value"],
+    [tableRows],
+  );
+
+  openPrintWindow(html);
+}
+
 function openPrintWindow(html: string): void {
   const printWindow = window.open("", "", "height=800,width=1000");
 

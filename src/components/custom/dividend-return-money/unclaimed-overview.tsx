@@ -170,7 +170,7 @@ export function UnclaimedOverviewTab() {
         returnPercentage: recipientType === "COMPANY" ? 90 : undefined,
         secAmount: recipientType === "SEC" ? parsedSecAmount : undefined,
         narration: narration.trim() || undefined,
-        initiatedBy: currentUser?.username ?? "Unknown",
+        initiatedBy: currentUser?.email ?? "Unknown",
       },
       {
         onSuccess: () => {

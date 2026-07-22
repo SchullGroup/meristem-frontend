@@ -150,7 +150,7 @@ export default function History({ tab }: { tab: string }) {
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={7} className="text-center p-8 text-muted-foreground">
+                      <td colSpan={8} className="text-center p-8 text-muted-foreground">
                         No warrant mark-off history records found.
                       </td></tr>
                   )}

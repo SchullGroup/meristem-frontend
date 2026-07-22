@@ -121,6 +121,11 @@ export function PendingSplitsTable() {
       return;
     }
 
+    if (!batchComment.trim()) {
+      toast.error("Comment is required for rejection.");
+      return;
+    }
+
     if (!currentUser) {
       toast.error("Your session has expired. Please login again.");
       return;
@@ -314,6 +319,9 @@ export function PendingSplitsTable() {
                 variant="destructive"
                 className="flex-1"
                 onClick={handleBatchReject}
+                disabled={
+                  batchRejectMutation.isPending || !batchComment.trim()
+                }
               >
                 {batchRejectMutation.isPending
                   ? "Rejecting..."
