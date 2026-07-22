@@ -95,9 +95,19 @@ export default function UploadMarkoff() {
     });
   };
 
+  const isValidMarkoffFile = (file: File) => {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    return ext === "csv" || ext === "xlsx";
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!isValidMarkoffFile(file)) {
+        toast.error("Please upload a CSV or Excel (.xlsx) file");
+        e.target.value = "";
+        return;
+      }
       processFile(file);
     }
     e.target.value = "";
@@ -205,8 +215,7 @@ export default function UploadMarkoff() {
               setIsDragging(false);
               const file = e.dataTransfer.files?.[0];
               if (file) {
-                const ext = file.name.split(".").pop()?.toLowerCase();
-                if (ext !== "csv" && ext !== "xlsx") {
+                if (!isValidMarkoffFile(file)) {
                   toast.error("Please upload a CSV or Excel (.xlsx) file");
                   return;
                 }

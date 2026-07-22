@@ -11,8 +11,10 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Download, Play, MousePointerClick } from "lucide-react";
+import { Download, Play, MousePointerClick, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import { useStore } from "@/lib/store";
 import { useQuery } from "@tanstack/react-query";
 import { getDividendNumbers } from "@/actions/dividendReportActions";
@@ -42,6 +44,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
   // ── Payment-run state ------──────────────────────
   const [gateway, setGateway] = useState("nibss");
   const [activeRunId, setActiveRunId] = useState<number | null>(null);
+  const [sendNotifications, setSendNotifications] = useState(true);
 
   // ── Data fetching ------──────────────────────────
   const { data: activeRegisters, isLoading: loadingRegisters } =
@@ -130,6 +133,7 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
         declarationId: declarationResponse.data.declarationId.toString(),
         gateway,
         initiatedBy: currentUser.email,
+        sendNotifications,
       },
       {
         onSuccess: (res) => {
@@ -171,6 +175,32 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
         toast.error(err.message || "Failed to download NIBSS file.");
       },
     });
+  }
+
+  function handleExportPaymentReport() {
+    if (paymentRows.length === 0) {
+      toast.error("No payment records available to export.");
+      return;
+    }
+
+    const cleanedData = paymentRows.map((row: PaymentRowContent) => ({
+      "Serial No": row.serial,
+      "Account Number": row.accountNumber || "-",
+      "Holder Name": row.holderName || "-",
+      "Bank Sort Code": row.bankSortCode || "-",
+      "Amount (₦)": row.amount || 0,
+      Narration: row.narration || "-",
+      Status: row.status || "-",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(cleanedData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Payment Report");
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `payment_report_${selectedDiv || selectedRegister}_${timestamp}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+    toast.success("Payment report exported successfully.");
   }
 
   // ── Derived display values ------─────────────────
@@ -300,7 +330,33 @@ export default function DeclarationPayment({ tab }: { tab: string }) {
                 </Select>
               </div>
 
+              <div className="shrink-0">
+                <h3 className="font-semibold text-sm mb-3">
+                  SHAREHOLDER NOTIFICATIONS
+                </h3>
+                <div className="flex items-center gap-2.5 h-10">
+                  <Switch
+                    checked={sendNotifications}
+                    onCheckedChange={setSendNotifications}
+                    disabled={!!activeRunId}
+                  />
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Send SMS/Email
+                  </label>
+                </div>
+              </div>
+
               <div className="flex gap-3 items-center ml-auto flex-wrap">
+                <Button
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={handleExportPaymentReport}
+                  disabled={paymentRows.length === 0}
+                >
+                  <FileSpreadsheet className="h-4 w-4" /> Export Payment
+                  Report
+                </Button>
+
                 <Button
                   variant="outline"
                   className="gap-1.5"
