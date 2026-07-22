@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, CheckCircle2, Clock } from "lucide-react";
+import { Shield, CheckCircle2 } from "lucide-react";
 import { formatNumber } from "@/lib/utils/format";
 import { DematRequest } from "./demat-types";
 import { DematApprovalComparison } from "./demat-approval-comparison";
@@ -124,10 +124,7 @@ export function DematCooApproval({ requests, onApprove, onReject }: Props) {
                         {formatNumber(value)}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {req.createdAt}
-                        </div>
+                        {req.createdAt}
                       </td>
                       <td className="px-4 py-3">
                         <Button

@@ -42,6 +42,8 @@ interface LedgerEntry {
   transferNo: string;
   units: number;
   status?: string;
+  certNo?: string;
+  registrarAccountNo?: string;
 }
 
 interface MissingEntry {
@@ -112,18 +114,18 @@ const COUNTERPARTY: Record<string, Counterparty> = {
 
 const SEED_MRPSL: Record<string, LedgerEntry[]> = {
   C0023456BK: [
-    { id: "m1", date: "10 Mar 2026", type: "BUY",   transferNo: "TRF-DANGCEM-HIST-220", units: 12000 },
-    { id: "m2", date: "07 Jul 2026", type: "BONUS", transferNo: "TRF-DANGCEM-002",      units: 500 },
+    { id: "m1", date: "10 Mar 2026", type: "BUY",   transferNo: "TRF-DANGCEM-HIST-220", units: 12000, certNo: "DANGCEM/2019/001234", registrarAccountNo: "MRX0023456" },
+    { id: "m2", date: "07 Jul 2026", type: "BONUS", transferNo: "TRF-DANGCEM-002",      units: 500,   certNo: "DANGCEM/2022/004567", registrarAccountNo: "MRX0023456" },
   ],
   C0045678DK: [
-    { id: "m1", date: "05 Apr 2026", type: "BUY", transferNo: "TRF-MTNN-HIST-305", units: 8000 },
+    { id: "m1", date: "05 Apr 2026", type: "BUY", transferNo: "TRF-MTNN-HIST-305", units: 8000, certNo: "MTNN/2020/005678", registrarAccountNo: "MRX0045678" },
   ],
   C0067890FK: [
-    { id: "m1", date: "01 Jun 2026", type: "BUY", transferNo: "TRF-SEPLAT-HIST-410", units: 34500 },
-    { id: "m2", date: "07 Jul 2026", type: "BUY", transferNo: "TRF-SEPLAT-003",      units: 1200 },
+    { id: "m1", date: "01 Jun 2026", type: "BUY", transferNo: "TRF-SEPLAT-HIST-410", units: 34500, certNo: "SEPLAT/2021/007890", registrarAccountNo: "MRX0067890" },
+    { id: "m2", date: "07 Jul 2026", type: "BUY", transferNo: "TRF-SEPLAT-003",      units: 1200,  certNo: "SEPLAT/2021/007890", registrarAccountNo: "MRX0067890" },
   ],
   C0089012HK: [
-    { id: "m1", date: "15 May 2026", type: "BUY", transferNo: "TRF-UBA-HIST-601", units: 45000 },
+    { id: "m1", date: "15 May 2026", type: "BUY", transferNo: "TRF-UBA-HIST-601", units: 45000, certNo: "UBA/2020/009012", registrarAccountNo: "MRX0089012" },
   ],
 };
 
@@ -435,6 +437,9 @@ export function ResolutionWorkspace({
   const [dateTo, setDateTo]                       = useState("");
   const [hideMatched, setHideMatched]             = useState(false);
   const [showDiscrepancy, setShowDiscrepancy]     = useState(false);
+  const [filterCertNo, setFilterCertNo]           = useState("");
+  const [filterTransferNo, setFilterTransferNo]   = useState("");
+  const [filterRegistrarAccNo, setFilterRegistrarAccNo] = useState("");
 
   // Detail modal
   const [detailEntry,  setDetailEntry]  = useState<LedgerEntry | null>(null);
@@ -464,12 +469,18 @@ export function ResolutionWorkspace({
   const displayMrpsl = effectiveMrpsl.filter((e) => {
     if (!inDateRange(e.date, dateFrom, dateTo)) return false;
     if (hideMatched && cscsEntries.length > 0 && cscsTransferNos.has(e.transferNo)) return false;
+    if (filterCertNo && !e.certNo?.toLowerCase().includes(filterCertNo.toLowerCase())) return false;
+    if (filterTransferNo && !e.transferNo.toLowerCase().includes(filterTransferNo.toLowerCase())) return false;
+    if (filterRegistrarAccNo && !e.registrarAccountNo?.toLowerCase().includes(filterRegistrarAccNo.toLowerCase())) return false;
     return true;
   });
 
   const displayCscs = cscsEntries.filter((e) => {
     if (!inDateRange(e.date, dateFrom, dateTo)) return false;
     if (hideMatched && mrpslTransferNos.has(e.transferNo)) return false;
+    if (filterCertNo && !e.certNo?.toLowerCase().includes(filterCertNo.toLowerCase())) return false;
+    if (filterTransferNo && !e.transferNo.toLowerCase().includes(filterTransferNo.toLowerCase())) return false;
+    if (filterRegistrarAccNo && !e.registrarAccountNo?.toLowerCase().includes(filterRegistrarAccNo.toLowerCase())) return false;
     return true;
   });
 
@@ -586,44 +597,77 @@ export function ResolutionWorkspace({
       )}
 
       {/* Controls bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1.5">
-          <label className="text-[12px] text-muted-foreground whitespace-nowrap">From</label>
-          <Input type="date" className="h-8 text-[13px] w-36" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <label className="text-[12px] text-muted-foreground whitespace-nowrap">To</label>
-          <Input type="date" className="h-8 text-[13px] w-36" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-        </div>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[13px]" onClick={() => setHideMatched((v) => !v)}>
-          {hideMatched ? <><Eye className="h-3.5 w-3.5" />Show Matched</> : <><EyeOff className="h-3.5 w-3.5" />Hide Matched</>}
-        </Button>
-        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[13px]" onClick={() => toast.success("Comparison refreshed.")}>
-          <RefreshCw className="h-3.5 w-3.5" /> Re-Compare
-        </Button>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[12px] text-muted-foreground whitespace-nowrap">From</label>
+            <Input type="date" className="h-8 text-[13px] w-36" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[12px] text-muted-foreground whitespace-nowrap">To</label>
+            <Input type="date" className="h-8 text-[13px] w-36" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[13px]" onClick={() => setHideMatched((v) => !v)}>
+            {hideMatched ? <><Eye className="h-3.5 w-3.5" />Show Matched</> : <><EyeOff className="h-3.5 w-3.5" />Hide Matched</>}
+          </Button>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-[13px]" onClick={() => toast.success("Comparison refreshed.")}>
+            <RefreshCw className="h-3.5 w-3.5" /> Re-Compare
+          </Button>
 
-        {isBalanced ? (
-          <span className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-green-200 bg-green-50 text-green-700 text-[13px] font-medium">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Balanced
-          </span>
-        ) : showDiscrepancy ? (
-          <button
-            className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-blue-200 bg-blue-50 text-blue-800 text-[13px] font-medium hover:bg-blue-100 transition-colors"
-            onClick={() => setShowDiscrepancy(false)}
-          >
-            <X className="h-3.5 w-3.5 text-blue-600" /> Exit Discrepancy View
-          </button>
-        ) : (
-          <button
-            className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-amber-200 bg-amber-50 text-amber-800 text-[13px] font-medium hover:bg-amber-100 transition-colors"
-            onClick={() => setShowDiscrepancy(true)}
-          >
-            <Zap className="h-3.5 w-3.5 text-amber-600" />
-            {cscsEntries.length > 0
-              ? `${totalDiscrepancies} discrepanc${totalDiscrepancies !== 1 ? "ies" : "y"} — Show Discrepancy`
-              : "Show Discrepancy"}
-          </button>
-        )}
+          {isBalanced ? (
+            <span className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-green-200 bg-green-50 text-green-700 text-[13px] font-medium">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Balanced
+            </span>
+          ) : showDiscrepancy ? (
+            <button
+              className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-blue-200 bg-blue-50 text-blue-800 text-[13px] font-medium hover:bg-blue-100 transition-colors"
+              onClick={() => setShowDiscrepancy(false)}
+            >
+              <X className="h-3.5 w-3.5 text-blue-600" /> Exit Discrepancy View
+            </button>
+          ) : (
+            <button
+              className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-amber-200 bg-amber-50 text-amber-800 text-[13px] font-medium hover:bg-amber-100 transition-colors"
+              onClick={() => setShowDiscrepancy(true)}
+            >
+              <Zap className="h-3.5 w-3.5 text-amber-600" />
+              {cscsEntries.length > 0
+                ? `${totalDiscrepancies} discrepanc${totalDiscrepancies !== 1 ? "ies" : "y"} — Show Discrepancy`
+                : "Show Discrepancy"}
+            </button>
+          )}
+        </div>
+
+        {/* Secondary filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[12px] text-muted-foreground whitespace-nowrap">Cert No.</label>
+            <Input
+              className="h-8 text-[13px] w-44 mrpsl-input"
+              placeholder="e.g. DANGCEM/2019/…"
+              value={filterCertNo}
+              onChange={(e) => setFilterCertNo(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[12px] text-muted-foreground whitespace-nowrap">Transfer No.</label>
+            <Input
+              className="h-8 text-[13px] w-44 mrpsl-input"
+              placeholder="e.g. TRF-DANGCEM-001"
+              value={filterTransferNo}
+              onChange={(e) => setFilterTransferNo(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[12px] text-muted-foreground whitespace-nowrap">Registrar Acct No.</label>
+            <Input
+              className="h-8 text-[13px] w-36 mrpsl-input"
+              placeholder="e.g. MRX0023456"
+              value={filterRegistrarAccNo}
+              onChange={(e) => setFilterRegistrarAccNo(e.target.value)}
+            />
+          </div>
+        </div>
       </div>
 
       {/* ── Discrepancy / aligned view ─────────────────────────────────── */}

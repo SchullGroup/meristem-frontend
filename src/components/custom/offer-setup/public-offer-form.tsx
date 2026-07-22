@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Eye, ArrowRight, FileText, X } from "lucide-react";
+import { Plus, Eye, ArrowRight, FileText, X, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,13 +23,17 @@ import {
 } from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { DocUploadZone } from "@/components/custom/doc-upload-zone";
+import { CREATE_NEW_OFFER, GET_IPO_OFFERS } from "@/actions/offerSetUp";
+import { useStore } from "@/lib/store";
 
 type OfferStatus = "DRAFT" | "OPEN" | "CLOSED" | "ALLOTTED" | "CONCLUDED";
 
 interface PublicOffer {
   id: string;
   name: string;
-  register: string;
+  registerId: string;
   offerPrice: number;
   totalUnits: number;
   minUnits: number;
@@ -39,44 +44,8 @@ interface PublicOffer {
   receivingBanks: { bankName: string; accountNumber: string }[];
   narration: string;
   status: OfferStatus;
+  circularUrl?: string;
 }
-
-const MOCK_OFFERS: PublicOffer[] = [
-  {
-    id: "1",
-    name: "Access Holdings PLC Public Offer 2024",
-    register: "Access Holdings Ord. Shares",
-    offerPrice: 22.5,
-    totalUnits: 17_772_612_811,
-    minUnits: 100,
-    multiples: 100,
-    openingDate: new Date("2024-10-07"),
-    closingDate: new Date("2024-10-21"),
-    secApprovalDate: new Date("2024-11-15"),
-    receivingBanks: [
-      { bankName: "Access Bank PLC", accountNumber: "0123456789" },
-      { bankName: "Guaranty Trust Bank (GTBank)", accountNumber: "0987654321" },
-      { bankName: "Zenith Bank PLC", accountNumber: "1122334455" },
-    ],
-    narration: "Public Offer at ₦22.50 per share.",
-    status: "CLOSED",
-  },
-  {
-    id: "2",
-    name: "Transcorp Power PLC IPO 2024",
-    register: "Transcorp Power Ord. Shares",
-    offerPrice: 5.0,
-    totalUnits: 7_500_000_000,
-    minUnits: 500,
-    multiples: 100,
-    openingDate: null,
-    closingDate: null,
-    secApprovalDate: null,
-    receivingBanks: [],
-    narration: "",
-    status: "DRAFT",
-  },
-];
 
 const STATUS_MAP: Record<OfferStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
@@ -85,13 +54,6 @@ const STATUS_MAP: Record<OfferStatus, string> = {
   ALLOTTED: "bg-blue-100 text-blue-800",
   CONCLUDED: "bg-purple-100 text-purple-800",
 };
-
-const MOCK_REGISTERS = [
-  "Access Holdings Ord. Shares",
-  "Transcorp Power Ord. Shares",
-  "Fidelity Bank Ord. Shares",
-  "Meristem Securities Ord. Shares",
-];
 
 const NIGERIAN_BANKS = [
   "Access Bank PLC",
@@ -113,7 +75,7 @@ type FormState = Omit<PublicOffer, "id" | "status">;
 
 const EMPTY_FORM: FormState = {
   name: "",
-  register: "",
+  registerId: "",
   offerPrice: 0,
   totalUnits: 0,
   minUnits: 100,
@@ -123,10 +85,50 @@ const EMPTY_FORM: FormState = {
   secApprovalDate: null,
   receivingBanks: [],
   narration: "",
+  circularUrl: "",
 };
 
 export function PublicOfferForm() {
-  const [offers, setOffers] = useState<PublicOffer[]>(MOCK_OFFERS);
+  const queryClient = useQueryClient();
+  const { currentUser } = useStore();
+
+  const { data: registersData, isLoading: isRegisterLoading } = useGetRegisters({ size: 100 });
+  const registerList = registersData?.content;
+
+  const { data: offersData, isLoading: isOffersLoading } = useQuery({
+    queryKey: ["ipo-offers"],
+    queryFn: () => GET_IPO_OFFERS(),
+  });
+
+  const offers: PublicOffer[] = (offersData?.data?.content ?? []).map((item: any) => ({
+    id: item.id,
+    name: item.name,
+    registerId: item.registerId,
+    offerPrice: item.offerPrice,
+    totalUnits: item.totalUnits,
+    minUnits: item.minUnits,
+    multiples: item.multiples,
+    openingDate: item.openingDate ? new Date(item.openingDate) : null,
+    closingDate: item.closingDate ? new Date(item.closingDate) : null,
+    secApprovalDate: item.secApprovalDate ? new Date(item.secApprovalDate) : null,
+    receivingBanks: item.receivingBanks ?? [],
+    narration: item.narration ?? "",
+    status: item.status as OfferStatus,
+    circularUrl: item.circularUrl,
+  }));
+
+  const { mutate: createOffer, isPending: isCreating } = useMutation({
+    mutationFn: CREATE_NEW_OFFER,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ipo-offers"] });
+      toast.success("New offer profile created as Draft.");
+      setSheetOpen(false);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<PublicOffer | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -165,30 +167,34 @@ export function PublicOfferForm() {
   };
 
   const handleSave = () => {
-    if (!form.name || !form.register) {
+    if (!form.name || !form.registerId) {
       toast.error("Please fill in all required fields.");
       return;
     }
     if (editing) {
-      setOffers((prev) =>
-        prev.map((o) => (o.id === editing.id ? { ...o, ...form } : o))
-      );
-      toast.success("Offer profile updated.");
-    } else {
-      setOffers((prev) => [
-        ...prev,
-        { ...form, id: Date.now().toString(), status: "DRAFT" },
-      ]);
-      toast.success("New offer profile created as Draft.");
+      toast.info("Edit functionality coming soon.");
+      setSheetOpen(false);
+      return;
     }
-    setSheetOpen(false);
+    createOffer({
+      name: form.name,
+      registerId: form.registerId,
+      offerPrice: form.offerPrice,
+      totalUnits: form.totalUnits,
+      minUnits: form.minUnits,
+      multiples: form.multiples,
+      openingDate: form.openingDate ? format(form.openingDate, "yyyy-MM-dd") : "",
+      closingDate: form.closingDate ? format(form.closingDate, "yyyy-MM-dd") : "",
+      secApprovalDate: form.secApprovalDate ? format(form.secApprovalDate, "yyyy-MM-dd") : "",
+      receivingBanks: form.receivingBanks,
+      circularUrl: form.circularUrl ?? "",
+      narration: form.narration,
+      createdBy: currentUser?.email ?? "",
+    });
   };
 
-  const handleMoveToRegister = (id: string) => {
-    setOffers((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status: "OPEN" as OfferStatus } : o))
-    );
-    toast.success("Offer moved to register and set to Open.");
+  const handleMoveToRegister = (_id: string) => {
+    toast.info("Move to register functionality coming soon.");
   };
 
   return (
@@ -204,7 +210,11 @@ export function PublicOfferForm() {
           </Button>
         </div>
 
-        {offers.length === 0 ? (
+        {isOffersLoading ? (
+          <Card className="mrpsl-card p-12 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </Card>
+        ) : offers.length === 0 ? (
           <Card className="mrpsl-card p-12 flex flex-col items-center justify-center gap-3 text-center">
             <FileText className="h-10 w-10 text-muted-foreground/30" />
             <p className="font-medium text-sm">No offer profiles configured</p>
@@ -232,7 +242,9 @@ export function PublicOfferForm() {
                   {offers.map((offer) => (
                     <tr key={offer.id} className="mrpsl-table-row">
                       <td className="px-4 py-3 font-medium">{offer.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{offer.register}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {registerList?.find((r) => r.registerId === offer.registerId)?.registerName ?? offer.registerId}
+                      </td>
                       <td className="px-4 py-3 text-right font-mono">
                         ₦{offer.offerPrice.toFixed(2)}
                       </td>
@@ -300,14 +312,26 @@ export function PublicOfferForm() {
 
             <div className="space-y-1.5">
               <label className="mrpsl-label">Register *</label>
-              <Select value={form.register} onValueChange={(v) => set("register", v ?? "")}>
+              <Select value={form.registerId} onValueChange={(v) => set("registerId", v ?? "")}>
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Select register…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {MOCK_REGISTERS.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
+                  {isRegisterLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </div>
+                  ) : (
+                    registerList
+                      ?.filter((r) => r?.status === "ACTIVE")
+                      .map((r) => (
+                        <SelectItem key={r.registerId} value={r.registerId}>
+                          <span className="font-bold">{r.registerName}</span>
+                          {" - "}
+                          <span className="text-sm">{r.symbol}</span>
+                        </SelectItem>
+                      ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -444,18 +468,14 @@ export function PublicOfferForm() {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="mrpsl-label">Offer Circular (PDF)</label>
-              <div
-                className="border-2 border-dashed border-border rounded-lg p-4 flex items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors"
-                onClick={() => toast.info("File upload coming soon")}
-              >
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Click to upload the offer prospectus / circular (PDF)
-                </span>
-              </div>
-            </div>
+            <DocUploadZone
+              label="Offer Circular"
+              fileTypes={["PDF"]}
+              maxSizeMB={10}
+              folderName="offercircular"
+              initialUrl={form.circularUrl}
+              onUploadSuccess={(url) => set("circularUrl", url)}
+            />
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -477,7 +497,8 @@ export function PublicOfferForm() {
             <Button variant="outline" onClick={() => setSheetOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={isCreating}>
+              {isCreating && <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />}
               {editing ? "Save Changes" : "Create Offer Profile"}
             </Button>
           </div>

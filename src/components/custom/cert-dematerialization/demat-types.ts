@@ -6,7 +6,8 @@ export type DematStatus =
   | "PENDING_ICU"
   | "APPROVED"
   | "LODGED"
-  | "REJECTED";
+  | "REJECTED"
+  | "DELODGED";
 
 export interface UploadedFile {
   name: string;
@@ -25,6 +26,7 @@ export interface DematRequest {
   totalUnits: number;
   unitPrice: number;
   status: DematStatus;
+  lodgmentDate?: string;
   rejectionComment?: string;
   rejectedBy?: string;
   documents: {
@@ -155,6 +157,7 @@ export interface DematStockbroker {
   address: string;
   licenseNo: string;
   mandates: DematMandate[];
+  mandateFile?: { name: string; url: string };
 }
 
 export const DEMAT_STOCKBROKERS: DematStockbroker[] = [
@@ -166,6 +169,7 @@ export const DEMAT_STOCKBROKERS: DematStockbroker[] = [
     email: "operations@meristem.com",
     address: "213 Herbert Macaulay Way, Yaba, Lagos",
     licenseNo: "SEC/BROKER/0012",
+    mandateFile: { name: "meristem_mandate_list.pdf", url: "/uploads/mandates/meristem_mandate_list.pdf" },
     mandates: [
       { id: "mb1", accountNo: "MRX0023456", holderName: "NGOZI CHIDINMA OKAFOR", agentName: "CHUKWUEMEKA IHEJIRIKA", position: "Operations Manager", phone: "08123456789", email: "c.ihejirika@meristem.com" },
       { id: "mb2", accountNo: "MRX0012345", holderName: "JOHN ADEYEMI BABATUNDE", agentName: "ADAEZE NWOSU OKAFOR", position: "Client Relations", phone: "08234567890", email: "a.nwosu@meristem.com" },
@@ -179,6 +183,7 @@ export const DEMAT_STOCKBROKERS: DematStockbroker[] = [
     email: "demat@cardinalstone.com",
     address: "7 Akin Olugbade Street, Victoria Island, Lagos",
     licenseNo: "SEC/BROKER/0034",
+    mandateFile: { name: "cardinalstone_mandate_list.jpg", url: "/uploads/mandates/cardinalstone_mandate_list.jpg" },
     mandates: [
       { id: "mb3", accountNo: "MRX0045678", holderName: "FATIMA ABUBAKAR MUSA", agentName: "IBRAHIM USMAN HASSAN", position: "Senior Dealer", phone: "08056789012", email: "i.hassan@cardinalstone.com" },
     ],
@@ -191,6 +196,7 @@ export const DEMAT_STOCKBROKERS: DematStockbroker[] = [
     email: "securities@stanbicibtc.com",
     address: "IBTC Place, Walter Carrington Crescent, Victoria Island, Lagos",
     licenseNo: "SEC/BROKER/0055",
+    mandateFile: { name: "stanbic_mandate_list.pdf", url: "/uploads/mandates/stanbic_mandate_list.pdf" },
     mandates: [
       { id: "mb4", accountNo: "MRX0056789", holderName: "SAMUEL OLUWASEUN ADELEKE", agentName: "OLUWASEUN ADEYEMI BELLO", position: "Account Manager", phone: "08067890123", email: "o.bello@stanbicibtc.com" },
     ],
@@ -333,6 +339,7 @@ export const SEED_REQUESTS: DematRequest[] = [
     totalUnits: 15000,
     unitPrice: 285,
     status: "LODGED",
+    lodgmentDate: "28 Jun 2026",
     documents: {
       dematForms: [{ name: "demat_form_DR006.pdf", size: "245 KB" }],
       scannedCerts: [{ name: "cert_001234_v2.pdf", size: "1.2 MB" }],

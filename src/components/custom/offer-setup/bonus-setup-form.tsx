@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Eye, FileText } from "lucide-react";
+import { Plus, Eye, FileText, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import {
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
 
-type BonusStatus = "DRAFT" | "PENDING_AUTH" | "PENDING_ICU" | "ICU_APPROVED" | "ALLOTTED";
+type BonusStatus = "DRAFT" | "OPEN" | "CLOSED";
 
 interface BonusIssue {
   id: string;
@@ -55,24 +55,14 @@ const MOCK_BONUSES: BonusIssue[] = [
     narrative: "One bonus share for every five held at qualification date.",
     eventId: "BNS-2024-001",
     fractionAccountNumber: "REG-ZB-001",
-    status: "ICU_APPROVED",
+    status: "OPEN",
   },
 ];
 
 const STATUS_MAP: Record<BonusStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
-  PENDING_AUTH: "bg-amber-100 text-amber-800",
-  PENDING_ICU: "bg-amber-100 text-amber-800",
-  ICU_APPROVED: "bg-green-100 text-green-800",
-  ALLOTTED: "bg-blue-100 text-blue-800",
-};
-
-const STATUS_LABELS: Record<BonusStatus, string> = {
-  DRAFT: "Draft",
-  PENDING_AUTH: "Pending Approval",
-  PENDING_ICU: "Pending ICU",
-  ICU_APPROVED: "ICU Approved",
-  ALLOTTED: "Allotted",
+  OPEN: "bg-green-100 text-green-800",
+  CLOSED: "bg-amber-100 text-amber-800",
 };
 
 const MOCK_REGISTERS = [
@@ -120,6 +110,13 @@ export function BonusSetupForm() {
     const { id, status, ...rest } = bonus;
     setForm(rest);
     setSheetOpen(true);
+  };
+
+  const handleMoveToRegister = (id: string) => {
+    setBonuses((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, status: "OPEN" as BonusStatus } : b)),
+    );
+    toast.success("Bonus issue is now Open.");
   };
 
   const handleSave = () => {
@@ -204,13 +201,26 @@ export function BonusSetupForm() {
                       </td>
                       <td className="px-4 py-3">
                         <Badge className={`border-0 text-[12px] ${STATUS_MAP[bonus.status]}`}>
-                          {STATUS_LABELS[bonus.status]}
+                          {bonus.status.charAt(0) + bonus.status.slice(1).toLowerCase()}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button size="sm" variant="ghost" onClick={() => openEdit(bonus)}>
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          {bonus.status === "DRAFT" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => handleMoveToRegister(bonus.id)}
+                            >
+                              <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                              Move to Register
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(bonus)}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -13,19 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-
 import { toast } from "sonner";
-import type { DateRange } from "react-day-picker";
-import { IPO } from "@/types/ipo";
-import {
-  useGetIpoBatchesLodgment,
-  useDownloadIpoBatchLodgment,
-  useApproveBatchLodgment,
-  useGetIpoBatchSubscribers,
-} from "@/hooks/useIPO";
-import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
-import { DataErrorState, BatchDetailSkeleton } from "./loaders";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -34,140 +22,88 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { useStore } from "@/lib/store";
 import { PaginationBar } from "../pagination-bar";
-import { formatNumber } from "@/lib/utils/format";
+
+interface MockLodgmentBatch {
+  batchReference: string;
+  register: string;
+  batchDate: string;
+  approvedCount: number;
+  totalAmount: number;
+  icuApprovedBy: string;
+  icuApprovedAt: string;
+  status: "ICU_APPROVED" | "LODGED";
+}
+
+interface MockLodgmentRow {
+  stockbrokerCode: string;
+  chn: string;
+  subscriberName: string;
+  certNo: string;
+  cscsAccountNo: string;
+  symbol: string;
+  units: number;
+}
+
+const MOCK_BATCHES: MockLodgmentBatch[] = [
+  {
+    batchReference: "BATCH-ACH-2024-004",
+    register: "Access Holdings Ord. Shares",
+    batchDate: "2024-09-25",
+    approvedCount: 22000,
+    totalAmount: 590_000_000,
+    icuApprovedBy: "icu.officer@meristem.com",
+    icuApprovedAt: "2024-09-28T11:00:00",
+    status: "ICU_APPROVED",
+  },
+  {
+    batchReference: "BATCH-TCP-2024-003",
+    register: "Transcorp Power Ord. Shares",
+    batchDate: "2024-09-28",
+    approvedCount: 18500,
+    totalAmount: 420_000_000,
+    icuApprovedBy: "icu.officer@meristem.com",
+    icuApprovedAt: "2024-09-29T09:30:00",
+    status: "LODGED",
+  },
+];
+
+const MOCK_LODGMENT_ROWS: MockLodgmentRow[] = [
+  { stockbrokerCode: "SB-001", chn: "C0012345678", subscriberName: "Adebayo Oluwaseun Peters", certNo: "CERT-00123", cscsAccountNo: "CSC-012345678", symbol: "ACCESSCORP", units: 10_000 },
+  { stockbrokerCode: "SB-002", chn: "C0023456789", subscriberName: "Chinwe Okafor-Nwosu", certNo: "CERT-00124", cscsAccountNo: "CSC-023456789", symbol: "ACCESSCORP", units: 5_000 },
+  { stockbrokerCode: "SB-001", chn: "C0034567890", subscriberName: "Emeka Nwachukwu", certNo: "CERT-00125", cscsAccountNo: "CSC-034567890", symbol: "ACCESSCORP", units: 20_000 },
+  { stockbrokerCode: "SB-003", chn: "C0045678901", subscriberName: "Fatima Garba Abubakar", certNo: "CERT-00126", cscsAccountNo: "CSC-045678901", symbol: "ACCESSCORP", units: 50_000 },
+  { stockbrokerCode: "SB-002", chn: "C0056789012", subscriberName: "Ibrahim Usman Hassan", certNo: "CERT-00127", cscsAccountNo: "CSC-056789012", symbol: "ACCESSCORP", units: 8_000 },
+];
 
 export default function ICULodgment({ tab }: { tab: string }) {
-  // Lodgment drill-down
-  const [lodgmentReviewing, setLodgmentReviewing] = useState<IPO | null>(null);
-
+  const [batches, setBatches] = useState<MockLodgmentBatch[]>(MOCK_BATCHES);
+  const [lodgmentReviewing, setLodgmentReviewing] = useState<MockLodgmentBatch | null>(null);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [subscribersPage, setSubscribersPage] = useState(0);
   const [subscribersPageSize, setSubscribersPageSize] = useState(20);
-  const [downloadFormat, setDownloadFormat] = useState<
-    "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS"
-  >("RIN_AT_CSCS");
-
-  // Lodgment filters
-  const [authRegister, setAuthRegister] = useState<string>("");
-  const [authDateRange, setAuthDateRange] = useState<DateRange | undefined>(
-    undefined,
-  );
+  const [downloadFormat, setDownloadFormat] = useState<"RIN_AT_CSCS" | "RIN_NOT_AT_CSCS">("RIN_AT_CSCS");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const [isDownloading, setIsDownloading] = useState(false);
 
-  // Queries
-  const {
-    data: lodgmentBatchesData,
-    isLoading: isLodgmentsLoading,
-    isError: isLodgmentsError,
-    error: lodgmentsError,
-    refetch: refetchLodgments,
-  } = useGetIpoBatchesLodgment(
-    {
-      register: authRegister === "" ? undefined : authRegister,
-      from: authDateRange?.from
-        ? format(authDateRange.from, "yyyy-MM-dd")
-        : undefined,
-      to: authDateRange?.to
-        ? format(authDateRange.to, "yyyy-MM-dd")
-        : undefined,
-      page: currentPage,
-      size: pageSize,
-    },
-    {
-      enabled: lodgmentReviewing === null && tab === "lodgment",
-    },
+  const totalLodgmentPages = Math.max(1, Math.ceil(MOCK_LODGMENT_ROWS.length / subscribersPageSize));
+  const paginatedRows = MOCK_LODGMENT_ROWS.slice(
+    subscribersPage * subscribersPageSize,
+    (subscribersPage + 1) * subscribersPageSize,
   );
 
-  const {
-    data: lodgmentDetail,
-    isLoading: isDetailLoading,
-    isError: isDetailError,
-    error: detailError,
-    refetch: refetchDetail,
-  } = useGetIpoBatchSubscribers(
-    {
-      batchRef: lodgmentReviewing?.batchReference || "",
-      type: "APPROVED",
-      page: subscribersPage,
-      size: subscribersPageSize,
-    },
-    {
-      enabled:
-        !!lodgmentReviewing?.batchReference &&
-        lodgmentReviewing?.batchReference.length > 0,
-    },
-  );
-
-  // Mutations
-  const downloadMutation = useDownloadIpoBatchLodgment();
-
-  const resetFilters = () => {
-    setAuthRegister("");
-    setAuthDateRange(undefined);
-    setCurrentPage(0);
+  const handleDownload = async () => {
+    if (!lodgmentReviewing) return;
+    setIsDownloading(true);
+    await new Promise(r => setTimeout(r, 800));
+    setIsDownloading(false);
+    toast.success("Lodgment file downloaded successfully.");
   };
-
-  const handleDownload = () => {
-    if (!lodgmentReviewing?.batchReference) return;
-
-    downloadMutation.mutate(
-      {
-        batchRef: lodgmentReviewing.batchReference,
-        format: downloadFormat,
-      },
-      {
-        onSuccess: (data) => {
-          const blob = new Blob([data], {
-            // type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            type: "text/plain;charset=utf-8",
-          });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          // a.download = `lodgment_${lodgmentReviewing.batchReference}.xlsx`;
-          a.download = `lodgment_${lodgmentReviewing.batchReference}.txt`;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          toast.success("Lodgment file downloaded successfully.");
-        },
-        onError: (err) => {
-          const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
-          toast.error(
-            errorMessage?.message || "Failed to download lodgment file",
-          );
-        },
-      },
-    );
-  };
-
-  if (isLodgmentsError) {
-    return (
-      <div className="space-y-6">
-        <Card className="mrpsl-card p-5">
-          <div className="flex justify-between items-center">
-            <h2 className="font-semibold text-lg">Lodgment Queue</h2>
-            <Button variant="ghost" size="sm" onClick={resetFilters}>
-              Reset Filters
-            </Button>
-          </div>
-        </Card>
-        <DataErrorState
-          message={returnErrorMessage(lodgmentsError as ErrorLike)}
-          onRetry={refetchLodgments}
-        />
-      </div>
-    );
-  }
 
   if (lodgmentReviewing === null) {
     return (
       <div className="space-y-6">
-        {/* Queue table */}
         <Card className="mrpsl-card overflow-hidden">
           <div className="px-4 py-3 border-b bg-muted/20">
             <p className="text-[13px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -190,31 +126,8 @@ export default function ICULodgment({ tab }: { tab: string }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {isLodgmentsLoading ? (
-                  <tr>
-                    <td colSpan={8} className="p-0">
-                      <div className="flex flex-col gap-px">
-                        {[...Array(5)].map((_, i) => (
-                          <div
-                            key={i}
-                            className="flex gap-4 px-4 py-3.5 items-center bg-background"
-                          >
-                            <Skeleton className="h-3 w-32" />
-                            <Skeleton className="h-3 w-24" />
-                            <Skeleton className="h-3 w-20" />
-                            <div className="flex-1" />
-                            <Skeleton className="h-3 w-16" />
-                            <Skeleton className="h-3 w-24" />
-                            <Skeleton className="h-3 w-24" />
-                            <Skeleton className="h-6 w-16 rounded-full" />
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ) : lodgmentBatchesData?.content &&
-                  lodgmentBatchesData.content.length > 0 ? (
-                  lodgmentBatchesData.content.map((row) => (
+                {batches.length > 0 ? (
+                  batches.map((row) => (
                     <tr
                       key={row.batchReference}
                       className="mrpsl-table-row cursor-pointer hover:bg-muted/40 transition-colors"
@@ -231,13 +144,13 @@ export default function ICULodgment({ tab }: { tab: string }) {
                           : "—"}
                       </td>
                       <td className="px-4 py-3 text-right font-mono font-semibold text-green-700">
-                        {row.approvedCount?.toLocaleString() || 0}
+                        {row.approvedCount.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-right font-mono font-semibold">
-                        ₦{row.totalAmount?.toLocaleString() || 0}
+                        ₦{row.totalAmount.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-[13px]">
-                        {row.icuApprovedBy || "—"}
+                        {row.icuApprovedBy}
                       </td>
                       <td className="px-4 py-3 text-[13px] text-muted-foreground">
                         {row.icuApprovedAt
@@ -258,7 +171,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
                           </Badge>
                         )}
                       </td>
-                      <td>
+                      <td className="px-4 py-3">
                         <Button
                           size="sm"
                           onClick={() => setLodgmentReviewing(row)}
@@ -271,7 +184,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
                 ) : (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-4 py-12 text-center text-muted-foreground"
                     >
                       No ready batches found for lodgment.
@@ -284,8 +197,8 @@ export default function ICULodgment({ tab }: { tab: string }) {
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={lodgmentBatchesData?.pagination?.totalPages || 1}
-            total={lodgmentBatchesData?.pagination?.total || 0}
+            totalPages={Math.max(1, Math.ceil(batches.length / pageSize))}
+            total={batches.length}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
           />
@@ -308,15 +221,15 @@ export default function ICULodgment({ tab }: { tab: string }) {
         </Button>
         <div className="h-5 w-px bg-border mx-1" />
         <span className="font-mono text-sm font-semibold">
-          {lodgmentReviewing?.batchReference}
+          {lodgmentReviewing.batchReference}
         </span>
         <span className="text-muted-foreground text-sm">
-          · {lodgmentReviewing?.register} ·{" "}
-          {lodgmentReviewing?.batchDate
+          · {lodgmentReviewing.register} ·{" "}
+          {lodgmentReviewing.batchDate
             ? format(new Date(lodgmentReviewing.batchDate), "dd MMM yyyy")
             : "—"}
         </span>
-        {lodgmentReviewing?.status !== "ICU_APPROVED" ? (
+        {lodgmentReviewing.status !== "ICU_APPROVED" ? (
           <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
             Lodged
           </Badge>
@@ -326,7 +239,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
           </Badge>
         )}
         <div className="flex-1" />
-        {lodgmentReviewing?.status === "ICU_APPROVED" && (
+        {lodgmentReviewing.status === "ICU_APPROVED" && (
           <Button
             size="sm"
             onClick={() => setIsApproveDialogOpen(true)}
@@ -346,13 +259,13 @@ export default function ICULodgment({ tab }: { tab: string }) {
           <div>
             <div className="mrpsl-section-title">ICU Approver</div>
             <div className="font-semibold mt-0.5">
-              {lodgmentReviewing?.icuApprovedBy || "—"}
+              {lodgmentReviewing.icuApprovedBy}
             </div>
           </div>
           <div>
             <div className="mrpsl-section-title">Approval Date &amp; Time</div>
             <div className="font-mono mt-0.5">
-              {lodgmentReviewing?.icuApprovedAt
+              {lodgmentReviewing.icuApprovedAt
                 ? format(
                     new Date(lodgmentReviewing.icuApprovedAt),
                     "dd MMM yyyy, HH:mm",
@@ -363,13 +276,13 @@ export default function ICULodgment({ tab }: { tab: string }) {
           <div>
             <div className="mrpsl-section-title">Approved Allottees</div>
             <div className="font-mono font-semibold mt-0.5 text-green-700">
-              {lodgmentReviewing?.approvedCount?.toLocaleString() || 0}
+              {lodgmentReviewing.approvedCount.toLocaleString()}
             </div>
           </div>
           <div>
             <div className="mrpsl-section-title">Total Amount</div>
             <div className="font-mono font-semibold mt-0.5">
-              ₦{lodgmentReviewing?.totalAmount?.toLocaleString() || 0}
+              ₦{lodgmentReviewing.totalAmount.toLocaleString()}
             </div>
           </div>
         </div>
@@ -377,153 +290,131 @@ export default function ICULodgment({ tab }: { tab: string }) {
 
       <Card className="mrpsl-card">
         <div className="p-5 space-y-6">
-          {isDetailLoading ? (
-            <BatchDetailSkeleton />
-          ) : isDetailError ? (
-            <div className="py-12 space-y-4">
-              <DataErrorState
-                message={returnErrorMessage(detailError as ErrorLike)}
-                onRetry={refetchDetail}
-              />
-              <Button
-                variant="ghost"
-                className="mt-4 gap-2 text-muted-foreground mx-auto flex"
-                onClick={() => setLodgmentReviewing(null)}
-              >
-                <ArrowLeft className="h-4 w-4" /> Back to list
-              </Button>
+          <div className="space-y-3">
+            <label className="mrpsl-label">Lodgment File Format</label>
+            <RadioGroup
+              value={downloadFormat}
+              onValueChange={(val) =>
+                setDownloadFormat(val as "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS")
+              }
+              className="flex gap-6"
+            >
+              <div className="flex items-center space-x-2.5">
+                <RadioGroupItem value="RIN_AT_CSCS" id="r1" />
+                <label htmlFor="r1" className="text-sm cursor-pointer">
+                  RIN at CSCS
+                </label>
+              </div>
+              <div className="flex items-center space-x-2.5">
+                <RadioGroupItem value="RIN_NOT_AT_CSCS" id="r2" />
+                <label htmlFor="r2" className="text-sm cursor-pointer">
+                  RIN NOT at CSCS
+                </label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="border border-border/60 rounded-xl overflow-hidden">
+            <div className="bg-muted/40 p-2 border-b text-[13px] tabular font-bold text-muted-foreground">
+              PREVIEW (LODGMENT ROWS)
             </div>
-          ) : (
-            <>
-              <div className="space-y-3">
-                <label className="mrpsl-label">Lodgment File Format</label>
-                <RadioGroup
-                  value={downloadFormat}
-                  onValueChange={(val) =>
-                    setDownloadFormat(val as "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS")
-                  }
-                  className="flex gap-6"
-                >
-                  <div className="flex items-center space-x-2.5">
-                    <RadioGroupItem value="RIN_AT_CSCS" id="r1" />
-                    <label htmlFor="r1" className="text-sm cursor-pointer">
-                      RIN at CSCS
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2.5">
-                    <RadioGroupItem value="RIN_NOT_AT_CSCS" id="r2" />
-                    <label htmlFor="r2" className="text-sm cursor-pointer">
-                      RIN NOT at CSCS
-                    </label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <div className="border border-border/60 rounded-xl overflow-hidden">
-                <div className="bg-muted/40 p-2 border-b text-[13px] tabular font-bold text-muted-foreground">
-                  PREVIEW (LODGMENT ROWS)
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[13px] tabular">
-                    <thead className="bg-muted/20">
-                      <tr>
-                        <th className="p-2 text-left">STOCKBROKER CODE</th>
-                        <th className="p-2 text-left">CHN</th>
-                        <th className="p-2 text-left">SHAREHOLDER NAME</th>
-                        <th className="p-2 text-left">CERT NO</th>
-                        <th className="p-2 text-left">CSCS ACCOUNT NO</th>
-                        <th className="p-2 text-left">SYMBOL</th>
-                        <th className="p-2 text-right">UNITS</th>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px] tabular">
+                <thead className="bg-muted/20">
+                  <tr>
+                    <th className="p-2 text-left">STOCKBROKER CODE</th>
+                    <th className="p-2 text-left">CHN</th>
+                    <th className="p-2 text-left">SHAREHOLDER NAME</th>
+                    <th className="p-2 text-left">CERT NO</th>
+                    <th className="p-2 text-left">CSCS ACCOUNT NO</th>
+                    <th className="p-2 text-left">SYMBOL</th>
+                    <th className="p-2 text-right">UNITS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {paginatedRows.length > 0 ? (
+                    paginatedRows.map((row, i) => (
+                      <tr key={i} className="hover:bg-muted/20">
+                        <td className="p-2 font-mono">{row.stockbrokerCode}</td>
+                        <td className="p-2 font-mono">{row.chn}</td>
+                        <td className="p-2 font-medium">{row.subscriberName}</td>
+                        <td className="p-2 font-mono">{row.certNo}</td>
+                        <td className="p-2 font-mono">{row.cscsAccountNo}</td>
+                        <td className="p-2 font-mono">{row.symbol}</td>
+                        <td className="p-2 font-mono text-right font-semibold">
+                          {row.units.toLocaleString()}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {lodgmentDetail?.content &&
-                      lodgmentDetail?.content.length > 0 ? (
-                        lodgmentDetail.content.map((row, i) => (
-                          <tr key={i} className="hover:bg-muted/20">
-                            <td className="p-2 font-mono">
-                              {row?.stockbrokerCode || row?.broker || "—"}
-                            </td>
-                            <td className="p-2 font-mono">{row.chn || "—"}</td>
-                            <td className="p-2 font-medium">
-                              {row?.subscriberName || "—"}
-                            </td>
-                            <td className="p-2 font-mono">
-                              {row?.certNo || "—"}
-                            </td>
-                            <td className="p-2 font-mono">
-                              {row?.cscsAccountNo || row?.accountNumber || "—"}
-                            </td>
-                            <td className="p-2 font-mono">
-                              {row?.symbol || "—"}
-                            </td>
-                            <td className="p-2 font-mono text-right font-semibold">
-                              {formatNumber(row.units)}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            className="p-4 text-center text-muted-foreground"
-                          >
-                            No lodgment preview rows available.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <PaginationBar
-                  page={subscribersPage}
-                  pageSize={subscribersPageSize}
-                  totalPages={lodgmentDetail?.pagination?.totalPages || 1}
-                  total={lodgmentDetail?.pagination?.total || 0}
-                  onPageChange={setSubscribersPage}
-                  onPageSizeChange={setSubscribersPageSize}
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-4">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  disabled={downloadMutation.isPending}
-                  onClick={handleDownload}
-                >
-                  {downloadMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Downloading...
-                    </>
+                    ))
                   ) : (
-                    <>
-                      <Download className="mr-2 h-4 w-4" /> Download Lodgment
-                      File (.txt)
-                    </>
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="p-4 text-center text-muted-foreground"
+                      >
+                        No lodgment preview rows available.
+                      </td>
+                    </tr>
                   )}
-                </Button>
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    toast.success("Pushed to CSCS API successfully.");
-                  }}
-                >
-                  <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
-                </Button>
-              </div>
-            </>
-          )}
+                </tbody>
+              </table>
+            </div>
+
+            <PaginationBar
+              page={subscribersPage}
+              pageSize={subscribersPageSize}
+              totalPages={totalLodgmentPages}
+              total={MOCK_LODGMENT_ROWS.length}
+              onPageChange={setSubscribersPage}
+              onPageSizeChange={setSubscribersPageSize}
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              disabled={isDownloading}
+              onClick={handleDownload}
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" /> Download Lodgment
+                  File (.txt)
+                </>
+              )}
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                toast.success("Pushed to CSCS API successfully.");
+              }}
+            >
+              <Upload className="mr-2 h-4 w-4" /> Push via CSCS API
+            </Button>
+          </div>
         </div>
       </Card>
 
       <ApproveLodgmentDialog
         open={isApproveDialogOpen}
         onOpenChange={setIsApproveDialogOpen}
-        batchReference={lodgmentReviewing?.batchReference || ""}
-        onSuccess={() => setLodgmentReviewing(null)}
+        batchReference={lodgmentReviewing.batchReference}
+        onSuccess={() => {
+          setBatches(prev =>
+            prev.map(b =>
+              b.batchReference === lodgmentReviewing.batchReference
+                ? { ...b, status: "LODGED" as const }
+                : b,
+            ),
+          );
+          setLodgmentReviewing(null);
+        }}
       />
     </div>
   );
@@ -542,42 +433,22 @@ export function ApproveLodgmentDialog({
   batchReference,
   onSuccess,
 }: ApproveLodgmentDialogProps) {
-  const { currentUser } = useStore();
   const [comment, setComment] = useState("");
-  const approveMutation = useApproveBatchLodgment();
+  const [isApproving, setIsApproving] = useState(false);
 
-  const handleApprove = () => {
-    if (!currentUser) {
-      toast.error("Your session has expired. Please login again.");
-      return;
-    }
-
-    if (!comment || comment.trim() === "") {
+  const handleApprove = async () => {
+    if (!comment.trim()) {
       toast.error("Please enter a comment.");
       return;
     }
 
-    approveMutation.mutate(
-      {
-        batchRef: batchReference,
-        payload: {
-          comment: comment,
-          lodgedBy: currentUser?.email,
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Lodgment batch approved successfully.");
-          setComment("");
-          onOpenChange(false);
-          if (onSuccess) onSuccess();
-        },
-        onError: (err) => {
-          const errorMessage = new Error(returnErrorMessage(err as ErrorLike));
-          toast.error(errorMessage?.message || "Failed to approve lodgment.");
-        },
-      },
-    );
+    setIsApproving(true);
+    await new Promise(r => setTimeout(r, 800));
+    setIsApproving(false);
+    toast.success("Lodgment batch approved successfully.");
+    setComment("");
+    onOpenChange(false);
+    if (onSuccess) onSuccess();
   };
 
   return (
@@ -613,7 +484,7 @@ export function ApproveLodgmentDialog({
             <Button
               variant="outline"
               className="flex-1"
-              disabled={approveMutation.isPending}
+              disabled={isApproving}
               onClick={() => {
                 setComment("");
                 onOpenChange(false);
@@ -623,10 +494,10 @@ export function ApproveLodgmentDialog({
             </Button>
             <Button
               className="flex-1 gap-1.5"
-              disabled={approveMutation.isPending}
+              disabled={isApproving}
               onClick={handleApprove}
             >
-              {approveMutation.isPending ? (
+              {isApproving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Approving...
