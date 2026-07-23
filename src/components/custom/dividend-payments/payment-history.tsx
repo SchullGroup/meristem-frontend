@@ -64,6 +64,9 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
         repushMutation.mutate(id, {
             onSuccess: () => {
                 toast.success("Added to re-push queue");
+                if (payRunViewTarget?.id === id) {
+                    setPayRunViewOpen(false);
+                }
             },
             onError: (err) => {
                 toast.error(err.message || "Failed to add to re-push queue");
@@ -323,10 +326,8 @@ export const PaymentHistory = ({ tab }: { tab: string }) => {
                                 {payRunViewTarget?.status === "FAILED" && (
                                     <Button
                                         className="flex-1 gap-1.5"
-                                        onClick={() => {
-                                            toast.success("Added to re-push queue");
-                                            setPayRunViewOpen(false);
-                                        }}
+                                        onClick={() => handleRepush(payRunViewTarget.id)}
+                                        disabled={repushMutation.isPending}
                                     >
                                         <RotateCcw className="h-4 w-4" /> Add to Re-Push Queue
                                     </Button>

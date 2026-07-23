@@ -13,6 +13,7 @@ interface Props {
   onChange: (value: string) => void;
   enabled?: boolean;
   label?: string;
+  className?: string;
 }
 
 export default function RegisterSelect({
@@ -20,6 +21,7 @@ export default function RegisterSelect({
   onChange,
   label,
   enabled = true,
+  className,
 }: Props) {
   const { data: registers, isLoading: activeRegistersLoading } =
     useGetRegisters(
@@ -33,7 +35,7 @@ export default function RegisterSelect({
     );
 
   return (
-    <div className="">
+    <div className={className}>
       {label && (
         <label htmlFor="register-select" className="mrpsl-label">
           {label}
@@ -48,22 +50,25 @@ export default function RegisterSelect({
         }}
       >
         <SelectTrigger className="mrpsl-input w-full">
-          <SelectValue placeholder="All Registers" />
+          <SelectValue placeholder="Select Active Register" />
         </SelectTrigger>
         <SelectContent>
+          {value && (
+            <SelectItem value="">
+              <span className="text-muted-foreground">Clear Selection</span>
+            </SelectItem>
+          )}
           {activeRegistersLoading ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="w-4 h-4 animate-spin" />
             </div>
           ) : (
-            <>
-              <SelectItem value="">All Registers</SelectItem>
-              {registers?.content?.map((r) => (
-                <SelectItem key={r.registerId} value={r.symbol}>
-                  {r.registerName} - {r.symbol}
-                </SelectItem>
-              ))}
-            </>
+            registers?.content?.map((r) => (
+              <SelectItem key={r.registerId} value={r.symbol}>
+                <span className="font-bold">{r?.registerName}</span> -{" "}
+                <span className="translate-y-1 text-xs">{r?.symbol}</span>{" "}
+              </SelectItem>
+            ))
           )}
         </SelectContent>
       </Select>

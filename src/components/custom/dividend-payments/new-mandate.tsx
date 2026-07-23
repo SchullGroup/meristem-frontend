@@ -18,6 +18,8 @@ import { DataErrorState, PendingListSkeleton } from "../ipo/loaders";
 import { formatNumber } from "@/lib/utils/format";
 import { PaginationBar } from "../pagination-bar";
 import RegisterSelect from "../register-select";
+import { DateRangePicker } from "../date-range-picker";
+import { DateRange } from "react-day-picker";
 
 const statusBadge = (status: string) => {
     if (status === "PAID")
@@ -39,13 +41,38 @@ const statusBadge = (status: string) => {
     );
 };
 
+const nipsStatusBadge = (status?: string) => {
+    if (status === "VERIFIED")
+        return (
+            <Badge className="border-0 text-[13px] bg-green-100 text-green-800">
+                Verified
+            </Badge>
+        );
+    if (status === "NAME_MISMATCH")
+        return (
+            <Badge className="border-0 text-[13px] bg-amber-100 text-amber-800">
+                Name Mismatch
+            </Badge>
+        );
+    if (status === "FAILED")
+        return (
+            <Badge className="border-0 text-[13px] bg-red-100 text-red-700">
+                Failed
+            </Badge>
+        );
+    return <span className="text-muted-foreground text-[13px]">—</span>;
+};
+
 
 export const NewMandatePayment = ({ tab }: { tab: string }) => {
     const [page, setPage] = useState(0);
     const [size, setSize] = useState(20);
     const [mandateRegister, setMandateRegister] = useState("");
     const [mandateDividend, setMandateDividend] = useState("");
-    // const [mandateStatus, setMandateStatus] = useState("all");
+    const [mandateStatus, setMandateStatus] = useState("");
+    const [bankFilter, setBankFilter] = useState("");
+    const [nipsStatusFilter, setNipsStatusFilter] = useState("");
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [mandateSelIds, setMandateSelIds] = useState<Set<string>>(new Set());
 
     const { data: dividendNumbersData } = useGetDividendDeclarations({
@@ -61,11 +88,38 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
         enabled: tab === "new"
     });
 
-    const filteredMandateQueue = mandateData?.data?.content || [];
+    const rawMandateQueue = mandateData?.data?.content || [];
     const total = mandateData?.data?.totalElements || 0;
     const totalPages = mandateData?.data?.totalPages || 1;
 
     const dividendNumbers = dividendNumbersData?.data?.content || [];
+
+    const bankOptions = Array.from(
+        new Set(
+            rawMandateQueue
+                .map((r: any) => r.bankName || r.newBank)
+                .filter(Boolean),
+        ),
+    ) as string[];
+
+    const filteredMandateQueue = rawMandateQueue.filter((row: any) => {
+        if (mandateStatus !== "" && row.status !== mandateStatus) return false;
+        if (bankFilter !== "" && (row.bankName || row.newBank) !== bankFilter)
+            return false;
+        if (
+            nipsStatusFilter !== "" &&
+            row.nipsValidationStatus !== nipsStatusFilter
+        )
+            return false;
+        if (dateRange?.from) {
+            const rowDateRaw = row.submittedDate || row.createdAt;
+            if (!rowDateRaw) return false;
+            const rowDate = new Date(rowDateRaw);
+            if (rowDate < dateRange.from) return false;
+            if (dateRange.to && rowDate > dateRange.to) return false;
+        }
+        return true;
+    });
 
     const singlePushToNibssMutation = usePushMandateQueueToNibss();
     const batchPushToNibssMutation = useBatchPushMandateQueueToNibss();
@@ -127,7 +181,7 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
 
 
     if (fetchingMandates) {
-        return <PendingListSkeleton cols={9} />
+        return <PendingListSkeleton cols={11} />
     }
 
     return (
@@ -162,23 +216,72 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
                         </SelectContent>
                     </Select></div>
 
+                <div className="space-y-1.5">
+                    <label className="mrpsl-label">Payment Status</label>
+                    <Select
+                        value={mandateStatus}
+                        onValueChange={(v) => {
+                            setMandateStatus(v ?? "");
+                        }}
+                    >
+                        <SelectTrigger className="w-40 mrpsl-input">
+                            <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">All Statuses</SelectItem>
+                            <SelectItem value="UNPAID">Unpaid</SelectItem>
+                            <SelectItem value="PAID">Paid</SelectItem>
+                            <SelectItem value="FAILED">Failed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
 
-                {/* <Select
-                    value={mandateStatus}
-                    onValueChange={(v) => {
-                        setMandateStatus(v ?? "");
-                        setPage(0);
-                    }}
-                >
-                    <SelectTrigger className="w-40 mrpsl-input">
-                        <SelectValue placeholder="All Statuses" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="">Payment Status</SelectItem>
-                        <SelectItem value="UNPAID">Unpaid</SelectItem>
-                        <SelectItem value="FAILED">Failed</SelectItem>
-                    </SelectContent>
-                </Select> */}
+                <div className="space-y-1.5">
+                    <label className="mrpsl-label">Bank</label>
+                    <Select
+                        value={bankFilter}
+                        onValueChange={(v) => setBankFilter(v ?? "")}
+                    >
+                        <SelectTrigger className="w-44 mrpsl-input">
+                            <SelectValue placeholder="All Banks" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">All Banks</SelectItem>
+                            {bankOptions.map((b) => (
+                                <SelectItem key={b} value={b}>
+                                    {b}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="mrpsl-label">Mandate Status</label>
+                    <Select
+                        value={nipsStatusFilter}
+                        onValueChange={(v) => setNipsStatusFilter(v ?? "")}
+                    >
+                        <SelectTrigger className="w-44 mrpsl-input">
+                            <SelectValue placeholder="All Mandate Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">All Mandate Statuses</SelectItem>
+                            <SelectItem value="VERIFIED">Verified</SelectItem>
+                            <SelectItem value="NAME_MISMATCH">Name Mismatch</SelectItem>
+                            <SelectItem value="FAILED">Failed</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                    <label className="mrpsl-label">Date Range</label>
+                    <DateRangePicker
+                        className="mt-0"
+                        date={dateRange}
+                        setDate={setDateRange}
+                    />
+                </div>
             </div>
 
             {/* Batch action toolbar */}
@@ -216,18 +319,21 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
                                             }
                                         />
                                     </th>
+                                    <th className="p-3">#</th>
+                                    <th className="p-3">PAYMENT REF</th>
                                     <th className="p-3">ACCOUNT NO</th>
                                     <th className="p-3">HOLDER NAME</th>
                                     <th className="p-3">NEW BANK</th>
                                     <th className="p-3">SORT CODE</th>
                                     <th className="p-3">AMOUNT (₦)</th>
                                     <th className="p-3">DIVIDEND NO</th>
+                                    <th className="p-3">MANDATE STATUS</th>
                                     <th className="p-3">PAYMENT STATUS</th>
                                     <th className="p-3">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y text-[13px]">
-                                {filteredMandateQueue.map((row: any) => (
+                                {filteredMandateQueue.map((row: any, i: number) => (
                                     <tr
                                         key={row.id}
                                         className={`mrpsl-table-row ${mandateSelIds.has(row.id) ? "bg-primary/5" : ""}`}
@@ -240,7 +346,13 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
                                                 />
                                             )}
                                         </td>
-                                        <td className="p-3 font-mono">{row.accountNumber || row.account}</td>
+                                        <td className="p-3 text-muted-foreground tabular-nums">
+                                            {page * size + i + 1}
+                                        </td>
+                                        <td className="p-3 font-mono text-muted-foreground">
+                                            {row.approvalRef || "—"}
+                                        </td>
+                                        <td className="p-3 font-mono">{row.accountNumber}</td>
                                         <td className="p-3 font-medium">{row.holderName || row.holder}</td>
                                         <td className="p-3">{row.bankName || row.bank}</td>
                                         <td className="p-3 font-mono">{row.sortCode}</td>
@@ -249,6 +361,9 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
                                         </td>
                                         <td className="p-3 font-mono text-muted-foreground">
                                             {row.dividendNumber || row.dividendNo}
+                                        </td>
+                                        <td className="p-3">
+                                            {nipsStatusBadge(row.nipsValidationStatus)}
                                         </td>
                                         <td className="p-3">{statusBadge(row.status)}</td>
                                         <td className="p-3 text-right">
@@ -267,7 +382,7 @@ export const NewMandatePayment = ({ tab }: { tab: string }) => {
                                 {filteredMandateQueue.length === 0 && (
                                     <tr>
                                         <td
-                                            colSpan={9}
+                                            colSpan={11}
                                             className="p-8 text-center text-muted-foreground"
                                         >
                                             No records match the selected filters.

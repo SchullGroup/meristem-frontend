@@ -91,12 +91,12 @@ export function SplitReviewDialog({
       },
       {
         onSuccess: () => {
-          toast.success("Split approved successfully.");
+          toast.success("Split rejected successfully.");
           setOpen(false);
         },
         onError: (err: unknown) => {
           toast.error(
-            err instanceof Error ? err.message : "Failed to approve split.",
+            err instanceof Error ? err.message : "Failed to reject split.",
           );
         },
       },
@@ -186,11 +186,21 @@ export function SplitReviewDialog({
                     done: true,
                     pending: false,
                   },
-                  {
-                    label: "Authoriser — Pending your action",
-                    done: false,
-                    pending: true,
-                  },
+                  ...(selected.approvalChain ?? []).map((step) => {
+                    const decision = step.decision?.toUpperCase();
+                    const done = decision === "APPROVED" || decision === "REJECTED";
+                    return {
+                      label: done
+                        ? `${step.role} — ${step.approverName} — ${step.decision}${
+                            step.decidedAt
+                              ? ` — ${new Date(step.decidedAt).toLocaleDateString()}`
+                              : ""
+                          }`
+                        : `${step.role} — Pending action`,
+                      done,
+                      pending: !done,
+                    };
+                  }),
                 ].map((step, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div
