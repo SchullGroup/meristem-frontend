@@ -12,10 +12,12 @@ export default function DateInput({
   date,
   setDate,
   label = "Date",
+  disabled,
 }: {
   date: Date | null;
   setDate: (date: Date) => void;
   label?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -25,6 +27,7 @@ export default function DateInput({
           <Button
             type="button"
             variant="outline"
+            disabled={disabled}
             className="w-full mrpsl-input justify-start text-left font-normal overflow-hidden"
           >
             <span className="flex-1 truncate">
