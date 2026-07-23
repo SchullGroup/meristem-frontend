@@ -127,3 +127,31 @@ export const APPROVE_DIVIDEND_DECLARATION = async ({
     throw new Error(returnErrorMessage(err));
   }
 };
+
+export const BATCH_APPROVE_DIVIDEND_DECLARATION = async (data: {
+  ids: string[];
+  comment: string;
+  authorisedBy?: string;
+}) => {
+  try {
+    const res = await api.post(`/dividend/declarations/batch/approve`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const BATCH_REJECT_DIVIDEND_DECLARATION = async (data: {
+  ids: string[];
+  comment: string;
+  authorisedBy?: string;
+}) => {
+  try {
+    const res = await api.post(`/dividend/declarations/batch/reject`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};

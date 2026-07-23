@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { format } from "date-fns";
 import {
-  Info,
+  Building2,
   ArrowLeft,
   FileSpreadsheet,
   Download,
@@ -1379,7 +1379,7 @@ export default function BonusIssuePage() {
       <Card className="mrpsl-card p-4">
         <div className="flex items-start gap-4 flex-wrap">
           <div className="flex items-center gap-2 shrink-0 pt-0.5">
-            <Info className="h-4 w-4 text-muted-foreground" />
+            <Building2 className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Active Bonus Issue</span>
           </div>
           <div className="flex-1 min-w-60">

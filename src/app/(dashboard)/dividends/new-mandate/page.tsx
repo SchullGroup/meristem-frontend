@@ -23,6 +23,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Check, AlertCircle, X, Download, Loader2 } from "lucide-react";
 import { TablePagination } from "@/components/custom/table-pagination";
+import { DateRangePicker } from "@/components/custom/date-range-picker";
+import { DateRange } from "react-day-picker";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -39,6 +41,7 @@ import {
 import { GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS } from "@/actions/divDeclarationActions";
 import { useStore } from "@/lib/store";
 import { formatDate } from "@/lib/utils/format";
+import StatusBadge from "@/components/custom/status-badge";
 
 type MandateApproval = {
   id: string;
@@ -51,6 +54,7 @@ type MandateApproval = {
   amount: number;
   submittedBy: string;
   tier: number;
+  approvalRef?: string;
 };
 
 export default function NewMandatePage() {
@@ -100,23 +104,67 @@ export default function NewMandatePage() {
 
   const [pendingPage, setPendingPage] = useState(0);
   const [pendingPageSize, setPendingPageSize] = useState(20);
+  const [pendingRegister, setPendingRegister] = useState("");
+  const [pendingDividend, setPendingDividend] = useState("");
+  const [pendingBank, setPendingBank] = useState("");
+  const [pendingDateRange, setPendingDateRange] = useState<
+    DateRange | undefined
+  >(undefined);
+
+  const { data: pendingDeclarationData, isLoading: loadingPendingDivNumbers } =
+    useQuery({
+      queryKey: ["all-declarations-numbers", "pending", pendingRegister],
+      queryFn: () =>
+        GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS(
+          pendingRegister ? { registerId: pendingRegister } : undefined,
+        ),
+    });
+  const pendingDivNumbers = pendingDeclarationData?.data;
 
   const {
     data: pendingMandatePaymentsData,
     isFetching: pendingMandatePaymentsLoading,
   } = useQuery({
-    queryKey: ["pending-mandate-payments", pendingPage, pendingPageSize],
+    queryKey: [
+      "pending-mandate-payments",
+      pendingRegister,
+      pendingDividend,
+      pendingPage,
+      pendingPageSize,
+    ],
     queryFn: GET_PENDING_MANDATE_PAYMENTS,
   });
 
   const [icuPage, setIcuPage] = useState(0);
   const [icuPageSize, setIcuPageSize] = useState(20);
+  const [icuRegister, setIcuRegister] = useState("");
+  const [icuDividend, setIcuDividend] = useState("");
+  const [icuBank, setIcuBank] = useState("");
+  const [icuDateRange, setIcuDateRange] = useState<DateRange | undefined>(
+    undefined,
+  );
+
+  const { data: icuDeclarationData, isLoading: loadingIcuDivNumbers } =
+    useQuery({
+      queryKey: ["all-declarations-numbers", "icu", icuRegister],
+      queryFn: () =>
+        GET_ALL_DIVIDEND_DECLARATIONS_NUMBERS(
+          icuRegister ? { registerId: icuRegister } : undefined,
+        ),
+    });
+  const icuDivNumbers = icuDeclarationData?.data;
 
   const {
     data: icuMandatePaymentsData,
     isFetching: icuMandatePaymentsLoading,
   } = useQuery({
-    queryKey: ["pending-icu-mandate-payments", icuPage, icuPageSize],
+    queryKey: [
+      "pending-icu-mandate-payments",
+      icuRegister,
+      icuDividend,
+      icuPage,
+      icuPageSize,
+    ],
     queryFn: GET_PENDING_ICU_MANDATE_PAYMENTS,
   });
 
@@ -153,12 +201,49 @@ export default function NewMandatePage() {
     setIcuPage(0);
   };
 
-  const visiblePendingPayments =
+  function inDateRange(dateStr: string, range?: DateRange) {
+    if (!range?.from) return true;
+    const d = new Date(dateStr);
+    if (d < range.from) return false;
+    if (range.to && d > range.to) return false;
+    return true;
+  }
+
+  const pendingBankOptions = Array.from(
+    new Set(
+      (pendingMandatePayments || [])
+        .map((r: { newBank: string }) => r.newBank)
+        .filter(Boolean),
+    ),
+  ) as string[];
+
+  const icuBankOptions = Array.from(
+    new Set(
+      (icuMandatePayments || [])
+        .map((r: { newBank: string }) => r.newBank)
+        .filter(Boolean),
+    ),
+  ) as string[];
+
+  const visiblePendingPayments = (
     pendingMandatePayments?.filter(
       (q: { status: string }) => q.status === "PENDING_OPS",
-    ) || [];
+    ) || []
+  )
+    .filter((row: { newBank: string }) =>
+      pendingBank ? row.newBank === pendingBank : true,
+    )
+    .filter((row: { submittedDate: string }) =>
+      inDateRange(row.submittedDate, pendingDateRange),
+    );
 
-  const visibleIcuPayments = icuMandatePayments || [];
+  const visibleIcuPayments = (icuMandatePayments || [])
+    .filter((row: { newBank: string }) =>
+      icuBank ? row.newBank === icuBank : true,
+    )
+    .filter((row: { submittedDate: string }) =>
+      inDateRange(row.submittedDate, icuDateRange),
+    );
 
   const allSelected =
     mandateQueue?.length > 0 &&
@@ -204,7 +289,11 @@ export default function NewMandatePage() {
   function toggleRow(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -358,7 +447,11 @@ export default function NewMandatePage() {
   function toggleIcuAppr(id: string) {
     setIcuApprIds((prev) => {
       const n = new Set(prev);
-      if (n.has(id)) { n.delete(id) } else { n.add(id) };
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
       return n;
     });
   }
@@ -622,19 +715,23 @@ export default function NewMandatePage() {
                             onCheckedChange={toggleAll}
                           />
                         </th>
-                        <th className="p-3">ACCOUNT NO</th>
+                        <th className="p-3">PAYMENT REF</th>
+                        <th className="p-3">OLD ACCOUNT NO</th>
                         <th className="p-3">HOLDER NAME</th>
                         <th className="p-3">NEW BANK</th>
                         <th className="p-3">NEW ACCOUNT NO</th>
+                        <th className="p-3">SORT CODE</th>
                         <th className="p-3">DIVIDEND NO</th>
                         <th className="p-3 text-right">AMOUNT (₦)</th>
-                        <th className="p-3 text-center">SOURCE</th>
+                        <th className="p-3 text-center">SUBMITTED BY</th>
+                        <th className="p-3 text-center">TIER</th>
+                        <th className="p-3 text-center">STATUS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
                       {mandateQueueLoading ? (
                         <tr>
-                          <td colSpan={8} className="p-3 text-center">
+                          <td colSpan={12} className="p-3 text-center">
                             {Array.from({ length: 5 }).map((_, i) => (
                               <div
                                 key={i}
@@ -645,7 +742,7 @@ export default function NewMandatePage() {
                         </tr>
                       ) : mandateQueue?.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="p-3 text-center">
+                          <td colSpan={12} className="p-3 text-center">
                             No records found
                           </td>
                         </tr>
@@ -664,15 +761,21 @@ export default function NewMandatePage() {
                                   onCheckedChange={() => toggleRow(q?.id)}
                                 />
                               </td>
+                              <td className="p-3 font-mono text-[13px] text-muted-foreground">
+                                {q?.approvalRef || "—"}
+                              </td>
                               <td className="p-3 font-mono text-[13px]">
-                                {q?.registerNumber}
+                                {q?.accountNumber}
                               </td>
                               <td className="p-3 font-medium text-[13px]">
                                 {q?.holderName}
                               </td>
                               <td className="p-3 text-[13px]">{q?.newBank}</td>
                               <td className="p-3 font-mono text-[13px]">
-                                {q?.accountNumber}
+                                {q?.newAccountNumber}
+                              </td>
+                              <td className="p-3 font-mono text-[13px] text-muted-foreground">
+                                {q?.sortCode}
                               </td>
                               <td className="p-3 font-mono text-[13px] text-muted-foreground">
                                 {q?.dividendNumber}
@@ -681,10 +784,17 @@ export default function NewMandatePage() {
                                 {q?.amount.toLocaleString()}.00
                               </td>
                               <td className="p-3 text-center">
+                                {q?.submittedBy}
+                              </td>
+                              <td className="p-3 text-center">{q?.tier}</td>
+                              <td className="p-3 text-center">
+                                <StatusBadge status={q?.status} />
+                              </td>
+                              {/* <td className="p-3 text-center">
                                 <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px]">
                                   KYC Update
                                 </Badge>
-                              </td>
+                              </td> */}
                             </tr>
                           ),
                         )
@@ -723,7 +833,112 @@ export default function NewMandatePage() {
 
           <TabsContent value="auth" className="space-y-4">
             <div className="space-y-4">
-              <div className="flex justify-end">
+              <div className="flex gap-3 items-end flex-wrap justify-between">
+                <div className="flex gap-3 items-end flex-wrap">
+                  <div className="flex flex-col">
+                    <label className="mrpsl-label">Register</label>
+                    <Select
+                      value={pendingRegister}
+                      onValueChange={(v) => {
+                        setPendingRegister(!v || v === "ALL" ? "" : v);
+                        setPendingDividend("");
+                        setPendingPage(0);
+                      }}
+                    >
+                      <SelectTrigger className="w-48 mrpsl-input">
+                        <SelectValue placeholder="All Registers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingRegisters ? (
+                          <div className="flex justify-center items-center py-10">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          </div>
+                        ) : (
+                          <>
+                            <SelectItem value="ALL">All Registers</SelectItem>
+                            {registersData?.content?.map((r) => (
+                              <SelectItem
+                                key={r?.registerId}
+                                value={r?.symbol ?? ""}
+                              >
+                                <span className="font-bold">
+                                  {r?.registerName}
+                                </span>{" "}
+                                -{" "}
+                                <span className="text-xs translate-y-0.5">
+                                  {r?.symbol}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="mrpsl-label">Dividend Number</label>
+                    <Select
+                      value={pendingDividend}
+                      onValueChange={(v) => {
+                        setPendingDividend(!v || v === "ALL" ? "" : v);
+                        setPendingPage(0);
+                      }}
+                    >
+                      <SelectTrigger className="w-52 mrpsl-input">
+                        <SelectValue placeholder="All Dividends" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {loadingPendingDivNumbers ? (
+                          <div className="flex justify-center items-center py-10">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          </div>
+                        ) : (
+                          <>
+                            <SelectItem value="ALL">
+                              All Dividend Numbers
+                            </SelectItem>
+                            {pendingDivNumbers?.map((d: string) => (
+                              <SelectItem key={d} value={d}>
+                                {d}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="mrpsl-label">Bank</label>
+                    <Select
+                      value={pendingBank}
+                      onValueChange={(v) => setPendingBank(v || "")}
+                    >
+                      <SelectTrigger className="w-44 mrpsl-input">
+                        <SelectValue placeholder="All Banks" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">All Banks</SelectItem>
+                        {pendingBankOptions.map((b) => (
+                          <SelectItem key={b} value={b}>
+                            {b}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <label className="mrpsl-label">Date Range</label>
+                    <DateRangePicker
+                      className="mt-0"
+                      date={pendingDateRange}
+                      setDate={setPendingDateRange}
+                    />
+                  </div>
+                </div>
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -783,6 +998,7 @@ export default function NewMandatePage() {
                           }
                         />
                       </th>
+                      <th className="p-3">PAYMENT REF</th>
                       <th className="p-3">DATE</th>
                       <th className="p-3">ACCOUNT</th>
                       <th className="p-3">HOLDER</th>
@@ -803,6 +1019,9 @@ export default function NewMandatePage() {
                         >
                           <td className="p-3">
                             <div className="h-4 w-4 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-20 bg-muted rounded" />
                           </td>
                           <td className="p-3">
                             <div className="h-4 w-20 bg-muted rounded" />
@@ -845,13 +1064,18 @@ export default function NewMandatePage() {
                               onCheckedChange={() => togglePendingAppr(row.id)}
                             />
                           </td>
+                          <td className="p-3 font-mono text-muted-foreground">
+                            {row.approvalRef || "—"}
+                          </td>
                           <td className="p-3 text-muted-foreground">
                             {formatDate(row.submittedDate)}
                           </td>
                           <td className="p-3 font-mono">{row.accountNumber}</td>
                           <td className="p-3 font-medium">{row.holderName}</td>
                           <td className="p-3">{row.newBank}</td>
-                          <td className="p-3 font-mono">{row.newAccountNumber}</td>
+                          <td className="p-3 font-mono">
+                            {row.newAccountNumber}
+                          </td>
                           <td className="p-3 font-mono text-muted-foreground">
                             {row.dividendNumber}
                           </td>
@@ -873,7 +1097,7 @@ export default function NewMandatePage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={10} className="p-3 text-center">
+                        <td colSpan={11} className="p-3 text-center">
                           No records pending approval.
                         </td>
                       </tr>
@@ -919,6 +1143,111 @@ export default function NewMandatePage() {
                 >
                   <Download className="mr-2 h-4 w-4" /> Download Records
                 </Button>
+              </div>
+
+              <div className="flex gap-3 items-end flex-wrap">
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Register</label>
+                  <Select
+                    value={icuRegister}
+                    onValueChange={(v) => {
+                      setIcuRegister(!v || v === "ALL" ? "" : v);
+                      setIcuDividend("");
+                      setIcuPage(0);
+                    }}
+                  >
+                    <SelectTrigger className="w-48 mrpsl-input">
+                      <SelectValue placeholder="All Registers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loadingRegisters ? (
+                        <div className="flex justify-center items-center py-10">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
+                      ) : (
+                        <>
+                          <SelectItem value="ALL">All Registers</SelectItem>
+                          {registersData?.content?.map((r) => (
+                            <SelectItem
+                              key={r?.registerId}
+                              value={r?.symbol ?? ""}
+                            >
+                              <span className="font-bold">
+                                {r?.registerName}
+                              </span>{" "}
+                              -{" "}
+                              <span className="text-xs translate-y-0.5">
+                                {r?.symbol}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Dividend Number</label>
+                  <Select
+                    value={icuDividend}
+                    onValueChange={(v) => {
+                      setIcuDividend(!v || v === "ALL" ? "" : v);
+                      setIcuPage(0);
+                    }}
+                  >
+                    <SelectTrigger className="w-52 mrpsl-input">
+                      <SelectValue placeholder="All Dividends" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {loadingIcuDivNumbers ? (
+                        <div className="flex justify-center items-center py-10">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
+                      ) : (
+                        <>
+                          <SelectItem value="ALL">
+                            All Dividend Numbers
+                          </SelectItem>
+                          {icuDivNumbers?.map((d: string) => (
+                            <SelectItem key={d} value={d}>
+                              {d}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Bank</label>
+                  <Select
+                    value={icuBank}
+                    onValueChange={(v) => setIcuBank(v || "")}
+                  >
+                    <SelectTrigger className="w-44 mrpsl-input">
+                      <SelectValue placeholder="All Banks" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Banks</SelectItem>
+                      {icuBankOptions.map((b) => (
+                        <SelectItem key={b} value={b}>
+                          {b}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="mrpsl-label">Date Range</label>
+                  <DateRangePicker
+                    className="mt-0"
+                    date={icuDateRange}
+                    setDate={setIcuDateRange}
+                  />
+                </div>
               </div>
 
               {icuApprIds.size > 0 && (
@@ -971,6 +1300,7 @@ export default function NewMandatePage() {
                           }
                         />
                       </th>
+                      <th className="p-3">PAYMENT REF</th>
                       <th className="p-3">DATE</th>
                       <th className="p-3">ACCOUNT</th>
                       <th className="p-3">HOLDER</th>
@@ -991,6 +1321,9 @@ export default function NewMandatePage() {
                         >
                           <td className="p-3">
                             <div className="h-4 w-4 bg-muted rounded" />
+                          </td>
+                          <td className="p-3">
+                            <div className="h-4 w-20 bg-muted rounded" />
                           </td>
                           <td className="p-3">
                             <div className="h-4 w-20 bg-muted rounded" />
@@ -1033,13 +1366,18 @@ export default function NewMandatePage() {
                               onCheckedChange={() => toggleIcuAppr(row.id)}
                             />
                           </td>
-                          <td className="p-3 text-muted-foreground">
-                            {row.date}
+                          <td className="p-3 font-mono text-muted-foreground">
+                            {row.approvalRef || "—"}
                           </td>
-                          <td className="p-3 font-mono">{row.account}</td>
+                          <td className="p-3 text-muted-foreground">
+                            {formatDate(row.submittedDate)}
+                          </td>
+                          <td className="p-3 font-mono">{row.accountNumber}</td>
                           <td className="p-3 font-medium">{row.holderName}</td>
                           <td className="p-3">{row.newBank}</td>
-                          <td className="p-3 font-mono">{row.accountNumber}</td>
+                          <td className="p-3 font-mono">
+                            {row.newAccountNumber}
+                          </td>
                           <td className="p-3 font-mono text-muted-foreground">
                             {row.dividendNumber}
                           </td>
@@ -1062,7 +1400,7 @@ export default function NewMandatePage() {
                     ) : (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={11}
                           className="p-8 text-center text-muted-foreground"
                         >
                           No items awaiting ICU sign-off.
@@ -1176,9 +1514,17 @@ export default function NewMandatePage() {
               <div className="bg-muted/30 rounded-xl border p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
+                    <div className="mrpsl-section-title font-semibold text-[13px]">
+                      Payment Ref
+                    </div>
+                    <div className="font-mono text-sm mt-0.5">
+                      {selected.approvalRef || "—"}
+                    </div>
+                  </div>
+                  <div>
                     <div className="mrpsl-section-title">Account</div>
                     <div className="font-mono font-bold mt-0.5">
-                      {selected.account}
+                      {selected.accountNumber ?? selected.account}
                     </div>
                   </div>
                   <div>
@@ -1202,7 +1548,7 @@ export default function NewMandatePage() {
                       New Account No
                     </div>
                     <div className="font-mono text-sm mt-0.5">
-                      {selected.accountNumber ?? selected.accountNo}
+                      {selected.newAccountNumber ?? selected.accountNo}
                     </div>
                   </div>
                   <div>
@@ -1232,12 +1578,13 @@ export default function NewMandatePage() {
                   {approvalChainSteps(selected, isIcu).map((step, i) => (
                     <div key={i} className="flex items-center gap-3">
                       <div
-                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${step.done
-                          ? "bg-green-100"
-                          : step.pending
-                            ? "bg-amber-200 animate-pulse"
-                            : "border-2 border-muted bg-background"
-                          }`}
+                        className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${
+                          step.done
+                            ? "bg-green-100"
+                            : step.pending
+                              ? "bg-amber-200 animate-pulse"
+                              : "border-2 border-muted bg-background"
+                        }`}
                       >
                         {step.done && (
                           <Check className="h-3 w-3 text-green-600" />

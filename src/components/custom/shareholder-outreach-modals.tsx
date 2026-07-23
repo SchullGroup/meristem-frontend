@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -402,6 +403,35 @@ export function StickyLabelModal({
   );
 }
 
+/* ─── Email content helpers ────────────────────────── */
+
+function getDefaultSubject({
+  isIPORefund, isIPO, isRights, companyName, offerName,
+}: { isIPORefund: boolean; isIPO: boolean; isRights: boolean; companyName: string; offerName: string }) {
+  if (isIPORefund) return `${companyName} — IPO Refund Notice`;
+  if (isIPO) return `${companyName} — IPO Allotment Notice`;
+  if (isRights) return `${companyName} — Rights Issue Circular`;
+  return `${companyName} — ${offerName} Allotment Notice`;
+}
+
+function getDefaultOpeningText({
+  isIPORefund, isIPO, isRights, companyName, offerName, closeDate, allotDate,
+}: { isIPORefund: boolean; isIPO: boolean; isRights: boolean; companyName: string; offerName: string; closeDate?: string; allotDate?: string }) {
+  if (isIPORefund) return `We wish to inform you that a refund has been initiated for your subscription to the ${companyName} Initial Public Offer (IPO). Please find below the details of your refund for your records.`;
+  if (isIPO) return `We are pleased to inform you that your application for the ${companyName} Initial Public Offer (IPO) has been duly processed. Shares have been allotted to your account in accordance with the SEC-approved Basis of Allotment, effective ${allotDate ?? "—"}.`;
+  if (isRights) return `The ${companyName} Rights Issue is now open and will close on ${closeDate ?? "—"}.`;
+  return `We are pleased to inform you that the ${companyName} ${offerName} has been duly approved and bonus shares have been allotted to your account with effect from ${allotDate ?? "—"}.`;
+}
+
+function getDefaultBodyText({
+  isIPORefund, isIPO, isRights, issuePrice, denominator,
+}: { isIPORefund: boolean; isIPO: boolean; isRights: boolean; issuePrice?: string; denominator: number }) {
+  if (isIPORefund) return `Your refund will be processed electronically via NIBSS to the bank account registered with your stockbroker or Receiving Agent. Please allow 5–10 business days for the funds to reflect in your account. If you have not received your refund after this period, kindly contact us using the details below.\n\nPlease note that all completed documentation must be submitted through your stockbroker or the Registrar.`;
+  if (isIPO) return `The allotment was carried out in accordance with the SEC-approved Basis of Allotment. Any excess subscription monies will be refunded electronically to the bank account details registered with your stockbroker or Receiving Agent.\n\nPlease note that all completed documentation must be submitted through your stockbroker or the Registrar.\n\nIt will be appreciated if you indicate your complete and valid CSCS details (i.e. your CHN and stockbroker details) as this is where your purchased units, upon receipt of the requisite SEC approval after the Offer Closure, will be credited thereto.`;
+  if (isRights) return `The offer is on the basis of 1 new ordinary share for every ${denominator} ordinary shares held at the rate of ₦${issuePrice ?? "—"} per share as at the close of business on the qualification date. Kindly visit myrightsdata.meristemregistrars.com to download your personalised Rights Acceptance form.\n\nPlease note that all completed subscription forms and corresponding payments must be submitted through your stockbroker or the Registrar.\n\nIt will be appreciated if you indicate your complete and valid CSCS details (i.e. your CHN and stockbroker details) as this is where your purchased units, upon receipt of the requisite SEC approval after the Offer Closure, will be credited thereto.`;
+  return `The bonus issue is on the basis of 1 new ordinary share for every ${denominator} ordinary shares held as at the qualification date. Your account has been credited with the additional shares accordingly.\n\nPlease note that all completed documentation must be submitted through your stockbroker or the Registrar.\n\nIt will be appreciated if you indicate your complete and valid CSCS details (i.e. your CHN and stockbroker details) as this is where your allocated units, upon receipt of the requisite approval, will be credited thereto.`;
+}
+
 /* ─── Email Preview Modal ------───────────────────── */
 
 function EmailBody({
@@ -417,7 +447,10 @@ function EmailBody({
   allotDate,
   contactEmail,
   headerImageUrl,
+  companyLogoUrl,
   circularLinkUrl,
+  customOpeningText,
+  customBodyText,
 }: {
   isRights: boolean;
   isIPO?: boolean;
@@ -431,7 +464,10 @@ function EmailBody({
   allotDate?: string;
   contactEmail: string;
   headerImageUrl?: string | null;
+  companyLogoUrl?: string | null;
   circularLinkUrl?: string;
+  customOpeningText?: string;
+  customBodyText?: string;
 }) {
   const denominator = parseFloat(
     ratio.split(":")[1]?.trim() || (isRights ? "7" : "4"),
@@ -496,6 +532,23 @@ function EmailBody({
 
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>
+      {/* ── Company logo header ── */}
+      {companyLogoUrl && (
+        <div
+          style={{
+            background: "#ffffff",
+            padding: "18px 32px 14px",
+            textAlign: "center",
+            borderBottom: "1px solid #e5e7eb",
+          }}
+        >
+          <img
+            src={companyLogoUrl}
+            alt=""
+            style={{ maxHeight: "60px", maxWidth: "200px", objectFit: "contain", display: "inline-block" }}
+          />
+        </div>
+      )}
       {/* ── Green offer banner ── */}
       <div
         style={{
@@ -554,38 +607,44 @@ function EmailBody({
         </p>
 
         {/* Opening paragraph */}
-        <p style={{ ...baseFont, textAlign: "justify", marginBottom: "14px" }}>
-          {isIPORefund ? (
-            <>
-              We wish to inform you that a refund has been initiated for your
-              subscription to the{" "}
-              <strong>{companyName} Initial Public Offer (IPO)</strong>. Please
-              find below the details of your refund for your records.
-            </>
-          ) : isIPO ? (
-            <>
-              We are pleased to inform you that your application for the{" "}
-              <strong>{companyName} Initial Public Offer (IPO)</strong> has been
-              duly processed. Shares have been allotted to your account in
-              accordance with the SEC-approved Basis of Allotment, effective{" "}
-              <strong>{allotDate ?? "—"}</strong>.
-            </>
-          ) : isRights ? (
-            <>
-              The <strong>{companyName} Rights Issue is now open</strong> and
-              will close on <strong>{closeDate ?? "—"}</strong>.
-            </>
-          ) : (
-            <>
-              We are pleased to inform you that the{" "}
-              <strong>
-                {companyName} {offerName} has been duly approved
-              </strong>{" "}
-              and bonus shares have been allotted to your account with effect
-              from <strong>{allotDate ?? "—"}</strong>.
-            </>
-          )}
-        </p>
+        {customOpeningText != null ? (
+          <p style={{ ...baseFont, textAlign: "justify", marginBottom: "14px", whiteSpace: "pre-wrap" }}>
+            {customOpeningText}
+          </p>
+        ) : (
+          <p style={{ ...baseFont, textAlign: "justify", marginBottom: "14px" }}>
+            {isIPORefund ? (
+              <>
+                We wish to inform you that a refund has been initiated for your
+                subscription to the{" "}
+                <strong>{companyName} Initial Public Offer (IPO)</strong>. Please
+                find below the details of your refund for your records.
+              </>
+            ) : isIPO ? (
+              <>
+                We are pleased to inform you that your application for the{" "}
+                <strong>{companyName} Initial Public Offer (IPO)</strong> has been
+                duly processed. Shares have been allotted to your account in
+                accordance with the SEC-approved Basis of Allotment, effective{" "}
+                <strong>{allotDate ?? "—"}</strong>.
+              </>
+            ) : isRights ? (
+              <>
+                The <strong>{companyName} Rights Issue is now open</strong> and
+                will close on <strong>{closeDate ?? "—"}</strong>.
+              </>
+            ) : (
+              <>
+                We are pleased to inform you that the{" "}
+                <strong>
+                  {companyName} {offerName} has been duly approved
+                </strong>{" "}
+                and bonus shares have been allotted to your account with effect
+                from <strong>{allotDate ?? "—"}</strong>.
+              </>
+            )}
+          </p>
+        )}
 
         <p style={{ ...baseFont, marginBottom: "16px" }}>
           Kindly find below the details of your{" "}
@@ -683,94 +742,102 @@ function EmailBody({
         </div>
 
         {/* Body copy */}
-        <p
-          style={{
-            ...baseFont,
-            fontSize: "14px",
-            textAlign: "justify",
-            marginBottom: "12px",
-          }}
-        >
-          {isIPORefund ? (
-            <>
-              Your refund will be processed electronically via NIBSS to the
-              bank account registered with your stockbroker or Receiving Agent.
-              Please allow <strong>5–10 business days</strong> for the funds to
-              reflect in your account. If you have not received your refund
-              after this period, kindly contact us using the details below.
-            </>
-          ) : isIPO ? (
-            <>
-              The allotment was carried out in accordance with the{" "}
-              <strong>SEC-approved Basis of Allotment</strong>. Any excess
-              subscription monies will be refunded electronically to the bank
-              account details registered with your stockbroker or Receiving
-              Agent.
-            </>
-          ) : isRights ? (
-            <>
-              The offer is on the basis of{" "}
-              <strong>
-                1 new ordinary share for every {denominator} ordinary shares
-              </strong>{" "}
-              held at the rate of{" "}
-              <strong>₦{issuePrice ?? "—"} per share</strong> as at the close of
-              business on the qualification date. Kindly visit{" "}
-              <span
-                style={{
-                  color: "#0077cc",
-                  textDecoration: "underline",
-                  cursor: "default",
-                }}
-              >
-                myrightsdata.meristemregistrars.com
-              </span>{" "}
-              to download your personalised Rights Acceptance form.
-            </>
-          ) : (
-            <>
-              The bonus issue is on the basis of{" "}
-              <strong>
-                1 new ordinary share for every {denominator} ordinary shares
-              </strong>{" "}
-              held as at the qualification date. Your account has been credited
-              with the additional shares accordingly.
-            </>
-          )}
-        </p>
+        {customBodyText != null ? (
+          <p style={{ ...baseFont, fontSize: "14px", textAlign: "justify", marginBottom: "22px", whiteSpace: "pre-wrap" }}>
+            {customBodyText}
+          </p>
+        ) : (
+          <>
+            <p
+              style={{
+                ...baseFont,
+                fontSize: "14px",
+                textAlign: "justify",
+                marginBottom: "12px",
+              }}
+            >
+              {isIPORefund ? (
+                <>
+                  Your refund will be processed electronically via NIBSS to the
+                  bank account registered with your stockbroker or Receiving Agent.
+                  Please allow <strong>5–10 business days</strong> for the funds to
+                  reflect in your account. If you have not received your refund
+                  after this period, kindly contact us using the details below.
+                </>
+              ) : isIPO ? (
+                <>
+                  The allotment was carried out in accordance with the{" "}
+                  <strong>SEC-approved Basis of Allotment</strong>. Any excess
+                  subscription monies will be refunded electronically to the bank
+                  account details registered with your stockbroker or Receiving
+                  Agent.
+                </>
+              ) : isRights ? (
+                <>
+                  The offer is on the basis of{" "}
+                  <strong>
+                    1 new ordinary share for every {denominator} ordinary shares
+                  </strong>{" "}
+                  held at the rate of{" "}
+                  <strong>₦{issuePrice ?? "—"} per share</strong> as at the close of
+                  business on the qualification date. Kindly visit{" "}
+                  <span
+                    style={{
+                      color: "#0077cc",
+                      textDecoration: "underline",
+                      cursor: "default",
+                    }}
+                  >
+                    myrightsdata.meristemregistrars.com
+                  </span>{" "}
+                  to download your personalised Rights Acceptance form.
+                </>
+              ) : (
+                <>
+                  The bonus issue is on the basis of{" "}
+                  <strong>
+                    1 new ordinary share for every {denominator} ordinary shares
+                  </strong>{" "}
+                  held as at the qualification date. Your account has been credited
+                  with the additional shares accordingly.
+                </>
+              )}
+            </p>
 
-        <p
-          style={{
-            ...baseFont,
-            fontSize: "14px",
-            textAlign: "justify",
-            marginBottom: "12px",
-          }}
-        >
-          Please note that all completed{" "}
-          {isRights
-            ? "subscription forms and corresponding payments"
-            : "documentation"}{" "}
-          must be submitted through your stockbroker or the Registrar.
-        </p>
+            <p
+              style={{
+                ...baseFont,
+                fontSize: "14px",
+                textAlign: "justify",
+                marginBottom: "12px",
+              }}
+            >
+              Please note that all completed{" "}
+              {isRights
+                ? "subscription forms and corresponding payments"
+                : "documentation"}{" "}
+              must be submitted through your stockbroker or the Registrar.
+            </p>
 
-        <p
-          style={{
-            ...baseFont,
-            fontSize: "14px",
-            textAlign: "justify",
-            marginBottom: "22px",
-          }}
-        >
-          <strong>
-            It will be appreciated if you indicate your complete and valid CSCS
-            details (i.e. your CHN and stockbroker details) as this is where
-            your {isRights ? "purchased" : "allocated"} units, upon receipt of
-            the requisite{" "}
-            {isRights ? "SEC approval after the Offer Closure" : "approval"},
-            will be credited thereto.
-          </strong>
-        </p>
+            <p
+              style={{
+                ...baseFont,
+                fontSize: "14px",
+                textAlign: "justify",
+                marginBottom: "22px",
+              }}
+            >
+              <strong>
+                It will be appreciated if you indicate your complete and valid CSCS
+                details (i.e. your CHN and stockbroker details) as this is where
+                your {isRights ? "purchased" : "allocated"} units, upon receipt of
+                the requisite{" "}
+                {isRights ? "SEC approval after the Offer Closure" : "approval"},
+                will be credited thereto.
+              </strong>
+            </p>
+          </>
+        )}
 
         {/* ── Green Subscribe button — rights only ── */}
         {isRights && (
@@ -903,13 +970,27 @@ export function EmailPreviewModal({
 }: EmailPreviewModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   const [circularLinkUrl, setCircularLinkUrl] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
   const isIPO = offerType === "ipo";
   const isIPORefund = offerType === "ipo-refund";
+  const denominator = parseFloat(ratio.split(":")[1]?.trim() || (isRights ? "7" : "4"));
+
+  const [subject, setSubject] = useState(() =>
+    getDefaultSubject({ isIPORefund, isIPO, isRights, companyName, offerName })
+  );
+  const [openingText, setOpeningText] = useState(() =>
+    getDefaultOpeningText({ isIPORefund, isIPO, isRights, companyName, offerName, closeDate, allotDate })
+  );
+  const [bodyText, setBodyText] = useState(() =>
+    getDefaultBodyText({ isIPORefund, isIPO, isRights, issuePrice, denominator })
+  );
 
   const { mutateAsync: emailShareholders, isPending } = useEmailShareholders();
 
@@ -917,8 +998,12 @@ export function EmailPreviewModal({
     if (!v) {
       setStep(1);
       setHeaderImageUrl(null);
+      setCompanyLogoUrl(null);
       setCircularLinkUrl("");
       setRefundReason("");
+      setSubject(getDefaultSubject({ isIPORefund, isIPO, isRights, companyName, offerName }));
+      setOpeningText(getDefaultOpeningText({ isIPORefund, isIPO, isRights, companyName, offerName, closeDate, allotDate }));
+      setBodyText(getDefaultBodyText({ isIPORefund, isIPO, isRights, issuePrice, denominator }));
     }
     onOpenChange(v);
   };
@@ -968,6 +1053,26 @@ export function EmailPreviewModal({
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const urlResponse = await GetImageUrl(file, "companyLogos");
+      if (urlResponse?.type === "success") {
+        setCompanyLogoUrl(urlResponse.result);
+      } else {
+        toast.error(urlResponse.result || "Failed to upload logo. Please try again.");
+      }
+    } catch (error) {
+      const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
+      toast.error(errorMessage?.message || "Failed to upload logo. Please try again.");
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
+
   const handleSend = async () => {
     if (mode === "bonus") {
       if (!issueId) {
@@ -997,6 +1102,10 @@ export function EmailPreviewModal({
       toast.success(`Refund notices dispatched to ${totalCount.toLocaleString()} holders.`);
       resetAndClose(false);
       onSent?.();
+    } else if (mode === "rights-circular") {
+      toast.success(`Circular dispatched to ${totalCount.toLocaleString()} shareholders.`);
+      resetAndClose(false);
+      onSent?.();
     }
   };
 
@@ -1019,7 +1128,7 @@ export function EmailPreviewModal({
           <p className="text-[13px] text-muted-foreground mt-0.5">
             Step {step} of 2 &mdash;{" "}
             {step === 1
-              ? isIPORefund ? "Set refund reason, header & link" : "Customise header & link"
+              ? isIPORefund ? "Set refund reason, header, link & email content" : "Customise header, link & email content"
               : "Review template before sending"}{" "}
             &middot;{" "}
             <span className="font-semibold text-foreground">{companyName}</span>
@@ -1035,7 +1144,7 @@ export function EmailPreviewModal({
               >
                 1
               </span>
-              {isIPORefund ? "Reason & Header" : "Header & Link"}
+              {isIPORefund ? "Reason & Content" : "Setup & Content"}
             </div>
             <div className="flex-1 h-px bg-border mx-1" />
             <div
@@ -1086,18 +1195,58 @@ export function EmailPreviewModal({
               </div>
             )}
 
+            {/* Company logo */}
+            <div className="space-y-2">
+              <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Company Logo{" "}
+                <span className="text-[12px] normal-case font-normal">(optional)</span>
+              </label>
+              <p className="text-[13px] text-muted-foreground">
+                Company logo shown at the top of the email. Recommended: square or landscape, max 200&times;80 px.
+              </p>
+              <div
+                className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-[#004023]/50 hover:bg-muted/30 transition-colors"
+                onClick={() => logoInputRef.current?.click()}
+              >
+                {companyLogoUrl ? (
+                  <div className="space-y-2">
+                    <img src={companyLogoUrl} alt="Logo preview" className="max-h-16 max-w-45 mx-auto object-contain rounded" />
+                    <p className="text-[13px] text-muted-foreground">Click to replace</p>
+                  </div>
+                ) : logoUploading ? (
+                  <div className="space-y-2">
+                    <Loader2 className="h-6 w-6 text-muted-foreground animate-spin mx-auto" />
+                    <p className="text-[13px] font-medium text-muted-foreground">Uploading…</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <ImageIcon className="h-6 w-6 mx-auto text-muted-foreground/50" />
+                    <p className="text-[13px] font-medium">Click to upload company logo</p>
+                    <p className="text-[12px] text-muted-foreground">PNG, JPG or SVG · max 2 MB</p>
+                  </div>
+                )}
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+              </div>
+              {companyLogoUrl && (
+                <button
+                  className="text-[13px] text-muted-foreground hover:text-destructive transition-colors"
+                  onClick={() => { setCompanyLogoUrl(null); if (logoInputRef.current) logoInputRef.current.value = ""; }}
+                >
+                  Remove logo
+                </button>
+              )}
+            </div>
+
             {/* Header image */}
             <div className="space-y-2">
               <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Header Image{" "}
+                Header Banner{" "}
                 <span className="text-[12px] normal-case font-normal">
                   (optional)
                 </span>
               </label>
               <p className="text-[13px] text-muted-foreground">
-                Upload a branded banner that will appear at the top of the
-                email. Recommended: 600×120 px. If omitted the default green
-                header is used.
+                Wide branded banner below the logo. Recommended: 600×120 px. If omitted the default green header is used.
               </p>
               <div
                 className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-[#004023]/50 hover:bg-muted/30 transition-colors"
@@ -1175,6 +1324,43 @@ export function EmailPreviewModal({
                 className="h-9 text-[13px] font-mono"
               />
             </div>
+
+            {/* Email content */}
+            <div className="border-t border-border pt-5 space-y-4">
+              <div>
+                <p className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Email Content</p>
+                <p className="text-[13px] text-muted-foreground mt-0.5">
+                  Customise the text sent to each shareholder. Placeholders in the details card are filled automatically per recipient.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Subject</label>
+                <Input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="h-9 text-[13px]"
+                  placeholder="Email subject line…"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Opening Paragraph</label>
+                <Textarea
+                  value={openingText}
+                  onChange={(e) => setOpeningText(e.target.value)}
+                  rows={3}
+                  className="text-[13px] leading-relaxed resize-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Body Copy</label>
+                <Textarea
+                  value={bodyText}
+                  onChange={(e) => setBodyText(e.target.value)}
+                  rows={7}
+                  className="text-[13px] leading-relaxed resize-none"
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -1185,6 +1371,10 @@ export function EmailPreviewModal({
               <span className="font-semibold">Template preview</span> —
               placeholders in <em>italics</em> will be replaced with each
               shareholder&apos;s actual data when sent.
+            </div>
+            <div className="px-5 py-2.5 bg-muted/20 border-b flex items-center gap-3 text-[13px]">
+              <span className="text-muted-foreground font-medium shrink-0">Subject:</span>
+              <span className="text-foreground">{subject || <span className="italic text-muted-foreground">No subject</span>}</span>
             </div>
             <EmailBody
               isRights={isRights}
@@ -1199,7 +1389,10 @@ export function EmailPreviewModal({
               allotDate={allotDate}
               contactEmail={contactEmail}
               headerImageUrl={headerImageUrl}
+              companyLogoUrl={companyLogoUrl}
               circularLinkUrl={circularLinkUrl}
+              customOpeningText={openingText}
+              customBodyText={bodyText}
             />
           </div>
         )}

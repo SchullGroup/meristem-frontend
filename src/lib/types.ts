@@ -135,6 +135,8 @@ export interface DividendDeclaration {
   grossLiability: number;
   whtAmount: number;
   netLiability: number;
+  totalPaid?: number;
+  totalUnpaid?: number;
   tier: 1 | 2 | 3 | 4;
   registerSymbol: string;
   status:

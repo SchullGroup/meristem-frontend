@@ -15,6 +15,7 @@ import {
 import { DataErrorState } from "../ipo/loaders";
 import { EntitlementTableSkeleton } from "../rights-issue/loaders";
 import RegisterSelect from "../register-select";
+import StatusBadge from "../status-badge";
 import { cn } from "@/lib/utils";
 
 interface ManualMarkoffProps {
@@ -270,9 +271,7 @@ export default function ManualMarkoff({
                     <div>
                       <span className="text-muted-foreground">Status</span>
                       <div className="mt-0.5">
-                        <span className="bg-amber-100 text-amber-800 text-[12px] px-2 py-0.5 rounded uppercase font-medium">
-                          {warrant.status || "UNPAID"}
-                        </span>
+                        <StatusBadge status={warrant.status || "UNPAID"} />
                       </div>
                     </div>
                   </div>

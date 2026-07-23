@@ -10,6 +10,7 @@ import { DematCooApproval } from "@/components/custom/cert-dematerialization/dem
 import { DematIcuApproval } from "@/components/custom/cert-dematerialization/demat-icu-approval-new";
 import { DematLodgment } from "@/components/custom/cert-dematerialization/demat-lodgment-new";
 import { DematReversal } from "@/components/custom/cert-dematerialization/demat-reversal-new";
+import { DematHistory } from "@/components/custom/cert-dematerialization/demat-history";
 import {
   SEED_REQUESTS,
   DematRequest,
@@ -18,6 +19,8 @@ import {
 
 export default function DematerializationPage() {
   const [requests, setRequests] = useState<DematRequest[]>(SEED_REQUESTS);
+  const [activeTab, setActiveTab] = useState("verification");
+  const [captureSearchCert, setCaptureSearchCert] = useState("");
 
   const pendingHod = requests.filter((r) => r.status === "PENDING_HOD").length;
   const pendingCoo = requests.filter((r) => r.status === "PENDING_COO").length;
@@ -70,12 +73,23 @@ export default function DematerializationPage() {
     );
   }
 
-  function lodgeRequest(id: string) {
+  function lodgeRequest(id: string, date: string) {
     setRequests((prev) =>
       prev.map((r) =>
-        r.id === id ? { ...r, status: "LODGED" as DematStatus } : r,
+        r.id === id ? { ...r, status: "LODGED" as DematStatus, lodgmentDate: date } : r,
       ),
     );
+  }
+
+  function delodgeRequest(id: string) {
+    setRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "DELODGED" as DematStatus } : r)),
+    );
+  }
+
+  function handleCertificateClick(certNo: string) {
+    setCaptureSearchCert(certNo);
+    setActiveTab("capture");
   }
 
   function createRequest(req: DematRequest) {
@@ -101,7 +115,7 @@ export default function DematerializationPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="verification" className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab((v as string) || "verification")} className="w-full">
         <TabsList className="flex flex-wrap gap-1 h-auto mb-5">
           <TabsTrigger
             value="verification"
@@ -156,17 +170,24 @@ export default function DematerializationPage() {
           >
             Reversal
           </TabsTrigger>
+          <TabsTrigger
+            value="history"
+            className="gap-1.5 cursor-pointer px-3 py-2"
+          >
+            History
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="verification">
-          <DematVerification />
+          <DematVerification onCertificateClick={handleCertificateClick} />
         </TabsContent>
 
-        <TabsContent value="capture">
+        <TabsContent value="capture" keepMounted>
           <DematCertificateCapture
             requests={requests}
             onCreateRequest={createRequest}
             onEditRequest={editRequest}
+            initialCertNo={captureSearchCert}
           />
         </TabsContent>
 
@@ -195,11 +216,15 @@ export default function DematerializationPage() {
         </TabsContent>
 
         <TabsContent value="lodgment">
-          <DematLodgment requests={requests} onLodge={lodgeRequest} />
+          <DematLodgment requests={requests} onLodge={lodgeRequest} onDelodge={delodgeRequest} />
         </TabsContent>
 
         <TabsContent value="reversal">
           <DematReversal requests={requests} />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <DematHistory requests={requests} />
         </TabsContent>
       </Tabs>
     </div>

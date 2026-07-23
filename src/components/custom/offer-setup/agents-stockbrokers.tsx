@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Save, Users, Building2, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Save,
+  Users,
+  Building2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { format } from "date-fns";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -195,9 +202,11 @@ function AgentPanel({
   const [form, setForm] = useState<Omit<Agent, "id">>(EMPTY_AGENT);
   const [isNew, setIsNew] = useState(false);
 
-  const { data: apiAgents, isLoading: agentsLoading } = useGetAgents(
-    { type: apiAgentType, status: "ACTIVE", size: 200 },
-  );
+  const { data: apiAgents, isLoading: agentsLoading } = useGetAgents({
+    type: apiAgentType,
+    status: "ACTIVE",
+    size: 200,
+  });
 
   const offerAgents = agents.filter((a) => a.offerId === selectedOffer.id);
 
@@ -208,7 +217,12 @@ function AgentPanel({
 
   const openNew = () => {
     setSelected(null);
-    setForm({ ...EMPTY_AGENT, agentType, offerId: selectedOffer.id, offerValue: selectedOffer.offerPrice });
+    setForm({
+      ...EMPTY_AGENT,
+      agentType,
+      offerId: selectedOffer.id,
+      offerValue: selectedOffer.offerPrice,
+    });
     setIsNew(true);
   };
 
@@ -230,7 +244,7 @@ function AgentPanel({
       toast.success(`${agentType} added.`);
     } else if (selected) {
       setAgents((prev) =>
-        prev.map((a) => (a.id === selected.id ? { ...a, ...form } : a))
+        prev.map((a) => (a.id === selected.id ? { ...a, ...form } : a)),
       );
       toast.success("Record updated.");
     }
@@ -238,8 +252,10 @@ function AgentPanel({
     setIsNew(false);
   };
 
-  const set = <K extends keyof Omit<Agent, "id">>(k: K, v: Omit<Agent, "id">[K]) =>
-    setForm((prev) => ({ ...prev, [k]: v }));
+  const set = <K extends keyof Omit<Agent, "id">>(
+    k: K,
+    v: Omit<Agent, "id">[K],
+  ) => setForm((prev) => ({ ...prev, [k]: v }));
 
   const showForm = selected !== null || isNew;
 
@@ -250,8 +266,14 @@ function AgentPanel({
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             {agentType}s ({offerAgents.length})
           </span>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openNew}>
-            <Plus className="h-3.5 w-3.5 mr-1" />Add
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={openNew}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Add
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
@@ -290,10 +312,12 @@ function AgentPanel({
         {!showForm ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
             <Users className="h-10 w-10 text-muted-foreground/30" />
-            <p className="font-medium text-sm">No {agentType.toLowerCase()} selected</p>
+            <p className="font-medium text-sm">
+              No {agentType.toLowerCase()} selected
+            </p>
             <p className="text-xs text-muted-foreground max-w-xs">
-              Select a {agentType.toLowerCase()} from the left panel to view or edit their
-              details, or click Add to create a new one.
+              Select a {agentType.toLowerCase()} from the left panel to view or
+              edit their details, or click Add to create a new one.
             </p>
           </div>
         ) : (
@@ -302,7 +326,9 @@ function AgentPanel({
               <p className="font-semibold text-sm">
                 {isNew ? `New ${agentType}` : selected?.name}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{selectedOffer.name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {selectedOffer.name}
+              </p>
             </div>
 
             <div className="flex-1 p-5 overflow-y-auto">
@@ -315,7 +341,9 @@ function AgentPanel({
                   <Select
                     value={form.name}
                     onValueChange={(v) => {
-                      const picked = apiAgents?.content.find((a) => a.name === v);
+                      const picked = apiAgents?.content.find(
+                        (a) => a.name === v,
+                      );
                       if (picked) handleSelectApiAgent(picked);
                     }}
                   >
@@ -345,7 +373,9 @@ function AgentPanel({
                     Agent Type
                   </label>
                   <div className="h-9 flex items-center px-3 rounded-lg border border-input bg-muted/40 text-sm text-muted-foreground">
-                    {form.agentType || <span className="italic">Auto-filled on selection</span>}
+                    {form.agentType || (
+                      <span className="italic">Auto-filled on selection</span>
+                    )}
                   </div>
                 </div>
 
@@ -404,7 +434,9 @@ function AgentPanel({
                     className="mrpsl-input h-9 w-full"
                     placeholder="0"
                     value={form.totalAmountPaid || ""}
-                    onChange={(e) => set("totalAmountPaid", Number(e.target.value))}
+                    onChange={(e) =>
+                      set("totalAmountPaid", Number(e.target.value))
+                    }
                   />
                 </div>
 
@@ -420,10 +452,13 @@ function AgentPanel({
                     className="mrpsl-input h-9 w-full"
                     placeholder="0.00"
                     value={form.commissionRate || ""}
-                    onChange={(e) => set("commissionRate", Number(e.target.value))}
+                    onChange={(e) =>
+                      set("commissionRate", Number(e.target.value))
+                    }
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Used for agent commission calculation in Return Money. Leave 0 if not applicable.
+                    Used for agent commission calculation in Return Money. Leave
+                    0 if not applicable.
                   </p>
                 </div>
               </div>
@@ -433,7 +468,10 @@ function AgentPanel({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setSelected(null); setIsNew(false); }}
+                onClick={() => {
+                  setSelected(null);
+                  setIsNew(false);
+                }}
               >
                 Cancel
               </Button>
@@ -451,7 +489,8 @@ function AgentPanel({
 
 export function AgentsStockbrokers() {
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
-  const selectedOffer = MOCK_PUBLIC_OFFERS.find((o) => o.id === selectedOfferId) ?? null;
+  const selectedOffer =
+    MOCK_PUBLIC_OFFERS.find((o) => o.id === selectedOfferId) ?? null;
 
   return (
     <div className="space-y-5">
@@ -463,13 +502,18 @@ export function AgentsStockbrokers() {
             <span className="text-sm font-medium">Select Offer</span>
           </div>
           <div className="flex-1 min-w-60">
-            <Select value={selectedOfferId} onValueChange={(v) => setSelectedOfferId(v ?? "")}>
-              <SelectTrigger className="h-9 w-full max-w-sm">
+            <Select
+              value={selectedOfferId}
+              onValueChange={(v) => setSelectedOfferId(v ?? "")}
+            >
+              <SelectTrigger className="h-9 w-full max-w-sm cursor-pointer">
                 <SelectValue placeholder="Choose a public offer to configure agents for…" />
               </SelectTrigger>
               <SelectContent>
                 {MOCK_PUBLIC_OFFERS.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                  <SelectItem key={o.id} value={o.id}>
+                    {o.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -482,9 +526,13 @@ export function AgentsStockbrokers() {
               </div>
               <div>
                 <span className="mrpsl-label mr-1">Price:</span>
-                <span className="font-mono font-semibold">₦{selectedOffer.offerPrice.toFixed(2)}</span>
+                <span className="font-mono font-semibold">
+                  ₦{selectedOffer.offerPrice.toFixed(2)}
+                </span>
               </div>
-              <Badge className={`border-0 text-[11px] ${STATUS_COLORS[selectedOffer.status]}`}>
+              <Badge
+                className={`border-0 text-[11px] ${STATUS_COLORS[selectedOffer.status]}`}
+              >
                 {selectedOffer.status}
               </Badge>
             </div>
@@ -492,7 +540,8 @@ export function AgentsStockbrokers() {
           {!selectedOffer && (
             <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              Select a public offer above to configure its receiving agents and stockbrokers.
+              Select a public offer above to configure its receiving agents and
+              stockbrokers.
             </div>
           )}
         </div>
@@ -502,10 +551,12 @@ export function AgentsStockbrokers() {
       {!selectedOffer ? (
         <Card className="mrpsl-card p-16 flex flex-col items-center justify-center gap-3 text-center">
           <Users className="h-10 w-10 text-muted-foreground/20" />
-          <p className="font-medium text-sm text-muted-foreground">No offer selected</p>
+          <p className="font-medium text-sm text-muted-foreground">
+            No offer selected
+          </p>
           <p className="text-xs text-muted-foreground max-w-sm">
-            Choose a public offer from the selector above to view and configure its receiving
-            agents and stockbrokers.
+            Choose a public offer from the selector above to view and configure
+            its receiving agents and stockbrokers.
           </p>
         </Card>
       ) : (
@@ -513,32 +564,47 @@ export function AgentsStockbrokers() {
           <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5 mb-4">
             <TabsTrigger
               value="receiving-agents"
-              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all cursor-pointer"
             >
               Receiving Agents
             </TabsTrigger>
             <TabsTrigger
               value="banks"
-              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all cursor-pointer"
             >
               Banks
             </TabsTrigger>
             <TabsTrigger
               value="stockbrokers"
-              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+              className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all cursor-pointer"
             >
               Stockbrokers
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="receiving-agents">
-            <AgentPanel agents={MOCK_RECEIVING_AGENTS} agentType="Receiving Agent" apiAgentType="COLLECTING_AGENT" selectedOffer={selectedOffer} />
+            <AgentPanel
+              agents={MOCK_RECEIVING_AGENTS}
+              agentType="Receiving Agent"
+              apiAgentType="COLLECTING_AGENT"
+              selectedOffer={selectedOffer}
+            />
           </TabsContent>
           <TabsContent value="banks">
-            <AgentPanel agents={MOCK_AGENTS} agentType="Bank" apiAgentType="BANK" selectedOffer={selectedOffer} />
+            <AgentPanel
+              agents={MOCK_AGENTS}
+              agentType="Bank"
+              apiAgentType="BANK"
+              selectedOffer={selectedOffer}
+            />
           </TabsContent>
           <TabsContent value="stockbrokers">
-            <AgentPanel agents={MOCK_STOCKBROKERS} agentType="Stockbroker" apiAgentType="STOCKBROKER" selectedOffer={selectedOffer} />
+            <AgentPanel
+              agents={MOCK_STOCKBROKERS}
+              agentType="Stockbroker"
+              apiAgentType="STOCKBROKER"
+              selectedOffer={selectedOffer}
+            />
           </TabsContent>
         </Tabs>
       )}
