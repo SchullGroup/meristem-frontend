@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Search, User, Building2, FileText, X } from "lucide-react";
+import { Search, User, Building2, FileText, X, ScrollText, Pencil, Check } from "lucide-react";
 import { formatNumber } from "@/lib/utils/format";
 import {
   DEMAT_SHAREHOLDERS,
@@ -27,8 +27,17 @@ import {
 
 type ShareholderTab = "personal" | "certificates" | "kyc" | "signatures";
 
-function ShareholderProfile({ sh }: { sh: DematShareholder }) {
+function ShareholderProfile({
+  sh,
+  onCertificateClick,
+}: {
+  sh: DematShareholder;
+  onCertificateClick?: (certNo: string) => void;
+}) {
   const [activeTab, setActiveTab] = useState<ShareholderTab>("personal");
+  const [registrarAccountNo, setRegistrarAccountNo] = useState(sh.accountNo);
+  const [editingAccount, setEditingAccount] = useState(false);
+  const [accountDraft, setAccountDraft] = useState(sh.accountNo);
 
   const tabs: { key: ShareholderTab; label: string }[] = [
     { key: "personal", label: "Personal Info" },
@@ -48,7 +57,7 @@ function ShareholderProfile({ sh }: { sh: DematShareholder }) {
           <div>
             <p className="font-semibold leading-tight">{sh.name}</p>
             <p className="font-mono text-muted-foreground">{sh.chn}</p>
-            <p className="text-muted-foreground">{sh.accountNo}</p>
+            <p className="text-muted-foreground">{registrarAccountNo}</p>
           </div>
         </div>
         <Badge className="shrink-0 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
@@ -77,6 +86,70 @@ function ShareholderProfile({ sh }: { sh: DematShareholder }) {
       {/* Tab content */}
       {activeTab === "personal" && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+          {/* Editable registrar account number — full width */}
+          <div className="col-span-2">
+            <p className="mrpsl-label mb-0.5">Registrar Account No.</p>
+            {editingAccount ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  className="mrpsl-input h-8 text-sm font-mono flex-1 max-w-56"
+                  value={accountDraft}
+                  autoFocus
+                  onChange={(e) => setAccountDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      setRegistrarAccountNo(accountDraft.trim() || registrarAccountNo);
+                      setEditingAccount(false);
+                      toast.success("Registrar account number updated.");
+                    }
+                    if (e.key === "Escape") {
+                      setAccountDraft(registrarAccountNo);
+                      setEditingAccount(false);
+                    }
+                  }}
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-900/20 cursor-pointer"
+                  onClick={() => {
+                    setRegistrarAccountNo(accountDraft.trim() || registrarAccountNo);
+                    setEditingAccount(false);
+                    toast.success("Registrar account number updated.");
+                  }}
+                >
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-muted-foreground cursor-pointer"
+                  onClick={() => {
+                    setAccountDraft(registrarAccountNo);
+                    setEditingAccount(false);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <p className="font-mono">{registrarAccountNo}</p>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 text-muted-foreground hover:text-foreground cursor-pointer"
+                  onClick={() => {
+                    setAccountDraft(registrarAccountNo);
+                    setEditingAccount(true);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </div>
+
           {[
             { label: "BVN", value: sh.bvn },
             { label: "NIN", value: sh.nin },
@@ -110,21 +183,36 @@ function ShareholderProfile({ sh }: { sh: DematShareholder }) {
               </tr>
             </thead>
             <tbody>
-              {sh.certificates.map((cert) => (
-                <tr key={cert.certNo} className="mrpsl-table-row">
-                  <td className="px-4 py-3 font-mono">{cert.certNo}</td>
-                  <td className="px-4 py-3">{cert.register}</td>
-                  <td className="px-4 py-3 text-right">
-                    {formatNumber(cert.units)}
-                  </td>
-                  <td className="px-4 py-3">{cert.dateIssued}</td>
-                  <td className="px-4 py-3">
-                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]">
-                      {cert.status}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
+              {sh.certificates.map((cert) => {
+                const isActive = cert.status === "ACTIVE";
+                return (
+                  <tr
+                    key={cert.certNo}
+                    className={[
+                      "mrpsl-table-row",
+                      isActive && onCertificateClick
+                        ? "cursor-pointer hover:bg-primary/5"
+                        : "",
+                    ].join(" ")}
+                    onClick={() =>
+                      isActive && onCertificateClick?.(cert.certNo)
+                    }
+                    title={isActive ? "Open in Certificate Capture" : undefined}
+                  >
+                    <td className="px-4 py-3 font-mono">{cert.certNo}</td>
+                    <td className="px-4 py-3">{cert.register}</td>
+                    <td className="px-4 py-3 text-right">
+                      {formatNumber(cert.units)}
+                    </td>
+                    <td className="px-4 py-3">{cert.dateIssued}</td>
+                    <td className="px-4 py-3">
+                      <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[10px]">
+                        {cert.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -314,7 +402,11 @@ function MandateDialog({
 
 // ── Main export ────────────────────────────────────────────────────────────
 
-export function DematVerification() {
+export function DematVerification({
+  onCertificateClick,
+}: {
+  onCertificateClick?: (certNo: string) => void;
+}) {
   // Shareholder state
   const [shQuery, setShQuery] = useState("");
   const [shSearch, setShSearch] = useState("");
@@ -330,6 +422,9 @@ export function DematVerification() {
   const [selectedMandate, setSelectedMandate] = useState<DematMandate | null>(
     null,
   );
+
+  // Mandate list preview state
+  const [mandateListOpen, setMandateListOpen] = useState(false);
 
   // Filtered lists
   const filteredShareholders = shSearch.trim()
@@ -402,18 +497,27 @@ export function DematVerification() {
                   No shareholders found for &quot;{shSearch}&quot;
                 </p>
               ) : (
-                filteredShareholders.map((sh) => (
-                  <button
-                    key={sh.id}
-                    onClick={() => setSelectedSh(sh)}
-                    className="w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted/50"
-                  >
-                    <p className="font-semibold">{sh.name}</p>
-                    <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                      {sh.chn} · {sh.accountNo}
-                    </p>
-                  </button>
-                ))
+                filteredShareholders.map((sh) => {
+                  const registers = [...new Set(sh.certificates.map(c => c.register))];
+                  return (
+                    <button
+                      key={sh.id}
+                      onClick={() => setSelectedSh(sh)}
+                      className="w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted/50 cursor-pointer"
+                    >
+                      <p className="font-semibold">{sh.name}</p>
+                      <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                        {sh.chn} · {sh.accountNo}
+                      </p>
+                      {registers.length > 0 && (
+                        <p className="mt-1 text-[11px] font-medium text-green-600 dark:text-green-500">
+                          {registers.join(" · ")}
+                        </p>
+                      )}
+                      <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{sh.address}</p>
+                    </button>
+                  );
+                })
               )}
             </div>
           )}
@@ -438,7 +542,7 @@ export function DematVerification() {
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
-              <ShareholderProfile sh={selectedSh} />
+              <ShareholderProfile sh={selectedSh} onCertificateClick={onCertificateClick} />
             </div>
           )}
 
@@ -489,12 +593,14 @@ export function DematVerification() {
                   <button
                     key={sb.id}
                     onClick={() => setSelectedSb(sb)}
-                    className="w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                    className="w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:bg-muted/50 cursor-pointer"
                   >
                     <p className="font-semibold">{sb.firmName}</p>
                     <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                       {sb.cscsCode} · {sb.licenseNo}
                     </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{sb.email}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{sb.address}</p>
                   </button>
                 ))
               )}
@@ -554,9 +660,20 @@ export function DematVerification() {
 
               {/* Mandate table */}
               <div>
-                <p className="mb-3 font-semibold">
-                  Mandate Holders ({selectedSb.mandates.length})
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-semibold">
+                    Mandate Holders ({selectedSb.mandates.length})
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs cursor-pointer"
+                    onClick={() => setMandateListOpen(true)}
+                  >
+                    <ScrollText className="h-3.5 w-3.5" />
+                    View Mandate List
+                  </Button>
+                </div>
                 <div className="overflow-x-auto rounded-lg border border-border">
                   <table className="w-full text-xs">
                     <thead>
@@ -614,6 +731,61 @@ export function DematVerification() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Mandate list preview dialog ─────────────────────────────────── */}
+      {selectedSb?.mandateFile && (
+        <Dialog open={mandateListOpen} onOpenChange={(v) => !v && setMandateListOpen(false)}>
+          <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 gap-0" showCloseButton={false}>
+            <DialogTitle className="sr-only">Mandate List Preview</DialogTitle>
+
+            {/* Header bar */}
+            <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-border shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <ScrollText className="h-4 w-4 text-primary shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-tight">{selectedSb.firmName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{selectedSb.mandateFile.name}</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground cursor-pointer"
+                onClick={() => setMandateListOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Document viewer */}
+            <div className="flex-1 overflow-hidden bg-muted/20">
+              {/\.(jpe?g|png|gif|webp|bmp)$/i.test(selectedSb.mandateFile.url) ? (
+                <div className="h-full overflow-auto flex items-start justify-center p-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={selectedSb.mandateFile.url}
+                    alt={`${selectedSb.firmName} mandate list`}
+                    className="max-w-full rounded shadow"
+                  />
+                </div>
+              ) : (
+                <iframe
+                  src={selectedSb.mandateFile.url}
+                  title={`${selectedSb.firmName} mandate list`}
+                  className="w-full h-full border-0"
+                />
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end px-6 py-4 border-t border-border shrink-0">
+              <Button variant="outline" onClick={() => setMandateListOpen(false)} className="cursor-pointer">
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* ── Mandate detail dialog ───────────────────────────────────────── */}
       <MandateDialog

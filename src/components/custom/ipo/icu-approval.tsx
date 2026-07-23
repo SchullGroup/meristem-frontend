@@ -13,7 +13,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { useStore } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -23,165 +22,144 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  useGetIcuApprovals,
-  useGetIpoBatch,
-  useGetIpoBatchSubscribers,
-  useIcuReviewIpo,
-} from "@/hooks/useIPO";
-import { IPOBatchType } from "@/types/ipo";
-import { exportIpoBatch } from "@/actions/ipoActions";
-import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
-import {
-  BatchDetailSkeleton,
-  DataErrorState,
-  PendingListSkeleton,
-} from "./loaders";
 import { PaginationBar } from "../pagination-bar";
 
 const PAGE_SIZE = 20;
 
+interface MockIcuBatch {
+  batchReference: string;
+  register: string;
+  batchDate: string;
+  approvedCount: number;
+  rejectedCount: number;
+  totalAmount: number;
+  opsApprovedBy: string;
+  opsApprovedAt: string;
+  status: string;
+}
+
+interface MockSubscriber {
+  subscriberName: string;
+  chn: string;
+  accountNumber: string;
+  units: number;
+  amount: number;
+  remark?: string;
+}
+
+const MOCK_BATCHES: MockIcuBatch[] = [
+  {
+    batchReference: "BATCH-ACH-2024-003",
+    register: "Access Holdings Ord. Shares",
+    batchDate: "2024-10-01",
+    approvedCount: 15000,
+    rejectedCount: 1035,
+    totalAmount: 450_000_000,
+    opsApprovedBy: "ops.review@meristem.com",
+    opsApprovedAt: "2024-10-02T14:30:00",
+    status: "PENDING_ICU",
+  },
+  {
+    batchReference: "BATCH-TCP-2024-002",
+    register: "Transcorp Power Ord. Shares",
+    batchDate: "2024-10-03",
+    approvedCount: 9800,
+    rejectedCount: 608,
+    totalAmount: 275_500_000,
+    opsApprovedBy: "ops.review@meristem.com",
+    opsApprovedAt: "2024-10-04T10:15:00",
+    status: "PENDING_ICU",
+  },
+];
+
+const MOCK_APPROVED_SUBS: MockSubscriber[] = [
+  { subscriberName: "Adebayo Oluwaseun Peters", chn: "C0012345678", accountNumber: "0012345678", units: 10_000, amount: 225_000 },
+  { subscriberName: "Chinwe Okafor-Nwosu", chn: "C0023456789", accountNumber: "0023456789", units: 5_000, amount: 112_500 },
+  { subscriberName: "Emeka Nwachukwu", chn: "C0034567890", accountNumber: "0034567890", units: 20_000, amount: 450_000 },
+  { subscriberName: "Fatima Garba Abubakar", chn: "C0045678901", accountNumber: "0045678901", units: 50_000, amount: 1_125_000 },
+  { subscriberName: "Ibrahim Usman Hassan", chn: "C0056789012", accountNumber: "0056789012", units: 8_000, amount: 180_000 },
+];
+
+const MOCK_REJECTED_SUBS: MockSubscriber[] = [
+  { subscriberName: "Olusegun Badmus", chn: "C0067890123", accountNumber: "0067890123", units: 3_000, amount: 67_500, remark: "Duplicate CHN" },
+  { subscriberName: "Ngozi Chidinma Okafor", chn: "C0078901234", accountNumber: "0078901234", units: 1_500, amount: 33_750, remark: "Incomplete KYC" },
+  { subscriberName: "UNKNOWN SUBSCRIBER", chn: "", accountNumber: "9999999999", units: 500, amount: 11_250, remark: "Invalid CHN format" },
+];
+
+type ReviewTabType = "APPROVED" | "REJECTED";
+
 export default function IcuApprovalIPO({ tab }: { tab: string }) {
-  const { currentUser } = useStore();
+  const [batches, setBatches] = useState<MockIcuBatch[]>(MOCK_BATCHES);
   const [reviewingBatch, setReviewingBatch] = useState<string | null>(null);
-  const [reviewTab, setReviewTab] = useState<IPOBatchType>("APPROVED");
+  const [reviewTab, setReviewTab] = useState<ReviewTabType>("APPROVED");
   const [reviewComment, setReviewComment] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [subscribersPage, setSubscribersPage] = useState(0);
   const [subscribersPageSize, setSubscribersPageSize] = useState(PAGE_SIZE);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isReturning, setIsReturning] = useState(false);
 
   const [approvalModal, setApprovalModal] = useState<{
     action: "approve" | "return";
   } | null>(null);
 
-  // Queries
-  const {
-    data: icuData,
-    isLoading: icuLoading,
-    isError: icuError,
-    error: icuErrorData,
-    refetch: refetchIcu,
-  } = useGetIcuApprovals(
-    {
-      page: currentPage,
-      size: pageSize,
-    },
-    { enabled: tab === "icu" && !reviewingBatch },
+  const batchDetails = batches.find(b => b.batchReference === reviewingBatch) ?? null;
+
+  const subscribersByType: Record<ReviewTabType, MockSubscriber[]> = {
+    APPROVED: MOCK_APPROVED_SUBS,
+    REJECTED: MOCK_REJECTED_SUBS,
+  };
+  const currentSubscribers = subscribersByType[reviewTab] ?? [];
+  const totalSubscriberPages = Math.max(1, Math.ceil(currentSubscribers.length / subscribersPageSize));
+  const totalSubscribers = currentSubscribers.length;
+  const paginatedSubscribers = currentSubscribers.slice(
+    subscribersPage * subscribersPageSize,
+    (subscribersPage + 1) * subscribersPageSize,
   );
 
-  const {
-    data: batchDetails,
-    isLoading: batchLoading,
-    isError: batchError,
-    error: batchErrorData,
-    refetch: refetchBatch,
-  } = useGetIpoBatch(reviewingBatch || undefined, {
-    enabled: !!reviewingBatch,
-  });
-
-  const {
-    data: subscribersData,
-    isLoading: subscribersLoading,
-    isError: subscribersError,
-    error: subscribersErrorData,
-    refetch: refetchSubscribers,
-  } = useGetIpoBatchSubscribers(
-    {
-      batchRef: reviewingBatch || "",
-      type: reviewTab,
-      page: subscribersPage,
-      size: subscribersPageSize,
-    },
-    { enabled: !!reviewingBatch },
-  );
-
-  // Mutations
-  const icuReviewMutation = useIcuReviewIpo();
-
-  // Handlers
-  const handleFinalReview = () => {
+  const handleFinalReview = async () => {
     if (!reviewingBatch) return;
 
     if (approvalModal?.action === "return" && !reviewComment.trim()) {
-      toast.error(
-        "Please provide a reason for returning the batch to Operations.",
-      );
-      return;
-    }
-
-    if (!currentUser) {
-      toast.error("Your session has expired. Please login again.");
+      toast.error("Please provide a reason for returning the batch to Operations.");
       return;
     }
 
     const approved = approvalModal?.action === "approve";
 
-    icuReviewMutation.mutate(
-      {
-        batchRef: reviewingBatch,
-        payload: {
-          approved,
-          comment: reviewComment,
-          reviewedBy: currentUser?.email,
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success(
-            approved
-              ? "ICU approved. Batch cleared for lodgment."
-              : "Batch returned to Operations.",
-          );
-          setReviewingBatch(null);
-          setReviewComment("");
-          setApprovalModal(null);
-        },
-        onError: (err) => {
-          toast.error(returnErrorMessage(err as ErrorLike));
-        },
-      },
-    );
-  };
-
-  const handleExport = async () => {
-    if (!reviewingBatch) return;
-    try {
-      const csvData = await exportIpoBatch(reviewingBatch, reviewTab);
-      const blob = new Blob([csvData], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ICU_${reviewingBatch}_${reviewTab.toLowerCase()}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success("Export successful");
-    } catch (error) {
-      toast.error(
-        returnErrorMessage(error as ErrorLike) || "Failed to export data",
-      );
+    if (approved) {
+      setIsApproving(true);
+    } else {
+      setIsReturning(true);
     }
+
+    await new Promise(r => setTimeout(r, 800));
+
+    setBatches(prev => prev.filter(b => b.batchReference !== reviewingBatch));
+
+    if (approved) {
+      setIsApproving(false);
+      toast.success("ICU approved. Batch cleared for lodgment.");
+    } else {
+      setIsReturning(false);
+      toast.success("Batch returned to Operations.");
+    }
+
+    setReviewingBatch(null);
+    setReviewComment("");
+    setApprovalModal(null);
   };
 
-  // ── Render Logic ──
+  const handleExport = () => {
+    toast.info(`Export for ${reviewTab.toLowerCase()} subscribers coming soon.`);
+  };
+
+  // ── List View ──
 
   if (!reviewingBatch) {
-    if (icuError) {
-      return (
-        <div className="space-y-6">
-          <DataErrorState
-            message={returnErrorMessage(icuErrorData as ErrorLike)}
-            onRetry={refetchIcu}
-          />
-        </div>
-      );
-    }
-
     return (
       <div className="space-y-6">
-        {/* Batch list */}
         <Card className="mrpsl-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -191,8 +169,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                   <th className="px-4 py-3">REGISTER</th>
                   <th className="px-4 py-3">BATCH DATE</th>
                   <th className="px-4 py-3 text-right">APPROVED</th>
-                  <th className="px-4 py-3 text-right">DISAPPROVED</th>
-                  <th className="px-4 py-3 text-right">INVALID</th>
+                  <th className="px-4 py-3 text-right">REJECTED</th>
                   <th className="px-4 py-3 text-right">TOTAL AMOUNT</th>
                   <th className="px-4 py-3">OPS APPROVAL</th>
                   <th className="px-4 py-3">STATUS</th>
@@ -200,14 +177,8 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {icuLoading ? (
-                  <tr>
-                    <td colSpan={10} className="p-0">
-                      <PendingListSkeleton />
-                    </td>
-                  </tr>
-                ) : icuData?.content && icuData.content.length > 0 ? (
-                  icuData.content.map((batch) => (
+                {batches.length > 0 ? (
+                  batches.map((batch) => (
                     <tr key={batch.batchReference} className="mrpsl-table-row">
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                         {batch.batchReference}
@@ -221,20 +192,17 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                           : "—"}
                       </td>
                       <td className="px-4 py-3 font-mono text-right text-green-700 font-semibold">
-                        {batch.approvedCount?.toLocaleString() || 0}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-right text-amber-600 font-semibold">
-                        {batch.disapprovedCount?.toLocaleString() || 0}
+                        {batch.approvedCount.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 font-mono text-right text-red-600 font-semibold">
-                        {batch.invalidCount?.toLocaleString() || 0}
+                        {batch.rejectedCount.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 font-mono text-right">
-                        ₦{batch.totalAmount?.toLocaleString() || 0}
+                        ₦{batch.totalAmount.toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-xs font-medium">
-                          {batch.opsApprovedBy || "—"}
+                          {batch.opsApprovedBy}
                         </div>
                         <div className="text-[10px] text-muted-foreground">
                           {batch.opsApprovedAt
@@ -280,8 +248,8 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
           <PaginationBar
             page={currentPage}
             pageSize={pageSize}
-            totalPages={icuData?.pagination?.totalPages || 1}
-            total={icuData?.pagination?.total || 0}
+            totalPages={Math.max(1, Math.ceil(batches.length / pageSize))}
+            total={batches.length}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
           />
@@ -290,26 +258,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
     );
   }
 
-  // Review View
-  if (batchLoading) return <BatchDetailSkeleton />;
-
-  if (batchError) {
-    return (
-      <div className="py-12">
-        <DataErrorState
-          message={returnErrorMessage(batchErrorData as ErrorLike)}
-          onRetry={refetchBatch}
-        />
-        <Button
-          variant="ghost"
-          className="mt-4 gap-2 text-muted-foreground mx-auto flex"
-          onClick={() => setReviewingBatch(null)}
-        >
-          <ArrowLeft className="h-4 w-4" /> Back to list
-        </Button>
-      </div>
-    );
-  }
+  // ── Review View ──
 
   return (
     <div className="space-y-6">
@@ -337,18 +286,17 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
             : "—"}
         </span>
         <Badge className="bg-blue-100 text-blue-800 border-0 text-xs">
-          {batchDetails?.status || "Awaiting ICU"}
+          {batchDetails?.status ?? "Awaiting ICU"}
         </Badge>
         <div className="flex-1" />
 
         <Button
           variant="destructive"
           size="sm"
-          disabled={icuReviewMutation.isPending}
+          disabled={isApproving || isReturning}
           onClick={() => setApprovalModal({ action: "return" })}
         >
-          {icuReviewMutation.isPending &&
-          !icuReviewMutation.variables?.payload.approved ? (
+          {isReturning ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             "Return to Ops"
@@ -356,11 +304,10 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         </Button>
         <Button
           size="sm"
-          disabled={icuReviewMutation.isPending}
+          disabled={isApproving || isReturning}
           onClick={() => setApprovalModal({ action: "approve" })}
         >
-          {icuReviewMutation.isPending &&
-          icuReviewMutation.variables?.payload.approved ? (
+          {isApproving ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <>
@@ -371,7 +318,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         </Button>
       </div>
 
-      {/* Audit Record */}
+      {/* Operations Approval Record */}
       <Card className="mrpsl-card p-4 bg-muted/20 border-l-4 border-l-primary flex items-start gap-4">
         <div className="p-2 rounded-full bg-primary/10 text-primary">
           <History className="h-5 w-5" />
@@ -384,7 +331,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
             <div>
               <div className="mrpsl-section-title">Approved By</div>
               <div className="font-semibold mt-0.5">
-                {batchDetails?.opsApprovedBy || "System Authorizer"}
+                {batchDetails?.opsApprovedBy ?? "System Authorizer"}
               </div>
             </div>
             <div>
@@ -411,37 +358,30 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
       </Card>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           {
             label: "Total Amount",
-            value: `₦${batchDetails?.totalAmount?.toLocaleString() || 0}`,
+            value: `₦${batchDetails?.totalAmount?.toLocaleString() ?? 0}`,
             color: "text-foreground",
           },
           {
             label: "Approved",
-            value: batchDetails?.approvedCount?.toLocaleString() || 0,
+            value: batchDetails?.approvedCount?.toLocaleString() ?? 0,
             color: "text-green-700",
             tab: "APPROVED" as const,
           },
           {
-            label: "Disapproved",
-            value: batchDetails?.disapprovedCount?.toLocaleString() || 0,
-            color: "text-amber-600",
-            tab: "DISAPPROVED" as const,
-          },
-          {
-            label: "Invalid",
-            value: batchDetails?.invalidCount?.toLocaleString() || 0,
+            label: "Rejected",
+            value: batchDetails?.rejectedCount?.toLocaleString() ?? 0,
             color: "text-red-600",
-            tab: "INVALID" as const,
+            tab: "REJECTED" as const,
           },
           {
             label: "Total Count",
             value: (
-              (batchDetails?.approvedCount || 0) +
-              (batchDetails?.disapprovedCount || 0) +
-              (batchDetails?.invalidCount || 0)
+              (batchDetails?.approvedCount ?? 0) +
+              (batchDetails?.rejectedCount ?? 0)
             ).toLocaleString(),
             color: "text-foreground",
           },
@@ -479,7 +419,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
       <Card className="mrpsl-card overflow-hidden">
         {/* Tab strip */}
         <div className="flex items-center gap-1 border-b px-4 bg-muted/10 overflow-x-auto no-scrollbar">
-          {(["APPROVED", "DISAPPROVED", "INVALID"] as const).map((t) => (
+          {(["APPROVED", "REJECTED"] as const).map((t) => (
             <button
               key={t}
               onClick={() => {
@@ -491,9 +431,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                 reviewTab === t
                   ? t === "APPROVED"
                     ? "border-green-600 text-green-700"
-                    : t === "DISAPPROVED"
-                      ? "border-amber-500 text-amber-700"
-                      : "border-red-500 text-red-700"
+                    : "border-red-500 text-red-700"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
@@ -503,9 +441,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                   (
                   {t === "APPROVED"
                     ? batchDetails.approvedCount
-                    : t === "DISAPPROVED"
-                      ? batchDetails.disapprovedCount
-                      : batchDetails.invalidCount}
+                    : batchDetails.rejectedCount}
                   )
                 </span>
               )}
@@ -524,105 +460,80 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto min-h-75 relative">
-          {subscribersError ? (
-            <div className="p-8">
-              <DataErrorState
-                message={returnErrorMessage(subscribersErrorData as ErrorLike)}
-                onRetry={refetchSubscribers}
-              />
-            </div>
-          ) : (
-            <>
-              {subscribersLoading && (
-                <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-                    <p className="text-xs text-muted-foreground font-medium">
-                      Updating list...
-                    </p>
-                  </div>
-                </div>
-              )}
-              <table className="w-full text-left text-xs">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="px-4 py-2.5">#</th>
-                    <th className="px-4 py-2.5">NAME</th>
-                    <th className="px-4 py-2.5">CHN</th>
-                    <th className="px-4 py-2.5">ACCOUNT NO</th>
-                    <th className="px-4 py-2.5 text-right">UNITS</th>
-                    <th className="px-4 py-2.5 text-right">AMOUNT (₦)</th>
+        <div className="overflow-x-auto min-h-75">
+          <table className="w-full text-left text-xs">
+            <thead className="mrpsl-table-header">
+              <tr>
+                <th className="px-4 py-2.5">#</th>
+                <th className="px-4 py-2.5">NAME</th>
+                <th className="px-4 py-2.5">CHN</th>
+                <th className="px-4 py-2.5">ACCOUNT NO</th>
+                <th className="px-4 py-2.5 text-right">UNITS</th>
+                <th className="px-4 py-2.5 text-right">AMOUNT (₦)</th>
+                {reviewTab !== "APPROVED" && (
+                  <th className="px-4 py-2.5">REMARK / REASON</th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {paginatedSubscribers.length > 0 ? (
+                paginatedSubscribers.map((r, i) => (
+                  <tr key={i} className="mrpsl-table-row">
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {subscribersPage * subscribersPageSize + i + 1}
+                    </td>
+                    <td className="px-4 py-2.5 font-medium">
+                      {r.subscriberName}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono">
+                      {r.chn || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono">
+                      {r.accountNumber || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                      {r.units.toLocaleString()}
+                    </td>
+                    <td
+                      className={cn(
+                        "px-4 py-2.5 text-right font-mono font-semibold",
+                        reviewTab === "APPROVED"
+                          ? "text-green-700"
+                          : "text-red-700",
+                      )}
+                    >
+                      {r.amount.toLocaleString()}
+                    </td>
                     {reviewTab !== "APPROVED" && (
-                      <th className="px-4 py-2.5">REMARK / REASON</th>
+                      <td className="px-4 py-2.5">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-normal border-border"
+                        >
+                          {r.remark ?? "No reason provided"}
+                        </Badge>
+                      </td>
                     )}
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {subscribersData?.content &&
-                  subscribersData.content.length > 0 ? (
-                    subscribersData.content.map((r, i) => (
-                      <tr key={i} className="mrpsl-table-row">
-                        <td className="px-4 py-2.5 text-muted-foreground">
-                          {i + 1}
-                        </td>
-                        <td className="px-4 py-2.5 font-medium">
-                          {r.subscriberName}
-                        </td>
-                        <td className="px-4 py-2.5 font-mono">
-                          {r.chn || "—"}
-                        </td>
-                        <td className="px-4 py-2.5 font-mono">
-                          {r.accountNumber || "—"}
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                          {r.units?.toLocaleString() || 0}
-                        </td>
-                        <td
-                          className={cn(
-                            "px-4 py-2.5 text-right font-mono font-semibold",
-                            reviewTab === "APPROVED"
-                              ? "text-green-700"
-                              : reviewTab === "DISAPPROVED"
-                                ? "text-amber-700"
-                                : "text-red-700",
-                          )}
-                        >
-                          {r.amount?.toLocaleString() || 0}
-                        </td>
-                        {reviewTab !== "APPROVED" && (
-                          <td className="px-4 py-2.5">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] font-normal border-border"
-                            >
-                              {r.remark || "No reason provided"}
-                            </Badge>
-                          </td>
-                        )}
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={reviewTab === "APPROVED" ? 6 : 7}
-                        className="px-4 py-12 text-center text-muted-foreground"
-                      >
-                        {!subscribersLoading &&
-                          "No subscribers found for this category."}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </>
-          )}
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={reviewTab === "APPROVED" ? 6 : 7}
+                    className="px-4 py-12 text-center text-muted-foreground"
+                  >
+                    No subscribers found for this category.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
         <PaginationBar
           page={subscribersPage}
           pageSize={subscribersPageSize}
-          totalPages={subscribersData?.pagination?.totalPages || 1}
-          total={subscribersData?.pagination?.total || 0}
+          totalPages={totalSubscriberPages}
+          total={totalSubscribers}
           onPageChange={setSubscribersPage}
           onPageSizeChange={setSubscribersPageSize}
         />
@@ -686,12 +597,12 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                   approvalModal?.action === "return" ? "destructive" : "default"
                 }
                 className="flex-1"
-                disabled={icuReviewMutation.isPending}
+                disabled={isApproving || isReturning}
                 onClick={() => {
                   handleFinalReview();
                 }}
               >
-                {icuReviewMutation.isPending && (
+                {(isApproving || isReturning) && (
                   <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
                 )}
                 Confirm{" "}

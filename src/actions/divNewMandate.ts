@@ -63,14 +63,18 @@ export const SUBMIT_MANDATE_PAYMENTS = async ({
 export const GET_PENDING_MANDATE_PAYMENTS = async ({
   queryKey,
 }: {
-  queryKey: [string, number, number];
+  queryKey: [string, string, string, number, number];
 }) => {
-  const page = queryKey[1];
-  const size = queryKey[2];
+  const registerId = queryKey[1];
+  const dividendNumber = queryKey[2];
+  const page = queryKey[3];
+  const size = queryKey[4];
 
   try {
     const res = await api.get(`/dividend/mandate-payments/pending`, {
       params: {
+        registerId,
+        dividendNumber,
         page,
         size,
       },
@@ -85,14 +89,18 @@ export const GET_PENDING_MANDATE_PAYMENTS = async ({
 export const GET_PENDING_ICU_MANDATE_PAYMENTS = async ({
   queryKey,
 }: {
-  queryKey: [string, number, number];
+  queryKey: [string, string, string, number, number];
 }) => {
-  const page = queryKey[1];
-  const size = queryKey[2];
+  const registerId = queryKey[1];
+  const dividendNumber = queryKey[2];
+  const page = queryKey[3];
+  const size = queryKey[4];
 
   try {
     const res = await api.get(`/dividend/mandate-payments/icu`, {
       params: {
+        registerId,
+        dividendNumber,
         page,
         size,
       },

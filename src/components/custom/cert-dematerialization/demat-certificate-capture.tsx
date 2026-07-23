@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,12 +35,14 @@ interface Props {
   requests: DematRequest[];
   onCreateRequest: (req: DematRequest) => void;
   onEditRequest: (id: string, updates: Partial<DematRequest>) => void;
+  initialCertNo?: string;
 }
 
 export function DematCertificateCapture({
   requests,
   onCreateRequest,
   onEditRequest,
+  initialCertNo,
 }: Props) {
   // ── Search state ────────────────────────────────────────────────────────
   const [searchValue, setSearchValue] = useState("");
@@ -64,6 +66,22 @@ export function DematCertificateCapture({
 
   const editDematInputRef = useRef<HTMLInputElement>(null);
   const editCertInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-search when navigated from Verification tab
+  useEffect(() => {
+    if (!initialCertNo) return;
+    const trimmed = initialCertNo.trim();
+    setSearchValue(trimmed);
+    const match = DEMAT_CERTIFICATES.find(
+      (c) => c.certNo.toLowerCase() === trimmed.toLowerCase(),
+    );
+    setFoundCert(match ?? null);
+    setSearchAttempted(true);
+    setShowCaptureForm(false);
+    setSelectedBrokerId("");
+    setDematFiles([]);
+    setCertFiles([]);
+  }, [initialCertNo]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────
   const handleSearch = () => {

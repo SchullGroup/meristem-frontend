@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DateRangePicker } from "@/components/custom/date-range-picker";
 import { RedemptionRequest } from "@/components/custom/fund-subscription/redemption-request";
 import { RedemptionApproval } from "@/components/custom/fund-subscription/redemption-approval";
+import { ApprovedRedemptions } from "@/components/custom/fund-subscription/approved-redemptions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CalendarRange, FileSpreadsheet, Printer } from "lucide-react";
@@ -16,12 +19,13 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const TABS = ["redemption", "approval", "reports"] as const;
+const TABS = ["redemption", "approval", "approved", "reports"] as const;
 type TabValue = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabValue, string> = {
   redemption: "Redemption Request",
   approval: "Redemption Approval",
+  approved: "Approved Redemptions",
   reports: "Reports",
 };
 
@@ -35,6 +39,8 @@ export default function FundRedemptionPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("redemption");
   const [selectedReport, setSelectedReport] = useState<string>(REPORT_TYPES[0]);
   const [filterRegister, setFilterRegister] = useState("");
+  const [filterDateRange, setFilterDateRange] = useState<DateRange | undefined>(undefined);
+  const [reportReady, setReportReady] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -72,6 +78,10 @@ export default function FundRedemptionPage() {
             <RedemptionApproval />
           </TabsContent>
 
+          <TabsContent value="approved">
+            <ApprovedRedemptions />
+          </TabsContent>
+
           <TabsContent value="reports" className="space-y-4">
             <Card className="mrpsl-card">
               <div className="p-4 border-b bg-muted/20">
@@ -98,54 +108,72 @@ export default function FundRedemptionPage() {
 
             <Card className="mrpsl-card p-5">
               <div className="flex items-center gap-3 flex-wrap">
-                <div className="w-56">
-                  <Select
-                    value={filterRegister}
-                    onValueChange={(v) => setFilterRegister(v ?? "")}
-                  >
-                    <SelectTrigger className="mrpsl-input h-9 w-full">
-                      <SelectValue placeholder="All Fund Registers" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All Fund Registers</SelectItem>
-                      <SelectItem value="stanbic-dollar">
-                        Stanbic IBTC Dollar Fund
-                      </SelectItem>
-                      <SelectItem value="arm-discovery">
-                        ARM Discovery Balanced Fund
-                      </SelectItem>
-                      <SelectItem value="coronation-mm">
-                        Coronation Money Market Fund
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select
+                  value={filterRegister}
+                  onValueChange={(v) => {
+                    setFilterRegister(v ?? "");
+                    setReportReady(false);
+                  }}
+                >
+                  <SelectTrigger className="mrpsl-input h-9 w-52">
+                    <SelectValue placeholder="All Fund Registers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All Fund Registers</SelectItem>
+                    <SelectItem value="stanbic-dollar">
+                      Stanbic IBTC Dollar Fund
+                    </SelectItem>
+                    <SelectItem value="arm-discovery">
+                      ARM Discovery Balanced Fund
+                    </SelectItem>
+                    <SelectItem value="coronation-mm">
+                      Coronation Money Market Fund
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
 
-                <div className="flex-1" />
+                <DateRangePicker
+                  date={filterDateRange}
+                  setDate={(d) => {
+                    setFilterDateRange(d);
+                    setReportReady(false);
+                  }}
+                  placeholder="Select date range"
+                  className="w-72"
+                />
 
                 <Button
-                  size="sm"
-                  onClick={() => toast.info(`${selectedReport} report coming soon`)}
+                  size="xl"
+                  onClick={() => {
+                    setReportReady(true);
+                    toast.info(`${selectedReport} report coming soon`);
+                  }}
                 >
                   <CalendarRange className="h-3.5 w-3.5 mr-1.5" />
                   Generate Report
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toast.info("Export coming soon")}
-                >
-                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
-                  Excel
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toast.info("Print coming soon")}
-                >
-                  <Printer className="h-3.5 w-3.5 mr-1.5" />
-                  Print
-                </Button>
+
+                {reportReady && (
+                  <>
+                    <div className="flex-1" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toast.info("Export coming soon")}
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />
+                      Excel
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toast.info("Print coming soon")}
+                    >
+                      <Printer className="h-3.5 w-3.5 mr-1.5" />
+                      Print
+                    </Button>
+                  </>
+                )}
               </div>
             </Card>
 

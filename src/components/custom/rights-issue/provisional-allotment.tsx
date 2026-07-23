@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Play, ShieldCheck, Send, FileText, Lock, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import {
+  Play, ShieldCheck, Send, FileText, Lock,
+  ChevronUp, ChevronDown, ChevronsUpDown,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { EmailPreviewModal, type OutreachShareholder } from "@/components/custom/shareholder-outreach-modals";
 
 interface ProvisionalRecord {
   id: string;
@@ -49,6 +53,7 @@ export function ProvisionalAllotment({
   const [validated, setValidated] = useState(false);
   const [dispatched, setDispatched] = useState(false);
   const [computing, setComputing] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
 
   type SortKey = "holderName" | "unitsHeld" | "entitlementDue";
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -69,6 +74,14 @@ export function ProvisionalAllotment({
       ? <ChevronUp className="h-3.5 w-3.5 ml-1 text-primary" />
       : <ChevronDown className="h-3.5 w-3.5 ml-1 text-primary" />;
   };
+
+  const outreachShareholders: OutreachShareholder[] = MOCK_SHAREHOLDERS.map((r) => ({
+    id: r.id,
+    accountNumber: r.accountNo,
+    name: r.holderName,
+    address: "Lagos, Nigeria",
+    holdings: r.unitsHeld,
+  }));
 
   const shareholders = MOCK_SHAREHOLDERS.map((r) => ({
     ...r,
@@ -96,9 +109,12 @@ export function ProvisionalAllotment({
     toast.success("Provisional allotment schedule validated. Pre-list generated.");
   };
 
-  const handleDispatch = () => {
+  const handleDispatch = () => setEmailOpen(true);
+
+  const handleSendEmail = () => {
     setDispatched(true);
-    toast.success(`Allotment notices dispatched to ${MOCK_SHAREHOLDERS.length} eligible shareholders.`);
+    setEmailOpen(false);
+    toast.success(`Circular dispatched to ${MOCK_SHAREHOLDERS.length} eligible shareholders.`);
   };
 
   if (!computed) {
@@ -168,6 +184,12 @@ export function ProvisionalAllotment({
             Dispatch Circulars
           </Button>
         )}
+        {dispatched && (
+          <Button variant="outline" size="sm" onClick={handleDispatch}>
+            <Send className="h-3.5 w-3.5 mr-1.5" />
+            Re-send Circular
+          </Button>
+        )}
         {validated && (
           <Button variant="outline" size="sm" onClick={() => toast.info("Pre-list download coming soon")}>
             <FileText className="h-3.5 w-3.5 mr-1.5" />
@@ -194,6 +216,22 @@ export function ProvisionalAllotment({
           </Card>
         ))}
       </div>
+
+      <EmailPreviewModal
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        offerType="rights"
+        companyName={offerName}
+        offerName={offerName}
+        ratio={`1:${ratioDenominator}`}
+        closeDate={qualificationDateLabel}
+        issuePrice={pricePerShare != null ? String(pricePerShare) : undefined}
+        contactEmail="rightssubscription@meristem.com"
+        shareholders={outreachShareholders}
+        totalCount={MOCK_SHAREHOLDERS.length}
+        mode="rights-circular"
+        onSent={handleSendEmail}
+      />
 
       {/* Provisional allotment table */}
       <Card className="mrpsl-card overflow-hidden">

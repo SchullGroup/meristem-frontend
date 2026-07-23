@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Eye, ArrowRight, FileText, X } from "lucide-react";
+import { Plus, Eye, ArrowRight, FileText, X, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,13 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -22,13 +30,24 @@ import {
 } from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { DocUploadZone, DocPreview } from "@/components/custom/doc-upload-zone";
+import {
+  CREATE_NEW_OFFER,
+  EDIT_OFFER,
+  GET_IPO_OFFERS,
+  MOVE_TO_REGISTER,
+} from "@/actions/offerSetUp";
+import { useStore } from "@/lib/store";
+import { useServerPagination } from "@/lib/use-server-pagination";
+import { TablePagination } from "@/components/custom/table-pagination";
 
 type OfferStatus = "DRAFT" | "OPEN" | "CLOSED" | "ALLOTTED" | "CONCLUDED";
 
 interface PublicOffer {
   id: string;
   name: string;
-  register: string;
+  registerId: string;
   offerPrice: number;
   totalUnits: number;
   minUnits: number;
@@ -39,44 +58,8 @@ interface PublicOffer {
   receivingBanks: { bankName: string; accountNumber: string }[];
   narration: string;
   status: OfferStatus;
+  circularUrl?: string;
 }
-
-const MOCK_OFFERS: PublicOffer[] = [
-  {
-    id: "1",
-    name: "Access Holdings PLC Public Offer 2024",
-    register: "Access Holdings Ord. Shares",
-    offerPrice: 22.5,
-    totalUnits: 17_772_612_811,
-    minUnits: 100,
-    multiples: 100,
-    openingDate: new Date("2024-10-07"),
-    closingDate: new Date("2024-10-21"),
-    secApprovalDate: new Date("2024-11-15"),
-    receivingBanks: [
-      { bankName: "Access Bank PLC", accountNumber: "0123456789" },
-      { bankName: "Guaranty Trust Bank (GTBank)", accountNumber: "0987654321" },
-      { bankName: "Zenith Bank PLC", accountNumber: "1122334455" },
-    ],
-    narration: "Public Offer at ₦22.50 per share.",
-    status: "CLOSED",
-  },
-  {
-    id: "2",
-    name: "Transcorp Power PLC IPO 2024",
-    register: "Transcorp Power Ord. Shares",
-    offerPrice: 5.0,
-    totalUnits: 7_500_000_000,
-    minUnits: 500,
-    multiples: 100,
-    openingDate: null,
-    closingDate: null,
-    secApprovalDate: null,
-    receivingBanks: [],
-    narration: "",
-    status: "DRAFT",
-  },
-];
 
 const STATUS_MAP: Record<OfferStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
@@ -85,13 +68,6 @@ const STATUS_MAP: Record<OfferStatus, string> = {
   ALLOTTED: "bg-blue-100 text-blue-800",
   CONCLUDED: "bg-purple-100 text-purple-800",
 };
-
-const MOCK_REGISTERS = [
-  "Access Holdings Ord. Shares",
-  "Transcorp Power Ord. Shares",
-  "Fidelity Bank Ord. Shares",
-  "Meristem Securities Ord. Shares",
-];
 
 const NIGERIAN_BANKS = [
   "Access Bank PLC",
@@ -113,7 +89,7 @@ type FormState = Omit<PublicOffer, "id" | "status">;
 
 const EMPTY_FORM: FormState = {
   name: "",
-  register: "",
+  registerId: "",
   offerPrice: 0,
   totalUnits: 0,
   minUnits: 100,
@@ -123,80 +99,243 @@ const EMPTY_FORM: FormState = {
   secApprovalDate: null,
   receivingBanks: [],
   narration: "",
+  circularUrl: "",
 };
 
 export function PublicOfferForm() {
-  const [offers, setOffers] = useState<PublicOffer[]>(MOCK_OFFERS);
+  const queryClient = useQueryClient();
+  const { currentUser } = useStore();
+
+  const { data: registersData, isLoading: isRegisterLoading } = useGetRegisters(
+    { size: 100 },
+  );
+  const registerList = registersData?.content;
+
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState<OfferStatus | "">("");
+  const [filterRegisterId, setFilterRegisterId] = useState("");
+
+  const pg = useServerPagination(20);
+
+  const resetPage = () => pg.setPage(0);
+
+  const { data: offersData, isLoading: isOffersLoading } = useQuery({
+    queryKey: [
+      "ipo-offers",
+      {
+        page: pg.page,
+        size: pg.pageSize,
+        filterSearch,
+        filterStatus,
+        filterRegisterId,
+      },
+    ],
+    queryFn: () =>
+      GET_IPO_OFFERS({
+        page: pg.page,
+        size: pg.pageSize,
+        ...(filterSearch && { search: filterSearch }),
+        ...(filterStatus && { status: filterStatus }),
+        ...(filterRegisterId && { registerId: filterRegisterId }),
+      }),
+  });
+
+  const offers: PublicOffer[] = (offersData?.data?.content ?? []).map(
+    (item: any) => ({
+      id: item.id,
+      name: item.name,
+      registerId: item.registerId,
+      offerPrice: item.offerPrice,
+      totalUnits: item.totalUnits,
+      minUnits: item.minUnits,
+      multiples: item.multiples,
+      openingDate: item.openingDate ? new Date(item.openingDate) : null,
+      closingDate: item.closingDate ? new Date(item.closingDate) : null,
+      secApprovalDate: item.secApprovalDate
+        ? new Date(item.secApprovalDate)
+        : null,
+      receivingBanks: item.receivingBanks ?? [],
+      narration: item.narration ?? "",
+      status: item.status as OfferStatus,
+      circularUrl: item.circularUrl,
+    }),
+  );
+
+  const { mutate: createOffer, isPending: isCreating } = useMutation({
+    mutationFn: CREATE_NEW_OFFER,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ipo-offers"] });
+      toast.success("New offer profile created as Draft.");
+      setSheetOpen(false);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const { mutate: editOffer, isPending: isEditing } = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Parameters<typeof EDIT_OFFER>[1];
+    }) => EDIT_OFFER(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ipo-offers"] });
+      toast.success("Offer profile updated.");
+      setSheetOpen(false);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [editing, setEditing] = useState<PublicOffer | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
     setForm((prev) => ({ ...prev, [k]: v }));
+    setIsDirty(true);
+  };
+
+  const handleSheetOpenChange = (open: boolean) => {
+    if (!open && isDirty) {
+      setConfirmClose(true);
+      return;
+    }
+    setSheetOpen(open);
+  };
+
+  const handleDiscard = () => {
+    setConfirmClose(false);
+    setIsDirty(false);
+    setSheetOpen(false);
+  };
 
   const addBank = () => {
     if (form.receivingBanks.length < 3) {
-      set("receivingBanks", [...form.receivingBanks, { bankName: "", accountNumber: "" }]);
+      set("receivingBanks", [
+        ...form.receivingBanks,
+        { bankName: "", accountNumber: "" },
+      ]);
     }
   };
 
-  const updateBank = (index: number, field: "bankName" | "accountNumber", value: string) => {
+  const updateBank = (
+    index: number,
+    field: "bankName" | "accountNumber",
+    value: string,
+  ) => {
     const updated = form.receivingBanks.map((b, i) =>
-      i === index ? { ...b, [field]: value } : b
+      i === index ? { ...b, [field]: value } : b,
     );
     set("receivingBanks", updated);
   };
 
   const removeBank = (index: number) => {
-    set("receivingBanks", form.receivingBanks.filter((_, i) => i !== index));
+    set(
+      "receivingBanks",
+      form.receivingBanks.filter((_, i) => i !== index),
+    );
   };
 
   const openNew = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setIsDirty(false);
     setSheetOpen(true);
   };
 
   const openEdit = (offer: PublicOffer) => {
     setEditing(offer);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, status, ...rest } = offer;
     setForm(rest);
+    setIsDirty(false);
     setSheetOpen(true);
   };
 
+  const isReadOnly = !!(editing && editing.status !== "DRAFT");
+
   const handleSave = () => {
-    if (!form.name || !form.register) {
+    if (!form.name || !form.registerId) {
       toast.error("Please fill in all required fields.");
       return;
     }
     if (editing) {
-      setOffers((prev) =>
-        prev.map((o) => (o.id === editing.id ? { ...o, ...form } : o))
-      );
-      toast.success("Offer profile updated.");
-    } else {
-      setOffers((prev) => [
-        ...prev,
-        { ...form, id: Date.now().toString(), status: "DRAFT" },
-      ]);
-      toast.success("New offer profile created as Draft.");
+      editOffer({
+        id: editing.id,
+        data: {
+          name: form.name,
+          registerId: form.registerId,
+          offerPrice: form.offerPrice,
+          totalUnits: form.totalUnits,
+          minUnits: form.minUnits,
+          multiples: form.multiples,
+          openingDate: form.openingDate
+            ? format(form.openingDate, "yyyy-MM-dd")
+            : "",
+          closingDate: form.closingDate
+            ? format(form.closingDate, "yyyy-MM-dd")
+            : "",
+          secApprovalDate: form.secApprovalDate
+            ? format(form.secApprovalDate, "yyyy-MM-dd")
+            : "",
+          receivingBanks: form.receivingBanks,
+          circularUrl: form.circularUrl ?? "",
+          narration: form.narration,
+        },
+      });
+      return;
     }
-    setSheetOpen(false);
+    createOffer({
+      name: form.name,
+      registerId: form.registerId,
+      offerPrice: form.offerPrice,
+      totalUnits: form.totalUnits,
+      minUnits: form.minUnits,
+      multiples: form.multiples,
+      openingDate: form.openingDate
+        ? format(form.openingDate, "yyyy-MM-dd")
+        : "",
+      closingDate: form.closingDate
+        ? format(form.closingDate, "yyyy-MM-dd")
+        : "",
+      secApprovalDate: form.secApprovalDate
+        ? format(form.secApprovalDate, "yyyy-MM-dd")
+        : "",
+      receivingBanks: form.receivingBanks,
+      circularUrl: form.circularUrl ?? "",
+      narration: form.narration,
+      createdBy: currentUser?.email ?? "",
+    });
   };
 
-  const handleMoveToRegister = (id: string) => {
-    setOffers((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, status: "OPEN" as OfferStatus } : o))
-    );
-    toast.success("Offer moved to register and set to Open.");
-  };
+  const { mutate: moveToRegister, isPending: isMoving } = useMutation({
+    mutationFn: (id: string) =>
+      MOVE_TO_REGISTER(id, { openedBy: currentUser?.email ?? "" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ipo-offers"] });
+      toast.success("Offer moved to register and set to Open.");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const handleMoveToRegister = (id: string) => moveToRegister(id);
 
   return (
     <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {offers.length} offer{offers.length !== 1 ? "s" : ""} configured
+            {offersData?.data?.totalElements ?? 0} offer
+            {(offersData?.data?.totalElements ?? 0) !== 1 ? "s" : ""} configured
           </p>
           <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" />
@@ -204,12 +343,69 @@ export function PublicOfferForm() {
           </Button>
         </div>
 
-        {offers.length === 0 ? (
+        <div className="flex items-center gap-2 lg:w-1/2">
+          <input
+            className="mrpsl-input h-9 w-56"
+            placeholder="Search by offer name…"
+            value={filterSearch}
+            onChange={(e) => {
+              resetPage();
+              setFilterSearch(e.target.value);
+            }}
+          />
+          <Select
+            value={filterStatus}
+            onValueChange={(v) => {
+              resetPage();
+              setFilterStatus(v as OfferStatus | "");
+            }}
+          >
+            <SelectTrigger className="h-10 w-40 cursor-pointer">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="DRAFT">Draft</SelectItem>
+              <SelectItem value="OPEN">Open</SelectItem>
+              <SelectItem value="CLOSED">Closed</SelectItem>
+              <SelectItem value="ALLOTTED">Allotted</SelectItem>
+              <SelectItem value="CONCLUDED">Concluded</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={filterRegisterId}
+            onValueChange={(v) => {
+              resetPage();
+              setFilterRegisterId(v ?? "");
+            }}
+          >
+            <SelectTrigger className="h-10 w-52 cursor-pointer">
+              <SelectValue placeholder="All Registers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Registers</SelectItem>
+              {registerList
+                ?.filter((r) => r?.status === "ACTIVE")
+                .map((r) => (
+                  <SelectItem key={r.registerId} value={r.registerId}>
+                    {r.registerName}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {isOffersLoading ? (
+          <Card className="mrpsl-card p-12 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </Card>
+        ) : offers.length === 0 ? (
           <Card className="mrpsl-card p-12 flex flex-col items-center justify-center gap-3 text-center">
             <FileText className="h-10 w-10 text-muted-foreground/30" />
             <p className="font-medium text-sm">No offer profiles configured</p>
             <p className="text-xs text-muted-foreground">
-              Click "New Public Offer" to configure an IPO or Public Offer before processing.
+              Click &quot;New Public Offer&quot; to configure an IPO or Public
+              Offer before processing.
             </p>
           </Card>
         ) : (
@@ -218,21 +414,35 @@ export function PublicOfferForm() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="mrpsl-table-header">
-                    <th className="text-left px-4 py-3 font-medium">Offer Name</th>
-                    <th className="text-left px-4 py-3 font-medium">Register</th>
-                    <th className="text-right px-4 py-3 font-medium">Offer Price</th>
-                    <th className="text-right px-4 py-3 font-medium">Total Units</th>
+                    <th className="text-left px-4 py-3 font-medium">
+                      Offer Name
+                    </th>
+                    <th className="text-left px-4 py-3 font-medium">
+                      Register
+                    </th>
+                    <th className="text-right px-4 py-3 font-medium">
+                      Offer Price
+                    </th>
+                    <th className="text-right px-4 py-3 font-medium">
+                      Total Units
+                    </th>
                     <th className="text-left px-4 py-3 font-medium">Opens</th>
                     <th className="text-left px-4 py-3 font-medium">Closes</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
-                    <th className="text-right px-4 py-3 font-medium">Actions</th>
+                    <th className="text-right px-4 py-3 font-medium">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {offers.map((offer) => (
                     <tr key={offer.id} className="mrpsl-table-row">
                       <td className="px-4 py-3 font-medium">{offer.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{offer.register}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {registerList?.find(
+                          (r) => r.registerId === offer.registerId,
+                        )?.registerName ?? offer.registerId}
+                      </td>
                       <td className="px-4 py-3 text-right font-mono">
                         ₦{offer.offerPrice.toFixed(2)}
                       </td>
@@ -240,13 +450,19 @@ export function PublicOfferForm() {
                         {offer.totalUnits.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {offer.openingDate ? format(offer.openingDate, "dd MMM yyyy") : "—"}
+                        {offer.openingDate
+                          ? format(offer.openingDate, "dd MMM yyyy")
+                          : "—"}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {offer.closingDate ? format(offer.closingDate, "dd MMM yyyy") : "—"}
+                        {offer.closingDate
+                          ? format(offer.closingDate, "dd MMM yyyy")
+                          : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className={`border-0 text-[12px] ${STATUS_MAP[offer.status]}`}>
+                        <Badge
+                          className={`border-0 text-[12px] ${STATUS_MAP[offer.status]}`}
+                        >
                           {offer.status}
                         </Badge>
                       </td>
@@ -257,13 +473,22 @@ export function PublicOfferForm() {
                               size="sm"
                               variant="outline"
                               className="text-xs"
+                              disabled={isMoving}
                               onClick={() => handleMoveToRegister(offer.id)}
                             >
-                              <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                              {isMoving ? (
+                                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                              ) : (
+                                <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                              )}
                               Move to Register
                             </Button>
                           )}
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(offer)}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEdit(offer)}
+                          >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                         </div>
@@ -275,15 +500,20 @@ export function PublicOfferForm() {
             </div>
           </Card>
         )}
+
+        <TablePagination {...pg.tableProps(offersData?.data)} />
       </div>
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet open={sheetOpen} onOpenChange={handleSheetOpenChange}>
         <SheetContent className="w-130 sm:max-w-130 overflow-y-auto">
           <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
-            <SheetTitle>{editing ? "Edit Offer Profile" : "New Public Offer / IPO"}</SheetTitle>
+            <SheetTitle>
+              {isReadOnly ? "View Offer" : editing ? "Edit Offer Profile" : "New Public Offer / IPO"}
+            </SheetTitle>
             <SheetDescription>
-              Configure the offer parameters. Fields marked * are required before the offer
-              can go live.
+              {isReadOnly
+                ? "This offer is read-only. Only Draft offers can be edited."
+                : "Configure the offer parameters. Fields marked * are required before the offer can go live."}
             </SheetDescription>
           </SheetHeader>
 
@@ -294,20 +524,37 @@ export function PublicOfferForm() {
                 className="mrpsl-input h-9 w-full"
                 placeholder="e.g. Access Holdings PLC Public Offer 2024"
                 value={form.name}
+                disabled={isReadOnly}
                 onChange={(e) => set("name", e.target.value)}
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="mrpsl-label">Register *</label>
-              <Select value={form.register} onValueChange={(v) => set("register", v ?? "")}>
+              <Select
+                value={form.registerId}
+                disabled={isReadOnly}
+                onValueChange={(v) => set("registerId", v ?? "")}
+              >
                 <SelectTrigger className="h-9 w-full">
                   <SelectValue placeholder="Select register…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {MOCK_REGISTERS.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
+                  {isRegisterLoading ? (
+                    <div className="flex items-center justify-center py-10">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </div>
+                  ) : (
+                    registerList
+                      ?.filter((r) => r?.status === "ACTIVE")
+                      .map((r) => (
+                        <SelectItem key={r.registerId} value={r.registerId}>
+                          <span className="font-bold">{r.registerName}</span>
+                          {" - "}
+                          <span className="text-sm">{r.symbol}</span>
+                        </SelectItem>
+                      ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -320,6 +567,7 @@ export function PublicOfferForm() {
                   step="0.01"
                   className="mrpsl-input h-9 w-full"
                   placeholder="0.00"
+                  disabled={isReadOnly}
                   value={form.offerPrice || ""}
                   onChange={(e) => set("offerPrice", Number(e.target.value))}
                 />
@@ -330,6 +578,7 @@ export function PublicOfferForm() {
                   type="number"
                   className="mrpsl-input h-9 w-full"
                   placeholder="0"
+                  disabled={isReadOnly}
                   value={form.totalUnits || ""}
                   onChange={(e) => set("totalUnits", Number(e.target.value))}
                 />
@@ -340,6 +589,7 @@ export function PublicOfferForm() {
                   type="number"
                   className="mrpsl-input h-9 w-full"
                   placeholder="100"
+                  disabled={isReadOnly}
                   value={form.minUnits || ""}
                   onChange={(e) => set("minUnits", Number(e.target.value))}
                 />
@@ -352,6 +602,7 @@ export function PublicOfferForm() {
                 type="number"
                 className="mrpsl-input h-9 w-48"
                 placeholder="100"
+                disabled={isReadOnly}
                 value={form.multiples || ""}
                 onChange={(e) => set("multiples", Number(e.target.value))}
               />
@@ -364,16 +615,19 @@ export function PublicOfferForm() {
               <DateInput
                 label="Opening Date *"
                 date={form.openingDate}
+                disabled={isReadOnly}
                 setDate={(d) => set("openingDate", d)}
               />
               <DateInput
                 label="Closing Date *"
                 date={form.closingDate}
+                disabled={isReadOnly}
                 setDate={(d) => set("closingDate", d)}
               />
               <DateInput
                 label="SEC Approval Date"
                 date={form.secApprovalDate}
+                disabled={isReadOnly}
                 setDate={(d) => set("secApprovalDate", d)}
               />
             </div>
@@ -388,49 +642,67 @@ export function PublicOfferForm() {
               </div>
 
               {form.receivingBanks.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-1">No banks added yet.</p>
+                <p className="text-xs text-muted-foreground py-1">
+                  No banks added yet.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {form.receivingBanks.map((bank, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="text-xs font-semibold text-muted-foreground mt-2.5 shrink-0 w-4">{i + 1}.</span>
+                      <span className="text-xs font-semibold text-muted-foreground mt-2.5 shrink-0 w-4">
+                        {i + 1}.
+                      </span>
                       <div className="flex-1 space-y-1.5">
                         <Select
                           value={bank.bankName}
-                          onValueChange={(v) => updateBank(i, "bankName", v ?? "")}
+                          disabled={isReadOnly}
+                          onValueChange={(v) =>
+                            updateBank(i, "bankName", v ?? "")
+                          }
                         >
                           <SelectTrigger className="h-9 w-full">
                             <SelectValue placeholder="Select bank…" />
                           </SelectTrigger>
                           <SelectContent>
                             {NIGERIAN_BANKS.filter(
-                              (b) => b === bank.bankName || !form.receivingBanks.some((rb) => rb.bankName === b)
+                              (b) =>
+                                b === bank.bankName ||
+                                !form.receivingBanks.some(
+                                  (rb) => rb.bankName === b,
+                                ),
                             ).map((b) => (
-                              <SelectItem key={b} value={b}>{b}</SelectItem>
+                              <SelectItem key={b} value={b}>
+                                {b}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <input
                           className="mrpsl-input h-9 w-full"
                           placeholder="Account number"
+                          disabled={isReadOnly}
                           value={bank.accountNumber}
-                          onChange={(e) => updateBank(i, "accountNumber", e.target.value)}
+                          onChange={(e) =>
+                            updateBank(i, "accountNumber", e.target.value)
+                          }
                           maxLength={10}
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeBank(i)}
-                        className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 mt-0.5"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      {!isReadOnly && (
+                        <button
+                          type="button"
+                          onClick={() => removeBank(i)}
+                          className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 mt-0.5"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
 
-              {form.receivingBanks.length < 3 && (
+              {!isReadOnly && form.receivingBanks.length < 3 && (
                 <Button
                   type="button"
                   variant="outline"
@@ -444,45 +716,88 @@ export function PublicOfferForm() {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="mrpsl-label">Offer Circular (PDF)</label>
-              <div
-                className="border-2 border-dashed border-border rounded-lg p-4 flex items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors"
-                onClick={() => toast.info("File upload coming soon")}
-              >
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Click to upload the offer prospectus / circular (PDF)
+            {isReadOnly ? (
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Offer Circular
                 </span>
+                {form.circularUrl ? (
+                  <DocPreview url={form.circularUrl} />
+                ) : (
+                  <p className="text-xs text-muted-foreground py-1">No circular uploaded.</p>
+                )}
               </div>
-            </div>
+            ) : (
+              <DocUploadZone
+                label="Offer Circular"
+                fileTypes={["PDF"]}
+                maxSizeMB={10}
+                folderName="offercircular"
+                initialUrl={form.circularUrl}
+                onUploadSuccess={(url) => set("circularUrl", url)}
+              />
+            )}
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="mrpsl-label">Narration</label>
-                <span className="text-xs text-muted-foreground">{form.narration.length}/300</span>
+                <span className="text-xs text-muted-foreground">
+                  {form.narration.length}/300
+                </span>
               </div>
               <textarea
                 className="mrpsl-input h-auto min-h-22 resize-none py-2.5 leading-relaxed"
                 placeholder="Optional notes or description about this offer…"
                 maxLength={300}
                 rows={4}
+                disabled={isReadOnly}
                 value={form.narration}
                 onChange={(e) => set("narration", e.target.value)}
               />
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-border flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => setSheetOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>
-              {editing ? "Save Changes" : "Create Offer Profile"}
-            </Button>
-          </div>
+          {(!editing || editing.status === "DRAFT") && (
+            <div className="px-6 py-4 border-t border-border flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setSheetOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isCreating || isEditing}>
+                {(isCreating || isEditing) && (
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                )}
+                {editing ? "Save Changes" : "Create Offer Profile"}
+              </Button>
+            </div>
+          )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden">
+          <div className="px-6 pt-6 pb-5">
+            <DialogHeader>
+              <DialogTitle>Unsaved Changes</DialogTitle>
+              <DialogDescription className="mt-1.5">
+                You have unsaved changes that will be lost if you leave. Do you
+                want to stay and continue editing?
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-border bg-muted/40">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmClose(false)}
+            >
+              Stay
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleDiscard}>
+              Discard & Leave
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

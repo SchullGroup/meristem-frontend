@@ -126,7 +126,6 @@ interface PreviewRow {
   id: string;
   holderName: string;
   chn: string;
-  type: "Acceptance" | "Renunciation" | "Trading";
   agent: string;
   units: number;
   amountPaid: number;
@@ -134,14 +133,14 @@ interface PreviewRow {
 }
 
 const PREVIEW_SEED: PreviewRow[] = [
-  { id: "p1", holderName: "NGOZI CHIDINMA OKAFOR", chn: "C0023456BK", type: "Acceptance", agent: "Meristem Stockbrokers Ltd", units: 5000, amountPaid: 92500, status: "PENDING" },
-  { id: "p2", holderName: "FATIMA ABUBAKAR MUSA", chn: "C0045678DK", type: "Renunciation", agent: "Access Bank PLC", units: 8000, amountPaid: 74000, status: "PENDING" },
-  { id: "p3", holderName: "AMAKA NGOZI OKONKWO", chn: "C0067890FK", type: "Acceptance", agent: "Coronation Registrars", units: 12000, amountPaid: 222000, status: "PENDING" },
-  { id: "p4", holderName: "OLUWASEUN ADEBAYO LAGOS", chn: "C0034567CK", type: "Trading", agent: "Meristem Stockbrokers Ltd", units: 10000, amountPaid: 25000, status: "PENDING" },
-  { id: "p5", holderName: "IBRAHIM YUSUF ALIYU", chn: "C0056789EK", type: "Renunciation", agent: "GTBank PLC", units: 4500, amountPaid: 41625, status: "PENDING" },
-  { id: "p6", holderName: "CHUKWUEMEKA IFEANYI NWOSU", chn: "C0089012GK", type: "Acceptance", agent: "Meristem Stockbrokers Ltd", units: 3000, amountPaid: 55500, status: "PENDING" },
-  { id: "p7", holderName: "KELECHI NWOSU OWERRI", chn: "C0056789EK", type: "Trading", agent: "Chapel Hill Denham", units: 6000, amountPaid: 16800, status: "PENDING" },
-  { id: "p8", holderName: "BLESSING OKORO EMENIKE", chn: "C0078901FK", type: "Renunciation", agent: "First Bank of Nigeria", units: 2000, amountPaid: 18500, status: "PENDING" },
+  { id: "p1", holderName: "NGOZI CHIDINMA OKAFOR", chn: "C0023456BK", agent: "Meristem Stockbrokers Ltd", units: 5000, amountPaid: 92500, status: "PENDING" },
+  { id: "p2", holderName: "AMAKA NGOZI OKONKWO", chn: "C0067890FK", agent: "Coronation Registrars", units: 12000, amountPaid: 222000, status: "PENDING" },
+  { id: "p3", holderName: "CHUKWUEMEKA IFEANYI NWOSU", chn: "C0089012GK", agent: "Meristem Stockbrokers Ltd", units: 3000, amountPaid: 55500, status: "PENDING" },
+  { id: "p4", holderName: "ADAEZE OBIORA NNAMDI", chn: "C0112345HK", agent: "CardinalStone Partners", units: 8500, amountPaid: 157250, status: "PENDING" },
+  { id: "p5", holderName: "UCHE OKONKWO JAMES", chn: "C0234567IK", agent: "Stanbic IBTC Stockbrokers", units: 7000, amountPaid: 129500, status: "PENDING" },
+  { id: "p6", holderName: "DAMILOLA ADEKUNLE SEUN", chn: "C0345678JK", agent: "Chapel Hill Denham", units: 3500, amountPaid: 64750, status: "PENDING" },
+  { id: "p7", holderName: "GRACE NWACHUKWU ANAMBRA", chn: "C0456789KK", agent: "Meristem Stockbrokers Ltd", units: 9000, amountPaid: 166500, status: "PENDING" },
+  { id: "p8", holderName: "OLUWAFEMI AKINLADE IBADAN", chn: "C0567890LK", agent: "Access Bank PLC", units: 6000, amountPaid: 111000, status: "PENDING" },
 ];
 
 const ICU_ALLOTTED: Array<{ name: string; chn: string; rightsDue: number; additionalApplied: number; additionalAllotted: number; totalAllotted: number }> = [
@@ -210,104 +209,55 @@ const DISPATCH_ALLOTTED: Array<{ name: string; chn: string; cscs: string; totalA
 ];
 
 const SEC_REPORTS = [
-  "Agent Summary",
   "Additional Investors",
+  "Agent Summary",
+  "Full Subscription List With Additional",
+  "Full Subscription List Without Additional",
+  "Holders With CHN",
+  "Holders Without CHN",
   "Global Subscription List",
+  "Holders With X Percent And Above",
+  "Holders With X Units and Above",
+  "Listing By Batch",
   "Listing by Agent",
-  "Offer Summary",
   "Partial Subscription",
   "Processed Rights",
   "Processed Rights By Batch",
   "Processed Rights Certificates",
-  "Rights PreList",
-  "Subscription by Agent",
-  "Rights with Membercode and/or CHN",
-  "Full Subscription List With and Without Additional",
-  "Holders With X Units and Above",
-  "Holders With X Percent And Above",
-  "Listing By Batch",
   "Right Range Analysis",
   "Right Summary",
+  "Rights PreList",
+  "Rights with Membercode and/or CHN",
+  "Subscription by Agent",
   "Unauthorized Batch",
 ];
 
 /* ─── Inline tab components ─────────────────────────────── */
 
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50] as const;
+
 function RightsPreviewTab() {
-  const [filter, setFilter] = useState<"All" | "Full Acceptance" | "Renunciation" | "Trading in Rights">("All");
   const [sentToHOD, setSentToHOD] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
-  const filtered = filter === "All"
-    ? PREVIEW_SEED
-    : PREVIEW_SEED.filter((r) =>
-        filter === "Full Acceptance"
-          ? r.type === "Acceptance"
-          : filter === "Renunciation"
-          ? r.type === "Renunciation"
-          : r.type === "Trading",
-      );
+  const totalPages = Math.ceil(PREVIEW_SEED.length / pageSize);
+  const paged = PREVIEW_SEED.slice((page - 1) * pageSize, page * pageSize);
 
-  const typeBadge = (type: PreviewRow["type"]) => {
-    if (type === "Acceptance") return "bg-green-100 text-green-800";
-    if (type === "Renunciation") return "bg-amber-100 text-amber-800";
-    return "bg-blue-100 text-blue-800";
+  const handlePageSizeChange = (val: string | null) => {
+    if (!val) return;
+    setPageSize(Number(val));
+    setPage(1);
   };
 
   return (
     <div className="space-y-5">
-      {/* Filter tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {(["All", "Full Acceptance", "Renunciation", "Trading in Rights"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`text-sm px-4 py-1.5 rounded-lg font-medium transition-colors ${
-              filter === f
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
       <Card className="mrpsl-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="mrpsl-table-header">
-                <th className="text-left px-4 py-2.5 font-medium">#</th>
-                <th className="text-left px-4 py-2.5 font-medium">HOLDER NAME</th>
-                <th className="text-left px-4 py-2.5 font-medium">CHN</th>
-                <th className="text-left px-4 py-2.5 font-medium">TYPE</th>
-                <th className="text-left px-4 py-2.5 font-medium">AGENT</th>
-                <th className="text-right px-4 py-2.5 font-medium">UNITS</th>
-                <th className="text-right px-4 py-2.5 font-medium">AMOUNT PAID (₦)</th>
-                <th className="text-center px-4 py-2.5 font-medium">STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r, idx) => (
-                <tr key={r.id} className="mrpsl-table-row">
-                  <td className="px-4 py-2.5 text-muted-foreground">{idx + 1}</td>
-                  <td className="px-4 py-2.5 font-medium">{r.holderName}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs">{r.chn}</td>
-                  <td className="px-4 py-2.5">
-                    <Badge className={`border-0 text-[11px] ${typeBadge(r.type)}`}>{r.type}</Badge>
-                  </td>
-                  <td className="px-4 py-2.5 text-sm text-muted-foreground">{r.agent}</td>
-                  <td className="px-4 py-2.5 text-right font-mono tabular-nums">{r.units.toLocaleString()}</td>
-                  <td className="px-4 py-2.5 text-right font-mono tabular-nums">{r.amountPaid.toLocaleString()}</td>
-                  <td className="px-4 py-2.5 text-center">
-                    <Badge className="bg-amber-100 text-amber-800 border-0 text-[11px]">PENDING</Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-4 py-3 border-t border-border flex gap-2 justify-end flex-wrap">
+        <div className="px-4 py-3 border-b border-border flex items-center gap-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex-1">
+            Rights Acceptances
+            <Badge className="ml-2 bg-muted text-muted-foreground border-0 normal-case text-[11px] font-normal">{PREVIEW_SEED.length} records</Badge>
+          </p>
           <Button variant="outline" size="sm" onClick={() => toast.success("Rights preview downloaded.")}>
             <Download className="h-3.5 w-3.5 mr-1.5" />
             Download as CSV
@@ -320,9 +270,87 @@ function RightsPreviewTab() {
               toast.success("Sent to Head of Department for approval.");
             }}
           >
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
             {sentToHOD ? "Sent to Head of Department" : "Send to Head of Department for Approval"}
           </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="mrpsl-table-header">
+                <th className="text-left px-4 py-2.5 font-medium">#</th>
+                <th className="text-left px-4 py-2.5 font-medium">HOLDER NAME</th>
+                <th className="text-left px-4 py-2.5 font-medium">CHN</th>
+                <th className="text-left px-4 py-2.5 font-medium">AGENT</th>
+                <th className="text-right px-4 py-2.5 font-medium">UNITS</th>
+                <th className="text-right px-4 py-2.5 font-medium">AMOUNT PAID (₦)</th>
+                <th className="text-center px-4 py-2.5 font-medium">STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r, idx) => (
+                <tr key={r.id} className="mrpsl-table-row">
+                  <td className="px-4 py-2.5 text-muted-foreground">{(page - 1) * pageSize + idx + 1}</td>
+                  <td className="px-4 py-2.5 font-medium">{r.holderName}</td>
+                  <td className="px-4 py-2.5 font-mono text-xs">{r.chn}</td>
+                  <td className="px-4 py-2.5 text-sm text-muted-foreground">{r.agent}</td>
+                  <td className="px-4 py-2.5 text-right font-mono tabular-nums">{r.units.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right font-mono tabular-nums">{r.amountPaid.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <Badge className="bg-amber-100 text-amber-800 border-0 text-[11px]">PENDING</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-4 py-3 border-t border-border flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Rows per page:</span>
+            <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+              <SelectTrigger className="h-7 w-16 text-xs px-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map(n => (
+                  <SelectItem key={n} value={String(n)} className="text-xs">{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span>
+              Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, PREVIEW_SEED.length)} of {PREVIEW_SEED.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => p - 1)}
+              disabled={page === 1}
+              className="h-7 px-2.5 text-xs"
+            >
+              Previous
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <Button
+                key={p}
+                variant={p === page ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPage(p)}
+                className="h-7 w-7 p-0 text-xs"
+              >
+                {p}
+              </Button>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => p + 1)}
+              disabled={page === totalPages}
+              className="h-7 px-2.5 text-xs"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </Card>
     </div>

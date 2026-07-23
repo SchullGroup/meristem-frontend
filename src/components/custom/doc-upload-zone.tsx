@@ -1,11 +1,17 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { FileText, X, CheckCircle2, Loader2, ExternalLink } from "lucide-react";
+import { FileText, X, CheckCircle2, Loader2, Eye, RefreshCw } from "lucide-react";
 import { cn, getFileNameFromUrl } from "@/lib/utils";
 import { FILE_TYPE_ACCEPT, FILE_TYPE_COLORS } from "@/lib/mocks/doc-types";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface DocUploadZoneProps {
   label: string;
@@ -37,6 +43,7 @@ export function DocUploadZone({
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const accept = fileTypes
     .map(t => FILE_TYPE_ACCEPT[t] ?? "")
@@ -138,25 +145,35 @@ export function DocUploadZone({
             <p className="text-xs font-medium text-primary truncate">Uploading {file?.name}...</p>
           </div>
         </div>
-      ) : file ? (
+      ) : uploadedUrl ? (
         <div className="flex items-center gap-2.5 px-3 py-2.5 border border-green-200 bg-green-50/60 rounded-xl">
           <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-green-800 truncate">{file.name}</p>
-            <p className="text-[10px] text-green-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+            <p className="text-xs font-medium text-green-800 truncate">
+              {file?.name ?? getFileNameFromUrl(uploadedUrl)}
+            </p>
+            {file && (
+              <p className="text-[10px] text-green-600">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+            )}
           </div>
-          {uploadedUrl && (
-            <a
-              href={uploadedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100"
-              aria-label="Preview uploaded file"
-            >
-              <ExternalLink className="h-3 w-3" />
-              Preview
-            </a>
-          )}
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100 cursor-pointer"
+            aria-label="Preview uploaded file"
+          >
+            <Eye className="h-3 w-3" />
+            Preview
+          </button>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-blue-600 hover:text-blue-800 transition-colors px-1.5 py-0.5 rounded hover:bg-blue-50 cursor-pointer"
+            aria-label="Replace file"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Replace
+          </button>
           <button
             type="button"
             onClick={clear}
@@ -207,28 +224,64 @@ export function DocUploadZone({
       {error && (
         <p className="text-xs text-destructive">{error}</p>
       )}
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl w-full h-[88vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-5 py-3 border-b shrink-0">
+            <DialogTitle className="text-sm font-semibold truncate">
+              {file?.name ?? getFileNameFromUrl(uploadedUrl ?? "")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            <iframe
+              src={uploadedUrl ?? ""}
+              className="w-full h-full rounded-b-lg"
+              title="Document preview"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 
 export function DocPreview({ url }: { url: string }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const fileName = getFileNameFromUrl(url);
+
   return (
-    <div className="flex items-center gap-2.5 px-3 py-2.5 border border-green-200 bg-green-50/60 rounded-xl">
-      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-green-800 truncate">{getFileNameFromUrl(url)}</p>
+    <>
+      <div className="flex items-center gap-2.5 px-3 py-2.5 border border-green-200 bg-green-50/60 rounded-xl">
+        <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-green-800 truncate">{fileName}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
+          className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100"
+          aria-label="Preview uploaded file"
+        >
+          <Eye className="h-3 w-3" />
+          Preview
+        </button>
       </div>
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="shrink-0 flex items-center gap-1 text-[10px] font-semibold text-green-700 hover:text-green-900 transition-colors px-1.5 py-0.5 rounded hover:bg-green-100"
-        aria-label="Preview uploaded file"
-      >
-        <ExternalLink className="h-3 w-3" />
-        Preview
-      </a>
-    </div>
-  )
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl w-full h-[88vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-5 py-3 border-b shrink-0">
+            <DialogTitle className="text-sm font-semibold truncate">{fileName}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            <iframe
+              src={url}
+              className="w-full h-full rounded-b-lg"
+              title="Document preview"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }

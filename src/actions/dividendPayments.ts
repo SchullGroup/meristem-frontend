@@ -23,6 +23,7 @@ export interface InitiatePaymentRunRequest {
   declarationId: string;
   gateway: string;
   initiatedBy: string;
+  sendNotifications: boolean;
 }
 
 // Approve payment run request body
