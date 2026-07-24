@@ -315,6 +315,22 @@ export function useRejectRefundRequest() {
   });
 }
 
+export function useMarkRefundReceived() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<RefundRequest> => {
+      await delay(700);
+      const req = SEED_REFUND_REQUESTS.find((r) => r.id === id);
+      if (!req) throw new Error("Request not found");
+      return { ...req, status: "RECEIVED", receivedDate: new Date().toISOString().split("T")[0] };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dividend-refund-requests"] });
+      qc.invalidateQueries({ queryKey: ["dividend-return-records"] });
+    },
+  });
+}
+
 export function useSetNotificationThreshold() {
   const qc = useQueryClient();
   return useMutation({
