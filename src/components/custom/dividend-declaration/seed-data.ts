@@ -135,6 +135,19 @@ const BANK_POOL = [
   { name: "Fidelity Bank", sortCode: "070" },
 ];
 
+const ADDRESS_POOL = [
+  "12 Adeola Odeku St, Victoria Island, Lagos",
+  "45 Aminu Kano Cres, Wuse 2, Abuja",
+  "8 Trans-Amadi Industrial Layout, Port Harcourt",
+  "23 Ahmadu Bello Way, Kaduna",
+  "5 New Market Rd, Onitsha, Anambra",
+  "17 Oba Akran Ave, Ikeja, Lagos",
+  "9 Ogui Rd, Enugu",
+  "31 Ring Rd, Ibadan, Oyo",
+  "2 Marina St, Lagos Island, Lagos",
+  "14 Airport Rd, Benin City, Edo",
+];
+
 export const FAILURE_REASONS = [
   "Invalid account number",
   "Bank name / account name mismatch",
@@ -186,6 +199,9 @@ export function generatePrelist(
       chn: `CHN${randomDigits(8)}`,
       holderName,
       email: `${holderName.toLowerCase().replace(/\s+/g, ".")}@shareholdermail.com`,
+      address: pick(ADDRESS_POOL),
+      // ~75% mandated (clean KYC), ~25% others (KYC conflict, needs mandating)
+      category: Math.random() < 0.75 ? "MANDATED" : "OTHERS",
       bvn: randomDigits(11),
       nin: randomDigits(11),
       units,
@@ -202,6 +218,7 @@ export function generatePrelist(
 
 function withProcessedPrelist(rows: PrelistRow[], failRatio = 0.15) {
   return rows.map((r) => {
+    if (r.excluded) return r; // excluded rows are not paid
     const failed = Math.random() < failRatio;
     return {
       ...r,
@@ -334,7 +351,14 @@ export const SEED_DIVIDEND_FLOWS: DividendFlowRecord[] = [
     registerSymbol: "DANGCEM",
     rate: 18,
     whtRate: 10,
-    status: "PENDING_PAYMENT",
+    status: "PENDING_MD",
+  }),
+  buildSeedRecord({
+    paymentNumber: "DIV-2026/110",
+    registerSymbol: "NESTLE",
+    rate: 50,
+    whtRate: 10,
+    status: "MANUAL_PROCESSING",
   }),
   (() => {
     const rec = buildSeedRecord({

@@ -262,6 +262,94 @@ export interface KycCancelRequest {
   cancelledBy: string;
 }
 
+// ── Account-scoped KYC: search, caution, documents & signatures ──────────────
+// (see api-docs.json — /accounts/search, /accounts/{accountNumber}/caution,
+//  /accounts/{accountNumber}/documents[/signature|/signatures])
+
+export interface AccountSearchResult {
+  accountId: string;
+  accountNumber: string;
+  fullName: string;
+  registerId: string;
+  registerName: string;
+  holdings: number;
+  status: string;
+  chn: string;
+}
+
+export interface AccountSearchParams {
+  q: string;
+  excludeIds?: string[];
+  limit?: number;
+}
+
+export interface CautionAccountRequest {
+  cautionReasonCode: string;
+  additionalNotes?: string;
+  supportingDocumentUrl?: string;
+  supportingDocumentName?: string;
+  initiatedBy?: string;
+}
+
+export interface RemoveCautionParams {
+  reason: string;
+  initiatedBy?: string;
+}
+
+export interface KycDocumentEntry {
+  documentType: string;
+  documentUrl: string;
+  refNumber?: string;
+  fileName?: string;
+}
+
+export interface SubmitKycDocumentsRequest {
+  documents: KycDocumentEntry[];
+  reason: string;
+  initiatedBy?: string;
+}
+
+export interface AccountKycDocument {
+  id: string;
+  accountNumber: string;
+  chn: string;
+  holderName: string;
+  documentType: string;
+  documentTypeName: string;
+  documentName: string;
+  documentRef: string;
+  documentRefNumber: string;
+  documentUrl: string;
+  status: string;
+  verifiedBy: string;
+  verifiedAt: string;
+  rejectionReason: string;
+  kycChangeId: number;
+  uploadedAt: string;
+  createdAt: string;
+}
+
+export interface SubmitSignatureRequest {
+  signatureUrl: string;
+  reason: string;
+  initiatedBy?: string;
+}
+
+export interface AccountSignature {
+  id: string;
+  accountNumber: string;
+  chn: string;
+  holderName: string;
+  signatureUrl: string;
+  status: string;
+  active: boolean;
+  reason: string;
+  submittedBy: string;
+  kycChangeId: number;
+  capturedAt: string;
+  createdAt: string;
+}
+
 export interface KycChangeFilters {
   status?: string;
   changeType?: string;
