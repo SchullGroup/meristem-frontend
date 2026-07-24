@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
-import { useSendNotification } from "@/hooks/useDividendDeclarationFlow";
+import { useSendBatchEmails } from "@/hooks/useDividendDeclarationFlow";
 import type { DividendFlowRecord } from "@/types/dividend-declaration-flow";
 import { formatDate } from "./helpers";
 
@@ -294,10 +294,15 @@ export function EmailTemplateDialog({
   record,
   open,
   onOpenChange,
+  rowIds,
+  onSent,
 }: {
   record: DividendFlowRecord | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // Omit to email the whole batch; pass ids to email a selected subset.
+  rowIds?: string[];
+  onSent?: () => void;
 }) {
   const { currentUser } = useStore();
   const [step, setStep] = useState<1 | 2>(1);
@@ -307,7 +312,8 @@ export function EmailTemplateDialog({
   const [note, setNote] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const sendMutation = useSendNotification();
+  const sendMutation = useSendBatchEmails();
+  const recipientCount = rowIds ? rowIds.length : (record?.prelist.length ?? 0);
 
   // Reset the composer whenever the dialog opens for a (possibly different)
   // record — adjusted during render rather than in an effect.
@@ -365,10 +371,12 @@ export function EmailTemplateDialog({
         declarationId: record.id,
         subject,
         sentBy: currentUser.email,
+        rowIds,
       },
       {
         onSuccess: () => {
-          toast.success(`Email sent to ${record.prelist.length} shareholders.`);
+          toast.success(`Email sent to ${recipientCount.toLocaleString()} shareholders.`);
+          onSent?.();
           resetAndClose(false);
         },
         onError: (err) => toast.error(err?.message || "Failed to send email."),
@@ -388,7 +396,7 @@ export function EmailTemplateDialog({
               {step === 1 ? "Email Setup" : "Email Preview"}
             </DialogTitle>
             <Badge className="bg-blue-100 text-blue-800 border-0 text-[13px] font-normal shrink-0">
-              {record.prelist.length.toLocaleString()} recipients
+              {recipientCount.toLocaleString()} recipients
             </Badge>
           </div>
           <p className="text-[13px] text-muted-foreground mt-0.5">
@@ -550,7 +558,7 @@ export function EmailTemplateDialog({
                   </>
                 ) : (
                   <>
-                    <Mail className="h-4 w-4" /> Send to {record.prelist.length.toLocaleString()} Shareholders
+                    <Mail className="h-4 w-4" /> Send to {recipientCount.toLocaleString()} Shareholders
                   </>
                 )}
               </Button>

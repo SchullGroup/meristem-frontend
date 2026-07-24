@@ -4,7 +4,8 @@ export type DividendFlowStatus =
   | "PENDING_ICU_1"
   | "PENDING_HOP"
   | "PENDING_ICU_2"
-  | "PENDING_PAYMENT"
+  | "PENDING_MD"
+  | "MANUAL_PROCESSING"
   | "PARTIALLY_PAID"
   | "PAID"
   | "REJECTED";
@@ -13,12 +14,17 @@ export type RejectionStage = "ICU_1" | "HOP" | "ICU_2";
 
 export type PaymentRowStatus = "PENDING" | "SUCCESS" | "FAILED";
 
+// MANDATED = KYC details current & clean; OTHERS = KYC conflict, needs mandating.
+export type ShareholderCategory = "MANDATED" | "OTHERS";
+
 export interface PrelistRow {
   id: string;
   accountNumber: string;
   chn: string;
   holderName: string;
   email: string;
+  address: string;
+  category: ShareholderCategory;
   bvn: string;
   nin: string;
   units: number;
@@ -28,8 +34,11 @@ export interface PrelistRow {
   bankName: string;
   bankAccountNumber: string;
   sortCode: string;
+  excluded?: boolean;
   paymentStatus?: PaymentRowStatus;
   failureReason?: string;
+  emailStatus?: "SENT";
+  deliveryStatus?: "DELIVERED" | "BOUNCED";
 }
 
 export interface ApprovalTrailEntry {
@@ -41,7 +50,9 @@ export interface ApprovalTrailEntry {
     | "APPROVED"
     | "REJECTED"
     | "PAYMENT_INITIATED"
-    | "PAYMENT_REQUEUED";
+    | "PAYMENT_REQUEUED"
+    | "EXCLUDED"
+    | "FORWARDED_MANUAL";
   comment?: string;
   date: string;
 }
@@ -62,7 +73,6 @@ export interface DividendFlowRecord {
   whtRate: number;
   isTaxExempt: boolean;
   exemptionRate?: number;
-  stateJurisdiction?: string;
   warehouseBank?: string;
   warehouseAccountNo?: string;
   tier: 1 | 2 | 3 | 4;

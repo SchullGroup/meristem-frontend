@@ -1,4 +1,8 @@
-import type { DividendFlowStatus, RejectionStage } from "@/types/dividend-declaration-flow";
+import type {
+  DividendFlowStatus,
+  RejectionStage,
+  ShareholderCategory,
+} from "@/types/dividend-declaration-flow";
 
 export function formatNaira(num: number) {
   if (!num) return "₦0.00";
@@ -29,7 +33,8 @@ const STATUS_LABEL: Record<DividendFlowStatus, string> = {
   PENDING_ICU_1: "Pending ICU (1st)",
   PENDING_HOP: "Pending HOP",
   PENDING_ICU_2: "Pending ICU (2nd)",
-  PENDING_PAYMENT: "Pending Payment",
+  PENDING_MD: "Pending MD",
+  MANUAL_PROCESSING: "Manual Processing",
   PARTIALLY_PAID: "Partially Paid",
   PAID: "Paid",
   REJECTED: "Rejected",
@@ -61,8 +66,10 @@ export function statusBadgeClass(status: DividendFlowStatus) {
     case "PENDING_HOP":
     case "PENDING_ICU_2":
       return "bg-amber-100 text-amber-800";
-    case "PENDING_PAYMENT":
+    case "PENDING_MD":
       return "bg-blue-100 text-blue-800";
+    case "MANUAL_PROCESSING":
+      return "bg-purple-100 text-purple-800";
     case "PARTIALLY_PAID":
       return "bg-orange-100 text-orange-800";
     case "PAID":
@@ -85,4 +92,14 @@ export function formatDate(d?: string) {
   } catch {
     return d;
   }
+}
+
+export function categoryBadgeClass(category: ShareholderCategory) {
+  return category === "MANDATED"
+    ? "bg-green-100 text-green-800"
+    : "bg-amber-100 text-amber-800";
+}
+
+export function categoryLabel(category: ShareholderCategory) {
+  return category === "MANDATED" ? "Mandated" : "Others";
 }

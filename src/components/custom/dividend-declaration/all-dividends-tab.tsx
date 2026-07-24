@@ -1,48 +1,68 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, FileSpreadsheet, Loader2, Eye, Pencil, Info } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import { Plus, FileSpreadsheet, Loader2, Eye, Pencil, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
 import { toast } from "sonner";
+import { downloadCsvData } from "@/lib/utils/csv-template";
 import {
   useDividendFlows,
+  useDividendFlow,
   useGeneratePrelist,
+  useForwardToIcu,
 } from "@/hooks/useDividendDeclarationFlow";
 import type { DividendFlowRecord } from "@/types/dividend-declaration-flow";
-import { formatFlowStatus, formatNaira, getTierBadge, statusBadgeClass, formatDate } from "./helpers";
+import {
+  formatFlowStatus,
+  formatNaira,
+  getTierBadge,
+  statusBadgeClass,
+} from "./helpers";
 import { NewDividendForm } from "./new-dividend-form";
-import { PrelistDialog } from "./prelist-dialog";
+import { DetailHeader } from "./detail-header";
+import { MetricCard } from "./batch-list";
+import { ShareholderTable, prelistCsvRows } from "./shareholder-table";
+import type { ShareholderColumn } from "./shareholder-table";
+
+const PRELIST_COLUMNS: ShareholderColumn[] = [
+  "serial",
+  "accountNumber",
+  "chn",
+  "holderName",
+  "address",
+  "category",
+  "bvn",
+  "units",
+  "grossAmount",
+  "whtAmount",
+  "netAmount",
+  "bankName",
+  "bankAccountNumber",
+  "sortCode",
+];
 
 export function AllDividendsTab() {
   const { currentUser } = useStore();
   const { data: flows = [], isLoading } = useDividendFlows();
   const generatePrelistMutation = useGeneratePrelist();
 
-  const [view, setView] = useState<"list" | "create">("list");
+  const [view, setView] = useState<"list" | "create" | "prelist">("list");
   const [editRecord, setEditRecord] = useState<DividendFlowRecord | null>(null);
   const [prelistId, setPrelistId] = useState<string | null>(null);
-  const [detailsRecord, setDetailsRecord] = useState<DividendFlowRecord | null>(null);
 
   const canInitiate = !["ENQUIRY_ONLY", "AUDIT_REVIEWER"].includes(
     currentUser?.roles?.[0] || "",
   );
+
+  function backToList() {
+    setView("list");
+    setEditRecord(null);
+    setPrelistId(null);
+  }
 
   function handleGeneratePrelist(id: string) {
     generatePrelistMutation.mutate(
@@ -51,21 +71,21 @@ export function AllDividendsTab() {
         onSuccess: () => {
           toast.success("Prelist generated for eligible shareholders.");
           setPrelistId(id);
+          setView("prelist");
         },
         onError: (err) => toast.error(err?.message || "Failed to generate prelist."),
       },
     );
   }
 
-  function backToList() {
-    setView("list");
-    setEditRecord(null);
-  }
-
   if (view === "create") {
     return (
       <NewDividendForm editRecord={editRecord} onCancel={backToList} onSuccess={backToList} />
     );
+  }
+
+  if (view === "prelist" && prelistId) {
+    return <PrelistScreen id={prelistId} onBack={backToList} />;
   }
 
   return (
@@ -122,9 +142,7 @@ export function AllDividendsTab() {
                     </td>
                     <td className="px-4 py-3 font-semibold">{d.registerSymbol}</td>
                     <td className="px-4 py-3">{d.dividendType}</td>
-                    <td className="px-4 py-3 tabular text-center">
-                      ₦{d.rate.toFixed(4)}
-                    </td>
+                    <td className="px-4 py-3 tabular text-center">₦{d.rate.toFixed(4)}</td>
                     <td className="px-4 py-3 tabular text-center font-bold">
                       {formatNaira(d.grossLiability)}
                     </td>
@@ -172,21 +190,17 @@ export function AllDividendsTab() {
                           <Pencil className="h-3.5 w-3.5" /> Edit &amp; Resend
                         </Button>
                       ) : (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setPrelistId(d.id)}>
-                              <Eye className="mr-2 h-4 w-4" /> View Prelist
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setDetailsRecord(d)}>
-                              <Info className="mr-2 h-4 w-4" /> View Details
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() => {
+                            setPrelistId(d.id);
+                            setView("prelist");
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View Prelist
+                        </Button>
                       )}
                     </td>
                   </tr>
@@ -196,67 +210,92 @@ export function AllDividendsTab() {
           </table>
         </div>
       </Card>
-
-      <PrelistDialog
-        id={prelistId}
-        open={!!prelistId}
-        onOpenChange={(v) => !v && setPrelistId(null)}
-      />
-
-      <Dialog open={!!detailsRecord} onOpenChange={(v) => !v && setDetailsRecord(null)}>
-        <DialogContent className="max-w-lg p-6">
-          <DialogHeader>
-            <DialogTitle>Declaration Details — {detailsRecord?.paymentNumber}</DialogTitle>
-          </DialogHeader>
-          {detailsRecord && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <Field label="Register" value={`${detailsRecord.registerName} (${detailsRecord.registerSymbol})`} />
-                <Field label="Type" value={detailsRecord.dividendType} />
-                <Field label="Rate" value={`₦${detailsRecord.rate.toFixed(4)}`} />
-                <Field label="WHT Rate" value={`${detailsRecord.isTaxExempt ? detailsRecord.exemptionRate ?? 0 : detailsRecord.whtRate}%`} />
-                <Field label="Qualification Date" value={formatDate(detailsRecord.qualificationDate)} />
-                <Field label="Closure Date" value={formatDate(detailsRecord.closureDate)} />
-                <Field label="Payment Date" value={formatDate(detailsRecord.paymentDate)} />
-                <Field label="Initiated By" value={detailsRecord.initiatedBy} />
-                <Field label="Gross Liability" value={formatNaira(detailsRecord.grossLiability)} />
-                <Field label="WHT Amount" value={formatNaira(detailsRecord.whtAmount)} />
-                <Field label="Net Payout" value={formatNaira(detailsRecord.netLiability)} />
-                <Field label="Shareholders" value={detailsRecord.totalShareholders.toLocaleString()} />
-              </div>
-              {detailsRecord.narrative && (
-                <div>
-                  <div className="mrpsl-section-title">Narrative</div>
-                  <p className="text-sm mt-1">{detailsRecord.narrative}</p>
-                </div>
-              )}
-              <div>
-                <div className="mrpsl-section-title mb-2">Approval Trail</div>
-                <div className="space-y-2">
-                  {detailsRecord.approvalTrail.map((t, i) => (
-                    <div key={i} className="text-[13px] flex justify-between border-b border-border/40 pb-1.5 last:border-0">
-                      <span>
-                        <strong>{t.stage}</strong> — {t.action.replace(/_/g, " ").toLowerCase()} by {t.actor}
-                        {t.comment ? ` — "${t.comment}"` : ""}
-                      </span>
-                      <span className="text-muted-foreground shrink-0 ml-2">{formatDate(t.date)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function PrelistScreen({ id, onBack }: { id: string; onBack: () => void }) {
+  const { currentUser } = useStore();
+  const { data: record, isLoading } = useDividendFlow(id);
+  const forwardMutation = useForwardToIcu();
+
+  if (isLoading || !record) {
+    return (
+      <div className="space-y-4">
+        <DetailHeader backLabel="Back to All Dividends" onBack={onBack} title="Loading prelist…" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  const prelist = record.prelist;
+  const mandated = prelist.filter((r) => r.category === "MANDATED").length;
+  const others = prelist.length - mandated;
+  const canForward = record.status === "PRELIST_GENERATED";
+
+  function handleCsv() {
+    const { headers, body } = prelistCsvRows(prelist);
+    downloadCsvData(headers, body, `dividend_prelist_${record!.paymentNumber.replace("/", "-")}.csv`);
+    toast.success("Prelist exported as CSV.");
+  }
+
+  function handleForward() {
+    if (!currentUser?.email) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+    forwardMutation.mutate(
+      { id: record!.id, actor: currentUser.email },
+      {
+        onSuccess: () => {
+          toast.success("Forwarded to ICU for 1st approval.");
+          onBack();
+        },
+        onError: (err) => toast.error(err?.message || "Failed to forward."),
+      },
+    );
+  }
+
   return (
-    <div>
-      <div className="mrpsl-section-title">{label}</div>
-      <div className="font-medium mt-0.5">{value}</div>
+    <div className="space-y-5">
+      <DetailHeader
+        backLabel="Back to All Dividends"
+        onBack={onBack}
+        title={`Prelist — ${record.paymentNumber}`}
+        subtitle={`${record.registerName} (${record.registerSymbol}) · eligible shareholders & registrar details`}
+        actions={
+          <>
+            <Button variant="outline" className="gap-1.5" onClick={handleCsv}>
+              <FileSpreadsheet className="h-4 w-4" /> Download CSV
+            </Button>
+            {canForward && (
+              <Button
+                className="gap-1.5"
+                onClick={handleForward}
+                disabled={forwardMutation.isPending}
+              >
+                <Send className="h-4 w-4" /> Forward to ICU for Approval
+                {forwardMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <MetricCard label="Eligible Shareholders" value={prelist.length.toLocaleString()} />
+        <MetricCard label="Mandated" value={mandated.toLocaleString()} tone="text-green-700" />
+        <MetricCard label="Others (KYC conflict)" value={others.toLocaleString()} tone="text-amber-600" />
+        <MetricCard label="Gross Liability" value={formatNaira(record.grossLiability)} />
+        <MetricCard label="Net Payout" value={formatNaira(record.netLiability)} tone="text-green-700" />
+      </div>
+
+      <ShareholderTable
+        rows={prelist}
+        columns={PRELIST_COLUMNS}
+        bankFilter
+        categoryFilter
+      />
     </div>
   );
 }
