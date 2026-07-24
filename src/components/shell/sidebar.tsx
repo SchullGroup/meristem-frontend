@@ -93,6 +93,7 @@ const OPERATIONS_GROUPS = [
     items: [
       { label: "Declaration", href: "/dividends/declaration" },
       { label: "New Mandate Payment", href: "/dividends/new-mandate" },
+      { label: "Dividend Reversals", href: "/dividends/reversals" },
       { label: "Dividend Split", href: "/dividends/split" },
       { label: "Warrant Mark-Off", href: "/dividends/warrant-markoff" },
       { label: "Dividend Reports", href: "/dividends/reports" },

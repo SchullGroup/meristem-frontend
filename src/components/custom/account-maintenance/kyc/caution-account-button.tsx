@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +25,7 @@ import {
   DoneEvidence,
 } from "@/components/custom/account-maintenance/inline-evidence-dropper";
 import { fullName } from "@/lib/utils/shareholder";
+import { Textarea } from "@/components/ui/textarea";
 
 interface CautionAccountButtonProps {
   selectedShareholder: ShareholderAccount;
@@ -157,10 +157,11 @@ export function CautionAccountButton({
 
             <div className="space-y-1.5">
               <label className="mrpsl-label">Additional Notes</label>
-              <Input
+              <Textarea
                 className="mrpsl-input text-sm"
                 placeholder="e.g. Suspicious transfer request flagged by compliance…"
                 value={notes}
+                rows={4}
                 onChange={(e) => {
                   setNotes(e.target.value);
                   setShowHint(false);

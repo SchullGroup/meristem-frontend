@@ -15,6 +15,7 @@ import {
   InlineEvidenceDropper,
   DoneEvidence,
 } from "@/components/custom/account-maintenance/inline-evidence-dropper";
+import { NIGERIA_STATE_NAMES } from "@/lib/mocks/nigeria-geo";
 
 interface KycPersonalInfoTabProps {
   selectedShareholder: ShareholderAccount;
@@ -62,6 +63,11 @@ export function KycPersonalInfoTab({
   const [taxChecked, setTaxChecked] = useState(
     () => selectedShareholder?.noTax ?? false,
   );
+
+  const stateOptions = NIGERIA_STATE_NAMES.map((state) => ({
+    label: state,
+    value: state,
+  }));
 
   const handleTaxToggle = (checked: boolean) => {
     setTaxChecked(checked);
@@ -177,6 +183,8 @@ export function KycPersonalInfoTab({
           pendingChanges.find((c) => c.fieldChanged === "state") ?? null
         }
         onSubmit={submit("state")}
+        inputType="select"
+        selectOptions={stateOptions}
         isSubmitting={isSubmitting}
       />
 
@@ -195,13 +203,12 @@ export function KycPersonalInfoTab({
 
       <EditableField
         label="RG Account Number"
-        currentValue={selectedShareholder?.rgAccountNumber || "—"}
-        fieldKey="rgAccountNumber"
+        currentValue={selectedShareholder?.accountNumber || "—"}
+        fieldKey="accountNumber"
         pendingChange={
-          pendingChanges.find((c) => c.fieldChanged === "rgAccountNumber") ??
-          null
+          pendingChanges.find((c) => c.fieldChanged === "accountNumber") ?? null
         }
-        onSubmit={submit("rgAccountNumber")}
+        onSubmit={submit("accountNumber")}
         isSubmitting={isSubmitting}
       />
 

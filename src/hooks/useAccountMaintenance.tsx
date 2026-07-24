@@ -16,6 +16,9 @@ import {
   createAdmonReversal,
   createConsolidation,
   createKycChange,
+  firstApproveKycChange,
+  icuApproveKycChange,
+  exportAccountKycHistory,
   getAccount,
   getAccountKycHistory,
   getAccounts,
@@ -88,6 +91,7 @@ import {
   KycChangeListResponse,
   KycDecisionRequest,
   KycCancelRequest,
+  IcuApproveRequest,
   KycUploadJob,
   KycBulkPreviewResponse,
   KycBulkSubmitRequest,
@@ -538,6 +542,58 @@ export const useAuthoriseKycChange = (
   });
 };
 
+// 1st-level approval (moves a pending change to FIRST_APPROVED).
+export const useFirstApproveKycChange = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      {
+        id: number;
+        data: KycDecisionRequest;
+      }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => firstApproveKycChange(id, data),
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
+// ICU (2nd-level) approval — applies the change.
+export const useIcuApproveKycChange = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      {
+        id: number;
+        data: IcuApproveRequest;
+      }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => icuApproveKycChange(id, data),
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
 export const useRejectKycChange = (
   options?: Omit<
     UseMutationOptions<
@@ -560,6 +616,18 @@ export const useRejectKycChange = (
     },
   });
 };
+
+// Export an account's full KYC change history as .xlsx (returns a Blob).
+export const useExportAccountKycHistory = (
+  options?: Omit<
+    UseMutationOptions<Blob, Error, { accountNumber: string }>,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: ({ accountNumber }) => exportAccountKycHistory(accountNumber),
+    ...options,
+  });
 export const useCancelKycChange = (
   options?: Omit<
     UseMutationOptions<

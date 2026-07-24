@@ -14,6 +14,8 @@ import {
   Loader2,
   X,
   CalendarIcon,
+  Undo2,
+  ArrowLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,10 +37,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
-import { toast } from "sonner";
+// import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { ShareholderSearchInput } from "@/components/custom/shareholder-search-input";
 import { TablePagination } from "@/components/custom/table-pagination";
+import {
+  ReversalRequestModal,
+  type ReversalContext,
+} from "@/components/custom/dividend-reversals/reversal-request-modal";
 import { useServerPagination } from "@/lib/use-server-pagination";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import {
@@ -268,6 +274,11 @@ export default function HolderEnquiryPage() {
   });
   const dividendStatement: DividendStatement | null = divStmtData?.data ?? null;
 
+  // Dividend reversal request (launched from a statement row → Dividend Reversals)
+  const [reversalContext, setReversalContext] =
+    useState<ReversalContext | null>(null);
+  const [reversalOpen, setReversalOpen] = useState(false);
+
   // Signature & KYC documents
   const { data: sigData, isLoading: isLoadingSig } = useQuery({
     queryKey: ["holderSignature", holder?.chn, holder?.registerSymbol],
@@ -299,6 +310,11 @@ export default function HolderEnquiryPage() {
     | "print"
     | null;
   const [activeModal, setActiveModal] = useState<HolderModal>(null);
+  // Statement / Dividend / Print open as in-place sub-screens (with a Back
+  // button) that replace the holder detail card, rather than modal pop-ups.
+  const [subScreen, setSubScreen] = useState<
+    "statement" | "dividend" | "print" | null
+  >(null);
   const [innerDetailTab, setInnerDetailTab] = useState("cert");
   // Certificate selected for the print/view modal
   const [printCert, setPrintCert] = useState<Certificate | null>(null);
@@ -312,7 +328,25 @@ export default function HolderEnquiryPage() {
   function openPrintModal(cert: Certificate | null, viewOnly = false) {
     setPrintCert(cert);
     setCertViewOnly(viewOnly);
-    setActiveModal("print");
+    setSubScreen("print");
+  }
+
+  // Build the reversal context from the current holder + a dividend row.
+  function openReversalFor(r: {
+    dividendNo: string;
+    net: number;
+    status: string;
+  }) {
+    setReversalContext({
+      holderName: `${holder?.lastName ?? ""}, ${holder?.firstName ?? ""}`,
+      registerSymbol: holder?.registerSymbol ?? "",
+      accountNumber: holder?.accountNumber ?? "",
+      dividendNumber: r.dividendNo,
+      amount: r.net,
+      rowStatus: r.status,
+      sourceHolderId: holderId ?? undefined,
+    });
+    setReversalOpen(true);
   }
 
   function downloadCertificateExcel(cert: Certificate) {
@@ -464,7 +498,7 @@ export default function HolderEnquiryPage() {
         </Card>
       )}
 
-      {holder && (
+      {holder && !subScreen && (
         <Card className="mrpsl-card mt-4 animate-in fade-in slide-in-from-bottom-4">
           <div className="p-5 border-b flex items-start gap-4 bg-muted/5">
             <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
@@ -528,14 +562,14 @@ export default function HolderEnquiryPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setActiveModal("statement")}
+              onClick={() => setSubScreen("statement")}
             >
               <FileText className="mr-2 h-4 w-4" /> View Statement of Account
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setActiveModal("dividend")}
+              onClick={() => setSubScreen("dividend")}
             >
               <DollarSign className="mr-2 h-4 w-4" /> View Dividend Statement
             </Button>
@@ -836,19 +870,20 @@ export default function HolderEnquiryPage() {
                       <th className="p-3">NET (₦)</th>
                       <th className="p-3">STATUS</th>
                       <th className="p-3">METHOD</th>
+                      <th className="p-3 text-right">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-[13px]">
                     {isDivLoading ? (
                       <tr>
-                        <td colSpan={8} className="p-12 text-center">
+                        <td colSpan={9} className="p-12 text-center">
                           <Loader2 className="h-4 w-4 animate-spin inline text-primary" />
                         </td>
                       </tr>
                     ) : dividends.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={8}
+                          colSpan={9}
                           className="p-12 text-center text-muted-foreground"
                         >
                           No dividend records found.
@@ -856,10 +891,7 @@ export default function HolderEnquiryPage() {
                       </tr>
                     ) : (
                       dividends.map((r, i) => (
-                        <tr
-                          key={r.dividendNo || i}
-                          className="hover:bg-accent/5"
-                        >
+                        <tr key={i + 1} className="hover:bg-accent/5">
                           <td className="p-3 font-mono">{r.dividendNo}</td>
                           <td className="p-3 text-muted-foreground">
                             {r.declDate}
@@ -884,6 +916,22 @@ export default function HolderEnquiryPage() {
                             </Badge>
                           </td>
                           <td className="p-3">{r.method || "—"}</td>
+                          <td className="p-3 text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 h-8"
+                              onClick={() =>
+                                openReversalFor({
+                                  dividendNo: r.dividendNo,
+                                  net: r.net ?? 0,
+                                  status: r.status,
+                                })
+                              }
+                            >
+                              <Undo2 className="h-3.5 w-3.5" /> Reverse
+                            </Button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -1151,25 +1199,29 @@ export default function HolderEnquiryPage() {
         </Card>
       )}
 
-      {/* ── Statement of Account Modal ── */}
-      <Dialog
-        open={activeModal === "statement"}
-        onOpenChange={(o) => !o && setActiveModal(null)}
-      >
-        <DialogContent className="max-w-2xl flex flex-col h-[85vh] p-0 gap-0">
-          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
-            <DialogTitle>
-              Statement of Account — {holder?.accountNumber}
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {holder?.lastName}, {holder?.firstName} · {holder?.registerSymbol}
-            </p>
-            {holder?.contact?.address && (
-              <p className="text-[12px] text-muted-foreground mt-1">
-                {holder.contact.address}
+      {/* ── Statement of Account — in-place sub-screen ── */}
+      {holder && subScreen === "statement" && (
+        <Card className="mrpsl-card mt-4 flex flex-col h-[82vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+          <div className="pl-4 pr-6 py-3 border-b shrink-0 flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={() => setSubScreen(null)}
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+            <div className="border-l pl-3">
+              <h2 className="font-bold leading-tight">
+                Statement of Account — {holder?.accountNumber}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {holder?.lastName}, {holder?.firstName} ·{" "}
+                {holder?.registerSymbol}
+                {holder?.contact?.address ? ` · ${holder.contact.address}` : ""}
               </p>
-            )}
-          </DialogHeader>
+            </div>
+          </div>
           {/* Date filters */}
           <div className="px-6 py-4 border-b bg-muted/10 flex items-end gap-4 shrink-0">
             <div className="flex-1 space-y-2">
@@ -1298,32 +1350,36 @@ export default function HolderEnquiryPage() {
             >
               <FileText className="h-4 w-4" /> Download PDF
             </Button>
-            <Button variant="ghost" onClick={() => setActiveModal(null)}>
-              Close
+            <Button variant="ghost" onClick={() => setSubScreen(null)}>
+              Back
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </Card>
+      )}
 
-      {/* ── Dividend Statement Modal ── */}
-      <Dialog
-        open={activeModal === "dividend"}
-        onOpenChange={(o) => !o && setActiveModal(null)}
-      >
-        <DialogContent className="max-w-3xl flex flex-col h-[85vh] p-0 gap-0">
-          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
-            <DialogTitle>
-              Dividend Statement — {holder?.accountNumber}
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {holder?.lastName}, {holder?.firstName} · {holder?.registerSymbol}
-            </p>
-            {holder?.contact?.address && (
-              <p className="text-[12px] text-muted-foreground mt-1">
-                {holder.contact.address}
+      {/* ── Dividend Statement — in-place sub-screen ── */}
+      {holder && subScreen === "dividend" && (
+        <Card className="mrpsl-card mt-4 flex flex-col h-[82vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+          <div className="pl-4 pr-6 py-3 border-b shrink-0 flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={() => setSubScreen(null)}
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+            <div className="border-l pl-3">
+              <h2 className="font-bold leading-tight">
+                Dividend Statement — {holder?.accountNumber}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {holder?.lastName}, {holder?.firstName} ·{" "}
+                {holder?.registerSymbol}
+                {holder?.contact?.address ? ` · ${holder.contact.address}` : ""}
               </p>
-            )}
-          </DialogHeader>
+            </div>
+          </div>
           {/* Date filters */}
           <div className="px-6 py-4 border-b bg-muted/10 flex items-end gap-4 shrink-0">
             <div className="flex-1 space-y-2">
@@ -1482,12 +1538,19 @@ export default function HolderEnquiryPage() {
             >
               <DollarSign className="h-4 w-4" /> Download Statement
             </Button>
-            <Button variant="ghost" onClick={() => setActiveModal(null)}>
-              Close
+            <Button variant="ghost" onClick={() => setSubScreen(null)}>
+              Back
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </Card>
+      )}
+
+      {/* ── Reversal Request Modal (→ Dividend Reversals) ── */}
+      <ReversalRequestModal
+        context={reversalContext}
+        open={reversalOpen}
+        onOpenChange={setReversalOpen}
+      />
 
       {/* ── Signature Modal ── */}
       <Dialog
@@ -1646,21 +1709,29 @@ export default function HolderEnquiryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Print Certificate Modal ── */}
-      <Dialog
-        open={activeModal === "print"}
-        onOpenChange={(o) => !o && setActiveModal(null)}
-      >
-        <DialogContent className="max-w-2xl flex flex-col max-h-[85vh] overflow-y-auto p-0 gap-0">
-          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
-            <DialogTitle>
-              {certViewOnly ? "View Certificate" : "Print Share Certificate"}
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {holder?.accountNumber} — {holder?.lastName}, {holder?.firstName}
-            </p>
-          </DialogHeader>
-          <div className="px-6 py-5 space-y-4 overflow-y-auto">
+      {/* ── Print Certificate — in-place sub-screen ── */}
+      {holder && subScreen === "print" && (
+        <Card className="mrpsl-card mt-4 flex flex-col max-h-[82vh] overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+          <div className="pl-4 pr-6 py-3 border-b shrink-0 flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={() => setSubScreen(null)}
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+            <div className="border-l pl-3">
+              <h2 className="font-bold leading-tight">
+                {certViewOnly ? "View Certificate" : "Print Share Certificate"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {holder?.accountNumber} — {holder?.lastName},{" "}
+                {holder?.firstName}
+              </p>
+            </div>
+          </div>
+          <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1 min-h-0">
             <div ref={certPrintRef} className="space-y-5 print:p-8">
               <div className="hidden print:block mb-6">
                 <div
@@ -1804,9 +1875,9 @@ export default function HolderEnquiryPage() {
             <Button
               variant="outline"
               className={certViewOnly ? "w-full" : "flex-1"}
-              onClick={() => setActiveModal(null)}
+              onClick={() => setSubScreen(null)}
             >
-              Close
+              Back
             </Button>
             {!certViewOnly && (
               <Button
@@ -1818,8 +1889,8 @@ export default function HolderEnquiryPage() {
               </Button>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </Card>
+      )}
     </div>
   );
 }
