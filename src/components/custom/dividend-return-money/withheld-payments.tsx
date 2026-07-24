@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Loader2,
   AlertCircle,
@@ -11,6 +11,9 @@ import {
   CheckCircle2,
   XCircle,
   ShieldCheck,
+  Upload,
+  FileSpreadsheet,
+  TriangleAlert,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +48,24 @@ import { formatNaira } from "@/lib/utils/format";
 import { toast } from "sonner";
 import type { WithheldPayment } from "@/types/dividend-return-money";
 
+interface BulkRow {
+  rowNum: number;
+  shareholderName: string;
+  accountNo: string;
+  amount: number;
+  narration: string;
+  errors: string[];
+}
+
+function parseCSV(text: string): { headers: string[]; rows: string[][] } {
+  const lines = text.trim().split(/\r?\n/);
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
+  const rows = lines.slice(1).map((line) =>
+    line.split(",").map((cell) => cell.trim().replace(/^"|"$/g, ""))
+  );
+  return { headers, rows };
+}
+
 export function WithheldPaymentsTab() {
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
 
@@ -73,6 +94,12 @@ export function WithheldPaymentsTab() {
   // Threshold
   const [thresholdOpen, setThresholdOpen] = useState(false);
   const [thresholdInput, setThresholdInput] = useState("");
+
+  // Bulk upload
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const bulkFileRef = useRef<HTMLInputElement>(null);
 
   const { data: recordsData, isLoading: recordsLoading } = useReturnRecords({
     size: 100,
@@ -236,6 +263,83 @@ export function WithheldPaymentsTab() {
     );
   }
 
+  async function handleBulkFile(file: File) {
+    setBulkUploading(true);
+    setBulkRows([]);
+    try {
+      let text: string;
+      if (file.name.toLowerCase().endsWith(".xlsx") || file.name.toLowerCase().endsWith(".xls")) {
+        const XLSX = await import("xlsx");
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        text = XLSX.utils.sheet_to_csv(ws);
+      } else {
+        text = await file.text();
+      }
+
+      const { headers, rows } = parseCSV(text);
+      const nameIdx = headers.indexOf("shareholdername") !== -1 ? headers.indexOf("shareholdername") : headers.indexOf("shareholder name");
+      const accIdx = headers.indexOf("accountno") !== -1 ? headers.indexOf("accountno") : headers.indexOf("account no");
+      const amtIdx = headers.indexOf("amount");
+      const narIdx = headers.indexOf("narration");
+
+      if (nameIdx === -1 || accIdx === -1 || amtIdx === -1) {
+        toast.error("Invalid file format. Required columns: shareholderName, accountNo, amount");
+        return;
+      }
+
+      const parsed: BulkRow[] = rows
+        .filter((r) => r.some((c) => c.trim()))
+        .map((r, i) => {
+          const errors: string[] = [];
+          const shareholderName = r[nameIdx]?.trim() ?? "";
+          const accountNo = r[accIdx]?.trim() ?? "";
+          const amountRaw = parseFloat(r[amtIdx] ?? "");
+          const narration = narIdx !== -1 ? (r[narIdx]?.trim() ?? "") : "";
+
+          if (!shareholderName) errors.push("Shareholder name is required");
+          if (!accountNo) errors.push("Account number is required");
+          if (isNaN(amountRaw) || amountRaw <= 0) errors.push("Invalid amount");
+          else if (amountRaw > remainingBalance) errors.push(`Exceeds remaining balance (${formatNaira(remainingBalance)})`);
+
+          return { rowNum: i + 2, shareholderName, accountNo, amount: isNaN(amountRaw) ? 0 : amountRaw, narration, errors };
+        });
+
+      setBulkRows(parsed);
+    } catch {
+      toast.error("Failed to parse file. Please check the format.");
+    } finally {
+      setBulkUploading(false);
+      if (bulkFileRef.current) bulkFileRef.current.value = "";
+    }
+  }
+
+  async function handleBulkSubmit() {
+    if (!selectedRecordId) return;
+    const valid = bulkRows.filter((r) => r.errors.length === 0);
+    if (!valid.length) return;
+
+    let remaining = remainingBalance;
+    for (const row of valid) {
+      if (row.amount > remaining) {
+        toast.error(`Row ${row.rowNum}: Amount exceeds remaining balance. Submission stopped.`);
+        break;
+      }
+      await recordPayment.mutateAsync({
+        returnRecordId: selectedRecordId,
+        shareholderName: row.shareholderName,
+        accountNo: row.accountNo,
+        amount: row.amount,
+        narration: row.narration || undefined,
+      });
+      remaining -= row.amount;
+    }
+    toast.success(`${valid.length} payment(s) submitted for approval.`);
+    setBulkUploadOpen(false);
+    setBulkRows([]);
+  }
+
   return (
     <div className="space-y-6">
       {/* Declaration selector */}
@@ -391,14 +495,25 @@ export function WithheldPaymentsTab() {
               )}
             </div>
 
-            <Button
-              onClick={() => setDialogOpen(true)}
-              disabled={isExhausted}
-              className="gap-2"
-            >
-              <PlusCircle className="h-4 w-4" />
-              Record Shareholder Payment
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { setBulkRows([]); setBulkUploadOpen(true); }}
+                disabled={isExhausted}
+                className="gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Bulk Upload
+              </Button>
+              <Button
+                onClick={() => setDialogOpen(true)}
+                disabled={isExhausted}
+                className="gap-2"
+              >
+                <PlusCircle className="h-4 w-4" />
+                Record Payment
+              </Button>
+            </div>
           </div>
 
           {/* Payments table */}
@@ -765,6 +880,104 @@ export function WithheldPaymentsTab() {
               )}
               Confirm Approval
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Upload Dialog */}
+      <Dialog open={bulkUploadOpen} onOpenChange={(open) => { if (!open) { setBulkUploadOpen(false); setBulkRows([]); } }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+              Bulk Upload Shareholder Payments
+            </DialogTitle>
+            <DialogDescription>
+              Upload a CSV or Excel file. Required columns: <span className="font-mono text-xs bg-muted px-1 rounded">shareholderName</span>, <span className="font-mono text-xs bg-muted px-1 rounded">accountNo</span>, <span className="font-mono text-xs bg-muted px-1 rounded">amount</span>. Optional: <span className="font-mono text-xs bg-muted px-1 rounded">narration</span>. Available balance: <span className="font-mono font-bold text-green-600">{formatNaira(remainingBalance)}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-8 space-y-4">
+            <input ref={bulkFileRef} type="file" accept=".csv,.xlsx,.xls" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleBulkFile(f); }} />
+
+            {bulkRows.length === 0 ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => bulkFileRef.current?.click()}
+                onKeyDown={(e) => e.key === "Enter" && bulkFileRef.current?.click()}
+                className="border-2 border-dashed rounded-xl p-10 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+              >
+                {bulkUploading ? (
+                  <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-primary" />
+                ) : (
+                  <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                )}
+                <p className="text-sm font-medium text-muted-foreground">
+                  {bulkUploading ? "Parsing file..." : "Click or drag to upload CSV or Excel (.xlsx)"}
+                </p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Columns: shareholderName, accountNo, amount, narration (optional)</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">
+                    {bulkRows.filter((r) => r.errors.length === 0).length} valid / {bulkRows.filter((r) => r.errors.length > 0).length} invalid rows
+                  </div>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => bulkFileRef.current?.click()}>
+                    <Upload className="h-3 w-3" /> Re-upload
+                  </Button>
+                </div>
+                <div className="overflow-auto max-h-64 rounded-lg border">
+                  <table className="w-full text-left text-xs">
+                    <thead className="mrpsl-table-header sticky top-0">
+                      <tr>
+                        <th className="p-2">ROW</th>
+                        <th className="p-2">SHAREHOLDER</th>
+                        <th className="p-2">ACCOUNT NO</th>
+                        <th className="p-2 text-right">AMOUNT</th>
+                        <th className="p-2">NARRATION</th>
+                        <th className="p-2">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y font-mono">
+                      {bulkRows.map((r) => (
+                        <tr key={r.rowNum} className={r.errors.length > 0 ? "bg-red-50/40" : "bg-green-50/20"}>
+                          <td className="p-2 text-muted-foreground">{r.rowNum}</td>
+                          <td className="p-2 font-sans">{r.shareholderName || <span className="text-red-500 italic">missing</span>}</td>
+                          <td className="p-2">{r.accountNo || <span className="text-red-500 italic">missing</span>}</td>
+                          <td className="p-2 text-right font-bold">{r.amount > 0 ? formatNaira(r.amount) : <span className="text-red-500">—</span>}</td>
+                          <td className="p-2 font-sans text-muted-foreground">{r.narration || "—"}</td>
+                          <td className="p-2">
+                            {r.errors.length === 0 ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                              <div className="flex items-start gap-1">
+                                <TriangleAlert className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
+                                <span className="text-red-600 font-sans text-[10px]">{r.errors.join("; ")}</span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setBulkUploadOpen(false); setBulkRows([]); }}>Cancel</Button>
+            {bulkRows.length > 0 && (
+              <Button
+                onClick={handleBulkSubmit}
+                disabled={recordPayment.isPending || bulkRows.filter((r) => r.errors.length === 0).length === 0}
+              >
+                {recordPayment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Submit {bulkRows.filter((r) => r.errors.length === 0).length} Valid Row(s)
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
