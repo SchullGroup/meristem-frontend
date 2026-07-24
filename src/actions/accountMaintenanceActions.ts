@@ -27,6 +27,7 @@ import {
   KycChangeListResponse,
   KycDecisionRequest,
   KycCancelRequest,
+  IcuApproveRequest,
   KycUploadJob,
   KycBulkPreviewResponse,
   KycBulkSubmitRequest,
@@ -391,6 +392,21 @@ export const getAccountKycHistory = async (
   }
 };
 
+// Export full KYC change history for an account as an .xlsx file.
+export const exportAccountKycHistory = async (accountNumber: string) => {
+  try {
+    const res = await api.get<Blob>(
+      `/accounts/${accountNumber}/kyc-changes/export`,
+      { responseType: "blob" },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const createKycChange = async (
   accountNumber: string,
   data: CreateKycChangeRequest,
@@ -408,6 +424,7 @@ export const createKycChange = async (
   }
 };
 
+// @deprecated per api-docs.json — use firstApproveKycChange (/first-approve).
 export const authoriseKycChange = async (
   id: number,
   data: KycDecisionRequest,
@@ -415,6 +432,42 @@ export const authoriseKycChange = async (
   try {
     const res = await api.put<ApiResponse<KycChange>>(
       `/accounts/kyc-changes/${id}/authorise`,
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// 1st-level approval of a pending KYC change (moves it to FIRST_APPROVED).
+export const firstApproveKycChange = async (
+  id: number,
+  data: KycDecisionRequest,
+) => {
+  try {
+    const res = await api.post<ApiResponse<KycChange>>(
+      `/accounts/kyc-changes/${id}/first-approve`,
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// ICU (2nd-level) approval — applies the change.
+export const icuApproveKycChange = async (
+  id: number,
+  data: IcuApproveRequest,
+) => {
+  try {
+    const res = await api.post<ApiResponse<KycChange>>(
+      `/accounts/kyc-changes/${id}/icu-approve`,
       data,
     );
 
@@ -439,12 +492,12 @@ export const rejectKycChange = async (id: number, data: KycDecisionRequest) => {
   }
 };
 
-// Per KYC-BE-06: submitter-only withdrawal of a still-pending request.
-// See backend_changes.md for the endpoint spec as given by the backend team.
+// Submitter-only withdrawal of a still-pending request.
+// api-docs.json: POST /accounts/kyc-changes/{changeId}/cancel.
 export const cancelKycChange = async (id: number, data: KycCancelRequest) => {
   try {
-    const res = await api.patch<ApiResponse<KycChange>>(
-      `/kyc-change-requests/${id}/cancel`,
+    const res = await api.post<ApiResponse<KycChange>>(
+      `/accounts/kyc-changes/${id}/cancel`,
       data,
     );
 

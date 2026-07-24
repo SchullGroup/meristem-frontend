@@ -1,16 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Play, FileDown, Loader2 } from "lucide-react";
+import { Download, Gavel } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import type { MandateBatch } from "@/types/mandate-payment-flow";
@@ -18,6 +11,7 @@ import { useMandateBatches, useMdDecision } from "@/hooks/useMandatePaymentFlow"
 import { batchTotalAmount, formatNaira } from "./helpers";
 import { BatchListTable } from "./batch-list-table";
 import { BatchDetailPanel } from "./batch-detail-panel";
+import { MdDecisionDialog } from "./md-decision-dialog";
 import { downloadBatchListCsv, downloadShareholdersCsv } from "./csv";
 
 // MD Approval (§6.7) — final executive sign-off. Two branching actions:
@@ -30,7 +24,7 @@ export function MdApprovalTab() {
   const mdMutation = useMdDecision();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [gateway, setGateway] = useState<"NIBSS" | "REMITA">("NIBSS");
+  const [decisionOpen, setDecisionOpen] = useState(false);
 
   const selected: MandateBatch | null =
     batches.find((b) => b.id === selectedId) ?? null;
@@ -44,7 +38,7 @@ export function MdApprovalTab() {
     return true;
   }
 
-  function handlePay() {
+  function handlePay(gateway: "NIBSS" | "REMITA") {
     if (!selected || !requireSession()) return;
     mdMutation.mutate(
       { id: selected.id, decision: "PAY", actor: currentUser!.email, gateway },
@@ -53,6 +47,7 @@ export function MdApprovalTab() {
           toast.success(
             `Payment run initiated for ${res.batchRef} via ${gateway}. See Payment Results.`,
           );
+          setDecisionOpen(false);
           setSelectedId(null);
         },
         onError: (err) => toast.error(err?.message || "Failed to initiate payment."),
@@ -74,6 +69,7 @@ export function MdApprovalTab() {
           toast.success(
             `Payment file for ${res.batchRef} downloaded — send to NIBSS manually.`,
           );
+          setDecisionOpen(false);
           setSelectedId(null);
         },
         onError: (err) => toast.error(err?.message || "Failed to forward batch."),
@@ -83,55 +79,30 @@ export function MdApprovalTab() {
 
   if (selected) {
     return (
-      <BatchDetailPanel
-        batch={selected}
-        title="MD Final Approval"
-        onBack={() => setSelectedId(null)}
-        footer={
-          <div className="w-full space-y-3">
-            <div className="flex items-end gap-3">
-              <div className="space-y-1.5">
-                <label className="mrpsl-label mb-0">Payment Gateway</label>
-                <Select
-                  value={gateway}
-                  onValueChange={(v) =>
-                    setGateway((v || "NIBSS") as "NIBSS" | "REMITA")
-                  }
-                >
-                  <SelectTrigger className="mrpsl-input w-44">
-                    <SelectValue placeholder="Gateway" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="NIBSS">NIBSS</SelectItem>
-                    <SelectItem value="REMITA">Remita</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1 gap-1.5"
-                onClick={handleManual}
-                disabled={mdMutation.isPending}
-              >
-                <FileDown className="h-4 w-4" /> Approve &amp; Forward for Manual
-                Processing
-              </Button>
-              <Button
-                className="flex-1 gap-1.5"
-                onClick={handlePay}
-                disabled={mdMutation.isPending}
-              >
-                <Play className="h-4 w-4" /> Approve &amp; Initiate Payment
-                {mdMutation.isPending && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
-              </Button>
-            </div>
-          </div>
-        }
-      />
+      <>
+        <BatchDetailPanel
+          batch={selected}
+          title="MD Final Approval"
+          onBack={() => setSelectedId(null)}
+          actions={
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setDecisionOpen(true)}
+            >
+              <Gavel className="h-4 w-4" /> Review &amp; Decide
+            </Button>
+          }
+        />
+        <MdDecisionDialog
+          open={decisionOpen}
+          onOpenChange={setDecisionOpen}
+          batchRef={selected.batchRef}
+          onPay={handlePay}
+          onManual={handleManual}
+          isPending={mdMutation.isPending}
+        />
+      </>
     );
   }
 
@@ -174,10 +145,7 @@ export function MdApprovalTab() {
         batches={batches}
         isLoading={isLoading}
         actionLabel="Review"
-        onAction={(b) => {
-          setGateway("NIBSS");
-          setSelectedId(b.id);
-        }}
+        onAction={(b) => setSelectedId(b.id)}
         emptyLabel="No batches awaiting MD approval."
       />
     </div>

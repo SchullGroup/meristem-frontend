@@ -79,7 +79,9 @@ export function StandardKyc({ onBack }: { onBack: () => void }) {
       toast.success("Change submitted for approval");
       refetchPendingChanges();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to submit change");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to submit change",
+      );
       throw err;
     }
   };
@@ -134,10 +136,22 @@ export function StandardKyc({ onBack }: { onBack: () => void }) {
                       </span>
                     </div>
                   )}
+                  {selectedShareholder.bankAccountNumber && (
+                    <div>
+                      <span className="text-muted-foreground">
+                        Bank Account Number:
+                      </span>{" "}
+                      <span className="font-medium">
+                        {selectedShareholder.bankAccountNumber}
+                      </span>
+                    </div>
+                  )}
                   {selectedShareholder.chn && (
                     <div>
                       <span className="text-muted-foreground">CHN:</span>{" "}
-                      <span className="font-mono">{selectedShareholder.chn}</span>
+                      <span className="font-mono">
+                        {selectedShareholder.chn}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -243,7 +257,10 @@ export function StandardKyc({ onBack }: { onBack: () => void }) {
               </TabsContent>
 
               <TabsContent value="history" className="space-y-4">
-                <KYCHistory tab="history" selectedShareholder={selectedShareholder} />
+                <KYCHistory
+                  tab="history"
+                  selectedShareholder={selectedShareholder}
+                />
               </TabsContent>
             </div>
           </Tabs>

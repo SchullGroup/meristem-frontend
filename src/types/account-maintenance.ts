@@ -262,6 +262,13 @@ export interface KycCancelRequest {
   cancelledBy: string;
 }
 
+// ICU (2nd-level) approval that applies the change — see api-docs.json
+// POST /accounts/kyc-changes/{changeId}/icu-approve.
+export interface IcuApproveRequest {
+  approvedBy: string;
+  comment?: string;
+}
+
 // ── Account-scoped KYC: search, caution, documents & signatures ──────────────
 // (see api-docs.json — /accounts/search, /accounts/{accountNumber}/caution,
 //  /accounts/{accountNumber}/documents[/signature|/signatures])

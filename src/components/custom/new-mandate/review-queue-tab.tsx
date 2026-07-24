@@ -91,10 +91,11 @@ export function ReviewQueueTab() {
         batch={selected}
         title="Batch Detail"
         onBack={() => setSelectedId(null)}
-        footer={
+        actions={
           selected.status === "QUEUED" ? (
             <Button
-              className="flex-1 gap-1.5"
+              size="sm"
+              className="gap-1.5"
               onClick={handleSend}
               disabled={sendMutation.isPending}
             >
@@ -104,10 +105,9 @@ export function ReviewQueueTab() {
               )}
             </Button>
           ) : (
-            <p className="text-[13px] text-muted-foreground py-1">
-              This batch has already been sent for approval and is read-only
-              here.
-            </p>
+            <span className="text-[13px] text-muted-foreground">
+              Read-only — already sent for approval
+            </span>
           )
         }
       />
@@ -161,7 +161,7 @@ export function ReviewQueueTab() {
                 <label className="mrpsl-label">Register</label>
                 <Select
                   value={register || "ALL"}
-                  onValueChange={(v) => setRegister(v === "ALL" ? "" : v)}
+                  onValueChange={(v) => setRegister(!v || v === "ALL" ? "" : v)}
                 >
                   <SelectTrigger className="w-48 mrpsl-input">
                     <SelectValue placeholder="All Registers" />
@@ -182,7 +182,7 @@ export function ReviewQueueTab() {
                 <label className="mrpsl-label">Dividend Number</label>
                 <Select
                   value={dividend || "ALL"}
-                  onValueChange={(v) => setDividend(v === "ALL" ? "" : v)}
+                  onValueChange={(v) => setDividend(!v || v === "ALL" ? "" : v)}
                 >
                   <SelectTrigger className="w-56 mrpsl-input">
                     <SelectValue placeholder="All Dividend Numbers" />
