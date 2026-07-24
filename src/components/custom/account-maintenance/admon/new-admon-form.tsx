@@ -765,6 +765,7 @@ export default function NewAdmonForm() {
               }}
               placeholder="Search by account no, name, CHN, BVN, NIN, or email"
               className="mrpsl-input pl-9"
+              style={{ paddingLeft: "2.25rem" }}
             />
             {isLoadingAccount && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">

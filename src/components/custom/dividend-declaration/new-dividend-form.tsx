@@ -18,7 +18,6 @@ import { Textarea } from "@/components/ui/textarea";
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { NIGERIA_STATES } from "@/lib/mocks/nigeria-geo";
 import { MOCK_CURRENCIES, MOCK_REGISTERS } from "./seed-data";
 import { formatNaira } from "./helpers";
 import {
@@ -88,7 +87,6 @@ const EMPTY_FORM = {
   isTaxExempt: false,
   exemptionRateOption: "0",
   customExemptionRate: "" as number | "",
-  stateJurisdiction: "",
   warehouseBank: "",
   warehouseAccountNo: "",
 };
@@ -109,7 +107,6 @@ function formFromRecord(editRecord: DividendFlowRecord) {
     isTaxExempt: editRecord.isTaxExempt,
     exemptionRateOption: String(editRecord.exemptionRate ?? "0"),
     customExemptionRate: "" as number | "",
-    stateJurisdiction: editRecord.stateJurisdiction ?? "",
     warehouseBank: editRecord.warehouseBank ?? "",
     warehouseAccountNo: editRecord.warehouseAccountNo ?? "",
   };
@@ -158,7 +155,8 @@ export function NewDividendForm({
   const info = tierInfo(tier);
 
   const registerBlocked =
-    register?.status === "INACTIVE" || register?.status === "TRANSACTION_DISABLED";
+    register?.status === "INACTIVE" ||
+    register?.status === "TRANSACTION_DISABLED";
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -213,7 +211,6 @@ export function NewDividendForm({
       whtRate: whtRateNum,
       isTaxExempt: form.isTaxExempt,
       exemptionRate: form.isTaxExempt ? exemptionRateNum : undefined,
-      stateJurisdiction: form.stateJurisdiction || undefined,
       warehouseBank: form.warehouseBank || undefined,
       warehouseAccountNo: form.warehouseAccountNo || undefined,
       initiatedBy: currentUser.email,
@@ -234,7 +231,9 @@ export function NewDividendForm({
     } else {
       createMutation.mutate(values, {
         onSuccess: () => {
-          toast.success("Dividend declaration created. Generate a prelist next.");
+          toast.success(
+            "Dividend declaration created. Generate a prelist next.",
+          );
           onSuccess();
         },
         onError: (err) =>
@@ -246,14 +245,21 @@ export function NewDividendForm({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={onCancel}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 -ml-2"
+          onClick={onCancel}
+        >
           <ArrowLeft className="h-4 w-4" /> Back to All Dividends
         </Button>
       </div>
 
       <div>
         <h2 className="text-lg font-bold tracking-tight">
-          {editRecord ? "Edit & Resend Declaration" : "New Dividend Declaration"}
+          {editRecord
+            ? "Edit & Resend Declaration"
+            : "New Dividend Declaration"}
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
           {editRecord
@@ -311,7 +317,10 @@ export function NewDividendForm({
 
           <div className="space-y-2">
             <label className="mrpsl-label">Currency</label>
-            <Select value={form.currency} onValueChange={(v) => set("currency", v || "NGN")}>
+            <Select
+              value={form.currency}
+              onValueChange={(v) => set("currency", v || "NGN")}
+            >
               <SelectTrigger className="mrpsl-input">
                 <SelectValue placeholder="Select Currency" />
               </SelectTrigger>
@@ -324,31 +333,14 @@ export function NewDividendForm({
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-2">
-            <label className="mrpsl-label">State / Tax Jurisdiction</label>
-            <Select
-              value={form.stateJurisdiction}
-              onValueChange={(v) => set("stateJurisdiction", v || "")}
-            >
-              <SelectTrigger className="mrpsl-input">
-                <SelectValue placeholder="Select State" />
-              </SelectTrigger>
-              <SelectContent>
-                {NIGERIA_STATES.map((s) => (
-                  <SelectItem key={s.name} value={s.name}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <label className="mrpsl-label">Dividend Rate (₦ per share) *</label>
+              <label className="mrpsl-label">
+                Dividend Rate (₦ per share) *
+              </label>
               <Input
                 type="number"
                 step="0.0001"
@@ -444,7 +436,9 @@ export function NewDividendForm({
               </div>
               {form.exemptionRateOption === "custom" && (
                 <div className="space-y-2">
-                  <label className="mrpsl-label">Custom Exemption Rate (%)</label>
+                  <label className="mrpsl-label">
+                    Custom Exemption Rate (%)
+                  </label>
                   <Input
                     type="number"
                     step="0.01"
@@ -471,7 +465,9 @@ export function NewDividendForm({
               </div>
             </div>
             <div>
-              <div className="mrpsl-section-title">WHT ({effectiveWhtRate}%)</div>
+              <div className="mrpsl-section-title">
+                WHT ({effectiveWhtRate}%)
+              </div>
               <div className="text-xl font-bold tabular mt-1 text-amber-600">
                 {formatNaira(wht)}
               </div>
@@ -490,13 +486,16 @@ export function NewDividendForm({
             <span className="font-bold tracking-widest text-sm uppercase">
               TIER {tier} — {info.label}
             </span>
-            <p className="text-[13px] mt-0.5 opacity-80">Requires: {info.req}</p>
+            <p className="text-[13px] mt-0.5 opacity-80">
+              Requires: {info.req}
+            </p>
           </div>
         )}
 
         {registerBlocked && (
           <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm font-semibold text-center">
-            Register is Inactive or Transaction Disabled — declaration is blocked.
+            Register is Inactive or Transaction Disabled — declaration is
+            blocked.
           </div>
         )}
 
@@ -582,7 +581,9 @@ export function NewDividendForm({
           <Button
             size="lg"
             onClick={handleSubmit}
-            disabled={!form.rate || !form.registerSymbol || registerBlocked || isPending}
+            disabled={
+              !form.rate || !form.registerSymbol || registerBlocked || isPending
+            }
           >
             {editRecord ? "Resend Declaration" : "Submit Declaration"}
             {isPending && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}

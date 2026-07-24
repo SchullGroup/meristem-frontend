@@ -44,6 +44,14 @@ import {
   AdmonReversalListResponse,
   HolderKycDocRequest,
   HolderSignatureRequest,
+  AccountSearchResult,
+  AccountSearchParams,
+  CautionAccountRequest,
+  RemoveCautionParams,
+  SubmitKycDocumentsRequest,
+  AccountKycDocument,
+  SubmitSignatureRequest,
+  AccountSignature,
 } from "@/types/account-maintenance";
 
 export const createConsolidation = async (data: CreateConsolidationRequest) => {
@@ -224,6 +232,121 @@ export const getAccount = async (accountNumber: string) => {
   try {
     const res = await api.get<ApiResponse<ShareholderAccount>>(
       `/accounts/${accountNumber}`,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Account picker search across ALL registers (consolidation).
+export const searchAccounts = async (params: AccountSearchParams) => {
+  try {
+    const res = await api.get<ApiResponse<AccountSearchResult[]>>(
+      "/accounts/search",
+      { params },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Submit a Caution Account request for KYC approval.
+export const cautionAccount = async (
+  accountNumber: string,
+  data: CautionAccountRequest,
+) => {
+  try {
+    const res = await api.post<ApiResponse<KycChange>>(
+      `/accounts/${accountNumber}/caution`,
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Submit a Remove Caution request for KYC approval.
+export const removeCautionAccount = async (
+  accountNumber: string,
+  params: RemoveCautionParams,
+) => {
+  try {
+    const res = await api.delete<ApiResponse<KycChange>>(
+      `/accounts/${accountNumber}/caution`,
+      { params },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Review Documents — all KYC documents for an account.
+export const getAccountKycDocuments = async (accountNumber: string) => {
+  try {
+    const res = await api.get<ApiResponse<AccountKycDocument[]>>(
+      `/accounts/${accountNumber}/documents`,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Submit KYC identity documents for approval.
+export const submitAccountKycDocuments = async (
+  accountNumber: string,
+  data: SubmitKycDocumentsRequest,
+) => {
+  try {
+    const res = await api.post<ApiResponse<KycChange>>(
+      `/accounts/${accountNumber}/documents`,
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Submit a new signature image for KYC approval.
+export const submitAccountSignature = async (
+  accountNumber: string,
+  data: SubmitSignatureRequest,
+) => {
+  try {
+    const res = await api.post<ApiResponse<KycChange>>(
+      `/accounts/${accountNumber}/documents/signature`,
+      data,
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Signature Archive — all signatures for an account.
+export const getAccountSignatures = async (accountNumber: string) => {
+  try {
+    const res = await api.get<ApiResponse<AccountSignature[]>>(
+      `/accounts/${accountNumber}/documents/signatures`,
     );
 
     return res.data;
