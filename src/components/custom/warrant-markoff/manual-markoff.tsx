@@ -255,7 +255,9 @@ export default function ManualMarkoff({
                       </div>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Dividend</span>
+                      <span className="text-muted-foreground">
+                        Dividend/Payment Number
+                      </span>
                       <div className="font-mono mt-0.5">
                         {warrant.registerSymbol ||
                           warrant.paymentNumber ||
@@ -286,7 +288,7 @@ export default function ManualMarkoff({
                     </span>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="mrpsl-label">Reason / Comment</label>
+                    <label className="mrpsl-label">Narration</label>
                     <Textarea
                       placeholder="Reason is required..."
                       className={`resize-none focus-visible:ring-primary ${
