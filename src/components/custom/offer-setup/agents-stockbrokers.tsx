@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,48 +25,41 @@ import {
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
 import { useGetAgents } from "@/hooks/useAgents";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import {
+  GET_IPO_OFFERS,
+  GET_RIGHT_OFFERS,
+  GET_BONUS_OFFERS,
+  ASSIGN_AGENT_TO_OFFER,
+  GET_OFFER_ASSIGNED_AGENTS,
+} from "@/actions/offerSetUp";
 import type { Agent as ApiAgent } from "@/actions/agentAction";
 
 type AgentType = "Bank" | "Stockbroker" | "Receiving Agent";
 type OfferStatus = "DRAFT" | "OPEN" | "CLOSED" | "ALLOTTED" | "CONCLUDED";
+type OfferKind = "IPO" | "RIGHTS" | "BONUS";
 
-interface PublicOfferSummary {
+interface OfferSummary {
   id: string;
   name: string;
-  register: string;
-  offerPrice: number;
+  registerId: string;
+  price: number | null;
   status: OfferStatus;
 }
 
 interface Agent {
   id: string;
+  agentId: number;
   name: string;
   agentType: AgentType;
   offerId: string;
   offerDate: Date | null;
   offerValue: number;
-  noOfForms: number;
+  numberOfForms: number;
   totalUnits: number;
   totalAmountPaid: number;
   commissionRate: number;
 }
-
-const MOCK_PUBLIC_OFFERS: PublicOfferSummary[] = [
-  {
-    id: "1",
-    name: "Access Holdings PLC Public Offer 2024",
-    register: "Access Holdings Ord. Shares",
-    offerPrice: 22.5,
-    status: "CLOSED",
-  },
-  {
-    id: "2",
-    name: "Transcorp Power PLC IPO 2024",
-    register: "Transcorp Power Ord. Shares",
-    offerPrice: 5.0,
-    status: "DRAFT",
-  },
-];
 
 const STATUS_COLORS: Record<OfferStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
@@ -75,106 +69,14 @@ const STATUS_COLORS: Record<OfferStatus, string> = {
   CONCLUDED: "bg-purple-100 text-purple-800",
 };
 
-const MOCK_RECEIVING_AGENTS: Agent[] = [
-  {
-    id: "ra1",
-    name: "Meristem Registrars Ltd",
-    agentType: "Receiving Agent",
-    offerId: "1",
-    offerDate: new Date("2024-10-07"),
-    offerValue: 22.5,
-    noOfForms: 5400,
-    totalUnits: 18_000_000,
-    totalAmountPaid: 405_000_000,
-    commissionRate: 0.5,
-  },
-];
-
-const MOCK_AGENTS: Agent[] = [
-  {
-    id: "1",
-    name: "Access Bank PLC",
-    agentType: "Bank",
-    offerId: "1",
-    offerDate: new Date("2024-10-07"),
-    offerValue: 22.5,
-    noOfForms: 12450,
-    totalUnits: 45_200_000,
-    totalAmountPaid: 1_017_000_000,
-    commissionRate: 0.75,
-  },
-  {
-    id: "2",
-    name: "GTBank PLC",
-    agentType: "Bank",
-    offerId: "1",
-    offerDate: new Date("2024-10-07"),
-    offerValue: 22.5,
-    noOfForms: 8320,
-    totalUnits: 30_500_000,
-    totalAmountPaid: 686_250_000,
-    commissionRate: 0.75,
-  },
-  {
-    id: "3",
-    name: "Zenith Bank PLC",
-    agentType: "Bank",
-    offerId: "1",
-    offerDate: new Date("2024-10-07"),
-    offerValue: 22.5,
-    noOfForms: 6740,
-    totalUnits: 22_100_000,
-    totalAmountPaid: 497_250_000,
-    commissionRate: 0.75,
-  },
-];
-
-const MOCK_STOCKBROKERS: Agent[] = [
-  {
-    id: "s1",
-    name: "Meristem Securities Ltd",
-    agentType: "Stockbroker",
-    offerId: "1",
-    offerDate: new Date("2024-10-07"),
-    offerValue: 22.5,
-    noOfForms: 3200,
-    totalUnits: 11_500_000,
-    totalAmountPaid: 258_750_000,
-    commissionRate: 1.0,
-  },
-  {
-    id: "s2",
-    name: "CardinalStone Partners Ltd",
-    agentType: "Stockbroker",
-    offerId: "1",
-    offerDate: new Date("2024-10-07"),
-    offerValue: 22.5,
-    noOfForms: 2800,
-    totalUnits: 9_800_000,
-    totalAmountPaid: 220_500_000,
-    commissionRate: 1.0,
-  },
-  {
-    id: "s3",
-    name: "Stanbic IBTC Stockbrokers",
-    agentType: "Stockbroker",
-    offerId: "1",
-    offerDate: new Date("2024-10-07"),
-    offerValue: 22.5,
-    noOfForms: 4100,
-    totalUnits: 15_200_000,
-    totalAmountPaid: 342_000_000,
-    commissionRate: 1.0,
-  },
-];
-
 const EMPTY_AGENT: Omit<Agent, "id"> = {
+  agentId: 0,
   name: "",
   agentType: "Bank",
   offerId: "",
   offerDate: null,
   offerValue: 0,
-  noOfForms: 0,
+  numberOfForms: 0,
   totalUnits: 0,
   totalAmountPaid: 0,
   commissionRate: 0,
@@ -187,20 +89,43 @@ const API_TYPE_MAP: Record<string, AgentType> = {
 };
 
 function AgentPanel({
-  agents: initial,
   agentType,
   apiAgentType,
+  offerType,
   selectedOffer,
 }: {
-  agents: Agent[];
   agentType: AgentType;
   apiAgentType: "BANK" | "STOCKBROKER" | "COLLECTING_AGENT";
-  selectedOffer: PublicOfferSummary;
+  offerType: string;
+  selectedOffer: OfferSummary;
 }) {
-  const [agents, setAgents] = useState<Agent[]>(initial);
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Agent | null>(null);
   const [form, setForm] = useState<Omit<Agent, "id">>(EMPTY_AGENT);
   const [isNew, setIsNew] = useState(false);
+
+  const queryKey = ["offer-agents", offerType, selectedOffer.id];
+
+  const { data: assignedData, isLoading: assignedLoading } = useQuery({
+    queryKey,
+    queryFn: () => GET_OFFER_ASSIGNED_AGENTS(offerType, selectedOffer.id),
+  });
+
+  const agents: Agent[] = ((assignedData?.data ?? []) as any[])
+    .filter((a: any) => a.agentType === apiAgentType)
+    .map((a: any) => ({
+      id: String(a.id),
+      agentId: Number(a.agentId),
+      name: a.agentName,
+      agentType: API_TYPE_MAP[a.agentType] ?? agentType,
+      offerId: String(a.offerId),
+      offerDate: a.offerDate ? new Date(a.offerDate) : null,
+      offerValue: a.offerValue,
+      numberOfForms: a.numberOfForms,
+      totalUnits: a.totalUnits,
+      totalAmountPaid: a.totalAmountPaid,
+      commissionRate: a.commissionRate,
+    }));
 
   const { data: apiAgents, isLoading: agentsLoading } = useGetAgents({
     type: apiAgentType,
@@ -208,9 +133,29 @@ function AgentPanel({
     size: 200,
   });
 
-  const offerAgents = agents.filter((a) => a.offerId === selectedOffer.id);
+  const assignMutation = useMutation({
+    mutationFn: (payload: {
+      agentId: number;
+      offerDate: string;
+      offerValue: number;
+      numberOfForms: number;
+      totalUnits: number;
+      totalAmountPaid: number;
+      commissionRate: number;
+    }) => ASSIGN_AGENT_TO_OFFER(offerType, selectedOffer.id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast.success(`${agentType} assigned.`);
+      setSelected(null);
+      setIsNew(false);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
 
-  const handleSelectApiAgent = (apiAgent: ApiAgent) => {
+  const handleSelectApiAgent = (agentIdStr: string, apiAgent: ApiAgent) => {
+    set("agentId", Number(agentIdStr));
     set("name", apiAgent.name);
     set("agentType", API_TYPE_MAP[apiAgent.type] ?? agentType);
   };
@@ -221,35 +166,37 @@ function AgentPanel({
       ...EMPTY_AGENT,
       agentType,
       offerId: selectedOffer.id,
-      offerValue: selectedOffer.offerPrice,
+      offerValue: selectedOffer.price ?? 0,
     });
     setIsNew(true);
   };
 
-  const openEdit = (agent: Agent) => {
+  const openView = (agent: Agent) => {
     setSelected(agent);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, ...rest } = agent;
     setForm(rest);
     setIsNew(false);
   };
 
   const handleSave = () => {
-    if (!form.name) {
+    if (!form.agentId) {
       toast.error("Please select an agent.");
       return;
     }
-    if (isNew) {
-      const newAgent: Agent = { ...form, id: Date.now().toString() };
-      setAgents((prev) => [...prev, newAgent]);
-      toast.success(`${agentType} added.`);
-    } else if (selected) {
-      setAgents((prev) =>
-        prev.map((a) => (a.id === selected.id ? { ...a, ...form } : a)),
-      );
-      toast.success("Record updated.");
+    if (!form.offerDate) {
+      toast.error("Please enter an offer date.");
+      return;
     }
-    setSelected(null);
-    setIsNew(false);
+    assignMutation.mutate({
+      agentId: form.agentId,
+      offerDate: format(form.offerDate!, "yyyy-MM-dd"),
+      offerValue: form.offerValue,
+      numberOfForms: form.numberOfForms,
+      totalUnits: form.totalUnits,
+      totalAmountPaid: form.totalAmountPaid,
+      commissionRate: form.commissionRate,
+    });
   };
 
   const set = <K extends keyof Omit<Agent, "id">>(
@@ -264,7 +211,7 @@ function AgentPanel({
       <Card className="mrpsl-card w-72 shrink-0 flex flex-col overflow-hidden">
         <div className="p-3 border-b border-border flex items-center justify-between">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            {agentType}s ({offerAgents.length})
+            {agentType}s ({agents.length})
           </span>
           <Button
             size="sm"
@@ -277,15 +224,19 @@ function AgentPanel({
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {offerAgents.length === 0 ? (
+          {assignedLoading ? (
+            <div className="p-4 flex justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          ) : agents.length === 0 ? (
             <div className="p-4 text-center text-xs text-muted-foreground">
-              No agents added yet.
+              No agents assigned yet.
             </div>
           ) : (
-            offerAgents.map((agent) => (
+            agents.map((agent) => (
               <button
                 key={agent.id}
-                onClick={() => openEdit(agent)}
+                onClick={() => openView(agent)}
                 className={`w-full text-left p-3.5 border-b border-border hover:bg-muted/40 transition-colors ${selected?.id === agent.id ? "bg-primary/5" : ""}`}
               >
                 <p className="text-sm font-medium truncate">{agent.name}</p>
@@ -296,7 +247,7 @@ function AgentPanel({
                     </span>
                   )}
                   <span className="text-[11px] text-muted-foreground font-mono">
-                    {agent.noOfForms.toLocaleString()} forms
+                    {agent.numberOfForms.toLocaleString()} forms
                   </span>
                   <span className="text-[11px] text-muted-foreground font-mono">
                     ₦{(agent.totalAmountPaid / 1e6).toFixed(0)}M
@@ -316,15 +267,15 @@ function AgentPanel({
               No {agentType.toLowerCase()} selected
             </p>
             <p className="text-xs text-muted-foreground max-w-xs">
-              Select a {agentType.toLowerCase()} from the left panel to view or
-              edit their details, or click Add to create a new one.
+              Select a {agentType.toLowerCase()} from the left panel to view
+              their details, or click Add to assign a new one.
             </p>
           </div>
         ) : (
           <>
             <div className="p-5 border-b border-border">
               <p className="font-semibold text-sm">
-                {isNew ? `New ${agentType}` : selected?.name}
+                {isNew ? `Assign ${agentType}` : selected?.name}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {selectedOffer.name}
@@ -333,41 +284,47 @@ function AgentPanel({
 
             <div className="flex-1 p-5 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
-                {/* Agent name — dropdown from API */}
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Agent *
                   </label>
-                  <Select
-                    value={form.name}
-                    onValueChange={(v) => {
-                      const picked = apiAgents?.content.find(
-                        (a) => a.name === v,
-                      );
-                      if (picked) handleSelectApiAgent(picked);
-                    }}
-                  >
-                    <SelectTrigger className="h-9 w-full">
-                      {agentsLoading ? (
-                        <span className="flex items-center gap-2 text-muted-foreground text-sm">
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Loading agents…
-                        </span>
-                      ) : (
-                        <SelectValue placeholder="Select agent…" />
-                      )}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(apiAgents?.content ?? []).map((a) => (
-                        <SelectItem key={a.id} value={a.name}>
-                          {a.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isNew ? (
+                    <Select
+                      value={form.agentId ? String(form.agentId) : ""}
+                      onValueChange={(v) => {
+                        const picked = apiAgents?.content.find(
+                          (a) => String(a.id) === v,
+                        );
+                        if (v && picked) handleSelectApiAgent(v, picked);
+                      }}
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        {agentsLoading ? (
+                          <span className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Loading agents…
+                          </span>
+                        ) : form.name ? (
+                          <span className="text-sm">{form.name}</span>
+                        ) : (
+                          <SelectValue placeholder="Select agent…" />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(apiAgents?.content ?? []).map((a) => (
+                          <SelectItem key={a.id} value={String(a.id)}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="h-9 flex items-center px-3 rounded-lg border border-input bg-muted/40 text-sm">
+                      {form.name}
+                    </div>
+                  )}
                 </div>
 
-                {/* Agent type — read-only, pre-filled from selection */}
                 <div className="col-span-2 space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     Agent Type
@@ -396,6 +353,7 @@ function AgentPanel({
                     placeholder="0.00"
                     value={form.offerValue || ""}
                     onChange={(e) => set("offerValue", Number(e.target.value))}
+                    readOnly={!isNew}
                   />
                 </div>
 
@@ -407,8 +365,11 @@ function AgentPanel({
                     type="number"
                     className="mrpsl-input h-9 w-full"
                     placeholder="0"
-                    value={form.noOfForms || ""}
-                    onChange={(e) => set("noOfForms", Number(e.target.value))}
+                    value={form.numberOfForms || ""}
+                    onChange={(e) =>
+                      set("numberOfForms", Number(e.target.value))
+                    }
+                    readOnly={!isNew}
                   />
                 </div>
 
@@ -422,6 +383,7 @@ function AgentPanel({
                     placeholder="0"
                     value={form.totalUnits || ""}
                     onChange={(e) => set("totalUnits", Number(e.target.value))}
+                    readOnly={!isNew}
                   />
                 </div>
 
@@ -437,6 +399,7 @@ function AgentPanel({
                     onChange={(e) =>
                       set("totalAmountPaid", Number(e.target.value))
                     }
+                    readOnly={!isNew}
                   />
                 </div>
 
@@ -455,6 +418,7 @@ function AgentPanel({
                     onChange={(e) =>
                       set("commissionRate", Number(e.target.value))
                     }
+                    readOnly={!isNew}
                   />
                   <p className="text-[11px] text-muted-foreground">
                     Used for agent commission calculation in Return Money. Leave
@@ -468,6 +432,7 @@ function AgentPanel({
               <Button
                 variant="outline"
                 size="sm"
+                className="cursor-pointer"
                 onClick={() => {
                   setSelected(null);
                   setIsNew(false);
@@ -475,10 +440,21 @@ function AgentPanel({
               >
                 Cancel
               </Button>
-              <Button size="sm" onClick={handleSave}>
-                <Save className="h-3.5 w-3.5 mr-1.5" />
-                {isNew ? `Add ${agentType}` : "Save Changes"}
-              </Button>
+              {isNew && (
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={assignMutation.isPending}
+                  className="cursor-pointer"
+                >
+                  {assignMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Assign {agentType}
+                </Button>
+              )}
             </div>
           </>
         )}
@@ -487,49 +463,136 @@ function AgentPanel({
   );
 }
 
+const OFFER_KIND_LABELS: Record<OfferKind, string> = {
+  IPO: "IPO / Public Offer",
+  RIGHTS: "Rights Issue",
+  BONUS: "Bonus Issue",
+};
+
+const OFFER_TYPE_PATH: Record<OfferKind, string> = {
+  IPO: "ipo",
+  RIGHTS: "rights-issue",
+  BONUS: "bonus-issue",
+};
+
 export function AgentsStockbrokers() {
+  const [offerKind, setOfferKind] = useState<OfferKind>("IPO");
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
-  const selectedOffer =
-    MOCK_PUBLIC_OFFERS.find((o) => o.id === selectedOfferId) ?? null;
+  console.log(selectedOfferId);
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registerList = registersData?.content ?? [];
+
+  const { data: offersData, isLoading: isOffersLoading } = useQuery({
+    queryKey: ["open-offers", offerKind],
+    queryFn: () => {
+      const params = { status: "OPEN" as const, size: 100 };
+      if (offerKind === "IPO") return GET_IPO_OFFERS(params);
+      if (offerKind === "RIGHTS") return GET_RIGHT_OFFERS(params);
+      return GET_BONUS_OFFERS(params);
+    },
+  });
+
+  const offers: OfferSummary[] = (offersData?.data?.content ?? []).map(
+    (item: any) => ({
+      id: String(item.id),
+      name: item.name,
+      registerId: item.registerId,
+      price: item.offerPrice ?? item.pricePerShare ?? null,
+      status: item.status as OfferStatus,
+    }),
+  );
+
+  const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
+  const offerTypePath = OFFER_TYPE_PATH[offerKind];
+
+  const handleKindSwitch = (kind: OfferKind) => {
+    setOfferKind(kind);
+    setSelectedOfferId("");
+  };
+
+  const registerName = (registerId: string) =>
+    registerList.find((r) => r.registerId === registerId)?.registerName ??
+    registerId;
 
   return (
     <div className="space-y-5">
-      {/* Offer selector */}
-      <Card className="mrpsl-card p-4">
-        <div className="flex items-start gap-4 flex-wrap">
-          <div className="flex items-center gap-2 shrink-0 pt-0.5">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Select Offer</span>
+      {/* Offer type toggle + selector */}
+      <Card className="mrpsl-card p-4 space-y-3">
+        {/* Offer type toggle */}
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium mr-2">Offer Type</span>
+          <div className="flex gap-1 p-1 bg-muted rounded-lg">
+            {(["IPO", "RIGHTS", "BONUS"] as OfferKind[]).map((kind) => (
+              <button
+                key={kind}
+                onClick={() => handleKindSwitch(kind)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+                  offerKind === kind
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {OFFER_KIND_LABELS[kind]}
+              </button>
+            ))}
           </div>
+        </div>
+
+        {/* Offer selector */}
+        <div className="flex items-start gap-4 flex-wrap">
           <div className="flex-1 min-w-60">
             <Select
               value={selectedOfferId}
               onValueChange={(v) => setSelectedOfferId(v ?? "")}
+              disabled={isOffersLoading}
             >
               <SelectTrigger className="h-9 w-full max-w-sm cursor-pointer">
-                <SelectValue placeholder="Choose a public offer to configure agents for…" />
+                {isOffersLoading ? (
+                  <span className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Loading offers…
+                  </span>
+                ) : selectedOffer ? (
+                  <span className="text-sm">{selectedOffer.name}</span>
+                ) : (
+                  <SelectValue
+                    placeholder={`Choose an open ${OFFER_KIND_LABELS[offerKind].toLowerCase()}…`}
+                  />
+                )}
               </SelectTrigger>
               <SelectContent>
-                {MOCK_PUBLIC_OFFERS.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.name}
-                  </SelectItem>
-                ))}
+                {offers.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    No open {OFFER_KIND_LABELS[offerKind].toLowerCase()}s found.
+                  </div>
+                ) : (
+                  offers.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
+
           {selectedOffer && (
             <div className="flex items-center gap-4 flex-wrap text-sm">
               <div>
                 <span className="mrpsl-label mr-1">Register:</span>
-                <span className="font-medium">{selectedOffer.register}</span>
-              </div>
-              <div>
-                <span className="mrpsl-label mr-1">Price:</span>
-                <span className="font-mono font-semibold">
-                  ₦{selectedOffer.offerPrice.toFixed(2)}
+                <span className="font-medium">
+                  {registerName(selectedOffer.registerId)}
                 </span>
               </div>
+              {selectedOffer.price !== null && (
+                <div>
+                  <span className="mrpsl-label mr-1">Price:</span>
+                  <span className="font-mono font-semibold">
+                    ₦{selectedOffer.price.toFixed(2)}
+                  </span>
+                </div>
+              )}
               <Badge
                 className={`border-0 text-[11px] ${STATUS_COLORS[selectedOffer.status]}`}
               >
@@ -537,10 +600,11 @@ export function AgentsStockbrokers() {
               </Badge>
             </div>
           )}
-          {!selectedOffer && (
+
+          {!selectedOffer && !isOffersLoading && (
             <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              Select a public offer above to configure its receiving agents and
+              Select an open offer above to configure its receiving agents and
               stockbrokers.
             </div>
           )}
@@ -555,7 +619,7 @@ export function AgentsStockbrokers() {
             No offer selected
           </p>
           <p className="text-xs text-muted-foreground max-w-sm">
-            Choose a public offer from the selector above to view and configure
+            Choose an open offer from the selector above to view and configure
             its receiving agents and stockbrokers.
           </p>
         </Card>
@@ -584,25 +648,25 @@ export function AgentsStockbrokers() {
 
           <TabsContent value="receiving-agents">
             <AgentPanel
-              agents={MOCK_RECEIVING_AGENTS}
               agentType="Receiving Agent"
               apiAgentType="COLLECTING_AGENT"
+              offerType={offerTypePath}
               selectedOffer={selectedOffer}
             />
           </TabsContent>
           <TabsContent value="banks">
             <AgentPanel
-              agents={MOCK_AGENTS}
               agentType="Bank"
               apiAgentType="BANK"
+              offerType={offerTypePath}
               selectedOffer={selectedOffer}
             />
           </TabsContent>
           <TabsContent value="stockbrokers">
             <AgentPanel
-              agents={MOCK_STOCKBROKERS}
               agentType="Stockbroker"
               apiAgentType="STOCKBROKER"
+              offerType={offerTypePath}
               selectedOffer={selectedOffer}
             />
           </TabsContent>
