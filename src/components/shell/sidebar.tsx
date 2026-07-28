@@ -163,7 +163,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       return;
     }
     onClose?.();
-  }, [pathname]);
+  }, [pathname, onClose]);
 
   if (!currentUser) return null;
 

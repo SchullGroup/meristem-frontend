@@ -237,7 +237,7 @@ export function RightsTrading() {
     toast.success("Submission captured successfully.");
   };
 
-  const handleBulkUpload = async (_file: File): Promise<UploadResult> => {
+  const handleBulkUpload = async (): Promise<UploadResult> => {
     toast.success("Bulk file processed — records imported.");
     return { totalRows: 12 };
   };

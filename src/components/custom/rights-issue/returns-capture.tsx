@@ -990,7 +990,7 @@ function FullAcceptanceTab({
             <SectionHeading>Submission Details</SectionHeading>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               <div className="col-span-2 space-y-1.5">
-                <FieldLabel>Stockbroker (Shareholder's Broker)</FieldLabel>
+                <FieldLabel>Stockbroker (Shareholder&apos;s Broker)</FieldLabel>
                 <Input
                   className="mrpsl-input"
                   placeholder="e.g. RegisPro Stockbrokers Ltd"
@@ -2148,11 +2148,11 @@ export function ReturnsCapture() {
           acceptances={acceptances}
           overallStatus={overallStatus}
           onBack={() => setShowOverallApproval(false)}
-          onApprove={(notes) => {
+          onApprove={() => {
             setOverallStatus("APPROVED");
             setShowOverallApproval(false);
           }}
-          onReject={(reason) => {
+          onReject={() => {
             setOverallStatus("REJECTED");
             setShowOverallApproval(false);
           }}

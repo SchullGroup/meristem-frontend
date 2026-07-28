@@ -62,7 +62,7 @@ export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
 
   // Labels are sliced client-side from loaded data (24 per sheet)
   const LABELS_PER_SHEET = 24;
-  const labelSheets = Math.ceil(outreachShareholders.length / LABELS_PER_SHEET);
+  // const labelSheets = Math.ceil(outreachShareholders.length / LABELS_PER_SHEET);
   const currentSheetHolders = outreachShareholders.slice(
     (labelsPage - 1) * LABELS_PER_SHEET,
     labelsPage * LABELS_PER_SHEET,

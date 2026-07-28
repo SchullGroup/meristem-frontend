@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useRef } from "react";
@@ -490,7 +491,6 @@ function EmailBody({
   issuePrice,
   allotDate,
   contactEmail,
-  headerImageUrl,
   companyLogoUrl,
   circularLinkUrl,
   customOpeningText,
