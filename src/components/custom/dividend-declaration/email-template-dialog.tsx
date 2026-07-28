@@ -12,13 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Mail,
-  ArrowLeft,
-  ArrowRight,
-  ImageIcon,
-  Loader2,
-} from "lucide-react";
+import { Mail, ArrowLeft, ArrowRight, ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
@@ -83,10 +77,21 @@ function DividendEmailBody({
         <img
           src={headerImageUrl}
           alt="Email header"
-          style={{ width: "100%", display: "block", maxHeight: "120px", objectFit: "cover" }}
+          style={{
+            width: "100%",
+            display: "block",
+            maxHeight: "120px",
+            objectFit: "cover",
+          }}
         />
       ) : (
-        <div style={{ background: "#004023", padding: "18px 32px", textAlign: "center" }}>
+        <div
+          style={{
+            background: "#004023",
+            padding: "18px 32px",
+            textAlign: "center",
+          }}
+        >
           <div
             style={{
               fontFamily: "Arial, Helvetica, sans-serif",
@@ -97,7 +102,7 @@ function DividendEmailBody({
               textTransform: "uppercase",
             }}
           >
-            Meristem Registrars &amp; Probate Services Ltd
+            RegisPro Registrars &amp; Probate Services Ltd
           </div>
           <div
             style={{
@@ -108,12 +113,18 @@ function DividendEmailBody({
               letterSpacing: "0.06em",
             }}
           >
-            213 Herbert Macaulay Way, Yaba, Lagos · info@meristemregistrars.com
+            213 Herbert Macaulay Way, Yaba, Lagos · info@RegisProregistrars.com
           </div>
         </div>
       )}
 
-      <div style={{ background: "#1a6b3c", padding: "14px 32px", textAlign: "center" }}>
+      <div
+        style={{
+          background: "#1a6b3c",
+          padding: "14px 32px",
+          textAlign: "center",
+        }}
+      >
         <div
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
@@ -140,7 +151,13 @@ function DividendEmailBody({
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", margin: "0 20px", padding: "28px 32px 24px" }}>
+      <div
+        style={{
+          background: "#ffffff",
+          margin: "0 20px",
+          padding: "28px 32px 24px",
+        }}
+      >
         <p style={{ ...baseFont, marginBottom: "16px" }}>
           Dear{" "}
           <strong style={{ color: "#6b7280", fontStyle: "italic" }}>
@@ -151,9 +168,10 @@ function DividendEmailBody({
 
         <p style={{ ...baseFont, textAlign: "justify", marginBottom: "14px" }}>
           We are pleased to inform you that your dividend on{" "}
-          <strong>{record.registerName}</strong> ({record.registerSymbol}) has been
-          processed and paid electronically via <strong>{record.gateway}</strong>,
-          effective <strong>{formatDate(record.paymentDate)}</strong>.
+          <strong>{record.registerName}</strong> ({record.registerSymbol}) has
+          been processed and paid electronically via{" "}
+          <strong>{record.gateway}</strong>, effective{" "}
+          <strong>{formatDate(record.paymentDate)}</strong>.
         </p>
 
         <p style={{ ...baseFont, marginBottom: "16px" }}>
@@ -246,22 +264,47 @@ function DividendEmailBody({
           </a>
         </div>
 
-        <p style={{ ...baseFont, fontSize: "14px", textAlign: "justify", marginBottom: "22px" }}>
-          The dividend was declared at a rate of <strong>₦{record.rate.toFixed(4)}</strong> per
-          share held as at the qualification date, and the net amount (after applicable
-          withholding tax) has been credited to the bank account registered with us.
+        <p
+          style={{
+            ...baseFont,
+            fontSize: "14px",
+            textAlign: "justify",
+            marginBottom: "22px",
+          }}
+        >
+          The dividend was declared at a rate of{" "}
+          <strong>₦{record.rate.toFixed(4)}</strong> per share held as at the
+          qualification date, and the net amount (after applicable withholding
+          tax) has been credited to the bank account registered with us.
         </p>
 
         <div style={{ borderTop: "1px solid #e2e6ea", margin: "0 0 18px" }} />
 
-        <p style={{ ...baseFont, fontSize: "13px", color: "#6b7280", textAlign: "center" }}>
+        <p
+          style={{
+            ...baseFont,
+            fontSize: "13px",
+            color: "#6b7280",
+            textAlign: "center",
+          }}
+        >
           For enquiries, please call us on{" "}
-          <strong style={{ color: "#3b3f44" }}>020&nbsp;1280&nbsp;9250</strong> or email{" "}
-          <span style={{ color: "#0077cc" }}>dividends@meristemregistrars.com</span>
+          <strong style={{ color: "#3b3f44" }}>020&nbsp;1280&nbsp;9250</strong>{" "}
+          or email{" "}
+          <span style={{ color: "#0077cc" }}>
+            dividends@RegisProregistrars.com
+          </span>
         </p>
       </div>
 
-      <div style={{ background: "#004023", margin: "0 20px", padding: "16px 32px", textAlign: "center" }}>
+      <div
+        style={{
+          background: "#004023",
+          margin: "0 20px",
+          padding: "16px 32px",
+          textAlign: "center",
+        }}
+      >
         <div
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
@@ -271,7 +314,7 @@ function DividendEmailBody({
             letterSpacing: "0.03em",
           }}
         >
-          Meristem Registrars &amp; Probate Services Ltd
+          RegisPro Registrars &amp; Probate Services Ltd
         </div>
         <div
           style={{
@@ -349,11 +392,15 @@ export function EmailTemplateDialog({
       if (urlResponse?.type === "success") {
         setHeaderImageUrl(urlResponse.result);
       } else {
-        toast.error(urlResponse.result || "Failed to upload image. Please try again.");
+        toast.error(
+          urlResponse.result || "Failed to upload image. Please try again.",
+        );
       }
     } catch (error) {
       const errorMessage = new Error(returnErrorMessage(error as ErrorLike));
-      toast.error(errorMessage?.message || "Failed to upload image. Please try again.");
+      toast.error(
+        errorMessage?.message || "Failed to upload image. Please try again.",
+      );
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -375,7 +422,9 @@ export function EmailTemplateDialog({
       },
       {
         onSuccess: () => {
-          toast.success(`Email sent to ${recipientCount.toLocaleString()} shareholders.`);
+          toast.success(
+            `Email sent to ${recipientCount.toLocaleString()} shareholders.`,
+          );
           onSent?.();
           resetAndClose(false);
         },
@@ -400,8 +449,14 @@ export function EmailTemplateDialog({
             </Badge>
           </div>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            Step {step} of 2 &mdash; {step === 1 ? "Customise subject, header & note" : "Review template before sending"}{" "}
-            &middot; <span className="font-semibold text-foreground">{record.paymentNumber}</span>
+            Step {step} of 2 &mdash;{" "}
+            {step === 1
+              ? "Customise subject, header & note"
+              : "Review template before sending"}{" "}
+            &middot;{" "}
+            <span className="font-semibold text-foreground">
+              {record.paymentNumber}
+            </span>
           </p>
 
           <div className="mt-3 pt-3 border-t flex items-center gap-2">
@@ -435,16 +490,23 @@ export function EmailTemplateDialog({
               <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Subject
               </label>
-              <Input value={subject} onChange={(e) => setSubject(e.target.value)} className="h-9 text-[13px]" />
+              <Input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="h-9 text-[13px]"
+              />
             </div>
 
             <div className="space-y-2">
               <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Header Image <span className="text-[12px] normal-case font-normal">(optional)</span>
+                Header Image{" "}
+                <span className="text-[12px] normal-case font-normal">
+                  (optional)
+                </span>
               </label>
               <p className="text-[13px] text-muted-foreground">
-                Upload a branded banner for the top of the email. Recommended: 600×120 px. If
-                omitted the default green header is used.
+                Upload a branded banner for the top of the email. Recommended:
+                600×120 px. If omitted the default green header is used.
               </p>
               <div
                 className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-[#004023]/50 hover:bg-muted/30 transition-colors"
@@ -457,18 +519,26 @@ export function EmailTemplateDialog({
                       alt="Header preview"
                       className="max-h-24 mx-auto rounded object-cover"
                     />
-                    <p className="text-[13px] text-muted-foreground">Click to replace image</p>
+                    <p className="text-[13px] text-muted-foreground">
+                      Click to replace image
+                    </p>
                   </div>
                 ) : uploading ? (
                   <div className="space-y-3">
                     <Loader2 className="h-8 w-8 text-muted-foreground animate-spin mx-auto" />
-                    <p className="text-[13px] font-medium text-muted-foreground">Uploading...</p>
+                    <p className="text-[13px] font-medium text-muted-foreground">
+                      Uploading...
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground/50" />
-                    <p className="text-[13px] font-medium">Click to upload header image</p>
-                    <p className="text-[12px] text-muted-foreground">PNG, JPG or GIF · max 5 MB</p>
+                    <p className="text-[13px] font-medium">
+                      Click to upload header image
+                    </p>
+                    <p className="text-[12px] text-muted-foreground">
+                      PNG, JPG or GIF · max 5 MB
+                    </p>
                   </div>
                 )}
                 <input
@@ -494,7 +564,10 @@ export function EmailTemplateDialog({
 
             <div className="space-y-2">
               <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Payment Advice Link <span className="text-[12px] normal-case font-normal">(optional)</span>
+                Payment Advice Link{" "}
+                <span className="text-[12px] normal-case font-normal">
+                  (optional)
+                </span>
               </label>
               <p className="text-[13px] text-muted-foreground">
                 The URL shareholders click to view their full payment advice.
@@ -509,7 +582,10 @@ export function EmailTemplateDialog({
 
             <div className="space-y-2">
               <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Note to Shareholders <span className="text-[12px] normal-case font-normal">(optional)</span>
+                Note to Shareholders{" "}
+                <span className="text-[12px] normal-case font-normal">
+                  (optional)
+                </span>
               </label>
               <Textarea
                 placeholder="Add any additional context for shareholders..."
@@ -525,9 +601,9 @@ export function EmailTemplateDialog({
         {step === 2 && (
           <div className="overflow-y-auto flex-1">
             <div className="px-4 py-3 bg-amber-50 border-b text-[13px] text-amber-800">
-              <span className="font-semibold">Template preview</span> — placeholders in{" "}
-              <em>italics</em> will be replaced with each shareholder&apos;s actual data when
-              sent.
+              <span className="font-semibold">Template preview</span> —
+              placeholders in <em>italics</em> will be replaced with each
+              shareholder&apos;s actual data when sent.
             </div>
             <DividendEmailBody
               record={record}
@@ -551,14 +627,19 @@ export function EmailTemplateDialog({
               <Button variant="outline" onClick={() => setStep(1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
-              <Button onClick={handleSend} disabled={sendMutation.isPending} className="flex items-center gap-2">
+              <Button
+                onClick={handleSend}
+                disabled={sendMutation.isPending}
+                className="flex items-center gap-2"
+              >
                 {sendMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" /> Sending...
                   </>
                 ) : (
                   <>
-                    <Mail className="h-4 w-4" /> Send to {recipientCount.toLocaleString()} Shareholders
+                    <Mail className="h-4 w-4" /> Send to{" "}
+                    {recipientCount.toLocaleString()} Shareholders
                   </>
                 )}
               </Button>

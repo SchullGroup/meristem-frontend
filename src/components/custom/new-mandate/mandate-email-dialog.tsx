@@ -33,7 +33,13 @@ function EmailPreview({ batch, note }: { batch: MandateBatch; note: string }) {
   };
   return (
     <div style={{ background: "#f0f2f5", padding: 0 }}>
-      <div style={{ background: "#004023", padding: "18px 32px", textAlign: "center" }}>
+      <div
+        style={{
+          background: "#004023",
+          padding: "18px 32px",
+          textAlign: "center",
+        }}
+      >
         <div
           style={{
             fontFamily: "Arial, Helvetica, sans-serif",
@@ -44,7 +50,7 @@ function EmailPreview({ batch, note }: { batch: MandateBatch; note: string }) {
             textTransform: "uppercase",
           }}
         >
-          Meristem Registrars &amp; Probate Services Ltd
+          RegisPro Registrars &amp; Probate Services Ltd
         </div>
         <div
           style={{
@@ -60,7 +66,13 @@ function EmailPreview({ batch, note }: { batch: MandateBatch; note: string }) {
         </div>
       </div>
 
-      <div style={{ background: "#ffffff", margin: "0 20px", padding: "28px 32px 24px" }}>
+      <div
+        style={{
+          background: "#ffffff",
+          margin: "0 20px",
+          padding: "28px 32px 24px",
+        }}
+      >
         <p style={{ ...baseFont, marginBottom: 16 }}>
           Dear{" "}
           <strong style={{ color: "#6b7280", fontStyle: "italic" }}>
@@ -69,9 +81,9 @@ function EmailPreview({ batch, note }: { batch: MandateBatch; note: string }) {
           ,
         </p>
         <p style={{ ...baseFont, textAlign: "justify", marginBottom: 14 }}>
-          Following the update of your bank mandate, we are pleased to inform you
-          that your outstanding dividend has been processed and paid electronically
-          to your newly mandated account, effective{" "}
+          Following the update of your bank mandate, we are pleased to inform
+          you that your outstanding dividend has been processed and paid
+          electronically to your newly mandated account, effective{" "}
           <strong>{formatDate(batch.paymentInitiatedAt)}</strong>.
         </p>
 
@@ -99,7 +111,9 @@ function EmailPreview({ batch, note }: { batch: MandateBatch; note: string }) {
             >
               Note from Registrars
             </div>
-            <div style={{ fontSize: 14, color: "#7c2d12", fontWeight: 600 }}>{note}</div>
+            <div style={{ fontSize: 14, color: "#7c2d12", fontWeight: 600 }}>
+              {note}
+            </div>
           </div>
         )}
 
@@ -130,7 +144,14 @@ function EmailPreview({ batch, note }: { batch: MandateBatch; note: string }) {
                 borderTop: i === 0 ? "none" : "1px solid #e5eae5",
               }}
             >
-              <span style={{ fontSize: 13, color: "#555", width: 200, flexShrink: 0 }}>
+              <span
+                style={{
+                  fontSize: 13,
+                  color: "#555",
+                  width: 200,
+                  flexShrink: 0,
+                }}
+              >
                 {label}:
               </span>
               <span
@@ -147,9 +168,18 @@ function EmailPreview({ batch, note }: { batch: MandateBatch; note: string }) {
           ))}
         </div>
 
-        <p style={{ ...baseFont, fontSize: 13, color: "#6b7280", textAlign: "center" }}>
+        <p
+          style={{
+            ...baseFont,
+            fontSize: 13,
+            color: "#6b7280",
+            textAlign: "center",
+          }}
+        >
           For enquiries, email{" "}
-          <span style={{ color: "#0077cc" }}>dividends@meristemregistrars.com</span>
+          <span style={{ color: "#0077cc" }}>
+            dividends@RegisProregistrars.com
+          </span>
         </p>
       </div>
 
@@ -249,7 +279,9 @@ export function MandateEmailDialog({
           </div>
           <p className="text-[13px] text-muted-foreground mt-0.5">
             Step {step} of 2 · Mandate Batch{" "}
-            <span className="font-semibold text-foreground">{batch.batchRef}</span>
+            <span className="font-semibold text-foreground">
+              {batch.batchRef}
+            </span>
           </p>
         </DialogHeader>
 
@@ -315,7 +347,9 @@ export function MandateEmailDialog({
             <div className="space-y-2">
               <label className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Note to Shareholders{" "}
-                <span className="text-[12px] normal-case font-normal">(optional)</span>
+                <span className="text-[12px] normal-case font-normal">
+                  (optional)
+                </span>
               </label>
               <Input
                 value={note}

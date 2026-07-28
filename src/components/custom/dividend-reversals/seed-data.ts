@@ -49,12 +49,12 @@ export function nextReversalRef() {
 }
 
 const REQUESTERS = [
-  "amaka.eze@meristem.com",
-  "michael.uyanna@meristem.com",
-  "segun.aina@meristem.com",
+  "amaka.eze@RegisPro.com",
+  "michael.uyanna@RegisPro.com",
+  "segun.aina@RegisPro.com",
 ];
 
-const HOP = "tunde.bello@meristem.com";
+const HOP = "tunde.bello@RegisPro.com";
 
 function buildRequest(
   overrides: Partial<ReversalRequest> & {

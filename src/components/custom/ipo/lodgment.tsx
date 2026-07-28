@@ -52,7 +52,7 @@ const MOCK_BATCHES: MockLodgmentBatch[] = [
     batchDate: "2024-09-25",
     approvedCount: 22000,
     totalAmount: 590_000_000,
-    icuApprovedBy: "icu.officer@meristem.com",
+    icuApprovedBy: "icu.officer@RegisPro.com",
     icuApprovedAt: "2024-09-28T11:00:00",
     status: "ICU_APPROVED",
   },
@@ -62,32 +62,78 @@ const MOCK_BATCHES: MockLodgmentBatch[] = [
     batchDate: "2024-09-28",
     approvedCount: 18500,
     totalAmount: 420_000_000,
-    icuApprovedBy: "icu.officer@meristem.com",
+    icuApprovedBy: "icu.officer@RegisPro.com",
     icuApprovedAt: "2024-09-29T09:30:00",
     status: "LODGED",
   },
 ];
 
 const MOCK_LODGMENT_ROWS: MockLodgmentRow[] = [
-  { stockbrokerCode: "SB-001", chn: "C0012345678", subscriberName: "Adebayo Oluwaseun Peters", certNo: "CERT-00123", cscsAccountNo: "CSC-012345678", symbol: "ACCESSCORP", units: 10_000 },
-  { stockbrokerCode: "SB-002", chn: "C0023456789", subscriberName: "Chinwe Okafor-Nwosu", certNo: "CERT-00124", cscsAccountNo: "CSC-023456789", symbol: "ACCESSCORP", units: 5_000 },
-  { stockbrokerCode: "SB-001", chn: "C0034567890", subscriberName: "Emeka Nwachukwu", certNo: "CERT-00125", cscsAccountNo: "CSC-034567890", symbol: "ACCESSCORP", units: 20_000 },
-  { stockbrokerCode: "SB-003", chn: "C0045678901", subscriberName: "Fatima Garba Abubakar", certNo: "CERT-00126", cscsAccountNo: "CSC-045678901", symbol: "ACCESSCORP", units: 50_000 },
-  { stockbrokerCode: "SB-002", chn: "C0056789012", subscriberName: "Ibrahim Usman Hassan", certNo: "CERT-00127", cscsAccountNo: "CSC-056789012", symbol: "ACCESSCORP", units: 8_000 },
+  {
+    stockbrokerCode: "SB-001",
+    chn: "C0012345678",
+    subscriberName: "Adebayo Oluwaseun Peters",
+    certNo: "CERT-00123",
+    cscsAccountNo: "CSC-012345678",
+    symbol: "ACCESSCORP",
+    units: 10_000,
+  },
+  {
+    stockbrokerCode: "SB-002",
+    chn: "C0023456789",
+    subscriberName: "Chinwe Okafor-Nwosu",
+    certNo: "CERT-00124",
+    cscsAccountNo: "CSC-023456789",
+    symbol: "ACCESSCORP",
+    units: 5_000,
+  },
+  {
+    stockbrokerCode: "SB-001",
+    chn: "C0034567890",
+    subscriberName: "Emeka Nwachukwu",
+    certNo: "CERT-00125",
+    cscsAccountNo: "CSC-034567890",
+    symbol: "ACCESSCORP",
+    units: 20_000,
+  },
+  {
+    stockbrokerCode: "SB-003",
+    chn: "C0045678901",
+    subscriberName: "Fatima Garba Abubakar",
+    certNo: "CERT-00126",
+    cscsAccountNo: "CSC-045678901",
+    symbol: "ACCESSCORP",
+    units: 50_000,
+  },
+  {
+    stockbrokerCode: "SB-002",
+    chn: "C0056789012",
+    subscriberName: "Ibrahim Usman Hassan",
+    certNo: "CERT-00127",
+    cscsAccountNo: "CSC-056789012",
+    symbol: "ACCESSCORP",
+    units: 8_000,
+  },
 ];
 
 export default function ICULodgment({ tab }: { tab: string }) {
   const [batches, setBatches] = useState<MockLodgmentBatch[]>(MOCK_BATCHES);
-  const [lodgmentReviewing, setLodgmentReviewing] = useState<MockLodgmentBatch | null>(null);
+  const [lodgmentReviewing, setLodgmentReviewing] =
+    useState<MockLodgmentBatch | null>(null);
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [subscribersPage, setSubscribersPage] = useState(0);
   const [subscribersPageSize, setSubscribersPageSize] = useState(20);
-  const [downloadFormat, setDownloadFormat] = useState<"RIN_AT_CSCS" | "RIN_NOT_AT_CSCS">("RIN_AT_CSCS");
+  const [downloadFormat, setDownloadFormat] = useState<
+    "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS"
+  >("RIN_AT_CSCS");
   const [currentPage, setCurrentPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const totalLodgmentPages = Math.max(1, Math.ceil(MOCK_LODGMENT_ROWS.length / subscribersPageSize));
+  const totalLodgmentPages = Math.max(
+    1,
+    Math.ceil(MOCK_LODGMENT_ROWS.length / subscribersPageSize),
+  );
   const paginatedRows = MOCK_LODGMENT_ROWS.slice(
     subscribersPage * subscribersPageSize,
     (subscribersPage + 1) * subscribersPageSize,
@@ -96,7 +142,7 @@ export default function ICULodgment({ tab }: { tab: string }) {
   const handleDownload = async () => {
     if (!lodgmentReviewing) return;
     setIsDownloading(true);
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 800));
     setIsDownloading(false);
     toast.success("Lodgment file downloaded successfully.");
   };
@@ -337,7 +383,9 @@ export default function ICULodgment({ tab }: { tab: string }) {
                       <tr key={i} className="hover:bg-muted/20">
                         <td className="p-2 font-mono">{row.stockbrokerCode}</td>
                         <td className="p-2 font-mono">{row.chn}</td>
-                        <td className="p-2 font-medium">{row.subscriberName}</td>
+                        <td className="p-2 font-medium">
+                          {row.subscriberName}
+                        </td>
                         <td className="p-2 font-mono">{row.certNo}</td>
                         <td className="p-2 font-mono">{row.cscsAccountNo}</td>
                         <td className="p-2 font-mono">{row.symbol}</td>
@@ -384,8 +432,8 @@ export default function ICULodgment({ tab }: { tab: string }) {
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-4 w-4" /> Download Lodgment
-                  File (.txt)
+                  <Download className="mr-2 h-4 w-4" /> Download Lodgment File
+                  (.txt)
                 </>
               )}
             </Button>
@@ -406,8 +454,8 @@ export default function ICULodgment({ tab }: { tab: string }) {
         onOpenChange={setIsApproveDialogOpen}
         batchReference={lodgmentReviewing.batchReference}
         onSuccess={() => {
-          setBatches(prev =>
-            prev.map(b =>
+          setBatches((prev) =>
+            prev.map((b) =>
               b.batchReference === lodgmentReviewing.batchReference
                 ? { ...b, status: "LODGED" as const }
                 : b,
@@ -443,7 +491,7 @@ export function ApproveLodgmentDialog({
     }
 
     setIsApproving(true);
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 800));
     setIsApproving(false);
     toast.success("Lodgment batch approved successfully.");
     setComment("");

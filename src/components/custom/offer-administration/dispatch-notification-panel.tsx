@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, FileDown, Users, CheckCircle2, Loader2, Building2, FileText, FileSpreadsheet } from "lucide-react";
+import {
+  Mail,
+  FileDown,
+  Users,
+  CheckCircle2,
+  Loader2,
+  Building2,
+  FileText,
+  FileSpreadsheet,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,9 +29,24 @@ const PRELIST_DATA = {
   bands: [
     { label: "Band 1", minUnits: 500, maxUnits: 10_000, proRataPercent: 100 },
     { label: "Band 2", minUnits: 10_001, maxUnits: 50_000, proRataPercent: 85 },
-    { label: "Band 3", minUnits: 50_001, maxUnits: 500_000, proRataPercent: 70 },
-    { label: "Band 4", minUnits: 500_001, maxUnits: 5_000_000, proRataPercent: 55 },
-    { label: "Band 5", minUnits: 5_000_001, maxUnits: 999_999_999, proRataPercent: 40 },
+    {
+      label: "Band 3",
+      minUnits: 50_001,
+      maxUnits: 500_000,
+      proRataPercent: 70,
+    },
+    {
+      label: "Band 4",
+      minUnits: 500_001,
+      maxUnits: 5_000_000,
+      proRataPercent: 55,
+    },
+    {
+      label: "Band 5",
+      minUnits: 5_000_001,
+      maxUnits: 999_999_999,
+      proRataPercent: 40,
+    },
   ],
 };
 
@@ -30,13 +54,20 @@ const avgProRata =
   PRELIST_DATA.bands.reduce((s, b) => s + b.proRataPercent, 0) /
   (PRELIST_DATA.bands.length * 100);
 const allottedPct = Math.min(
-  (PRELIST_DATA.totalUnitsOffered / PRELIST_DATA.totalUnitsApplied) * 100 * avgProRata,
+  (PRELIST_DATA.totalUnitsOffered / PRELIST_DATA.totalUnitsApplied) *
+    100 *
+    avgProRata,
   100,
 );
 const PRELIST_COMPUTED = {
-  estimatedAllottedUnits: Math.floor((allottedPct / 100) * PRELIST_DATA.totalUnitsApplied),
-  refundUnits: PRELIST_DATA.totalUnitsApplied - Math.floor((allottedPct / 100) * PRELIST_DATA.totalUnitsApplied),
-  refundApplicants: PRELIST_DATA.totalApplicants - PRELIST_DATA.approvedApplicants,
+  estimatedAllottedUnits: Math.floor(
+    (allottedPct / 100) * PRELIST_DATA.totalUnitsApplied,
+  ),
+  refundUnits:
+    PRELIST_DATA.totalUnitsApplied -
+    Math.floor((allottedPct / 100) * PRELIST_DATA.totalUnitsApplied),
+  refundApplicants:
+    PRELIST_DATA.totalApplicants - PRELIST_DATA.approvedApplicants,
   get estRefundValue() {
     return this.refundUnits * PRELIST_DATA.offerPrice;
   },
@@ -49,7 +80,9 @@ interface DispatchRecord {
 }
 
 export function DispatchNotificationPanel() {
-  const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "done">("idle");
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "done">(
+    "idle",
+  );
   const [emailProgress, setEmailProgress] = useState(0);
   const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
   const [refundEmailOpen, setRefundEmailOpen] = useState(false);
@@ -71,11 +104,41 @@ export function DispatchNotificationPanel() {
 
   const generateRefundCsv = () => {
     const MOCK_ROWS = [
-      ["JOHN ADEYEMI BABATUNDE", "1234567890", "0123456789", "ACCESS BANK", "2500.00"],
-      ["NGOZI CHIDINMA OKAFOR", "2345678901", "0234567890", "GTBANK", "5000.00"],
-      ["SAMUEL OLUWASEUN ADELEKE", "3456789012", "0345678901", "ZENITH BANK", "1250.00"],
-      ["FATIMA ABUBAKAR MUSA", "4567890123", "0456789012", "FIDELITY BANK", "7500.00"],
-      ["EMEKA CHUKWUEMEKA EZE", "5678901234", "0567890123", "ACCESS BANK", "3750.00"],
+      [
+        "JOHN ADEYEMI BABATUNDE",
+        "1234567890",
+        "0123456789",
+        "ACCESS BANK",
+        "2500.00",
+      ],
+      [
+        "NGOZI CHIDINMA OKAFOR",
+        "2345678901",
+        "0234567890",
+        "GTBANK",
+        "5000.00",
+      ],
+      [
+        "SAMUEL OLUWASEUN ADELEKE",
+        "3456789012",
+        "0345678901",
+        "ZENITH BANK",
+        "1250.00",
+      ],
+      [
+        "FATIMA ABUBAKAR MUSA",
+        "4567890123",
+        "0456789012",
+        "FIDELITY BANK",
+        "7500.00",
+      ],
+      [
+        "EMEKA CHUKWUEMEKA EZE",
+        "5678901234",
+        "0567890123",
+        "ACCESS BANK",
+        "3750.00",
+      ],
     ];
     const header = "Name,Account Number,NUBAN,Bank,Refund Amount (NGN)";
     const rows = MOCK_ROWS.map((r) => r.join(",")).join("\n");
@@ -90,7 +153,9 @@ export function DispatchNotificationPanel() {
     URL.revokeObjectURL(url);
     document.body.removeChild(a);
     setRefundCsvReady(true);
-    toast.success("E-Dividend Refund CSV downloaded. Ready for dispatch to Receiving Banks.");
+    toast.success(
+      "E-Dividend Refund CSV downloaded. Ready for dispatch to Receiving Banks.",
+    );
   };
 
   const generatePrelist = () => {
@@ -99,8 +164,17 @@ export function DispatchNotificationPanel() {
   };
 
   const downloadExcel = () => {
-    const { estimatedAllottedUnits, refundUnits, estRefundValue, refundApplicants } = PRELIST_COMPUTED;
-    const dateStr = new Date().toLocaleDateString("en-NG", { day: "2-digit", month: "long", year: "numeric" });
+    const {
+      estimatedAllottedUnits,
+      refundUnits,
+      estRefundValue,
+      refundApplicants,
+    } = PRELIST_COMPUTED;
+    const dateStr = new Date().toLocaleDateString("en-NG", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
 
     const wsData: (string | number)[][] = [
       ["ISSUER PRE-LIST REPORT"],
@@ -142,9 +216,18 @@ export function DispatchNotificationPanel() {
   };
 
   const downloadPDF = () => {
-    const { estimatedAllottedUnits, refundUnits, estRefundValue, refundApplicants } = PRELIST_COMPUTED;
+    const {
+      estimatedAllottedUnits,
+      refundUnits,
+      estRefundValue,
+      refundApplicants,
+    } = PRELIST_COMPUTED;
     const fmt = (n: number) => n.toLocaleString();
-    const dateStr = new Date().toLocaleDateString("en-NG", { day: "2-digit", month: "long", year: "numeric" });
+    const dateStr = new Date().toLocaleDateString("en-NG", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
 
     const bandRows = PRELIST_DATA.bands
       .map(
@@ -184,7 +267,7 @@ export function DispatchNotificationPanel() {
       <div class="meta">
         <div><strong>${PRELIST_DATA.companyName}</strong>Issuer / Client</div>
         <div><strong>${dateStr}</strong>Date Generated</div>
-        <div><strong>Meristem Registrars Limited</strong>Prepared By</div>
+        <div><strong>RegisPro Registrars Limited</strong>Prepared By</div>
       </div>
       <div class="section">
         <div class="section-title">Offer Summary</div>
@@ -210,11 +293,14 @@ export function DispatchNotificationPanel() {
         <table><thead><tr><th>Band</th><th class="num">Min Applied</th><th class="num">Max Applied</th><th class="num">Pro-rata %</th></tr></thead>
         <tbody>${bandRows}</tbody></table>
       </div>
-      <div class="footer">This document is confidential and prepared exclusively for ${PRELIST_DATA.companyName}. Generated by Meristem Registrars Limited.</div>
+      <div class="footer">This document is confidential and prepared exclusively for ${PRELIST_DATA.companyName}. Generated by RegisPro Registrars Limited.</div>
     </body></html>`;
 
     const w = window.open("", "_blank", "width=860,height=700");
-    if (!w) { toast.error("Pop-up blocked. Please allow pop-ups and try again."); return; }
+    if (!w) {
+      toast.error("Pop-up blocked. Please allow pop-ups and try again.");
+      return;
+    }
     w.document.write(html);
     w.document.close();
     w.focus();
@@ -224,8 +310,9 @@ export function DispatchNotificationPanel() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Execute the final outgoing dispatch tasks: notify shareholders of their allotment, send
-        refund files to Receiving Banks, and generate the Issuer Pre-list for the client company.
+        Execute the final outgoing dispatch tasks: notify shareholders of their
+        allotment, send refund files to Receiving Banks, and generate the Issuer
+        Pre-list for the client company.
       </p>
 
       <div className="grid grid-cols-3 gap-4">
@@ -238,8 +325,8 @@ export function DispatchNotificationPanel() {
             <div className="min-w-0">
               <p className="font-semibold text-sm">Shareholder E-Notices</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Email each allotted shareholder their personalised allotment advice showing units
-                applied, units allotted, and refund amount.
+                Email each allotted shareholder their personalised allotment
+                advice showing units applied, units allotted, and refund amount.
               </p>
             </div>
           </div>
@@ -318,8 +405,9 @@ export function DispatchNotificationPanel() {
             <div className="min-w-0">
               <p className="font-semibold text-sm">Refund Dispatch</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Generate the e-dividend refund CSV file (Names, NUBANs, refund amounts) for
-                dispatch to Receiving Banks to process electronic refunds.
+                Generate the e-dividend refund CSV file (Names, NUBANs, refund
+                amounts) for dispatch to Receiving Banks to process electronic
+                refunds.
               </p>
             </div>
           </div>
@@ -345,8 +433,12 @@ export function DispatchNotificationPanel() {
 
             {refundCsvReady && (
               <div className="flex items-center justify-between text-xs bg-muted/30 rounded-lg px-2.5 py-2">
-                <span className="text-muted-foreground font-mono truncate">refund_dispatch_access_ipo_2024.csv</span>
-                <Badge className="bg-green-100 text-green-700 border-0 text-[10px] ml-2 shrink-0">Downloaded</Badge>
+                <span className="text-muted-foreground font-mono truncate">
+                  refund_dispatch_access_ipo_2024.csv
+                </span>
+                <Badge className="bg-green-100 text-green-700 border-0 text-[10px] ml-2 shrink-0">
+                  Downloaded
+                </Badge>
               </div>
             )}
           </div>
@@ -381,8 +473,9 @@ export function DispatchNotificationPanel() {
             <div className="min-w-0">
               <p className="font-semibold text-sm">Issuer Pre-list</p>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Generate the final offer summary report showing the new capitalization and
-                full shareholder structure for dispatch to the client company (issuer).
+                Generate the final offer summary report showing the new
+                capitalization and full shareholder structure for dispatch to
+                the client company (issuer).
               </p>
             </div>
           </div>
@@ -419,11 +512,21 @@ export function DispatchNotificationPanel() {
             </Button>
             {prelistGenerated && (
               <>
-                <Button variant="outline" className="shrink-0" onClick={downloadExcel} title="Download as Excel">
+                <Button
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={downloadExcel}
+                  title="Download as Excel"
+                >
                   <FileSpreadsheet className="h-4 w-4 mr-1.5" />
                   Excel
                 </Button>
-                <Button variant="outline" className="shrink-0" onClick={downloadPDF} title="Download as PDF">
+                <Button
+                  variant="outline"
+                  className="shrink-0"
+                  onClick={downloadPDF}
+                  title="Download as PDF"
+                >
                   <FileText className="h-4 w-4 mr-1.5" />
                   PDF
                 </Button>
@@ -442,7 +545,7 @@ export function DispatchNotificationPanel() {
         offerName="Access Holdings PLC Public Offer 2024"
         ratio="1:1"
         allotDate="21 October 2024"
-        contactEmail="info@meristemregistrars.com"
+        contactEmail="info@RegisProregistrars.com"
         shareholders={[]}
         totalCount={78956}
         onSent={triggerEmails}
@@ -457,14 +560,17 @@ export function DispatchNotificationPanel() {
         offerName="Access Holdings PLC Public Offer 2024"
         ratio="1:1"
         allotDate="21 October 2024"
-        contactEmail="info@meristemregistrars.com"
+        contactEmail="info@RegisProregistrars.com"
         shareholders={[]}
         totalCount={4461}
         onSent={() => setRefundNoticesSent(true)}
       />
 
       {/* Dispatch summary footer */}
-      {(emailStatus === "done" || refundNoticesSent || refundCsvReady || prelistGenerated) && (
+      {(emailStatus === "done" ||
+        refundNoticesSent ||
+        refundCsvReady ||
+        prelistGenerated) && (
         <Card className="mrpsl-card p-4">
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">
             Dispatch Summary

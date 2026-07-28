@@ -1739,7 +1739,7 @@ export default function HolderEnquiryPage() {
                   style={{ borderColor: BRAND_COLOR }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/logo.svg" alt="Meristem" className="h-10" />
+                  <img src="/regispro.png" alt="RegisPro" className="h-10" />
                   <div className="text-right">
                     <div
                       className="text-[11px] font-bold uppercase tracking-wide"

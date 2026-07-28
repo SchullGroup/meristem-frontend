@@ -1,11 +1,11 @@
 # MRPSL CPA — Backend Specification
 
-**Meristem Registrars & Probate Services Limited**
+**RegisPro Registrars & Probate Services Limited**
 **Core Processing Application**
 
 > **Version:** 1.0 — May 2026
 > **Scope:** Authentication · Setup Module · Offers Administration
-> *Additional modules (Certificates, Dividends, KYC, etc.) will be appended as the project progresses.*
+> _Additional modules (Certificates, Dividends, KYC, etc.) will be appended as the project progresses._
 
 ---
 
@@ -37,7 +37,7 @@
 ```
 ┌─────────────────────────────────────────────────┐
 │              Next.js Frontend (App Router)       │
-│              mrpsl-cpa.meristemregistrars.com    │
+│              mrpsl-cpa.RegisProregistrars.com    │
 └────────────────────┬────────────────────────────┘
                      │ HTTPS / REST + JSON
                      │
@@ -72,16 +72,16 @@
 
 ### Technology Recommendations
 
-| Layer | Recommendation |
-|---|---|
-| API Framework | NestJS (TypeScript) or Django REST Framework |
-| Database | PostgreSQL 15+ |
-| Session / Cache | Redis 7+ |
-| ORM | Prisma (NestJS) or Django ORM |
-| Auth | JWT (access + refresh tokens) + TOTP 2FA |
-| File uploads | Multer → AWS S3 / Azure Blob |
-| Email | SendGrid or AWS SES |
-| Background jobs | BullMQ (Redis-backed) |
+| Layer           | Recommendation                               |
+| --------------- | -------------------------------------------- |
+| API Framework   | NestJS (TypeScript) or Django REST Framework |
+| Database        | PostgreSQL 15+                               |
+| Session / Cache | Redis 7+                                     |
+| ORM             | Prisma (NestJS) or Django ORM                |
+| Auth            | JWT (access + refresh tokens) + TOTP 2FA     |
+| File uploads    | Multer → AWS S3 / Azure Blob                 |
+| Email           | SendGrid or AWS SES                          |
+| Background jobs | BullMQ (Redis-backed)                        |
 
 ---
 
@@ -165,6 +165,7 @@ CREATE TABLE principals (
 ```
 
 **Business rules:**
+
 - A principal cannot be deactivated if it has at least one register with status `ACTIVE`.
 - `billing_category` determines the fee tier charged to the principal.
 
@@ -201,6 +202,7 @@ CREATE INDEX idx_registers_symbol    ON registers(symbol);
 ```
 
 **Business rules:**
+
 - `TRANSACTION_DISABLED` blocks all operations: dividend declarations, certificate operations, KYC updates.
 - `stock_today` is a denormalised counter updated by triggers or background jobs whenever share transactions are processed.
 - A register cannot be attached to an `INACTIVE` principal.
@@ -227,21 +229,21 @@ CREATE TABLE role_permissions (
 
 **Built-in roles (seeded, non-deletable):**
 
-| Role | Key Permissions |
-|---|---|
-| `SYSTEM_ADMIN` | All operations |
-| `OPS_MANAGER` | Approve tier-2 transactions, manage users |
-| `DIV_INITIATOR` | Create dividend declarations |
-| `DIV_AUTHORIZER` | Approve dividend declarations |
-| `CERT_INITIATOR` | Initiate certificate operations |
-| `CERT_AUTHORIZER` | Approve certificate operations |
-| `ICU` | Final approval on all tier-3+ transactions |
-| `HEAD_OPS` | Full operational access, no system config |
-| `ACCOUNTS` | View financial reports, payment processing |
-| `IT` | System config, user management |
-| `MANAGEMENT` | Read-only reports and dashboards |
-| `AUDIT_REVIEWER` | Read-only access to audit logs |
-| `ENQUIRY_ONLY` | Search shareholders and view certificates only |
+| Role              | Key Permissions                                |
+| ----------------- | ---------------------------------------------- |
+| `SYSTEM_ADMIN`    | All operations                                 |
+| `OPS_MANAGER`     | Approve tier-2 transactions, manage users      |
+| `DIV_INITIATOR`   | Create dividend declarations                   |
+| `DIV_AUTHORIZER`  | Approve dividend declarations                  |
+| `CERT_INITIATOR`  | Initiate certificate operations                |
+| `CERT_AUTHORIZER` | Approve certificate operations                 |
+| `ICU`             | Final approval on all tier-3+ transactions     |
+| `HEAD_OPS`        | Full operational access, no system config      |
+| `ACCOUNTS`        | View financial reports, payment processing     |
+| `IT`              | System config, user management                 |
+| `MANAGEMENT`      | Read-only reports and dashboards               |
+| `AUDIT_REVIEWER`  | Read-only access to audit logs                 |
+| `ENQUIRY_ONLY`    | Search shareholders and view certificates only |
 
 ---
 
@@ -312,17 +314,17 @@ CREATE TABLE system_parameters (
 
 **Seeded parameters include:**
 
-| Key | Default | Description |
-|---|---|---|
-| `WHT_RATE` | `0.10` | Withholding tax rate on dividends |
-| `TIER2_LIMIT` | `500000` | Max gross liability for auto-approval |
-| `TIER3_LIMIT` | `5000000` | Max gross for manager approval |
-| `TIER4_LIMIT` | `50000000` | Max gross for ICU approval; above = Board |
-| `SESSION_TIMEOUT_MINS` | `30` | Inactivity timeout for web sessions |
-| `OTP_EXPIRY_SECS` | `300` | 2FA code validity |
-| `MAX_LOGIN_ATTEMPTS` | `5` | Before account lockout |
-| `LOCKOUT_DURATION_MINS` | `30` | Duration of login lockout |
-| `CERT_NUMBERING_PREFIX` | `CERT` | Prefix for generated certificate numbers |
+| Key                     | Default    | Description                               |
+| ----------------------- | ---------- | ----------------------------------------- |
+| `WHT_RATE`              | `0.10`     | Withholding tax rate on dividends         |
+| `TIER2_LIMIT`           | `500000`   | Max gross liability for auto-approval     |
+| `TIER3_LIMIT`           | `5000000`  | Max gross for manager approval            |
+| `TIER4_LIMIT`           | `50000000` | Max gross for ICU approval; above = Board |
+| `SESSION_TIMEOUT_MINS`  | `30`       | Inactivity timeout for web sessions       |
+| `OTP_EXPIRY_SECS`       | `300`      | 2FA code validity                         |
+| `MAX_LOGIN_ATTEMPTS`    | `5`        | Before account lockout                    |
+| `LOCKOUT_DURATION_MINS` | `30`       | Duration of login lockout                 |
+| `CERT_NUMBERING_PREFIX` | `CERT`     | Prefix for generated certificate numbers  |
 
 ---
 
@@ -603,15 +605,15 @@ Body: { token, newPassword }
 
 ### 3.4 API Endpoints — Auth
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/auth/login` | Public | Submit email + password |
-| POST | `/auth/verify-otp` | Public | Submit 2FA OTP code |
-| POST | `/auth/refresh` | Cookie | Refresh access token |
-| POST | `/auth/logout` | Bearer | Invalidate session |
-| POST | `/auth/forgot-password` | Public | Initiate password reset |
-| POST | `/auth/reset-password` | Public | Complete password reset |
-| GET | `/auth/me` | Bearer | Get current user profile |
+| Method | Path                    | Auth   | Description              |
+| ------ | ----------------------- | ------ | ------------------------ |
+| POST   | `/auth/login`           | Public | Submit email + password  |
+| POST   | `/auth/verify-otp`      | Public | Submit 2FA OTP code      |
+| POST   | `/auth/refresh`         | Cookie | Refresh access token     |
+| POST   | `/auth/logout`          | Bearer | Invalidate session       |
+| POST   | `/auth/forgot-password` | Public | Initiate password reset  |
+| POST   | `/auth/reset-password`  | Public | Complete password reset  |
+| GET    | `/auth/me`              | Bearer | Get current user profile |
 
 ### 3.5 Security Rules
 
@@ -631,13 +633,13 @@ Body: { token, newPassword }
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/setup/principals` | Any authenticated | List principals (filterable) |
-| POST | `/setup/principals` | `SYSTEM_ADMIN`, `OPS_MANAGER` | Create principal |
-| GET | `/setup/principals/:id` | Any authenticated | Get single principal |
-| PATCH | `/setup/principals/:id` | `SYSTEM_ADMIN`, `OPS_MANAGER` | Update principal fields |
-| PATCH | `/setup/principals/:id/status` | `SYSTEM_ADMIN` | Activate / deactivate |
+| Method | Path                           | Role                          | Description                  |
+| ------ | ------------------------------ | ----------------------------- | ---------------------------- |
+| GET    | `/setup/principals`            | Any authenticated             | List principals (filterable) |
+| POST   | `/setup/principals`            | `SYSTEM_ADMIN`, `OPS_MANAGER` | Create principal             |
+| GET    | `/setup/principals/:id`        | Any authenticated             | Get single principal         |
+| PATCH  | `/setup/principals/:id`        | `SYSTEM_ADMIN`, `OPS_MANAGER` | Update principal fields      |
+| PATCH  | `/setup/principals/:id/status` | `SYSTEM_ADMIN`                | Activate / deactivate        |
 
 #### `POST /setup/principals` — Request Body
 
@@ -670,13 +672,13 @@ Body: { token, newPassword }
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/setup/registers` | Any authenticated | List registers (filterable by principal, type, status) |
-| POST | `/setup/registers` | `SYSTEM_ADMIN`, `OPS_MANAGER` | Create register |
-| GET | `/setup/registers/:id` | Any authenticated | Get single register |
-| PATCH | `/setup/registers/:id` | `SYSTEM_ADMIN`, `OPS_MANAGER` | Update register |
-| PATCH | `/setup/registers/:id/lock` | `SYSTEM_ADMIN` | Toggle `TRANSACTION_DISABLED` |
+| Method | Path                        | Role                          | Description                                            |
+| ------ | --------------------------- | ----------------------------- | ------------------------------------------------------ |
+| GET    | `/setup/registers`          | Any authenticated             | List registers (filterable by principal, type, status) |
+| POST   | `/setup/registers`          | `SYSTEM_ADMIN`, `OPS_MANAGER` | Create register                                        |
+| GET    | `/setup/registers/:id`      | Any authenticated             | Get single register                                    |
+| PATCH  | `/setup/registers/:id`      | `SYSTEM_ADMIN`, `OPS_MANAGER` | Update register                                        |
+| PATCH  | `/setup/registers/:id/lock` | `SYSTEM_ADMIN`                | Toggle `TRANSACTION_DISABLED`                          |
 
 #### `POST /setup/registers` — Request Body
 
@@ -686,7 +688,7 @@ Body: { token, newPassword }
   "name": "Dangote Cement Ordinary Share Register",
   "registerType": "ORDINARY",
   "symbol": "DANGCEM",
-  "nominalValue": 0.50,
+  "nominalValue": 0.5,
   "stockAtSetup": 17040507405,
   "shareholdersAtSetup": 452119,
   "allowFraction": false,
@@ -711,14 +713,15 @@ Body: { token, newPassword }
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/setup/roles` | `SYSTEM_ADMIN` | List all roles |
-| POST | `/setup/roles` | `SYSTEM_ADMIN` | Create custom role |
-| PATCH | `/setup/roles/:id` | `SYSTEM_ADMIN` | Update role (non-built-in only) |
+| Method | Path               | Role           | Description                                   |
+| ------ | ------------------ | -------------- | --------------------------------------------- |
+| GET    | `/setup/roles`     | `SYSTEM_ADMIN` | List all roles                                |
+| POST   | `/setup/roles`     | `SYSTEM_ADMIN` | Create custom role                            |
+| PATCH  | `/setup/roles/:id` | `SYSTEM_ADMIN` | Update role (non-built-in only)               |
 | DELETE | `/setup/roles/:id` | `SYSTEM_ADMIN` | Delete role (non-built-in, no assigned users) |
 
 #### Built-in Roles
+
 Built-in roles (`is_built_in = TRUE`) cannot be deleted or renamed. Their permission sets are managed by code, not the UI.
 
 ---
@@ -727,15 +730,15 @@ Built-in roles (`is_built_in = TRUE`) cannot be deleted or renamed. Their permis
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/setup/users` | `SYSTEM_ADMIN`, `OPS_MANAGER` | List users |
-| POST | `/setup/users` | `SYSTEM_ADMIN` | Create user |
-| GET | `/setup/users/:id` | `SYSTEM_ADMIN`, `OPS_MANAGER` | Get user |
-| PATCH | `/setup/users/:id` | `SYSTEM_ADMIN` | Update user |
-| PATCH | `/setup/users/:id/status` | `SYSTEM_ADMIN` | Activate / deactivate |
-| POST | `/setup/users/:id/reset-password` | `SYSTEM_ADMIN` | Trigger password reset email |
-| PATCH | `/setup/users/:id/2fa` | `SYSTEM_ADMIN` | Enable / disable 2FA requirement |
+| Method | Path                              | Role                          | Description                      |
+| ------ | --------------------------------- | ----------------------------- | -------------------------------- |
+| GET    | `/setup/users`                    | `SYSTEM_ADMIN`, `OPS_MANAGER` | List users                       |
+| POST   | `/setup/users`                    | `SYSTEM_ADMIN`                | Create user                      |
+| GET    | `/setup/users/:id`                | `SYSTEM_ADMIN`, `OPS_MANAGER` | Get user                         |
+| PATCH  | `/setup/users/:id`                | `SYSTEM_ADMIN`                | Update user                      |
+| PATCH  | `/setup/users/:id/status`         | `SYSTEM_ADMIN`                | Activate / deactivate            |
+| POST   | `/setup/users/:id/reset-password` | `SYSTEM_ADMIN`                | Trigger password reset email     |
+| PATCH  | `/setup/users/:id/2fa`            | `SYSTEM_ADMIN`                | Enable / disable 2FA requirement |
 
 #### `POST /setup/users` — Request Body
 
@@ -743,7 +746,7 @@ Built-in roles (`is_built_in = TRUE`) cannot be deleted or renamed. Their permis
 {
   "firstName": "Chidinma",
   "lastName": "Nwosu",
-  "email": "c.nwosu@meristemregistrars.com",
+  "email": "c.nwosu@RegisProregistrars.com",
   "phone": "+2348098765432",
   "role": "DIV_INITIATOR",
   "secondaryRole": null,
@@ -767,16 +770,16 @@ Built-in roles (`is_built_in = TRUE`) cannot be deleted or renamed. Their permis
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/setup/agents` | Any authenticated | List agents |
-| POST | `/setup/agents` | `SYSTEM_ADMIN`, `OPS_MANAGER` | Create agent |
-| PATCH | `/setup/agents/:id` | `SYSTEM_ADMIN`, `OPS_MANAGER` | Update agent |
-| PATCH | `/setup/agents/:id/status` | `SYSTEM_ADMIN` | Toggle status |
-| GET | `/setup/agent-types` | Any authenticated | List agent types |
-| POST | `/setup/agent-types` | `SYSTEM_ADMIN` | Create custom agent type |
-| PATCH | `/setup/agent-types/:id` | `SYSTEM_ADMIN` | Update agent type |
-| DELETE | `/setup/agent-types/:id` | `SYSTEM_ADMIN` | Delete (non-built-in, no agents assigned) |
+| Method | Path                       | Role                          | Description                               |
+| ------ | -------------------------- | ----------------------------- | ----------------------------------------- |
+| GET    | `/setup/agents`            | Any authenticated             | List agents                               |
+| POST   | `/setup/agents`            | `SYSTEM_ADMIN`, `OPS_MANAGER` | Create agent                              |
+| PATCH  | `/setup/agents/:id`        | `SYSTEM_ADMIN`, `OPS_MANAGER` | Update agent                              |
+| PATCH  | `/setup/agents/:id/status` | `SYSTEM_ADMIN`                | Toggle status                             |
+| GET    | `/setup/agent-types`       | Any authenticated             | List agent types                          |
+| POST   | `/setup/agent-types`       | `SYSTEM_ADMIN`                | Create custom agent type                  |
+| PATCH  | `/setup/agent-types/:id`   | `SYSTEM_ADMIN`                | Update agent type                         |
+| DELETE | `/setup/agent-types/:id`   | `SYSTEM_ADMIN`                | Delete (non-built-in, no agents assigned) |
 
 **Built-in agent types** (seeded, non-deletable): `BANK`, `STOCKBROKER`, `COLLECTING_AGENT`.
 
@@ -786,10 +789,10 @@ Built-in roles (`is_built_in = TRUE`) cannot be deleted or renamed. Their permis
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/setup/parameters` | `SYSTEM_ADMIN` | List all parameters |
-| PATCH | `/setup/parameters/:key` | `SYSTEM_ADMIN` | Update a parameter value |
+| Method | Path                     | Role           | Description              |
+| ------ | ------------------------ | -------------- | ------------------------ |
+| GET    | `/setup/parameters`      | `SYSTEM_ADMIN` | List all parameters      |
+| PATCH  | `/setup/parameters/:key` | `SYSTEM_ADMIN` | Update a parameter value |
 
 All parameter changes are written to the audit log with before/after values.
 
@@ -851,20 +854,20 @@ An IPO involves receiving and processing subscription applications from the publ
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/offers/ipo` | Any authenticated | List IPO offers |
-| POST | `/offers/ipo` | `OPS_MANAGER`, `SYSTEM_ADMIN` | Create new IPO offer |
-| GET | `/offers/ipo/:id` | Any authenticated | Get IPO detail |
-| POST | `/offers/ipo/:id/batches` | `CERT_INITIATOR`, `OPS_MANAGER` | Upload application batch |
-| GET | `/offers/ipo/:id/batches` | Any authenticated | List batches for an offer |
-| GET | `/offers/ipo/batches/:batchId` | Any authenticated | Get batch detail + application lists |
-| POST | `/offers/ipo/batches/:batchId/approve` | `OPS_MANAGER` | Approve batch → ICU |
-| POST | `/offers/ipo/batches/:batchId/reject` | `OPS_MANAGER` | Reject batch |
-| POST | `/offers/ipo/batches/:batchId/icu-approve` | `ICU` | ICU final approval |
-| POST | `/offers/ipo/batches/:batchId/icu-reject` | `ICU` | ICU rejection |
-| POST | `/offers/ipo/:id/process-allotment` | `OPS_MANAGER` | Trigger allotment computation |
-| GET | `/offers/ipo/:id/reports/:type` | Any authenticated | Download report |
+| Method | Path                                       | Role                            | Description                          |
+| ------ | ------------------------------------------ | ------------------------------- | ------------------------------------ |
+| GET    | `/offers/ipo`                              | Any authenticated               | List IPO offers                      |
+| POST   | `/offers/ipo`                              | `OPS_MANAGER`, `SYSTEM_ADMIN`   | Create new IPO offer                 |
+| GET    | `/offers/ipo/:id`                          | Any authenticated               | Get IPO detail                       |
+| POST   | `/offers/ipo/:id/batches`                  | `CERT_INITIATOR`, `OPS_MANAGER` | Upload application batch             |
+| GET    | `/offers/ipo/:id/batches`                  | Any authenticated               | List batches for an offer            |
+| GET    | `/offers/ipo/batches/:batchId`             | Any authenticated               | Get batch detail + application lists |
+| POST   | `/offers/ipo/batches/:batchId/approve`     | `OPS_MANAGER`                   | Approve batch → ICU                  |
+| POST   | `/offers/ipo/batches/:batchId/reject`      | `OPS_MANAGER`                   | Reject batch                         |
+| POST   | `/offers/ipo/batches/:batchId/icu-approve` | `ICU`                           | ICU final approval                   |
+| POST   | `/offers/ipo/batches/:batchId/icu-reject`  | `ICU`                           | ICU rejection                        |
+| POST   | `/offers/ipo/:id/process-allotment`        | `OPS_MANAGER`                   | Trigger allotment computation        |
+| GET    | `/offers/ipo/:id/reports/:type`            | Any authenticated               | Download report                      |
 
 #### Batch Upload File Format (CSV)
 
@@ -875,13 +878,13 @@ ADEBISI FUNMILAYO, C00001001EL, MRIST, GTBank, 0012345678, 50000, 2500000
 
 #### Validation Rules
 
-| Check | Pass | Fail Category |
-|---|---|---|
-| CHN format | 12-char alphanumeric | INVALID |
-| Min subscription | amount_paid ≥ system minimum | INVALID |
-| Duplicate CHN in same offer | unique | DISAPPROVED |
-| Name match against CSCS | ≥ 80% match | DISAPPROVED |
-| KYC complete | BVN + bank account present | DISAPPROVED |
+| Check                       | Pass                         | Fail Category |
+| --------------------------- | ---------------------------- | ------------- |
+| CHN format                  | 12-char alphanumeric         | INVALID       |
+| Min subscription            | amount_paid ≥ system minimum | INVALID       |
+| Duplicate CHN in same offer | unique                       | DISAPPROVED   |
+| Name match against CSCS     | ≥ 80% match                  | DISAPPROVED   |
+| KYC complete                | BVN + bank account present   | DISAPPROVED   |
 
 ---
 
@@ -929,22 +932,22 @@ A rights issue gives existing shareholders the right to subscribe for additional
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/offers/rights-issue` | Any authenticated | List rights issue offers |
-| POST | `/offers/rights-issue` | `OPS_MANAGER`, `SYSTEM_ADMIN` | Create offer |
-| GET | `/offers/rights-issue/:id` | Any authenticated | Get offer detail |
-| POST | `/offers/rights-issue/:id/applications` | `CERT_INITIATOR` | Add / upload applications |
-| GET | `/offers/rights-issue/:id/applications` | Any authenticated | List applications |
-| PATCH | `/offers/rights-issue/:id/applications/:appId` | `CERT_INITIATOR` | Update single application |
-| POST | `/offers/rights-issue/:id/submit-approval` | `OPS_MANAGER` | Submit for approval |
-| POST | `/offers/rights-issue/:id/approve` | `OPS_MANAGER` | Approve → ICU |
-| POST | `/offers/rights-issue/:id/reject` | `OPS_MANAGER` | Reject batch |
-| POST | `/offers/rights-issue/:id/icu-approve` | `ICU` | ICU approval |
-| POST | `/offers/rights-issue/:id/icu-reject` | `ICU` | ICU rejection |
-| POST | `/offers/rights-issue/:id/process-allotment` | `OPS_MANAGER`, `ICU` | Run allotment |
-| GET | `/offers/rights-issue/:id/sticky-labels` | `OPS_MANAGER` | Generate sticky labels PDF |
-| POST | `/offers/rights-issue/:id/notify-shareholders` | `OPS_MANAGER` | Send email notifications |
+| Method | Path                                           | Role                          | Description                |
+| ------ | ---------------------------------------------- | ----------------------------- | -------------------------- |
+| GET    | `/offers/rights-issue`                         | Any authenticated             | List rights issue offers   |
+| POST   | `/offers/rights-issue`                         | `OPS_MANAGER`, `SYSTEM_ADMIN` | Create offer               |
+| GET    | `/offers/rights-issue/:id`                     | Any authenticated             | Get offer detail           |
+| POST   | `/offers/rights-issue/:id/applications`        | `CERT_INITIATOR`              | Add / upload applications  |
+| GET    | `/offers/rights-issue/:id/applications`        | Any authenticated             | List applications          |
+| PATCH  | `/offers/rights-issue/:id/applications/:appId` | `CERT_INITIATOR`              | Update single application  |
+| POST   | `/offers/rights-issue/:id/submit-approval`     | `OPS_MANAGER`                 | Submit for approval        |
+| POST   | `/offers/rights-issue/:id/approve`             | `OPS_MANAGER`                 | Approve → ICU              |
+| POST   | `/offers/rights-issue/:id/reject`              | `OPS_MANAGER`                 | Reject batch               |
+| POST   | `/offers/rights-issue/:id/icu-approve`         | `ICU`                         | ICU approval               |
+| POST   | `/offers/rights-issue/:id/icu-reject`          | `ICU`                         | ICU rejection              |
+| POST   | `/offers/rights-issue/:id/process-allotment`   | `OPS_MANAGER`, `ICU`          | Run allotment              |
+| GET    | `/offers/rights-issue/:id/sticky-labels`       | `OPS_MANAGER`                 | Generate sticky labels PDF |
+| POST   | `/offers/rights-issue/:id/notify-shareholders` | `OPS_MANAGER`                 | Send email notifications   |
 
 #### Entitlement Calculation
 
@@ -999,21 +1002,21 @@ A bonus issue (scrip issue / capitalisation issue) allocates free additional sha
 
 #### API Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | `/offers/bonus-issue` | Any authenticated | List bonus offers |
-| POST | `/offers/bonus-issue` | `OPS_MANAGER`, `SYSTEM_ADMIN` | Create offer |
-| GET | `/offers/bonus-issue/:id` | Any authenticated | Get offer detail |
-| POST | `/offers/bonus-issue/:id/compute-entitlements` | `OPS_MANAGER` | Compute from snapshot |
-| GET | `/offers/bonus-issue/:id/entitlements` | Any authenticated | List entitlements |
-| POST | `/offers/bonus-issue/:id/submit-approval` | `OPS_MANAGER` | Submit for Ops Manager review |
-| POST | `/offers/bonus-issue/:id/approve` | `OPS_MANAGER` | Approve → ICU |
-| POST | `/offers/bonus-issue/:id/reject` | `OPS_MANAGER` | Reject |
-| POST | `/offers/bonus-issue/:id/icu-approve` | `ICU` | ICU approval |
-| POST | `/offers/bonus-issue/:id/icu-reject` | `ICU` | ICU rejection |
-| POST | `/offers/bonus-issue/:id/process-allotment` | `OPS_MANAGER`, `ICU` | Run allotment |
-| GET | `/offers/bonus-issue/:id/sticky-labels` | `OPS_MANAGER` | Download sticky labels PDF |
-| POST | `/offers/bonus-issue/:id/notify-shareholders` | `OPS_MANAGER` | Send email notifications |
+| Method | Path                                           | Role                          | Description                   |
+| ------ | ---------------------------------------------- | ----------------------------- | ----------------------------- |
+| GET    | `/offers/bonus-issue`                          | Any authenticated             | List bonus offers             |
+| POST   | `/offers/bonus-issue`                          | `OPS_MANAGER`, `SYSTEM_ADMIN` | Create offer                  |
+| GET    | `/offers/bonus-issue/:id`                      | Any authenticated             | Get offer detail              |
+| POST   | `/offers/bonus-issue/:id/compute-entitlements` | `OPS_MANAGER`                 | Compute from snapshot         |
+| GET    | `/offers/bonus-issue/:id/entitlements`         | Any authenticated             | List entitlements             |
+| POST   | `/offers/bonus-issue/:id/submit-approval`      | `OPS_MANAGER`                 | Submit for Ops Manager review |
+| POST   | `/offers/bonus-issue/:id/approve`              | `OPS_MANAGER`                 | Approve → ICU                 |
+| POST   | `/offers/bonus-issue/:id/reject`               | `OPS_MANAGER`                 | Reject                        |
+| POST   | `/offers/bonus-issue/:id/icu-approve`          | `ICU`                         | ICU approval                  |
+| POST   | `/offers/bonus-issue/:id/icu-reject`           | `ICU`                         | ICU rejection                 |
+| POST   | `/offers/bonus-issue/:id/process-allotment`    | `OPS_MANAGER`, `ICU`          | Run allotment                 |
+| GET    | `/offers/bonus-issue/:id/sticky-labels`        | `OPS_MANAGER`                 | Download sticky labels PDF    |
+| POST   | `/offers/bonus-issue/:id/notify-shareholders`  | `OPS_MANAGER`                 | Send email notifications      |
 
 #### Bonus Entitlement Calculation
 
@@ -1033,12 +1036,12 @@ The approval engine is shared across all modules. It supports up to 4 tiers.
 
 ### 6.1 Tier Definitions
 
-| Tier | Trigger | Required Approvers |
-|---|---|---|
-| 1 | amount ≤ `TIER2_LIMIT` | None (auto-approved) |
-| 2 | amount ≤ `TIER3_LIMIT` | `OPS_MANAGER` |
-| 3 | amount ≤ `TIER4_LIMIT` | `OPS_MANAGER` → `ICU` |
-| 4 | amount > `TIER4_LIMIT` | `OPS_MANAGER` → `ICU` → `MANAGEMENT` |
+| Tier | Trigger                | Required Approvers                   |
+| ---- | ---------------------- | ------------------------------------ |
+| 1    | amount ≤ `TIER2_LIMIT` | None (auto-approved)                 |
+| 2    | amount ≤ `TIER3_LIMIT` | `OPS_MANAGER`                        |
+| 3    | amount ≤ `TIER4_LIMIT` | `OPS_MANAGER` → `ICU`                |
+| 4    | amount > `TIER4_LIMIT` | `OPS_MANAGER` → `ICU` → `MANAGEMENT` |
 
 For offers, the tier is determined by total subscription/allotment value. For dividend declarations, it is determined by gross liability.
 
@@ -1081,30 +1084,30 @@ Every state-changing API call writes to `audit_log`. The backend middleware hand
 
 ### Minimum Fields Per Entry
 
-| Field | Source |
-|---|---|
-| `actor_id` | JWT `sub` |
-| `actor_name` | JWT `name` |
-| `role` | JWT `role` |
-| `action` | Constant defined per handler, e.g. `PRINCIPAL_CREATED` |
-| `entity_type` | Resource name |
-| `entity_id` | Resource UUID |
-| `before_state` | Fetched from DB before mutation |
-| `after_state` | Computed after mutation |
-| `ip_address` | `req.ip` |
-| `timestamp` | `NOW()` |
+| Field          | Source                                                 |
+| -------------- | ------------------------------------------------------ |
+| `actor_id`     | JWT `sub`                                              |
+| `actor_name`   | JWT `name`                                             |
+| `role`         | JWT `role`                                             |
+| `action`       | Constant defined per handler, e.g. `PRINCIPAL_CREATED` |
+| `entity_type`  | Resource name                                          |
+| `entity_id`    | Resource UUID                                          |
+| `before_state` | Fetched from DB before mutation                        |
+| `after_state`  | Computed after mutation                                |
+| `ip_address`   | `req.ip`                                               |
+| `timestamp`    | `NOW()`                                                |
 
 ### Standard Action Codes
 
-| Module | Actions |
-|---|---|
-| Auth | `USER_LOGIN`, `USER_LOGOUT`, `PASSWORD_RESET_REQUESTED`, `PASSWORD_CHANGED` |
-| Setup | `PRINCIPAL_CREATED`, `PRINCIPAL_UPDATED`, `PRINCIPAL_STATUS_CHANGED` |
-| Setup | `REGISTER_CREATED`, `REGISTER_UPDATED`, `REGISTER_LOCK_CHANGED` |
-| Setup | `USER_CREATED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_2FA_TOGGLED` |
-| Setup | `AGENT_CREATED`, `AGENT_UPDATED`, `PARAMETER_UPDATED` |
-| Offers | `OFFER_CREATED`, `BATCH_UPLOADED`, `BATCH_APPROVED`, `BATCH_ICU_APPROVED` |
-| Offers | `ALLOTMENT_PROCESSED`, `NOTIFICATIONS_SENT` |
+| Module | Actions                                                                     |
+| ------ | --------------------------------------------------------------------------- |
+| Auth   | `USER_LOGIN`, `USER_LOGOUT`, `PASSWORD_RESET_REQUESTED`, `PASSWORD_CHANGED` |
+| Setup  | `PRINCIPAL_CREATED`, `PRINCIPAL_UPDATED`, `PRINCIPAL_STATUS_CHANGED`        |
+| Setup  | `REGISTER_CREATED`, `REGISTER_UPDATED`, `REGISTER_LOCK_CHANGED`             |
+| Setup  | `USER_CREATED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_2FA_TOGGLED`   |
+| Setup  | `AGENT_CREATED`, `AGENT_UPDATED`, `PARAMETER_UPDATED`                       |
+| Offers | `OFFER_CREATED`, `BATCH_UPLOADED`, `BATCH_APPROVED`, `BATCH_ICU_APPROVED`   |
+| Offers | `ALLOTMENT_PROCESSED`, `NOTIFICATIONS_SENT`                                 |
 
 ---
 
@@ -1113,7 +1116,7 @@ Every state-changing API call writes to `audit_log`. The backend middleware hand
 ### Base URL
 
 ```
-https://api.mrpsl-cpa.meristemregistrars.com/v1
+https://api.mrpsl-cpa.RegisProregistrars.com/v1
 ```
 
 ### Standard Request Headers
@@ -1187,27 +1190,27 @@ X-Request-ID: <uuid>          (optional, echoed in response)
 
 ## 9. Error Codes
 
-| HTTP Status | Code | Meaning |
-|---|---|---|
-| 400 | `VALIDATION_ERROR` | One or more request fields failed validation |
-| 401 | `UNAUTHORIZED` | Missing or invalid access token |
-| 401 | `TOKEN_EXPIRED` | Access token has expired — use refresh |
-| 401 | `INVALID_OTP` | 2FA code incorrect |
-| 401 | `ACCOUNT_LOCKED` | Too many failed login attempts |
-| 403 | `FORBIDDEN` | Authenticated but insufficient role |
-| 403 | `SELF_APPROVAL_NOT_ALLOWED` | Initiator cannot approve own submission |
-| 403 | `INITIATOR_ROLE_RESTRICTED` | User role cannot initiate this transaction |
-| 404 | `NOT_FOUND` | Resource does not exist |
-| 409 | `PRINCIPAL_HAS_ACTIVE_REGISTERS` | Cannot deactivate principal |
-| 409 | `REGISTER_TRANSACTION_DISABLED` | Register is locked for all transactions |
-| 409 | `DUPLICATE_SYMBOL` | Register symbol already in use |
-| 409 | `DUPLICATE_EMAIL` | User email already registered |
-| 409 | `DUPLICATE_APPLICATION` | Same CHN applied twice in same offer |
-| 422 | `ENTITLEMENT_EXCEEDED` | Application units exceed calculated entitlement |
-| 422 | `BELOW_MINIMUM_SUBSCRIPTION` | Application below the minimum threshold |
-| 422 | `SHARE_CAPITAL_HEADROOM_EXCEEDED` | Bonus/rights units exceed authorised capital |
-| 500 | `INTERNAL_SERVER_ERROR` | Unexpected server error |
+| HTTP Status | Code                              | Meaning                                         |
+| ----------- | --------------------------------- | ----------------------------------------------- |
+| 400         | `VALIDATION_ERROR`                | One or more request fields failed validation    |
+| 401         | `UNAUTHORIZED`                    | Missing or invalid access token                 |
+| 401         | `TOKEN_EXPIRED`                   | Access token has expired — use refresh          |
+| 401         | `INVALID_OTP`                     | 2FA code incorrect                              |
+| 401         | `ACCOUNT_LOCKED`                  | Too many failed login attempts                  |
+| 403         | `FORBIDDEN`                       | Authenticated but insufficient role             |
+| 403         | `SELF_APPROVAL_NOT_ALLOWED`       | Initiator cannot approve own submission         |
+| 403         | `INITIATOR_ROLE_RESTRICTED`       | User role cannot initiate this transaction      |
+| 404         | `NOT_FOUND`                       | Resource does not exist                         |
+| 409         | `PRINCIPAL_HAS_ACTIVE_REGISTERS`  | Cannot deactivate principal                     |
+| 409         | `REGISTER_TRANSACTION_DISABLED`   | Register is locked for all transactions         |
+| 409         | `DUPLICATE_SYMBOL`                | Register symbol already in use                  |
+| 409         | `DUPLICATE_EMAIL`                 | User email already registered                   |
+| 409         | `DUPLICATE_APPLICATION`           | Same CHN applied twice in same offer            |
+| 422         | `ENTITLEMENT_EXCEEDED`            | Application units exceed calculated entitlement |
+| 422         | `BELOW_MINIMUM_SUBSCRIPTION`      | Application below the minimum threshold         |
+| 422         | `SHARE_CAPITAL_HEADROOM_EXCEEDED` | Bonus/rights units exceed authorised capital    |
+| 500         | `INTERNAL_SERVER_ERROR`           | Unexpected server error                         |
 
 ---
 
-*Document maintained by the MRPSL CPA development team. Next section to be added: **Certificate Management Module** (CSCS Updates, Reconciliation, Dematerialisation, Split, Consolidation, Transfer).*
+_Document maintained by the MRPSL CPA development team. Next section to be added: **Certificate Management Module** (CSCS Updates, Reconciliation, Dematerialisation, Split, Consolidation, Transfer)._

@@ -62,7 +62,7 @@ const SEED_SUBMISSIONS: Submission[] = [
     id: "s1",
     txType: "acceptance",
     agentType: "STOCKBROKER",
-    agentName: "Meristem Stockbrokers Ltd",
+    agentName: "RegisPro Stockbrokers Ltd",
     chn: "C0023456BK",
     cscsNumber: "CSCS-000234561",
     registrarAccountNo: "REG-00123456",
@@ -176,7 +176,8 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 export function RightsTrading() {
   const [mode, setMode] = useState<EntryMode>("manual");
   const [form, setForm] = useState(EMPTY_FORM);
-  const [submissions, setSubmissions] = useState<Submission[]>(SEED_SUBMISSIONS);
+  const [submissions, setSubmissions] =
+    useState<Submission[]>(SEED_SUBMISSIONS);
   const [showForm, setShowForm] = useState(false);
 
   const setField = (key: keyof typeof EMPTY_FORM, value: string) =>
@@ -188,7 +189,12 @@ export function RightsTrading() {
   };
 
   const handleSubmit = () => {
-    if (!form.agentType || !form.agentName.trim() || !form.chn.trim() || !form.holderName.trim()) {
+    if (
+      !form.agentType ||
+      !form.agentName.trim() ||
+      !form.chn.trim() ||
+      !form.holderName.trim()
+    ) {
       toast.error("Agent type, agent name, CHN, and holder name are required.");
       return;
     }
@@ -231,14 +237,18 @@ export function RightsTrading() {
     toast.success("Submission captured successfully.");
   };
 
-  const handleBulkUpload = async (_file: File): Promise<UploadResult> => {
+  const handleBulkUpload = async (): Promise<UploadResult> => {
     toast.success("Bulk file processed — records imported.");
     return { totalRows: 12 };
   };
 
   const pending = submissions.filter((s) => s.status === "PENDING").length;
-  const acceptanceCount = submissions.filter((s) => s.txType === "acceptance").length;
-  const renunciationCount = submissions.filter((s) => s.txType === "renunciation").length;
+  const acceptanceCount = submissions.filter(
+    (s) => s.txType === "acceptance",
+  ).length;
+  const renunciationCount = submissions.filter(
+    (s) => s.txType === "renunciation",
+  ).length;
 
   return (
     <div className="space-y-5">
@@ -342,7 +352,9 @@ export function RightsTrading() {
                       <SelectContent>
                         <SelectItem value="STOCKBROKER">Stockbroker</SelectItem>
                         <SelectItem value="BANK">Bank</SelectItem>
-                        <SelectItem value="COLLECTING_AGENT">Collecting Agent</SelectItem>
+                        <SelectItem value="COLLECTING_AGENT">
+                          Collecting Agent
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -350,7 +362,7 @@ export function RightsTrading() {
                     <FieldLabel>Agent Name</FieldLabel>
                     <Input
                       className="mrpsl-input"
-                      placeholder="e.g. Meristem Stockbrokers Ltd"
+                      placeholder="e.g. RegisPro Stockbrokers Ltd"
                       value={form.agentName}
                       onChange={(e) => setField("agentName", e.target.value)}
                     />
@@ -379,7 +391,9 @@ export function RightsTrading() {
                       className="mrpsl-input"
                       placeholder="e.g. REG-00123456"
                       value={form.registrarAccountNo}
-                      onChange={(e) => setField("registrarAccountNo", e.target.value)}
+                      onChange={(e) =>
+                        setField("registrarAccountNo", e.target.value)
+                      }
                     />
                   </div>
                 </div>
@@ -390,17 +404,23 @@ export function RightsTrading() {
               {/* Acceptance or Renunciation details */}
               {form.txType === "acceptance" ? (
                 <div className="space-y-3">
-                  <SectionHeading>Full Acceptance / Additional Shares</SectionHeading>
+                  <SectionHeading>
+                    Full Acceptance / Additional Shares
+                  </SectionHeading>
                   <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                     <div className="space-y-1.5">
-                      <FieldLabel>No. of Additional Ordinary Shares Applied For</FieldLabel>
+                      <FieldLabel>
+                        No. of Additional Ordinary Shares Applied For
+                      </FieldLabel>
                       <Input
                         type="number"
                         min="0"
                         className="mrpsl-input"
                         placeholder="0"
                         value={form.additionalSharesApplied}
-                        onChange={(e) => setField("additionalSharesApplied", e.target.value)}
+                        onChange={(e) =>
+                          setField("additionalSharesApplied", e.target.value)
+                        }
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -411,7 +431,9 @@ export function RightsTrading() {
                         className="mrpsl-input"
                         placeholder="0.00"
                         value={form.additionalAmountPaid}
-                        onChange={(e) => setField("additionalAmountPaid", e.target.value)}
+                        onChange={(e) =>
+                          setField("additionalAmountPaid", e.target.value)
+                        }
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -422,7 +444,9 @@ export function RightsTrading() {
                         className="mrpsl-input"
                         placeholder="Rights amount + additional"
                         value={form.totalAmountPaid}
-                        onChange={(e) => setField("totalAmountPaid", e.target.value)}
+                        onChange={(e) =>
+                          setField("totalAmountPaid", e.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -439,7 +463,9 @@ export function RightsTrading() {
                         className="mrpsl-input"
                         placeholder="0"
                         value={form.unitsAccepted}
-                        onChange={(e) => setField("unitsAccepted", e.target.value)}
+                        onChange={(e) =>
+                          setField("unitsAccepted", e.target.value)
+                        }
                       />
                     </div>
                     <div className="space-y-1.5">
@@ -450,7 +476,9 @@ export function RightsTrading() {
                         className="mrpsl-input"
                         placeholder="0.00"
                         value={form.amountPayable}
-                        onChange={(e) => setField("amountPayable", e.target.value)}
+                        onChange={(e) =>
+                          setField("amountPayable", e.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -533,7 +561,9 @@ export function RightsTrading() {
                       className="mrpsl-input"
                       placeholder="10-digit account number"
                       value={form.accountNumber}
-                      onChange={(e) => setField("accountNumber", e.target.value)}
+                      onChange={(e) =>
+                        setField("accountNumber", e.target.value)
+                      }
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -577,7 +607,11 @@ export function RightsTrading() {
         <>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Total Submissions", value: submissions.length, highlight: "" },
+              {
+                label: "Total Submissions",
+                value: submissions.length,
+                highlight: "",
+              },
               {
                 label: "Full Acceptance / Additional",
                 value: acceptanceCount,
@@ -591,7 +625,9 @@ export function RightsTrading() {
             ].map(({ label, value, highlight }) => (
               <Card key={label} className="mrpsl-card p-3">
                 <p className="mrpsl-label">{label}</p>
-                <p className={`font-mono font-semibold text-lg mt-1 ${highlight}`}>
+                <p
+                  className={`font-mono font-semibold text-lg mt-1 ${highlight}`}
+                >
                   {value}
                 </p>
               </Card>
@@ -623,15 +659,25 @@ export function RightsTrading() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="mrpsl-table-header">
-                    <th className="text-left px-4 py-2.5 font-medium">HOLDER / CHN</th>
+                    <th className="text-left px-4 py-2.5 font-medium">
+                      HOLDER / CHN
+                    </th>
                     <th className="text-left px-4 py-2.5 font-medium">AGENT</th>
-                    <th className="text-left px-4 py-2.5 font-medium">CSCS NO.</th>
+                    <th className="text-left px-4 py-2.5 font-medium">
+                      CSCS NO.
+                    </th>
                     <th className="text-left px-4 py-2.5 font-medium">TYPE</th>
-                    <th className="text-right px-4 py-2.5 font-medium">UNITS / SHARES</th>
-                    <th className="text-right px-4 py-2.5 font-medium">AMOUNT (₦)</th>
+                    <th className="text-right px-4 py-2.5 font-medium">
+                      UNITS / SHARES
+                    </th>
+                    <th className="text-right px-4 py-2.5 font-medium">
+                      AMOUNT (₦)
+                    </th>
                     <th className="text-left px-4 py-2.5 font-medium">BANK</th>
                     <th className="text-left px-4 py-2.5 font-medium">DATE</th>
-                    <th className="text-center px-4 py-2.5 font-medium">STATUS</th>
+                    <th className="text-center px-4 py-2.5 font-medium">
+                      STATUS
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -640,12 +686,16 @@ export function RightsTrading() {
                     const units = isAcceptance
                       ? s.additionalSharesApplied
                       : s.unitsAccepted;
-                    const amount = isAcceptance ? s.totalAmountPaid : s.amountPayable;
+                    const amount = isAcceptance
+                      ? s.totalAmountPaid
+                      : s.amountPayable;
                     return (
                       <tr key={s.id} className="mrpsl-table-row">
                         <td className="px-4 py-2.5">
                           <p className="font-medium text-sm">{s.holderName}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{s.chn}</p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {s.chn}
+                          </p>
                         </td>
                         <td className="px-4 py-2.5">
                           <p className="text-sm">{s.agentName}</p>
@@ -702,9 +752,7 @@ export function RightsTrading() {
             <Button
               size="sm"
               onClick={() =>
-                toast.success(
-                  "Submissions forwarded to Returns Capture.",
-                )
+                toast.success("Submissions forwarded to Returns Capture.")
               }
             >
               Forward to Returns Capture
