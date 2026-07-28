@@ -78,7 +78,7 @@ const STATUS_COLORS: Record<OfferStatus, string> = {
 const MOCK_RECEIVING_AGENTS: Agent[] = [
   {
     id: "ra1",
-    name: "Meristem Registrars Ltd",
+    name: "RegisPro Registrars Ltd",
     agentType: "Receiving Agent",
     offerId: "1",
     offerDate: new Date("2024-10-07"),
@@ -132,7 +132,7 @@ const MOCK_AGENTS: Agent[] = [
 const MOCK_STOCKBROKERS: Agent[] = [
   {
     id: "s1",
-    name: "Meristem Securities Ltd",
+    name: "RegisPro Securities Ltd",
     agentType: "Stockbroker",
     offerId: "1",
     offerDate: new Date("2024-10-07"),

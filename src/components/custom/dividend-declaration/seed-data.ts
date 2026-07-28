@@ -78,21 +78,21 @@ export const MOCK_CURRENCIES = [
 ];
 
 export const APPROVERS = [
-  { role: "Ops Manager", name: "Amaka Eze", email: "amaka.eze@meristem.com" },
+  { role: "Ops Manager", name: "Amaka Eze", email: "amaka.eze@RegisPro.com" },
   {
     role: "ICU Officer",
     name: "Chioma Adaeze",
-    email: "chioma.adaeze@meristem.com",
+    email: "chioma.adaeze@RegisPro.com",
   },
   {
     role: "Head of Payments (HOP)",
     name: "Tunde Bello",
-    email: "tunde.bello@meristem.com",
+    email: "tunde.bello@RegisPro.com",
   },
   {
     role: "MD/CEO",
     name: "Dr. Wale Adeyemi",
-    email: "wale.adeyemi@meristem.com",
+    email: "wale.adeyemi@RegisPro.com",
   },
 ];
 
@@ -258,8 +258,7 @@ function buildSeedRecord(
     : [];
   const totals = summarize(prelist);
   const grossLiability =
-    totals.grossLiability ||
-    register.currentStockInIssue * overrides.rate;
+    totals.grossLiability || register.currentStockInIssue * overrides.rate;
   const whtAmount =
     totals.whtAmount || grossLiability * (overrides.whtRate / 100);
   const netLiability = totals.netLiability || grossLiability - whtAmount;
@@ -286,13 +285,13 @@ function buildSeedRecord(
     netLiability,
     totalShareholders: prelist.length || register.currentShareholdersSize,
     status: overrides.status,
-    initiatedBy: overrides.initiatedBy ?? "michael.uyanna@meristem.com",
+    initiatedBy: overrides.initiatedBy ?? "michael.uyanna@RegisPro.com",
     createdAt: overrides.createdAt ?? "2026-07-10",
     prelist,
     approvalTrail: overrides.approvalTrail ?? [
       {
         stage: "Initiation",
-        actor: "michael.uyanna@meristem.com",
+        actor: "michael.uyanna@RegisPro.com",
         action: "CREATED",
         date: "2026-07-10",
       },

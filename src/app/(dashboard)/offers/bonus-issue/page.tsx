@@ -336,7 +336,7 @@ const MOCK_BROKER_SUMMARY = [
     percentageOfTotalNewShares: 55.33,
   },
   {
-    stockbroker: "Meristem Stockbrokers Ltd",
+    stockbroker: "RegisPro Stockbrokers Ltd",
     eligibleShareholders: 4318,
     unitsAtQualDate: 7890000,
     bonusSharesIssued: 1578000,
@@ -377,8 +377,8 @@ const MOCK_BONUS_REPORT = [
     email: "chukwuemeka.okafor@email.com",
     phone: "08098765432",
     chn: "C0034521BK",
-    stockbroker: "Meristem Stockbrokers Ltd",
-    stockbrokerCode: "MERISTEM",
+    stockbroker: "RegisPro Stockbrokers Ltd",
+    stockbrokerCode: "RegisPro",
   },
   {
     shareAccountNo: "ZB2024-003",
@@ -416,8 +416,8 @@ const MOCK_BONUS_REPORT = [
     email: "ngozi.okafor@email.com",
     phone: "09012345670",
     chn: "C0067890EK",
-    stockbroker: "Meristem Stockbrokers Ltd",
-    stockbrokerCode: "MERISTEM",
+    stockbroker: "RegisPro Stockbrokers Ltd",
+    stockbrokerCode: "RegisPro",
   },
   {
     shareAccountNo: "ZB2024-006",
@@ -455,8 +455,8 @@ const MOCK_BONUS_REPORT = [
     email: "amaka.ezenwachi@email.com",
     phone: "08045678901",
     chn: "C0090123HK",
-    stockbroker: "Meristem Stockbrokers Ltd",
-    stockbrokerCode: "MERISTEM",
+    stockbroker: "RegisPro Stockbrokers Ltd",
+    stockbrokerCode: "RegisPro",
   },
   {
     shareAccountNo: "ZB2024-009",
@@ -494,8 +494,8 @@ const MOCK_BONUS_REPORT = [
     email: "peter.nwachukwu@email.com",
     phone: "09034567890",
     chn: "C0056734KK",
-    stockbroker: "Meristem Stockbrokers Ltd",
-    stockbrokerCode: "MERISTEM",
+    stockbroker: "RegisPro Stockbrokers Ltd",
+    stockbrokerCode: "RegisPro",
   },
   {
     shareAccountNo: "ZB2024-012",
@@ -533,8 +533,8 @@ const MOCK_BONUS_REPORT = [
     email: "obiageli.okonkwo@email.com",
     phone: "07045678901",
     chn: "C0090067NK",
-    stockbroker: "Meristem Stockbrokers Ltd",
-    stockbrokerCode: "MERISTEM",
+    stockbroker: "RegisPro Stockbrokers Ltd",
+    stockbrokerCode: "RegisPro",
   },
   {
     shareAccountNo: "ZB2024-015",
@@ -3652,7 +3652,7 @@ export default function BonusIssuePage() {
         offerName={activeAllotment?.bonusName || ""}
         ratio={activeAllotment?.ratio || ""}
         allotDate={activeAllotment?.allotmentDate || ""}
-        contactEmail="BonusIssue@meristemregistrars.com"
+        contactEmail="BonusIssue@RegisProregistrars.com"
         shareholders={
           allotReviewing && allotmentsList?.length
             ? allotmentsList.slice(0, 5).map((s) => ({

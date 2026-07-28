@@ -76,12 +76,13 @@ export function AllotmentDetailsView({
     if (!outreachShareholders?.content) return [];
 
     return outreachShareholders.content.map((s) => {
-
       return {
         id: s?.shareholderId,
         accountNumber: s?.accountNumber,
         name: s?.shareholderName,
-        address: s?.address || "No address on record Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?",
+        address:
+          s?.address ||
+          "No address on record Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?",
         // state: s?.state || "---",
         // holdings: 0,
       };
@@ -166,8 +167,8 @@ export function AllotmentDetailsView({
             className={cn(
               "mrpsl-card p-3",
               "tab" in s &&
-              s.tab &&
-              "cursor-pointer hover:border-primary/40 transition-colors",
+                s.tab &&
+                "cursor-pointer hover:border-primary/40 transition-colors",
             )}
             onClick={() => "tab" in s && s.tab && setAllotTab(s.tab)}
           >
@@ -175,9 +176,7 @@ export function AllotmentDetailsView({
             {allotmentLoading ? (
               <div className="h-6 w-24 bg-muted rounded-lg animate-pulse"></div>
             ) : (
-              <div
-                className={cn("text-xl font-mono font-bold mt-1", s.color)}
-              >
+              <div className={cn("text-xl font-mono font-bold mt-1", s.color)}>
                 {s.value}
               </div>
             )}
@@ -435,7 +434,7 @@ export function AllotmentDetailsView({
             ? allotReviewing.issuePrice.toFixed(2)
             : "4.00"
         }
-        contactEmail="registrars@meristemng.com"
+        contactEmail="registrars@RegisProng.com"
         shareholders={modalShareholders}
         totalCount={outreachShareholders?.pagination?.total || 0}
       />

@@ -73,7 +73,8 @@ export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
       toast.error("No data loaded to export.");
       return;
     }
-    const header = "Shareholder Name,Reg Account No,CHN,Volume,Member Code,Lodged At";
+    const header =
+      "Shareholder Name,Reg Account No,CHN,Volume,Member Code,Lodged At";
     const rows = historyData.content.map((e) =>
       [
         `"${e.shareholderName}"`,
@@ -179,7 +180,10 @@ export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { setLabelsPage(1); setLabelsOpen(true); }}
+              onClick={() => {
+                setLabelsPage(1);
+                setLabelsOpen(true);
+              }}
               disabled={!historyData?.content?.length}
             >
               <Tag className="mr-2 h-4 w-4" /> Print Sticky Labels
@@ -259,15 +263,15 @@ export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
                     ))}
                     {(!historyData?.content ||
                       historyData.content.length === 0) && (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            className="px-4 py-10 text-center text-muted-foreground italic"
-                          >
-                            No lodgments submitted yet for this declaration.
-                          </td>
-                        </tr>
-                      )}
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-10 text-center text-muted-foreground italic"
+                        >
+                          No lodgments submitted yet for this declaration.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                   <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
                     <tr>
@@ -321,7 +325,7 @@ export function SubmittedLodgement({ selectedIssue }: SubmittedLodgementProps) {
         offerName={selectedIssue.offerName}
         ratio={selectedIssue.ratio ?? "1:1"}
         closeDate={selectedIssue.closureDate}
-        contactEmail="info@meristemregistrars.com"
+        contactEmail="info@RegisProregistrars.com"
         shareholders={outreachShareholders}
         totalCount={totalEntries}
         issueId={String(selectedIssue.id)}
