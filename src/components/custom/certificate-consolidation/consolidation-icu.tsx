@@ -82,7 +82,7 @@ export function ConsolidationIcu({
             {selectedRequest.id}
           </span>
           <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-            Pending ICU Review
+            Pending Teamlead Review
           </Badge>
         </div>
 
@@ -237,10 +237,10 @@ export function ConsolidationIcu({
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">ICU Approval</h2>
+          <h2 className="text-xl font-semibold">Teamlead Approval</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Review and approve or reject pending consolidation requests
-            submitted for ICU authorisation.
+            submitted for Teamlead authorisation.
           </p>
         </div>
         <Badge className="bg-blue-100 text-blue-800 border-blue-200 shrink-0">
@@ -254,7 +254,7 @@ export function ConsolidationIcu({
           <p className="font-medium">No pending consolidation requests.</p>
           <p className="text-sm text-muted-foreground">
             All consolidation requests have been reviewed or none have been
-            submitted for ICU approval yet.
+            submitted for Teamlead approval yet.
           </p>
         </Card>
       ) : (

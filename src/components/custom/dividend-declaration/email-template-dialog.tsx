@@ -19,6 +19,7 @@ import { GetImageUrl } from "@/lib/utils/get-image-url";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 import { useSendBatchEmails } from "@/hooks/useDividendDeclarationFlow";
 import type { DividendFlowRecord } from "@/types/dividend-declaration-flow";
+import { TestEmailPanel } from "@/components/custom/email/test-email-panel";
 import { formatDate } from "./helpers";
 
 function defaultSubject(record: DividendFlowRecord) {
@@ -74,6 +75,11 @@ function DividendEmailBody({
   return (
     <div style={{ background: "#f0f2f5", padding: "0" }}>
       {headerImageUrl ? (
+        // Plain <img> on purpose: this block mirrors the HTML that goes out in
+        // the email, and mail clients can't render next/image output. The app
+        // is also statically exported (output: "export"), so next/image has no
+        // optimizer available anyway.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={headerImageUrl}
           alt="Email header"
@@ -353,6 +359,7 @@ export function EmailTemplateDialog({
   const [headerImageUrl, setHeaderImageUrl] = useState<string | null>(null);
   const [reportLinkUrl, setReportLinkUrl] = useState("");
   const [note, setNote] = useState("");
+  const [testRecipients, setTestRecipients] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sendMutation = useSendBatchEmails();
@@ -369,6 +376,7 @@ export function EmailTemplateDialog({
     setHeaderImageUrl(null);
     setReportLinkUrl("");
     setNote("");
+    setTestRecipients([]);
   }
 
   if (!record) return null;
@@ -379,6 +387,7 @@ export function EmailTemplateDialog({
       setHeaderImageUrl(null);
       setReportLinkUrl("");
       setNote("");
+      setTestRecipients([]);
     }
     onOpenChange(v);
   }
@@ -514,6 +523,9 @@ export function EmailTemplateDialog({
               >
                 {headerImageUrl ? (
                   <div className="space-y-3">
+                    {/* Remote S3 URL resolved at runtime, and the app is
+                        statically exported — next/image can't optimise it. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={headerImageUrl}
                       alt="Header preview"
@@ -604,6 +616,15 @@ export function EmailTemplateDialog({
               <span className="font-semibold">Template preview</span> —
               placeholders in <em>italics</em> will be replaced with each
               shareholder&apos;s actual data when sent.
+            </div>
+            <div className="p-4 border-b bg-background">
+              <TestEmailPanel
+                recipients={testRecipients}
+                onRecipientsChange={setTestRecipients}
+                subject={subject}
+                templateLabel={`Dividend payment advice — ${record.paymentNumber}`}
+                disabled={sendMutation.isPending}
+              />
             </div>
             <DividendEmailBody
               record={record}

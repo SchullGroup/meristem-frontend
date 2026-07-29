@@ -215,7 +215,7 @@ export const ReviewConsolidation = ({
                         : "N/A",
                     },
                     {
-                      label: "ICU Final Review — Pending",
+                      label: "Teamlead Final Review — Pending",
                       done: false,
                       pending: true,
                       time: null,
