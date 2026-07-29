@@ -43,7 +43,7 @@ export default function ConsolidationPage() {
         return {
           ...r,
           status: "APPROVED" as ConsolidationStatus,
-          approvedBy: "ICU Manager",
+          approvedBy: "Teamlead",
           approvedAt: "16 Jul 2026",
           certificates: r.certificates.map((c) => ({ ...c, status: "DEACTIVATED" as const })),
         };
@@ -59,7 +59,7 @@ export default function ConsolidationPage() {
               ...r,
               status: "REJECTED" as ConsolidationStatus,
               rejectionComment: comment,
-              rejectedBy: "ICU Manager",
+              rejectedBy: "Teamlead",
               rejectedAt: "16 Jul 2026",
             }
           : r
@@ -93,7 +93,7 @@ export default function ConsolidationPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="icu">
-            ICU Approval
+            Teamlead Approval
             {icuPendingCount > 0 && (
               <Badge className="ml-2">{icuPendingCount}</Badge>
             )}

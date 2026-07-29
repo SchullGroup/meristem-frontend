@@ -271,7 +271,7 @@ export function ConsolidationRequests({
       onCreateRequest(newReq);
     }
 
-    toast.success("Consolidation request submitted for ICU approval.");
+    toast.success("Consolidation request submitted for Teamlead approval.");
     resetForm();
     setView("list");
   }
@@ -369,7 +369,7 @@ export function ConsolidationRequests({
                   <td className="p-3">
                     {req.status === "PENDING" && (
                       <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300">
-                        Pending ICU Review
+                        Pending Teamlead Review
                       </Badge>
                     )}
                     {req.status === "APPROVED" && (
@@ -462,7 +462,7 @@ export function ConsolidationRequests({
                   )}
                   {viewDetails.status === "PENDING" && (
                     <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300">
-                      Pending ICU Review
+                      Pending Teamlead Review
                     </Badge>
                   )}
                 </DialogTitle>
