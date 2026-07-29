@@ -13,8 +13,54 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
+export interface AllotmentRuleBandInput {
+  minUnits: number;
+  maxUnits: number;
+  flatAllotment: number;
+  proRataPercent: number;
+}
+
+/** Real allotment aggregates from the backend, driving the live-preview figures. */
+export interface AllotmentEngineSummary {
+  totalUnitsOffered: number;
+  totalUnitsApplied: number;
+  totalApplicants: number;
+  respondedApplicants: number;
+  offerPrice: number;
+  executed: boolean;
+  totalUnitsAllotted: number;
+  totalRefundUnits: number;
+  totalRefundValue: number;
+  refundApplicants: number;
+}
+
+/** A real per-band dry-run row from the backend (computed against the actual approved subscribers). */
+export interface AllotmentPreviewBand {
+  minUnits: number;
+  maxUnits: number;
+  flatAllotment: number | null;
+  proRataPercent: number | null;
+  applicants: number;
+  unitsApplied: number;
+  unitsAllotted: number;
+  refundUnits: number;
+  refundValue: number;
+}
+
 interface AllotmentRulesEngineProps {
   bannerMessage?: string;
+  /** Bands loaded from the backend for the selected offer/declaration. */
+  initialBands?: AllotmentRuleBandInput[];
+  /** Persist the current bands. When provided, a "Save Allotment Rules" button appears. */
+  onSaveRules?: (bands: AllotmentRuleBandInput[]) => void;
+  isSaving?: boolean;
+  /** Real offered/applied/allotted aggregates. When provided, replaces the seeded preview totals. */
+  summary?: AllotmentEngineSummary;
+  /** Execute the real allotment algorithm on the backend. When provided, replaces the mock execute. */
+  onExecute?: () => void;
+  isExecuting?: boolean;
+  /** Dry-run the current bands against real records; drives the Execute-preview per-band table. */
+  onPreview?: (bands: AllotmentRuleBandInput[]) => Promise<AllotmentPreviewBand[]>;
 }
 
 interface AllotmentBand {
@@ -129,10 +175,58 @@ function DonutChart({ allottedPct }: { allottedPct: number }) {
 
 export function AllotmentRulesEngine({
   bannerMessage,
+  initialBands,
+  onSaveRules,
+  isSaving,
+  summary,
+  onExecute,
+  isExecuting,
+  onPreview,
 }: AllotmentRulesEngineProps = {}) {
-  const [bands, setBands] = useState<AllotmentBand[]>(MOCK_BANDS);
+  // Real mode = backend-driven (rights). Legacy mode (no summary/onExecute) keeps the seeded
+  // preview so the IPO screen that still uses mock data is unaffected.
+  const realMode = Boolean(summary || onExecute);
+  const [bands, setBands] = useState<AllotmentBand[]>(
+    initialBands && initialBands.length > 0
+      ? initialBands.map((b, i) => ({
+          id: `loaded-${i}`,
+          minUnits: b.minUnits,
+          maxUnits: b.maxUnits,
+          flatAllotment: b.flatAllotment,
+          proRataPercent: b.proRataPercent,
+          applicants: 0,
+        }))
+      : realMode
+        ? []
+        : MOCK_BANDS,
+  );
+
+  // Preview base figures: real aggregates when provided, else the seeded constants (legacy).
+  const totalUnitsOffered = summary ? summary.totalUnitsOffered : TOTAL_UNITS_OFFERED;
+  const totalUnitsApplied = summary ? summary.totalUnitsApplied : TOTAL_UNITS_APPLIED;
+  const totalApplicants = summary ? summary.totalApplicants : TOTAL_APPLICANTS;
+  const approvedApplicants = summary ? summary.respondedApplicants : APPROVED_APPLICANTS;
+  const offerPrice = summary ? summary.offerPrice : OFFER_PRICE;
   const [executed, setExecuted] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [realPreview, setRealPreview] = useState<AllotmentPreviewBand[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const handleSaveRules = () => {
+    if (!onSaveRules) return;
+    if (bands.length === 0) {
+      toast.error("Add at least one allotment band before saving.");
+      return;
+    }
+    onSaveRules(
+      bands.map((b) => ({
+        minUnits: b.minUnits,
+        maxUnits: b.maxUnits,
+        flatAllotment: b.flatAllotment,
+        proRataPercent: b.proRataPercent,
+      })),
+    );
+  };
 
   const addBand = () => {
     const last = bands[bands.length - 1];
@@ -164,31 +258,78 @@ export function AllotmentRulesEngine({
     );
   };
 
-  const estimatedAllottedPct = Math.min(
-    (TOTAL_UNITS_OFFERED / TOTAL_UNITS_APPLIED) *
-      100 *
-      (bands.reduce((sum, b) => sum + b.proRataPercent, 0) /
-        (bands.length * 100)),
-    100,
-  );
+  const estimatedAllottedPct =
+    totalUnitsApplied > 0 && bands.length > 0
+      ? Math.min(
+          (totalUnitsOffered / totalUnitsApplied) *
+            100 *
+            (bands.reduce((sum, b) => sum + b.proRataPercent, 0) /
+              (bands.length * 100)),
+          100,
+        )
+      : 0;
 
-  const totalAllottedUnits = Math.floor(
-    (estimatedAllottedPct / 100) * TOTAL_UNITS_APPLIED,
+  const estTotalAllottedUnits = Math.floor(
+    (estimatedAllottedPct / 100) * totalUnitsApplied,
   );
-  const refundUnits = TOTAL_UNITS_APPLIED - totalAllottedUnits;
-  const estRefundValue = refundUnits * OFFER_PRICE;
-  const refundApplicants = TOTAL_APPLICANTS - APPROVED_APPLICANTS;
+  const estRefundUnits = totalUnitsApplied - estTotalAllottedUnits;
+  const estRefundValueTotal = estRefundUnits * offerPrice;
+  const estRefundApplicants = Math.max(totalApplicants - approvedApplicants, 0);
 
-  const handleExecute = () => {
+  // After a real execution the backend returns actuals; show those instead of the estimate.
+  const isExecuted = summary?.executed ?? executed;
+  const displayAllottedUnits = summary?.executed
+    ? summary.totalUnitsAllotted
+    : estTotalAllottedUnits;
+  const displayRefundUnits = summary?.executed
+    ? summary.totalRefundUnits
+    : estRefundUnits;
+  const displayRefundValue = summary?.executed
+    ? summary.totalRefundValue
+    : estRefundValueTotal;
+  const displayRefundApplicants = summary?.executed
+    ? summary.refundApplicants
+    : estRefundApplicants;
+  const displayAllottedPct =
+    summary?.executed && totalUnitsApplied > 0
+      ? Math.min((summary.totalUnitsAllotted / totalUnitsApplied) * 100, 100)
+      : estimatedAllottedPct;
+
+  const handleExecute = async () => {
     if (bands.length === 0) {
       toast.error("Add at least one allotment band before executing.");
       return;
+    }
+    // Real dry-run against the actual approved subscribers (when wired), so the preview matches
+    // what execution will produce — not a client-side estimate.
+    if (onPreview) {
+      setPreviewLoading(true);
+      try {
+        const rows = await onPreview(
+          bands.map((b) => ({
+            minUnits: b.minUnits,
+            maxUnits: b.maxUnits,
+            flatAllotment: b.flatAllotment,
+            proRataPercent: b.proRataPercent,
+          })),
+        );
+        setRealPreview(rows);
+      } catch (e) {
+        toast.error((e as Error).message);
+        setPreviewLoading(false);
+        return;
+      }
+      setPreviewLoading(false);
     }
     setShowPreviewModal(true);
   };
 
   const confirmExecute = () => {
     setShowPreviewModal(false);
+    if (onExecute) {
+      onExecute(); // real backend algorithm
+      return;
+    }
     toast.success(
       "Allotment algorithm executed. Data forked into Allotted Ledger and Return Monies Queue.",
     );
@@ -203,7 +344,7 @@ export function AllotmentRulesEngine({
         ? b.applicants * b.flatAllotment
         : Math.floor(estUnitsApplied * (b.proRataPercent / 100));
     const estRefundUnits = estUnitsApplied - estUnitsAllotted;
-    const estRefundValue = estRefundUnits * OFFER_PRICE;
+    const estRefundValue = estRefundUnits * offerPrice;
     return {
       ...b,
       estUnitsApplied,
@@ -213,7 +354,24 @@ export function AllotmentRulesEngine({
     };
   });
 
-  const previewTotals = bandPreview.reduce(
+  // The Execute-preview table uses the real backend dry-run when available; otherwise the
+  // client-side estimate (legacy/rights). Both share the same row shape.
+  const modalRows = realPreview
+    ? realPreview.map((b, i) => ({
+        id: `rp-${i}`,
+        minUnits: b.minUnits,
+        maxUnits: b.maxUnits === 0 ? 999_999_999 : b.maxUnits,
+        flatAllotment: b.flatAllotment ?? 0,
+        proRataPercent: b.proRataPercent ?? 0,
+        applicants: b.applicants,
+        estUnitsApplied: b.unitsApplied,
+        estUnitsAllotted: b.unitsAllotted,
+        estRefundUnits: b.refundUnits,
+        estRefundValue: b.refundValue,
+      }))
+    : bandPreview;
+
+  const previewTotals = modalRows.reduce(
     (acc, b) => ({
       applicants: acc.applicants + b.applicants,
       estUnitsApplied: acc.estUnitsApplied + b.estUnitsApplied,
@@ -363,34 +521,34 @@ export function AllotmentRulesEngine({
               </p>
 
               <div className="flex justify-center">
-                <DonutChart allottedPct={estimatedAllottedPct} />
+                <DonutChart allottedPct={displayAllottedPct} />
               </div>
 
               <div className="space-y-2.5">
                 {[
                   {
                     label: "Total Units of Offer",
-                    value: TOTAL_UNITS_OFFERED.toLocaleString(),
+                    value: totalUnitsOffered.toLocaleString(),
                     color: "",
                   },
                   {
                     label: "Total Units Applied",
-                    value: TOTAL_UNITS_APPLIED.toLocaleString(),
+                    value: totalUnitsApplied.toLocaleString(),
                     color: "",
                   },
                   {
-                    label: "Est. Units to Allot",
-                    value: totalAllottedUnits.toLocaleString(),
+                    label: isExecuted ? "Units Allotted" : "Est. Units to Allot",
+                    value: displayAllottedUnits.toLocaleString(),
                     color: "text-primary font-semibold",
                   },
                   {
-                    label: "Est. Units for Refund",
-                    value: refundUnits.toLocaleString(),
+                    label: isExecuted ? "Units for Refund" : "Est. Units for Refund",
+                    value: displayRefundUnits.toLocaleString(),
                     color: "text-destructive",
                   },
                   {
-                    label: "Est. Refund Value",
-                    value: `₦${(estRefundValue / 1e9).toFixed(2)}B`,
+                    label: isExecuted ? "Refund Value" : "Est. Refund Value",
+                    value: `₦${(displayRefundValue / 1e9).toFixed(2)}B`,
                     color: "text-destructive",
                   },
                 ].map(({ label, value, color }) => (
@@ -407,17 +565,17 @@ export function AllotmentRulesEngine({
                   {[
                     {
                       label: "Total Applicants",
-                      value: TOTAL_APPLICANTS.toLocaleString(),
+                      value: totalApplicants.toLocaleString(),
                       color: "",
                     },
                     {
-                      label: "Approved Applicants",
-                      value: APPROVED_APPLICANTS.toLocaleString(),
+                      label: summary ? "Responded Applicants" : "Approved Applicants",
+                      value: approvedApplicants.toLocaleString(),
                       color: "text-primary font-semibold",
                     },
                     {
                       label: "Applicants for Refund",
-                      value: refundApplicants.toLocaleString(),
+                      value: displayRefundApplicants.toLocaleString(),
                       color: "text-destructive",
                     },
                   ].map(({ label, value, color }) => (
@@ -455,17 +613,35 @@ export function AllotmentRulesEngine({
               </div>
             </Card>
 
+            {onSaveRules && (
+              <Button
+                className="w-full"
+                size="lg"
+                variant="outline"
+                onClick={handleSaveRules}
+                disabled={isSaving}
+              >
+                {isSaving ? "Saving…" : "Save Allotment Rules"}
+              </Button>
+            )}
+
             <Button
               className="w-full"
               size="lg"
               onClick={handleExecute}
-              disabled={executed}
+              disabled={isExecuted || isExecuting || previewLoading}
             >
               <Play className="h-4 w-4 mr-2" />
-              {executed ? "Algorithm Executed" : "Execute Allotment Algorithm"}
+              {previewLoading
+                ? "Computing preview…"
+                : isExecuting
+                  ? "Executing…"
+                  : isExecuted
+                    ? "Algorithm Executed"
+                    : "Execute Allotment Algorithm"}
             </Button>
 
-            {executed && (
+            {isExecuted && (
               <Card className="mrpsl-card p-3 bg-green-50 dark:bg-green-950/20 border-green-200">
                 <p className="text-xs text-green-800 dark:text-green-300 font-medium">
                   Algorithm executed successfully. Allotted Ledger and Return
@@ -518,7 +694,7 @@ export function AllotmentRulesEngine({
                 </tr>
               </thead>
               <tbody>
-                {bandPreview.map((b, i) => (
+                {modalRows.map((b, i) => (
                   <tr key={b.id} className="mrpsl-table-row">
                     <td className="px-3 py-2.5 font-medium text-xs text-muted-foreground">
                       Band {i + 1}
@@ -562,7 +738,7 @@ export function AllotmentRulesEngine({
                     colSpan={2}
                     className="px-3 py-2.5 text-xs font-bold text-muted-foreground"
                   >
-                    TOTALS ({bands.length} bands)
+                    TOTALS ({modalRows.length} bands)
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono font-bold">
                     {previewTotals.applicants.toLocaleString()}

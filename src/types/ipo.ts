@@ -51,6 +51,11 @@ export interface IPOSubscriber {
   symbol: string;
   type: IPOBatchType;
   units: number;
+  bvn?: string | null;
+  suspectedDuplicate?: boolean;
+  duplicateKey?: string | null;
+  duplicateMatchType?: string | null;
+  duplicateResolution?: string | null;
 }
 
 export interface LodgementResponse {
@@ -248,4 +253,25 @@ export interface RefundEligibleParams {
   page?: number;
   type?: string;
   size?: number;
+}
+// ── IPO CSCS Reversal upload result (drafts) ─────────────────────────────────
+export interface IpoReversalCredited {
+  accountNumber: string;
+  name: string;
+  units: number;
+}
+
+export interface IpoReversalError {
+  accountNumber: string;
+  name: string;
+  chn: string;
+  units: number;
+  reason: string;
+}
+
+export interface IpoReversalUploadResponse {
+  credited: IpoReversalCredited[];
+  errors: IpoReversalError[];
+  totalCredited: number;
+  totalErrors: number;
 }
