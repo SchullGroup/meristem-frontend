@@ -55,7 +55,7 @@ const MOCK_BATCHES: MockIcuBatch[] = [
     approvedCount: 15000,
     rejectedCount: 1035,
     totalAmount: 450_000_000,
-    opsApprovedBy: "ops.review@meristem.com",
+    opsApprovedBy: "ops.review@RegisPro.com",
     opsApprovedAt: "2024-10-02T14:30:00",
     status: "PENDING_ICU",
   },
@@ -66,24 +66,75 @@ const MOCK_BATCHES: MockIcuBatch[] = [
     approvedCount: 9800,
     rejectedCount: 608,
     totalAmount: 275_500_000,
-    opsApprovedBy: "ops.review@meristem.com",
+    opsApprovedBy: "ops.review@RegisPro.com",
     opsApprovedAt: "2024-10-04T10:15:00",
     status: "PENDING_ICU",
   },
 ];
 
 const MOCK_APPROVED_SUBS: MockSubscriber[] = [
-  { subscriberName: "Adebayo Oluwaseun Peters", chn: "C0012345678", accountNumber: "0012345678", units: 10_000, amount: 225_000 },
-  { subscriberName: "Chinwe Okafor-Nwosu", chn: "C0023456789", accountNumber: "0023456789", units: 5_000, amount: 112_500 },
-  { subscriberName: "Emeka Nwachukwu", chn: "C0034567890", accountNumber: "0034567890", units: 20_000, amount: 450_000 },
-  { subscriberName: "Fatima Garba Abubakar", chn: "C0045678901", accountNumber: "0045678901", units: 50_000, amount: 1_125_000 },
-  { subscriberName: "Ibrahim Usman Hassan", chn: "C0056789012", accountNumber: "0056789012", units: 8_000, amount: 180_000 },
+  {
+    subscriberName: "Adebayo Oluwaseun Peters",
+    chn: "C0012345678",
+    accountNumber: "0012345678",
+    units: 10_000,
+    amount: 225_000,
+  },
+  {
+    subscriberName: "Chinwe Okafor-Nwosu",
+    chn: "C0023456789",
+    accountNumber: "0023456789",
+    units: 5_000,
+    amount: 112_500,
+  },
+  {
+    subscriberName: "Emeka Nwachukwu",
+    chn: "C0034567890",
+    accountNumber: "0034567890",
+    units: 20_000,
+    amount: 450_000,
+  },
+  {
+    subscriberName: "Fatima Garba Abubakar",
+    chn: "C0045678901",
+    accountNumber: "0045678901",
+    units: 50_000,
+    amount: 1_125_000,
+  },
+  {
+    subscriberName: "Ibrahim Usman Hassan",
+    chn: "C0056789012",
+    accountNumber: "0056789012",
+    units: 8_000,
+    amount: 180_000,
+  },
 ];
 
 const MOCK_REJECTED_SUBS: MockSubscriber[] = [
-  { subscriberName: "Olusegun Badmus", chn: "C0067890123", accountNumber: "0067890123", units: 3_000, amount: 67_500, remark: "Duplicate CHN" },
-  { subscriberName: "Ngozi Chidinma Okafor", chn: "C0078901234", accountNumber: "0078901234", units: 1_500, amount: 33_750, remark: "Incomplete KYC" },
-  { subscriberName: "UNKNOWN SUBSCRIBER", chn: "", accountNumber: "9999999999", units: 500, amount: 11_250, remark: "Invalid CHN format" },
+  {
+    subscriberName: "Olusegun Badmus",
+    chn: "C0067890123",
+    accountNumber: "0067890123",
+    units: 3_000,
+    amount: 67_500,
+    remark: "Duplicate CHN",
+  },
+  {
+    subscriberName: "Ngozi Chidinma Okafor",
+    chn: "C0078901234",
+    accountNumber: "0078901234",
+    units: 1_500,
+    amount: 33_750,
+    remark: "Incomplete KYC",
+  },
+  {
+    subscriberName: "UNKNOWN SUBSCRIBER",
+    chn: "",
+    accountNumber: "9999999999",
+    units: 500,
+    amount: 11_250,
+    remark: "Invalid CHN format",
+  },
 ];
 
 type ReviewTabType = "APPROVED" | "REJECTED";
@@ -104,14 +155,18 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
     action: "approve" | "return";
   } | null>(null);
 
-  const batchDetails = batches.find(b => b.batchReference === reviewingBatch) ?? null;
+  const batchDetails =
+    batches.find((b) => b.batchReference === reviewingBatch) ?? null;
 
   const subscribersByType: Record<ReviewTabType, MockSubscriber[]> = {
     APPROVED: MOCK_APPROVED_SUBS,
     REJECTED: MOCK_REJECTED_SUBS,
   };
   const currentSubscribers = subscribersByType[reviewTab] ?? [];
-  const totalSubscriberPages = Math.max(1, Math.ceil(currentSubscribers.length / subscribersPageSize));
+  const totalSubscriberPages = Math.max(
+    1,
+    Math.ceil(currentSubscribers.length / subscribersPageSize),
+  );
   const totalSubscribers = currentSubscribers.length;
   const paginatedSubscribers = currentSubscribers.slice(
     subscribersPage * subscribersPageSize,
@@ -122,7 +177,9 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
     if (!reviewingBatch) return;
 
     if (approvalModal?.action === "return" && !reviewComment.trim()) {
-      toast.error("Please provide a reason for returning the batch to Operations.");
+      toast.error(
+        "Please provide a reason for returning the batch to Operations.",
+      );
       return;
     }
 
@@ -134,9 +191,11 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
       setIsReturning(true);
     }
 
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 800));
 
-    setBatches(prev => prev.filter(b => b.batchReference !== reviewingBatch));
+    setBatches((prev) =>
+      prev.filter((b) => b.batchReference !== reviewingBatch),
+    );
 
     if (approved) {
       setIsApproving(false);
@@ -152,7 +211,9 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
   };
 
   const handleExport = () => {
-    toast.info(`Export for ${reviewTab.toLowerCase()} subscribers coming soon.`);
+    toast.info(
+      `Export for ${reviewTab.toLowerCase()} subscribers coming soon.`,
+    );
   };
 
   // ── List View ──
@@ -485,9 +546,7 @@ export default function IcuApprovalIPO({ tab }: { tab: string }) {
                     <td className="px-4 py-2.5 font-medium">
                       {r.subscriberName}
                     </td>
-                    <td className="px-4 py-2.5 font-mono">
-                      {r.chn || "—"}
-                    </td>
+                    <td className="px-4 py-2.5 font-mono">{r.chn || "—"}</td>
                     <td className="px-4 py-2.5 font-mono">
                       {r.accountNumber || "—"}
                     </td>

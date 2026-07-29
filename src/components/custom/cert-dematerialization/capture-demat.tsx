@@ -32,7 +32,9 @@ import { Certificate } from "@/types/cscs";
 import { cn } from "@/lib/utils";
 
 function fullName(acc: ShareholderAccount) {
-  return [acc.firstName, acc.otherNames, acc.lastName].filter(Boolean).join(" ");
+  return [acc.firstName, acc.otherNames, acc.lastName]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export const CaptureDematerialization = ({
@@ -47,17 +49,21 @@ export const CaptureDematerialization = ({
     queryFn: () => GET_AGENTS({ type: "STOCKBROKER", size: 100 }),
   });
 
-  const [editingRejectedId, setEditingRejectedId] = useState<string | null>(null);
+  const [editingRejectedId, setEditingRejectedId] = useState<string | null>(
+    null,
+  );
 
   // ── Shareholder search ──
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedHolder, setSelectedHolder] = useState<ShareholderAccount | null>(null);
+  const [selectedHolder, setSelectedHolder] =
+    useState<ShareholderAccount | null>(null);
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  const { data: accountsResponse, isFetching: isSearchingAccounts } = useGetAccounts(
-    { q: debouncedSearch },
-    { enabled: debouncedSearch.length > 2 },
-  );
+  const { data: accountsResponse, isFetching: isSearchingAccounts } =
+    useGetAccounts(
+      { q: debouncedSearch },
+      { enabled: debouncedSearch.length > 2 },
+    );
   const searchResults = accountsResponse?.data?.data ?? [];
 
   // ── Active certificates for selected holder ──
@@ -72,7 +78,9 @@ export const CaptureDematerialization = ({
   const availableCerts: Certificate[] = certsData?.data?.content ?? [];
 
   // ── Selected certificate IDs (checkbox set) ──
-  const [selectedCertIds, setSelectedCertIds] = useState<Set<string>>(new Set());
+  const [selectedCertIds, setSelectedCertIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // ── Form states ──
   const [register, setRegister] = useState("");
@@ -89,7 +97,8 @@ export const CaptureDematerialization = ({
     { enabled: tab === "capture" },
   );
 
-  const { mutate: captureDemat, isPending: isCapturing } = useCaptureDematRequest();
+  const { mutate: captureDemat, isPending: isCapturing } =
+    useCaptureDematRequest();
 
   function toggleCert(id: string) {
     setSelectedCertIds((prev) => {
@@ -138,7 +147,9 @@ export const CaptureDematerialization = ({
       return;
     }
 
-    const selectedCerts = availableCerts.filter((c) => selectedCertIds.has(c.id));
+    const selectedCerts = availableCerts.filter((c) =>
+      selectedCertIds.has(c.id),
+    );
 
     captureDemat(
       {
@@ -232,9 +243,7 @@ export const CaptureDematerialization = ({
                 Edit &amp; Resubmit Demat Record
               </>
             ) : (
-              <>
-                New Demat Capture
-              </>
+              <>New Demat Capture</>
             )}
           </h2>
         </div>
@@ -246,7 +255,11 @@ export const CaptureDematerialization = ({
               Registration &amp; Identity
             </h3>
             <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-              <RegisterSelect label="Register *" value={register} onChange={(val) => setRegister(val)} />
+              <RegisterSelect
+                label="Register *"
+                value={register}
+                onChange={(val) => setRegister(val)}
+              />
               <div className="space-y-2">
                 <label className="mrpsl-label">Stockbroker *</label>
                 <Select
@@ -280,6 +293,7 @@ export const CaptureDematerialization = ({
                   <Input
                     type="search"
                     className="mrpsl-input h-11 pl-9"
+                    style={{ paddingLeft: "2.25rem" }}
                     placeholder="Search by name, CHN or account number…"
                     value={searchTerm}
                     onChange={(e) => {
@@ -296,12 +310,14 @@ export const CaptureDematerialization = ({
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-background border rounded-xl shadow-lg overflow-hidden">
                       {isSearchingAccounts ? (
                         <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+                          <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                          Searching…
                         </div>
                       ) : searchResults.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-muted-foreground flex items-center gap-1.5">
                           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                          No shareholders found for &quot;{debouncedSearch}&quot;
+                          No shareholders found for &quot;{debouncedSearch}
+                          &quot;
                         </div>
                       ) : (
                         <div className="max-h-[250px] overflow-y-auto">
@@ -316,9 +332,12 @@ export const CaptureDematerialization = ({
                                 setSelectedCertIds(new Set());
                               }}
                             >
-                              <p className="text-sm font-medium">{fullName(acc)}</p>
+                              <p className="text-sm font-medium">
+                                {fullName(acc)}
+                              </p>
                               <p className="text-[12px] text-muted-foreground font-mono">
-                                {acc.accountNumber} · {acc.chn} · {acc.registerSymbol}
+                                {acc.accountNumber} · {acc.chn} ·{" "}
+                                {acc.registerSymbol}
                               </p>
                             </button>
                           ))}
@@ -377,11 +396,13 @@ export const CaptureDematerialization = ({
 
             {!selectedHolder ? (
               <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                Search and select a shareholder above to load their active certificates.
+                Search and select a shareholder above to load their active
+                certificates.
               </div>
             ) : isLoadingCerts ? (
               <div className="rounded-xl border p-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading certificates…
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading
+                certificates…
               </div>
             ) : availableCerts.length === 0 ? (
               <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-6 text-sm text-amber-800 flex items-center gap-2">
@@ -395,7 +416,9 @@ export const CaptureDematerialization = ({
                     <tr>
                       <th className="p-3 w-10">
                         <Checkbox
-                          checked={selectedCertIds.size === availableCerts.length}
+                          checked={
+                            selectedCertIds.size === availableCerts.length
+                          }
                           onCheckedChange={toggleAllCerts}
                         />
                       </th>
@@ -425,13 +448,19 @@ export const CaptureDematerialization = ({
                               onClick={(e) => e.stopPropagation()}
                             />
                           </td>
-                          <td className="p-3 font-mono font-semibold">{cert.certNumber}</td>
-                          <td className="p-3 text-muted-foreground">{cert.registerSymbol}</td>
+                          <td className="p-3 font-mono font-semibold">
+                            {cert.certNumber}
+                          </td>
+                          <td className="p-3 text-muted-foreground">
+                            {cert.registerSymbol}
+                          </td>
                           <td className="p-3 text-right font-mono">
                             {cert.units.toLocaleString()}
                           </td>
                           <td className="p-3 text-muted-foreground">
-                            {cert.issueDate ? format(new Date(cert.issueDate), "dd MMM yyyy") : "—"}
+                            {cert.issueDate
+                              ? format(new Date(cert.issueDate), "dd MMM yyyy")
+                              : "—"}
                           </td>
                           <td className="p-3">
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-100 text-green-700">

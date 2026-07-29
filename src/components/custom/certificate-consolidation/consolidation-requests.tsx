@@ -60,7 +60,9 @@ export function ConsolidationRequests({
 
   // ── List state ────────────────────────────────────────────────────────────
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
-  const [viewDetails, setViewDetails] = useState<ConsolidationRequest | null>(null);
+  const [viewDetails, setViewDetails] = useState<ConsolidationRequest | null>(
+    null,
+  );
   const [detailOpen, setDetailOpen] = useState(false);
 
   // ── Form state ────────────────────────────────────────────────────────────
@@ -68,8 +70,12 @@ export function ConsolidationRequests({
   const [searchResults, setSearchResults] = useState<MockHolder[]>([]);
   const [foundHolder, setFoundHolder] = useState<MockHolder | null>(null);
   const [selectedRegister, setSelectedRegister] = useState<string | null>(null);
-  const [expandedRegisters, setExpandedRegisters] = useState<Set<string>>(new Set());
-  const [selectedCertIds, setSelectedCertIds] = useState<Set<string>>(new Set());
+  const [expandedRegisters, setExpandedRegisters] = useState<Set<string>>(
+    new Set(),
+  );
+  const [selectedCertIds, setSelectedCertIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [reason, setReason] = useState("");
 
   // ── Prefill effect ────────────────────────────────────────────────────────
@@ -83,7 +89,9 @@ export function ConsolidationRequests({
           .map((a) => a.accountNo);
         setExpandedRegisters(new Set(expanded));
       } else {
-        setExpandedRegisters(new Set(prefillHolder.accounts.map((a) => a.accountNo)));
+        setExpandedRegisters(
+          new Set(prefillHolder.accounts.map((a) => a.accountNo)),
+        );
       }
       setView("new");
       onPrefillConsumed?.();
@@ -113,8 +121,8 @@ export function ConsolidationRequests({
         h.accounts.some(
           (a) =>
             a.accountNo.toLowerCase().includes(term) ||
-            a.chn.toLowerCase().includes(term)
-        )
+            a.chn.toLowerCase().includes(term),
+        ),
     );
     setSearchResults(results);
   }
@@ -164,13 +172,20 @@ export function ConsolidationRequests({
 
   function getAccountsForRegister(holder: MockHolder, register: string) {
     return holder.accounts.filter((a) =>
-      a.shares.some((s) => s.register === register)
+      a.shares.some((s) => s.register === register),
     );
   }
 
   function getSelectedCerts() {
-    if (!foundHolder || !selectedRegister) return [] as { cert: ConsolidationRequest["certificates"][number]; accountNo: string }[];
-    const result: { cert: ConsolidationRequest["certificates"][number]; accountNo: string }[] = [];
+    if (!foundHolder || !selectedRegister)
+      return [] as {
+        cert: ConsolidationRequest["certificates"][number];
+        accountNo: string;
+      }[];
+    const result: {
+      cert: ConsolidationRequest["certificates"][number];
+      accountNo: string;
+    }[] = [];
     for (const account of foundHolder.accounts) {
       for (const share of account.shares) {
         if (share.register !== selectedRegister) continue;
@@ -246,7 +261,7 @@ export function ConsolidationRequests({
       newCertNo: generateConsolidationCertNo(selectedRegister, requests),
       totalUnits: selectedCerts.reduce((s, c) => s + c.cert.units, 0),
       reason: reason.trim(),
-      submittedBy: "admin@meristem.com",
+      submittedBy: "admin@RegisPro.com",
       status: "PENDING",
     };
 
@@ -276,7 +291,10 @@ export function ConsolidationRequests({
       ? getAccountsForRegister(foundHolder, selectedRegister)
       : [];
   const selectedCerts = getSelectedCerts();
-  const totalSelectedUnits = selectedCerts.reduce((s, c) => s + c.cert.units, 0);
+  const totalSelectedUnits = selectedCerts.reduce(
+    (s, c) => s + c.cert.units,
+    0,
+  );
 
   // ── LIST VIEW ─────────────────────────────────────────────────────────────
 
@@ -309,7 +327,7 @@ export function ConsolidationRequests({
                   ? "All"
                   : status.charAt(0) + status.slice(1).toLowerCase()}
               </Button>
-            )
+            ),
           )}
         </div>
 
@@ -342,7 +360,9 @@ export function ConsolidationRequests({
                       {req.register}
                     </span>
                   </td>
-                  <td className="p-3 tabular-nums">{req.certificates.length}</td>
+                  <td className="p-3 tabular-nums">
+                    {req.certificates.length}
+                  </td>
                   <td className="p-3 tabular-nums font-semibold">
                     {formatNumber(req.totalUnits)}
                   </td>
@@ -377,13 +397,15 @@ export function ConsolidationRequests({
                           setFoundHolder(editHolder);
                           setSelectedRegister(req.register);
                           setSelectedCertIds(
-                            new Set(req.certificates.map((c) => c.id))
+                            new Set(req.certificates.map((c) => c.id)),
                           );
                           setReason(req.reason);
                           if (editHolder) {
                             const expanded = editHolder.accounts
                               .filter((a) =>
-                                a.shares.some((s) => s.register === req.register)
+                                a.shares.some(
+                                  (s) => s.register === req.register,
+                                ),
                               )
                               .map((a) => a.accountNo);
                             setExpandedRegisters(new Set(expanded));
@@ -411,7 +433,10 @@ export function ConsolidationRequests({
               ))}
               {filteredRequests.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-12 text-center text-muted-foreground">
+                  <td
+                    colSpan={8}
+                    className="p-12 text-center text-muted-foreground"
+                  >
                     <div className="flex flex-col items-center gap-3">
                       <Layers className="h-10 w-10 opacity-30" />
                       <span>No consolidation requests found.</span>
@@ -446,31 +471,43 @@ export function ConsolidationRequests({
               <div className="space-y-4 text-sm">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Holder</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Holder
+                    </p>
                     <p className="font-medium">{viewDetails.holderName}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Register</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Register
+                    </p>
                     <p className="font-mono text-xs">
                       {viewDetails.register} — {viewDetails.registerName}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">New Cert No</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      New Cert No
+                    </p>
                     <p className="font-mono text-xs">{viewDetails.newCertNo}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Total Units</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Total Units
+                    </p>
                     <p className="font-semibold tabular-nums">
                       {formatNumber(viewDetails.totalUnits)}
                     </p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-xs text-muted-foreground mb-0.5">Reason</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Reason
+                    </p>
                     <p>{viewDetails.reason}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground mb-0.5">Submitted By</p>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Submitted By
+                    </p>
                     <p>{viewDetails.submittedBy}</p>
                   </div>
                 </div>
@@ -484,7 +521,9 @@ export function ConsolidationRequests({
                         <tr>
                           <th className="p-2 text-left font-medium">CERT NO</th>
                           <th className="p-2 text-right font-medium">UNITS</th>
-                          <th className="p-2 text-left font-medium">ISSUE DATE</th>
+                          <th className="p-2 text-left font-medium">
+                            ISSUE DATE
+                          </th>
                           <th className="p-2 text-left font-medium">STATUS</th>
                         </tr>
                       </thead>
@@ -502,7 +541,9 @@ export function ConsolidationRequests({
                                   DEACTIVATED
                                 </span>
                               ) : (
-                                <span className="text-green-600">{cert.status}</span>
+                                <span className="text-green-600">
+                                  {cert.status}
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -539,7 +580,10 @@ export function ConsolidationRequests({
                   )}
 
                 <div className="flex justify-end pt-2">
-                  <Button variant="outline" onClick={() => setDetailOpen(false)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDetailOpen(false)}
+                  >
                     Close
                   </Button>
                 </div>
@@ -621,9 +665,9 @@ export function ConsolidationRequests({
                               s +
                               a.shares.reduce(
                                 (ss, sh) => ss + sh.certificates.length,
-                                0
+                                0,
                               ),
-                            0
+                            0,
                           )}{" "}
                           cert(s)
                         </p>
@@ -644,7 +688,9 @@ export function ConsolidationRequests({
           <div className="flex items-start justify-between border rounded-lg p-3 bg-accent/30">
             <div>
               <p className="font-semibold text-sm">{foundHolder.name}</p>
-              <p className="text-xs text-muted-foreground">BVN: {foundHolder.bvn}</p>
+              <p className="text-xs text-muted-foreground">
+                BVN: {foundHolder.bvn}
+              </p>
               <p className="text-xs text-muted-foreground">
                 {foundHolder.phone} · {foundHolder.email}
               </p>
@@ -698,7 +744,7 @@ export function ConsolidationRequests({
                     setSelectedCertIds(new Set());
                     const expanded = getAccountsForRegister(
                       foundHolder,
-                      reg.register
+                      reg.register,
                     ).map((a) => a.accountNo);
                     setExpandedRegisters(new Set(expanded));
                   }}
@@ -712,7 +758,10 @@ export function ConsolidationRequests({
                         Consolidation Recommended
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                      <Badge
+                        variant="secondary"
+                        className="text-xs whitespace-nowrap"
+                      >
                         Single Account
                       </Badge>
                     )}
@@ -739,7 +788,7 @@ export function ConsolidationRequests({
 
           {accountsForRegister.map((account) => {
             const share = account.shares.find(
-              (s) => s.register === selectedRegister
+              (s) => s.register === selectedRegister,
             );
             if (!share) return null;
             const isExpanded = expandedRegisters.has(account.accountNo);
@@ -775,7 +824,9 @@ export function ConsolidationRequests({
                           <th className="p-2 w-8"></th>
                           <th className="p-2 text-left font-medium">CERT NO</th>
                           <th className="p-2 text-right font-medium">UNITS</th>
-                          <th className="p-2 text-left font-medium">ISSUE DATE</th>
+                          <th className="p-2 text-left font-medium">
+                            ISSUE DATE
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
@@ -831,7 +882,8 @@ export function ConsolidationRequests({
               </span>
               {selectedCertIds.size >= 2 && (
                 <span className="text-xs text-muted-foreground font-mono">
-                  New cert: {generateConsolidationCertNo(selectedRegister, requests)}
+                  New cert:{" "}
+                  {generateConsolidationCertNo(selectedRegister, requests)}
                 </span>
               )}
             </div>

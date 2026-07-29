@@ -178,6 +178,7 @@ export function ShareholderSearchInput({
           ref={inputRef}
           className={cn("pl-8 mrpsl-input", query && "pr-8", inputClassName)}
           placeholder={placeholder}
+          style={{ paddingLeft: "2.25rem" }}
           value={query}
           onChange={handleChange}
           onFocus={() => {

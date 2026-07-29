@@ -6,10 +6,10 @@ export function WhiteSiteLogo() {
   return (
     <div className="flex justify-center">
       <Image
-        src="/logow.png"
-        alt="Meristem Logo"
+        src="/regispro_white.png"
+        alt="RegisPro Logo"
         width={160}
-        height={36}
+        height={96}
         className="h-8 w-auto object-contain"
         priority
         unoptimized

@@ -80,7 +80,7 @@ export const MOCK_APPROVED = [
   {
     name: "ADEBISI FUNMILAYO",
     chn: "C00001001EL",
-    broker: "Meristem",
+    broker: "RegisPro",
     bank: "GTBank",
     acct: "0012345678",
     units: 50000,
@@ -125,7 +125,7 @@ export const MOCK_APPROVED = [
   {
     name: "ALIYU SADIQ",
     chn: "C00003312EL",
-    broker: "Meristem",
+    broker: "RegisPro",
     bank: "First Bank",
     acct: "3098765432",
     units: 20000,
@@ -461,7 +461,7 @@ export const MOCK_ALL_APPLICATIONS = [
 
 export const MOCK_BROKER_SUMMARY = [
   {
-    broker: "Meristem",
+    broker: "RegisPro",
     applications: 180,
     approved: 175,
     disapproved: 3,
@@ -529,7 +529,7 @@ export const MOCK_ALLOTMENT = [
   {
     name: "ADEBISI FUNMILAYO",
     chn: "C00001001EL",
-    broker: "Meristem",
+    broker: "RegisPro",
     acct: "0200012345",
     subscribed: 50000,
     allotted: 50000,
@@ -579,7 +579,7 @@ export const MOCK_ALLOTMENT = [
   {
     name: "ALIYU SADIQ",
     chn: "C00003312EL",
-    broker: "Meristem",
+    broker: "RegisPro",
     acct: "0200033120",
     subscribed: 20000,
     allotted: 20000,
@@ -1003,5 +1003,3 @@ export const PROCESSING_STAGES: [number, string][] = [
   [90, "Grouping by register…"],
   [100, "Ready for review"],
 ];
-
-

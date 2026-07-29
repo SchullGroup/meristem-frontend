@@ -16,6 +16,9 @@ import {
   createAdmonReversal,
   createConsolidation,
   createKycChange,
+  firstApproveKycChange,
+  icuApproveKycChange,
+  exportAccountKycHistory,
   getAccount,
   getAccountKycHistory,
   getAccounts,
@@ -46,6 +49,13 @@ import {
   submitKycBulkUpload,
   previewNibssMandateUpload,
   submitNibssMandateUpload,
+  searchAccounts,
+  cautionAccount,
+  removeCautionAccount,
+  getAccountKycDocuments,
+  submitAccountKycDocuments,
+  submitAccountSignature,
+  getAccountSignatures,
 } from "@/actions/accountMaintenanceActions";
 import { ApiResponse } from "@/types";
 import {
@@ -81,6 +91,7 @@ import {
   KycChangeListResponse,
   KycDecisionRequest,
   KycCancelRequest,
+  IcuApproveRequest,
   KycUploadJob,
   KycBulkPreviewResponse,
   KycBulkSubmitRequest,
@@ -99,6 +110,14 @@ import {
   HolderKycDocRequest,
   HolderSignatureRequest,
   HolderKycDocument,
+  AccountSearchResult,
+  AccountSearchParams,
+  CautionAccountRequest,
+  RemoveCautionParams,
+  SubmitKycDocumentsRequest,
+  AccountKycDocument,
+  SubmitSignatureRequest,
+  AccountSignature,
 } from "@/types/account-maintenance";
 
 export const useGetConsolidations = (
@@ -316,6 +335,144 @@ export const useGetAccount = (
     ...options,
   });
 
+// ── Account-scoped KYC: search, caution, documents & signatures ──────────────
+
+export const useSearchAccounts = (
+  params: AccountSearchParams,
+  options?: Omit<
+    UseQueryOptions<ApiResponse<AccountSearchResult[]>>,
+    "queryKey" | "queryFn"
+  >,
+) =>
+  useQuery({
+    queryKey: ["accounts-search", params],
+    queryFn: () => searchAccounts(params),
+    enabled: (params.q?.trim().length ?? 0) > 0,
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+
+export const useCautionAccount = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      { accountNumber: string; data: CautionAccountRequest }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountNumber, data }) => cautionAccount(accountNumber, data),
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
+export const useRemoveCautionAccount = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      { accountNumber: string; params: RemoveCautionParams }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountNumber, params }) =>
+      removeCautionAccount(accountNumber, params),
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
+export const useGetAccountKycDocuments = (
+  accountNumber: string,
+  options?: Omit<
+    UseQueryOptions<ApiResponse<AccountKycDocument[]>>,
+    "queryKey" | "queryFn"
+  >,
+) =>
+  useQuery({
+    queryKey: ["account-kyc-documents", accountNumber],
+    queryFn: () => getAccountKycDocuments(accountNumber),
+    enabled: !!accountNumber,
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+
+export const useSubmitAccountKycDocuments = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      { accountNumber: string; data: SubmitKycDocumentsRequest }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountNumber, data }) =>
+      submitAccountKycDocuments(accountNumber, data),
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-documents"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
+export const useSubmitAccountSignature = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      { accountNumber: string; data: SubmitSignatureRequest }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ accountNumber, data }) =>
+      submitAccountSignature(accountNumber, data),
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-signatures"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
+export const useGetAccountSignatures = (
+  accountNumber: string,
+  options?: Omit<
+    UseQueryOptions<ApiResponse<AccountSignature[]>>,
+    "queryKey" | "queryFn"
+  >,
+) =>
+  useQuery({
+    queryKey: ["account-signatures", accountNumber],
+    queryFn: () => getAccountSignatures(accountNumber),
+    enabled: !!accountNumber,
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+
 export const useGetKycChanges = (
   params?: KycChangeFilters,
   options?: Omit<
@@ -385,6 +542,58 @@ export const useAuthoriseKycChange = (
   });
 };
 
+// 1st-level approval (moves a pending change to FIRST_APPROVED).
+export const useFirstApproveKycChange = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      {
+        id: number;
+        data: KycDecisionRequest;
+      }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => firstApproveKycChange(id, data),
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
+// ICU (2nd-level) approval — applies the change.
+export const useIcuApproveKycChange = (
+  options?: Omit<
+    UseMutationOptions<
+      ApiResponse<KycChange>,
+      Error,
+      {
+        id: number;
+        data: IcuApproveRequest;
+      }
+    >,
+    "mutationFn"
+  >,
+) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => icuApproveKycChange(id, data),
+    ...options,
+    onSuccess: (...args) => {
+      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
+      queryClient.invalidateQueries({ queryKey: ["account-kyc-history"] });
+      options?.onSuccess?.(...args);
+    },
+  });
+};
+
 export const useRejectKycChange = (
   options?: Omit<
     UseMutationOptions<
@@ -407,6 +616,18 @@ export const useRejectKycChange = (
     },
   });
 };
+
+// Export an account's full KYC change history as .xlsx (returns a Blob).
+export const useExportAccountKycHistory = (
+  options?: Omit<
+    UseMutationOptions<Blob, Error, { accountNumber: string }>,
+    "mutationFn"
+  >,
+) =>
+  useMutation({
+    mutationFn: ({ accountNumber }) => exportAccountKycHistory(accountNumber),
+    ...options,
+  });
 export const useCancelKycChange = (
   options?: Omit<
     UseMutationOptions<

@@ -15,7 +15,7 @@ export function BrandPanel() {
         }}
       />
       <div
-        className="absolute -bottom-32 -right-32 w-[480px] h-[480px] rounded-full opacity-10"
+        className="absolute -bottom-32 -right-32 w-120 h-120 rounded-full opacity-10"
         style={{
           background: "radial-gradient(circle, white 0%, transparent 70%)",
         }}
@@ -51,7 +51,7 @@ export function BrandPanel() {
       <div className="relative z-10 flex items-center justify-between">
         <span className="text-white/30 text-xs">v2.0 — April 2026</span>
         <span className="text-white/30 text-xs">
-          Meristem Registrars Limited
+          RegisPro Registrars Limited
         </span>
       </div>
     </div>

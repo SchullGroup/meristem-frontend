@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AllDividendsTab } from "@/components/custom/dividend-declaration/all-dividends-tab";
 import { IcuApprovalTab } from "@/components/custom/dividend-declaration/icu-approval-tab";
 import { HopApprovalTab } from "@/components/custom/dividend-declaration/hop-approval-tab";
-import { PaymentProcessingTab } from "@/components/custom/dividend-declaration/payment-processing-tab";
+import { MdApprovalTab } from "@/components/custom/dividend-declaration/md-approval-tab";
 import { PaymentResultsTab } from "@/components/custom/dividend-declaration/payment-results-tab";
 import { NotificationsTab } from "@/components/custom/dividend-declaration/notifications-tab";
 
@@ -38,14 +38,14 @@ export default function DeclarationPage() {
           <TabsTrigger value="icu2" className={TAB_TRIGGER_CLASS}>
             ICU Approval (2nd)
           </TabsTrigger>
-          <TabsTrigger value="payment" className={TAB_TRIGGER_CLASS}>
-            Payment Processing
+          <TabsTrigger value="md" className={TAB_TRIGGER_CLASS}>
+            MD Approval
           </TabsTrigger>
           <TabsTrigger value="results" className={TAB_TRIGGER_CLASS}>
             Payment Results
           </TabsTrigger>
           <TabsTrigger value="notify" className={TAB_TRIGGER_CLASS}>
-            Notifications &amp; Dispatch
+            Notifications &amp; Reporting
           </TabsTrigger>
         </TabsList>
 
@@ -66,8 +66,8 @@ export default function DeclarationPage() {
             <IcuApprovalTab stage="ICU_2" />
           </TabsContent>
 
-          <TabsContent value="payment">
-            <PaymentProcessingTab />
+          <TabsContent value="md">
+            <MdApprovalTab />
           </TabsContent>
 
           <TabsContent value="results">

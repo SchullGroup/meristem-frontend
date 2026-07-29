@@ -38,7 +38,7 @@ export default function DividendReturnMoneyPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Return Money</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Return Dividend</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage unclaimed dividend returns — 90% to company, 10% withheld for
             shareholder claims

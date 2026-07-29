@@ -30,7 +30,11 @@ function today() {
   return new Date().toISOString().split("T")[0];
 }
 
-function effectiveWhtRate(whtRate: number, isTaxExempt: boolean, exemptionRate?: number) {
+function effectiveWhtRate(
+  whtRate: number,
+  isTaxExempt: boolean,
+  exemptionRate?: number,
+) {
   return isTaxExempt ? (exemptionRate ?? 0) : whtRate;
 }
 
@@ -102,7 +106,6 @@ export interface DividendFlowFormValues {
   whtRate: number;
   isTaxExempt: boolean;
   exemptionRate?: number;
-  stateJurisdiction?: string;
   warehouseBank?: string;
   warehouseAccountNo?: string;
   initiatedBy: string;
@@ -155,7 +158,6 @@ export function useCreateDividendFlow() {
         whtRate: values.whtRate,
         isTaxExempt: values.isTaxExempt,
         exemptionRate: values.exemptionRate,
-        stateJurisdiction: values.stateJurisdiction,
         warehouseBank: values.warehouseBank,
         warehouseAccountNo: values.warehouseAccountNo,
         tier,
@@ -206,11 +208,15 @@ export function useEditAndResendDividendFlow() {
       }
       const { register, grossLiability, whtAmount, netLiability, tier } =
         deriveFinancials(values);
-      const prelist = generatePrelist(register, values.rate, effectiveWhtRate(
-        values.whtRate,
-        values.isTaxExempt,
-        values.exemptionRate,
-      ));
+      const prelist = generatePrelist(
+        register,
+        values.rate,
+        effectiveWhtRate(
+          values.whtRate,
+          values.isTaxExempt,
+          values.exemptionRate,
+        ),
+      );
       const nextStatus = existing.rejectedAt
         ? RESEND_STATUS[existing.rejectedAt]
         : "PENDING_ICU_1";
@@ -229,7 +235,6 @@ export function useEditAndResendDividendFlow() {
         whtRate: values.whtRate,
         isTaxExempt: values.isTaxExempt,
         exemptionRate: values.exemptionRate,
-        stateJurisdiction: values.stateJurisdiction,
         warehouseBank: values.warehouseBank,
         warehouseAccountNo: values.warehouseAccountNo,
         tier,
@@ -332,7 +337,7 @@ const STAGE_LABEL: Record<FlowApprovalStage, string> = {
 const NEXT_STATUS: Record<FlowApprovalStage, DividendFlowStatus> = {
   ICU_1: "PENDING_HOP",
   HOP: "PENDING_ICU_2",
-  ICU_2: "PENDING_PAYMENT",
+  ICU_2: "PENDING_MD",
 };
 
 export interface DecideStagePayload {
@@ -375,46 +380,106 @@ export function useDecideStage() {
   });
 }
 
-// ── Payment processing ───────────────────────────────────────────────────────
+// ── ICU 2nd: exclude / re-include rows from the batch ────────────────────────
 
-export function useInitiatePaymentRun() {
+export function useSetRowsExcluded() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
       id,
-      gateway,
+      rowIds,
+      excluded,
       actor,
     }: {
       id: string;
-      gateway: "NIBSS" | "REMITA";
+      rowIds: string[];
+      excluded: boolean;
       actor: string;
     }) => {
-      await delay(1400);
+      await delay(400);
       const existing = findFlow(id);
+      const ids = new Set(rowIds);
+      const updated: DividendFlowRecord = {
+        ...existing,
+        prelist: existing.prelist.map((r) =>
+          ids.has(r.id) ? { ...r, excluded } : r,
+        ),
+        approvalTrail: [
+          ...existing.approvalTrail,
+          {
+            stage: "ICU 2nd Approval",
+            actor,
+            action: "EXCLUDED",
+            comment: `${excluded ? "Excluded" : "Re-included"} ${rowIds.length} record(s)`,
+            date: today(),
+          },
+        ],
+      };
+      return replaceFlow(updated);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [FLOWS_KEY] }),
+  });
+}
+
+// ── MD Approval: initiate payment run (NIBSS) or forward for manual processing
+
+export function useMdDecision() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      decision,
+      actor,
+    }: {
+      id: string;
+      decision: "APPROVE_AND_PAY" | "MANUAL";
+      actor: string;
+    }) => {
+      await delay(decision === "APPROVE_AND_PAY" ? 1400 : 600);
+      const existing = findFlow(id);
+
+      if (decision === "MANUAL") {
+        const updated: DividendFlowRecord = {
+          ...existing,
+          status: "MANUAL_PROCESSING",
+          approvalTrail: [
+            ...existing.approvalTrail,
+            {
+              stage: "MD Approval",
+              actor,
+              action: "FORWARDED_MANUAL",
+              comment: "Forwarded for manual processing",
+              date: today(),
+            },
+          ],
+        };
+        return replaceFlow(updated);
+      }
+
       const prelist = processPayment(existing.prelist);
-      const anyFailed = prelist.some((r) => r.paymentStatus === "FAILED");
+      const payable = prelist.filter((r) => !r.excluded);
+      const anyFailed = payable.some((r) => r.paymentStatus === "FAILED");
       const updated: DividendFlowRecord = {
         ...existing,
         prelist,
-        gateway,
+        gateway: "NIBSS",
         paymentRunRef: `PAY-DIV-${Math.floor(90000 + Math.random() * 9999)}`,
         paymentInitiatedAt: today(),
         status: anyFailed ? "PARTIALLY_PAID" : "PAID",
         approvalTrail: [
           ...existing.approvalTrail,
           {
-            stage: "Payment Processing",
+            stage: "MD Approval",
             actor,
             action: "PAYMENT_INITIATED",
-            comment: `Run initiated via ${gateway}`,
+            comment: "Approved & payment run initiated via NIBSS",
             date: today(),
           },
         ],
       };
       const saved = replaceFlow(updated);
 
-      // Approvers are notified automatically by the system as soon as a
-      // payment run is initiated — no manual dispatch needed for this audience.
+      // Approvers are notified automatically once the run is initiated.
       SEED_NOTIFICATION_LOG.push({
         id: `NTF-${Date.now()}`,
         declarationId: saved.id,
@@ -481,26 +546,47 @@ export function useNotificationLog(declarationId?: string) {
   });
 }
 
-export function useSendNotification() {
+export function useSendBatchEmails() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
       declarationId,
       subject,
       sentBy,
+      rowIds,
     }: {
       declarationId: string;
       subject: string;
       sentBy: string;
+      // Omit to email every shareholder in the batch.
+      rowIds?: string[];
     }) => {
       await delay(900);
       const record = findFlow(declarationId);
+      const target = rowIds ? new Set(rowIds) : null;
+      const recipients: string[] = [];
+
+      const prelist = record.prelist.map((r) => {
+        if (target && !target.has(r.id)) return r;
+        recipients.push(`${r.holderName} <${r.email}>`);
+        // ~92% delivered, ~8% bounced.
+        return {
+          ...r,
+          emailStatus: "SENT" as const,
+          deliveryStatus: (Math.random() < 0.92 ? "DELIVERED" : "BOUNCED") as
+            | "DELIVERED"
+            | "BOUNCED",
+        };
+      });
+
+      replaceFlow({ ...record, prelist });
+
       const entry: NotificationLogEntry = {
         id: `NTF-${Date.now()}`,
         declarationId,
         paymentNumber: record.paymentNumber,
         subject,
-        recipients: record.prelist.map((r) => `${r.holderName} <${r.email}>`),
+        recipients,
         recipientType: "SHAREHOLDERS",
         trigger: "MANUAL",
         sentAt: new Date().toISOString(),
@@ -509,6 +595,9 @@ export function useSendNotification() {
       SEED_NOTIFICATION_LOG.push(entry);
       return entry;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: [LOG_KEY] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [LOG_KEY] });
+      qc.invalidateQueries({ queryKey: [FLOWS_KEY] });
+    },
   });
 }
