@@ -315,19 +315,26 @@ export function PublicOfferForm() {
     });
   };
 
-  const { mutate: moveToRegister, isPending: isMoving } = useMutation({
+  const [movingId, setMovingId] = useState<string | null>(null);
+
+  const { mutate: moveToRegister } = useMutation({
     mutationFn: (id: string) =>
       MOVE_TO_REGISTER(id, { openedBy: currentUser?.email ?? "" }),
     onSuccess: () => {
+      setMovingId(null);
       queryClient.invalidateQueries({ queryKey: ["ipo-offers"] });
       toast.success("Offer moved to register and set to Open.");
     },
     onError: (err: Error) => {
+      setMovingId(null);
       toast.error(err.message);
     },
   });
 
-  const handleMoveToRegister = (id: string) => moveToRegister(id);
+  const handleMoveToRegister = (id: string) => {
+    setMovingId(id);
+    moveToRegister(id);
+  };
 
   return (
     <>
@@ -473,10 +480,10 @@ export function PublicOfferForm() {
                               size="sm"
                               variant="outline"
                               className="text-xs"
-                              disabled={isMoving}
+                              disabled={movingId === offer.id}
                               onClick={() => handleMoveToRegister(offer.id)}
                             >
-                              {isMoving ? (
+                              {movingId === offer.id ? (
                                 <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
                               ) : (
                                 <ArrowRight className="h-3.5 w-3.5 mr-1" />

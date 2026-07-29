@@ -198,14 +198,18 @@ export function RightsSetupForm() {
     },
   });
 
-  const { mutate: moveToRegister, isPending: isMoving } = useMutation({
+  const [movingId, setMovingId] = useState<string | null>(null);
+
+  const { mutate: moveToRegister } = useMutation({
     mutationFn: (id: string) =>
       MOVE_RIGHT_TO_REGISTER(id, { openedBy: currentUser?.email ?? "" }),
     onSuccess: () => {
+      setMovingId(null);
       queryClient.invalidateQueries({ queryKey: ["right-offers"] });
       toast.success("Rights issue moved to register and set to Open.");
     },
     onError: (err: Error) => {
+      setMovingId(null);
       toast.error(err.message);
     },
   });
@@ -466,10 +470,13 @@ export function RightsSetupForm() {
                               size="sm"
                               variant="outline"
                               className="text-xs"
-                              disabled={isMoving}
-                              onClick={() => moveToRegister(offer.id)}
+                              disabled={movingId === offer.id}
+                              onClick={() => {
+                                setMovingId(offer.id);
+                                moveToRegister(offer.id);
+                              }}
                             >
-                              {isMoving ? (
+                              {movingId === offer.id ? (
                                 <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
                               ) : (
                                 <ArrowRight className="h-3.5 w-3.5 mr-1" />
