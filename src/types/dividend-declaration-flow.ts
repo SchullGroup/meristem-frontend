@@ -15,7 +15,7 @@ export type RejectionStage = "ICU_1" | "HOP" | "ICU_2";
 export type PaymentRowStatus = "PENDING" | "SUCCESS" | "FAILED";
 
 // MANDATED = KYC details current & clean; OTHERS = KYC conflict, needs mandating.
-export type ShareholderCategory = "MANDATED" | "OTHERS";
+export type ShareholderCategory = "MANDATED" | "OTHERS" | "CAUTIONED";
 
 export interface PrelistRow {
   id: string;

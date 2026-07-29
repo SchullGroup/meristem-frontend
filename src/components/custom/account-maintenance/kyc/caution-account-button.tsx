@@ -18,7 +18,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { useGetAllCautionReasons } from "@/hooks/useCautionReasons";
+import { toast } from "sonner";
+import { useStore } from "@/lib/store";
+import {
+  useGetAccountCautionReasons,
+  useCautionAccount,
+} from "@/hooks/useAccountMaintenance";
 import { ShareholderAccount } from "@/types/account-maintenance";
 import {
   InlineEvidenceDropper,
@@ -29,31 +34,27 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface CautionAccountButtonProps {
   selectedShareholder: ShareholderAccount;
-  onFieldSubmit: (
-    accountNumber: string,
-    changeType: string,
-    field: string,
-    newValue: string,
-    reason: string,
-    evidence: { name: string; url: string }[],
-  ) => Promise<void>;
+  // Called after a caution request is submitted (e.g. to refetch pending changes).
+  onSuccess?: () => void;
 }
 
 export function CautionAccountButton({
   selectedShareholder,
-  onFieldSubmit,
+  onSuccess,
 }: CautionAccountButtonProps) {
+  const currentUser = useStore((s) => s.currentUser);
+  const cautionMutation = useCautionAccount();
   const [open, setOpen] = useState(false);
   const [reasonCode, setReasonCode] = useState("");
   const [notes, setNotes] = useState("");
   const [evidence, setEvidence] = useState<DoneEvidence[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const submitting = cautionMutation.isPending;
   const [showHint, setShowHint] = useState(false);
 
   const { data: cautionReasons, isLoading: reasonsLoading } =
-    useGetAllCautionReasons({ enabled: open });
+    useGetAccountCautionReasons({ enabled: open });
   const activeReasons = (cautionReasons ?? []).filter(
-    (r) => r.status === "Active",
+    (r) => r.status === "ACTIVE",
   );
   const selectedReason =
     activeReasons.find((r) => r.code === reasonCode) ?? null;
@@ -66,27 +67,36 @@ export function CautionAccountButton({
     setShowHint(false);
   }
 
-  async function handleSubmit() {
+  function handleSubmit() {
     if (!selectedReason || !notes.trim() || evidence.length === 0) {
       setShowHint(true);
       return;
     }
-    setSubmitting(true);
-    try {
-      await onFieldSubmit(
-        selectedShareholder.accountNumber,
-        "CAUTION",
-        "cautionReason",
-        selectedReason.reason,
-        notes.trim(),
-        evidence,
-      );
-      resetAndClose();
-    } catch {
-      // error toast already handled by the parent's onFieldSubmit
-    } finally {
-      setSubmitting(false);
+    if (!currentUser?.email) {
+      toast.error("Your session has expired. Please login again.");
+      return;
     }
+    cautionMutation.mutate(
+      {
+        accountNumber: selectedShareholder.accountNumber,
+        data: {
+          cautionReasonCode: selectedReason.code,
+          additionalNotes: notes.trim() || undefined,
+          supportingDocumentUrl: evidence[0]?.url,
+          supportingDocumentName: evidence[0]?.name,
+          initiatedBy: currentUser.email,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Caution request submitted for approval");
+          resetAndClose();
+          onSuccess?.();
+        },
+        onError: (err) =>
+          toast.error(err?.message || "Failed to submit caution request"),
+      },
+    );
   }
 
   return (

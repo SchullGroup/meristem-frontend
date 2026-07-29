@@ -24,8 +24,9 @@ import { formatNumber } from "@/lib/utils/format";
 import { DematRequest, DematStatus } from "./demat-types";
 
 const STATUS_LABEL: Record<DematStatus, string> = {
+  PENDING_TEAM_LEAD: "Pending Team Lead",
   PENDING_HOD: "Pending HOD",
-  PENDING_COO: "Pending COO/CEO",
+  PENDING_CEO: "Pending CEO",
   PENDING_ICU: "Pending ICU",
   APPROVED:    "Approved",
   LODGED:      "Lodged",
@@ -34,8 +35,9 @@ const STATUS_LABEL: Record<DematStatus, string> = {
 };
 
 const STATUS_CLASS: Record<DematStatus, string> = {
+  PENDING_TEAM_LEAD: "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300",
   PENDING_HOD: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  PENDING_COO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  PENDING_CEO: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   PENDING_ICU: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   APPROVED:    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
   LODGED:      "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
@@ -44,14 +46,15 @@ const STATUS_CLASS: Record<DematStatus, string> = {
 };
 
 const STATUS_OPTIONS: Array<{ value: DematStatus | "ALL"; label: string }> = [
-  { value: "ALL",         label: "All Statuses" },
-  { value: "PENDING_HOD", label: "Pending HOD" },
-  { value: "PENDING_COO", label: "Pending COO/CEO" },
-  { value: "PENDING_ICU", label: "Pending ICU" },
-  { value: "APPROVED",    label: "Approved" },
-  { value: "LODGED",      label: "Lodged" },
-  { value: "REJECTED",    label: "Rejected" },
-  { value: "DELODGED",    label: "Delodged" },
+  { value: "ALL",               label: "All Statuses" },
+  { value: "PENDING_TEAM_LEAD", label: "Pending Team Lead" },
+  { value: "PENDING_HOD",       label: "Pending HOD" },
+  { value: "PENDING_CEO",       label: "Pending CEO" },
+  { value: "PENDING_ICU",       label: "Pending ICU" },
+  { value: "APPROVED",          label: "Approved" },
+  { value: "LODGED",            label: "Lodged" },
+  { value: "REJECTED",          label: "Rejected" },
+  { value: "DELODGED",          label: "Delodged" },
 ];
 
 export function DematHistory({ requests }: { requests: DematRequest[] }) {

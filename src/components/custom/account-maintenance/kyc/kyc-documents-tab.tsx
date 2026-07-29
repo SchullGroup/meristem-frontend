@@ -31,11 +31,15 @@ import {
   History,
 } from "lucide-react";
 import {
-  useGetHolderKycDocuments,
-  useGetHolderSignature,
-  useGetHolderSignatureArchive,
+  useGetAccountKycDocuments,
+  useGetAccountSignatures,
+  useSubmitAccountKycDocuments,
+  useSubmitAccountSignature,
 } from "@/hooks/useAccountMaintenance";
-import { HolderKycDocument } from "@/types/account-maintenance";
+import {
+  AccountKycDocument,
+  AccountSignature,
+} from "@/types/account-maintenance";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
 import {
@@ -105,67 +109,51 @@ interface ArchivedSignature {
 
 // ── Props ───────────────────────────────────────────────────────────────────
 interface KycDocumentsTabProps {
-  chn: string;
-  registerSymbol: string;
-  holderName: string;
   currentUserEmail: string;
   accountNumber: string;
-  isSubmitting: boolean;
-  onFieldSubmit: (
-    accountNumber: string,
-    changeType: string,
-    field: string,
-    newValue: string,
-    reason: string,
-    evidence: { name: string; url: string }[],
-  ) => Promise<void>;
 }
 
 export function KycDocumentsTab({
-  chn,
-  registerSymbol,
   accountNumber,
-  isSubmitting,
-  onFieldSubmit,
+  currentUserEmail,
 }: KycDocumentsTabProps) {
   const [docSubTab, setDocSubTab] = useState("upload");
 
-  // ── Signature on file (current) ──────────────────────────────────────────
+  // ── Submit mutations (account-scoped KYC-change endpoints) ────────────────
+  const submitSignatureMutation = useSubmitAccountSignature();
+  const submitDocsMutation = useSubmitAccountKycDocuments();
+
+  // ── Signatures (current + archive) via /accounts/{acct}/documents/signatures ──
   const {
-    data: sigOnFileData,
-    isLoading: isLoadingSigOnFile,
-    refetch: refetchSigOnFile,
-  } = useGetHolderSignature(chn, registerSymbol, {
-    enabled: !!chn && !!registerSymbol,
-  });
-  const sigOnFileUrl = sigOnFileData?.data?.signatureUrl ?? "";
+    data: sigListData,
+    isLoading: isLoadingSignatures,
+    refetch: refetchSignatures,
+  } = useGetAccountSignatures(accountNumber, { enabled: !!accountNumber });
 
-  // ── Signature archive ────────────────────────────────────────────────────
-  const {
-    data: sigArchiveData,
-    isLoading: isLoadingSigArchive,
-    refetch: refetchSigArchive,
-  } = useGetHolderSignatureArchive(chn, registerSymbol, {
-    enabled: !!chn && !!registerSymbol,
-  });
+  const { activeSig, archivedSigs, sigOnFileUrl } = useMemo(() => {
+    const sigs: AccountSignature[] = sigListData?.data ?? [];
+    const mapped: ArchivedSignature[] = sigs.map((s) => ({
+      id: s.id,
+      signatureUrl: s.signatureUrl,
+      status: s.active || s.status === "ACTIVE" ? "ACTIVE" : "ARCHIVED",
+      uploadedAt: s.capturedAt || s.createdAt,
+      uploadedBy: s.submittedBy,
+    }));
+    const active = mapped.find((s) => s.status === "ACTIVE") ?? null;
+    return {
+      activeSig: active,
+      archivedSigs: mapped.filter((s) => s.status !== "ACTIVE"),
+      sigOnFileUrl: active?.signatureUrl ?? "",
+    };
+  }, [sigListData]);
 
-  // ── Memoized signature archive groups ────────────────────────────────────
-  const { activeSig, archivedSigs } = useMemo(() => {
-    const sigs: ArchivedSignature[] = sigArchiveData?.data ?? [];
-    const active = sigs.find((s) => s.status === "ACTIVE") ?? null;
-    const archived = sigs.filter((s) => s.status !== "ACTIVE");
-    return { activeSig: active, archivedSigs: archived };
-  }, [sigArchiveData]);
-
-  // ── KYC Documents ───────────────────────────────────────────────────────
+  // ── KYC Documents via /accounts/{acct}/documents ──────────────────────────
   const {
     data: kycDocsData,
     isLoading: isLoadingKycDocs,
     refetch: refetchKycDocs,
-  } = useGetHolderKycDocuments(chn, registerSymbol, {
-    enabled: !!chn && !!registerSymbol,
-  });
-  const uploadedDocs: HolderKycDocument[] = kycDocsData?.data ?? [];
+  } = useGetAccountKycDocuments(accountNumber, { enabled: !!accountNumber });
+  const uploadedDocs: AccountKycDocument[] = kycDocsData?.data ?? [];
 
   // ── Document viewer state ──────────────────────────────────────────────
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -229,28 +217,31 @@ export function KycDocumentsTab({
     }
   };
 
-  const handleSubmitSignature = async () => {
+  const handleSubmitSignature = () => {
     if (!sigEntry.url || !sigReason.trim()) {
       toast.error("Please provide a reason for the signature change");
       return;
     }
-    try {
-      await onFieldSubmit(
+    submitSignatureMutation.mutate(
+      {
         accountNumber,
-        "SIGNATURE",
-        "signature",
-        sigEntry.url,
-        sigReason.trim(),
-        [{ name: "Signature", url: sigEntry.url }],
-      );
-      toast.success("Signature submitted for approval");
-      setSigEntry(newSigEntry());
-      setSigReason("");
-      refetchSigOnFile();
-      refetchSigArchive();
-    } catch {
-      // Error toast already shown by parent
-    }
+        data: {
+          signatureUrl: sigEntry.url,
+          reason: sigReason.trim(),
+          initiatedBy: currentUserEmail || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Signature submitted for approval");
+          setSigEntry(newSigEntry());
+          setSigReason("");
+          refetchSignatures();
+        },
+        onError: (err) =>
+          toast.error(err?.message || "Failed to submit signature"),
+      },
+    );
   };
 
   // ── KYC Documents upload state ──────────────────────────────────────────
@@ -294,7 +285,7 @@ export function KycDocumentsTab({
     }
   };
 
-  const handleSubmitKycDocs = async () => {
+  const handleSubmitKycDocs = () => {
     const readyDocs = kycDocEntries.filter((e) => e.status === "done" && e.url);
     if (!readyDocs.length) {
       toast.error("Upload at least one document before submitting");
@@ -305,39 +296,34 @@ export function KycDocumentsTab({
       return;
     }
 
-    // Submit each document as a KYC change for approval
-    let failed = false;
-    for (const doc of readyDocs) {
-      try {
-        await onFieldSubmit(
-          accountNumber,
-          "DOCUMENT",
-          doc.documentType || "OTHER",
-          JSON.stringify({
-            url: doc.url,
-            name: doc.documentName || doc.file?.name || "Document",
-            ref: doc.documentRef,
-            type: doc.documentType || "OTHER",
-          }),
-          docReason.trim(),
-          [
-            {
-              name: doc.documentName || doc.file?.name || "Document",
-              url: doc.url,
-            },
-          ],
-        );
-      } catch {
-        failed = true;
-      }
-    }
-
-    if (!failed) {
-      toast.success(`${readyDocs.length} document(s) submitted for approval`);
-      setKycDocEntries([newKycDocEntry()]);
-      setDocReason("");
-      refetchKycDocs();
-    }
+    // All documents are submitted in a single account-scoped KYC change.
+    submitDocsMutation.mutate(
+      {
+        accountNumber,
+        data: {
+          documents: readyDocs.map((doc) => ({
+            documentType: doc.documentType || "OTHER",
+            documentUrl: doc.url,
+            refNumber: doc.documentRef || undefined,
+            fileName: doc.documentName || doc.file?.name || undefined,
+          })),
+          reason: docReason.trim(),
+          initiatedBy: currentUserEmail || undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            `${readyDocs.length} document(s) submitted for approval`,
+          );
+          setKycDocEntries([newKycDocEntry()]);
+          setDocReason("");
+          refetchKycDocs();
+        },
+        onError: (err) =>
+          toast.error(err?.message || "Failed to submit documents"),
+      },
+    );
   };
 
   return (
@@ -387,7 +373,7 @@ export function KycDocumentsTab({
             </div>
 
             {/* Current signature preview */}
-            {isLoadingSigOnFile ? (
+            {isLoadingSignatures ? (
               <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 Loading current signature…
@@ -550,9 +536,11 @@ export function KycDocumentsTab({
                 <div className="flex justify-end">
                   <Button
                     onClick={handleSubmitSignature}
-                    disabled={!sigReason.trim() || isSubmitting}
+                    disabled={
+                      !sigReason.trim() || submitSignatureMutation.isPending
+                    }
                   >
-                    {isSubmitting && (
+                    {submitSignatureMutation.isPending && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     )}
                     Submit for Approval
@@ -770,12 +758,12 @@ export function KycDocumentsTab({
                 <Button
                   onClick={handleSubmitKycDocs}
                   disabled={
-                    isSubmitting ||
+                    submitDocsMutation.isPending ||
                     !kycDocEntries.some((e) => e.status === "done") ||
                     !docReason.trim()
                   }
                 >
-                  {isSubmitting && (
+                  {submitDocsMutation.isPending && (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   )}
                   Submit Documents for Approval
@@ -799,7 +787,7 @@ export function KycDocumentsTab({
               currently active signature and past archived versions.
             </p>
 
-            {isLoadingSigArchive ? (
+            {isLoadingSignatures ? (
               <div className="flex items-center gap-2 py-6 justify-center text-muted-foreground text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading signature archive…

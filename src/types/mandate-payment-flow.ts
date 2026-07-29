@@ -53,6 +53,7 @@ export interface MandateApprovalEntry {
     | "APPROVED"
     | "REJECTED"
     | "EXCLUDED"
+    | "ADDED"
     | "FORWARDED_MANUAL"
     | "PAYMENT_INITIATED"
     | "PAYMENT_REQUEUED";

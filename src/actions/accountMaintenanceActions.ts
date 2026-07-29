@@ -1,6 +1,7 @@
 import api from "@/services/api";
 import { ApiResponse } from "@/types";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
+import { CautionReason } from "@/types/parameters";
 import {
   AccountFilters,
   AccountListResponse,
@@ -248,6 +249,20 @@ export const searchAccounts = async (params: AccountSearchParams) => {
     const res = await api.get<ApiResponse<AccountSearchResult[]>>(
       "/accounts/search",
       { params },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// List active caution reason codes for the caution dialog (account-scoped).
+export const getAccountCautionReasons = async () => {
+  try {
+    const res = await api.get<ApiResponse<CautionReason[]>>(
+      "/accounts/caution-reasons",
     );
 
     return res.data;

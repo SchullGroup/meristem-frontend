@@ -20,6 +20,7 @@ import { KycBankDetailsTab } from "@/components/custom/account-maintenance/kyc/k
 import { KycDocumentsTab } from "@/components/custom/account-maintenance/kyc/kyc-documents-tab";
 import KYCHistory from "@/components/custom/account-maintenance/kyc/kyc-update-history";
 import { CautionAccountButton } from "@/components/custom/account-maintenance/kyc/caution-account-button";
+import { RemoveCautionButton } from "@/components/custom/account-maintenance/kyc/remove-caution-button";
 import StatusBadge from "@/components/custom/status-badge";
 import { formatDate } from "@/lib/utils/format";
 import { fullName, getInitials } from "@/lib/utils/shareholder";
@@ -116,10 +117,19 @@ export function StandardKyc({ onBack }: { onBack: () => void }) {
                     {selectedShareholder.accountNumber}
                   </Badge>
                   <StatusBadge status={selectedShareholder?.status} />
-                  <CautionAccountButton
-                    selectedShareholder={selectedShareholder}
-                    onFieldSubmit={handleFieldSubmit}
-                  />
+                  {["CAUTIONED", "CAUTION"].includes(
+                    (selectedShareholder?.status ?? "").toUpperCase(),
+                  ) ? (
+                    <RemoveCautionButton
+                      selectedShareholder={selectedShareholder}
+                      onSuccess={refetchPendingChanges}
+                    />
+                  ) : (
+                    <CautionAccountButton
+                      selectedShareholder={selectedShareholder}
+                      onSuccess={refetchPendingChanges}
+                    />
+                  )}
                 </div>
                 <div className="flex gap-4 mt-2 flex-wrap text-[13px]">
                   <div>
@@ -246,12 +256,7 @@ export function StandardKyc({ onBack }: { onBack: () => void }) {
 
               <TabsContent value="documents">
                 <KycDocumentsTab
-                  chn={selectedShareholder.chn ?? ""}
-                  registerSymbol={selectedShareholder.registerSymbol}
-                  holderName={fullName(selectedShareholder)}
                   currentUserEmail={currentUser?.email ?? ""}
-                  onFieldSubmit={handleFieldSubmit}
-                  isSubmitting={createKycMutation.isPending}
                   accountNumber={selectedShareholder.accountNumber}
                 />
               </TabsContent>
