@@ -95,11 +95,23 @@ export function formatDate(d?: string) {
 }
 
 export function categoryBadgeClass(category: ShareholderCategory) {
-  return category === "MANDATED"
-    ? "bg-green-100 text-green-800"
-    : "bg-amber-100 text-amber-800";
+  switch (category) {
+    case "MANDATED":
+      return "bg-green-100 text-green-800";
+    case "CAUTIONED":
+      return "bg-red-100 text-red-700";
+    default:
+      return "bg-amber-100 text-amber-800";
+  }
 }
 
 export function categoryLabel(category: ShareholderCategory) {
-  return category === "MANDATED" ? "Mandated" : "Others";
+  switch (category) {
+    case "MANDATED":
+      return "Mandated";
+    case "CAUTIONED":
+      return "Cautioned";
+    default:
+      return "Others";
+  }
 }

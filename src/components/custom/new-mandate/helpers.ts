@@ -96,6 +96,14 @@ export const SOURCE_LABEL: Record<MandateSource, string> = {
   MANUAL_PUSH: "Manual Push",
 };
 
+// Compact source labels for table cells / pills.
+export const SOURCE_SHORT: Record<MandateSource, string> = {
+  NIBSS: "NIBSS",
+  CSCS: "CSCS",
+  KYC: "KYC",
+  MANUAL_PUSH: "Manual",
+};
+
 export function sourceBadgeClass(source: MandateSource) {
   switch (source) {
     case "NIBSS":

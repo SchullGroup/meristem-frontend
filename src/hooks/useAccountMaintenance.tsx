@@ -52,6 +52,7 @@ import {
   searchAccounts,
   cautionAccount,
   removeCautionAccount,
+  getAccountCautionReasons,
   getAccountKycDocuments,
   submitAccountKycDocuments,
   submitAccountSignature,
@@ -119,6 +120,7 @@ import {
   SubmitSignatureRequest,
   AccountSignature,
 } from "@/types/account-maintenance";
+import { CautionReason } from "@/types/parameters";
 
 export const useGetConsolidations = (
   params?: ConsolidationFilters,
@@ -349,6 +351,21 @@ export const useSearchAccounts = (
     queryFn: () => searchAccounts(params),
     enabled: (params.q?.trim().length ?? 0) > 0,
     refetchOnWindowFocus: false,
+    ...options,
+  });
+
+// Active caution reason codes for the caution dialog (account-scoped endpoint).
+export const useGetAccountCautionReasons = (
+  options?: Omit<
+    UseQueryOptions<ApiResponse<CautionReason[]>, Error, CautionReason[]>,
+    "queryKey" | "queryFn"
+  >,
+) =>
+  useQuery({
+    queryKey: ["account-caution-reasons"],
+    queryFn: getAccountCautionReasons,
+    refetchOnWindowFocus: false,
+    select: (data) => data.data,
     ...options,
   });
 

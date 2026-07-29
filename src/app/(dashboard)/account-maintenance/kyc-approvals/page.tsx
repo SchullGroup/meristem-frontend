@@ -35,7 +35,8 @@ import {
   useGetKycChanges,
   useBatchAuthoriseKycChanges,
   useBatchRejectKycChanges,
-  useAuthoriseKycChange,
+  useFirstApproveKycChange,
+  useIcuApproveKycChange,
   useRejectKycChange,
   useCancelKycChange,
 } from "@/hooks/useAccountMaintenance";
@@ -125,6 +126,14 @@ export default function KYCApprovalsPage() {
   });
   const pendingCount = pendingData?.total ?? 0;
 
+  // Count of 1st-level-approved items awaiting ICU (2nd-level) sign-off.
+  const { data: icuData } = useGetKycChanges({
+    status: "FIRST_APPROVED",
+    page: 0,
+    pageSize: 1,
+  });
+  const icuCount = icuData?.total ?? 0;
+
   const total = data?.total || 0;
   const totalPages = data?.totalPages || 1;
 
@@ -143,11 +152,17 @@ export default function KYCApprovalsPage() {
   }, [data, search]);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
-  const authorizeSingle = useAuthoriseKycChange();
+  const firstApproveSingle = useFirstApproveKycChange();
+  const icuApproveSingle = useIcuApproveKycChange();
   const rejectSingle = useRejectKycChange();
   const batchAuthorise = useBatchAuthoriseKycChanges();
   const batchReject = useBatchRejectKycChanges();
   const cancelMutation = useCancelKycChange();
+
+  // A change already 1st-level approved needs the ICU (2nd-level) sign-off.
+  const reviewIsIcu = reviewRow?.status === "FIRST_APPROVED";
+  const approvingSingle =
+    firstApproveSingle.isPending || icuApproveSingle.isPending;
 
   // ── Selection helpers ─────────────────────────────────────────────────────
   const visibleIds = rows.map((r) => r.id);
@@ -206,20 +221,36 @@ export default function KYCApprovalsPage() {
 
   function handleSingleApprove() {
     if (!reviewRow || !currentUser) return;
-    authorizeSingle.mutate(
-      {
-        id: reviewRow.id,
-        data: { comment: reviewComment, authorisedBy: currentUser.email },
+    const isIcu = reviewRow.status === "FIRST_APPROVED";
+    const callbacks = {
+      onSuccess: () => {
+        toast.success(
+          isIcu
+            ? "ICU approval recorded — change applied."
+            : "First-level approval recorded.",
+        );
+        setReviewOpen(false);
+        refetch();
       },
-      {
-        onSuccess: () => {
-          toast.success("KYC change approved.");
-          setReviewOpen(false);
-          refetch();
+      onError: (e: any) => toast.error(e?.message || "Failed to approve"),
+    };
+    if (isIcu) {
+      icuApproveSingle.mutate(
+        {
+          id: reviewRow.id,
+          data: { approvedBy: currentUser.email, comment: reviewComment },
         },
-        onError: (e: any) => toast.error(e?.message || "Failed to approve"),
-      },
-    );
+        callbacks,
+      );
+    } else {
+      firstApproveSingle.mutate(
+        {
+          id: reviewRow.id,
+          data: { comment: reviewComment, authorisedBy: currentUser.email },
+        },
+        callbacks,
+      );
+    }
   }
 
   function handleSingleReject() {
@@ -344,6 +375,32 @@ export default function KYCApprovalsPage() {
         <button
           type="button"
           onClick={() => {
+            setStatusFilter("FIRST_APPROVED");
+            setSelectedIds(new Set());
+            setPage(0);
+          }}
+          className={`px-3 py-1.5 rounded-lg border text-[12px] font-medium transition-colors ${
+            statusFilter === "FIRST_APPROVED"
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-background text-muted-foreground border-border hover:bg-muted/50"
+          }`}
+        >
+          ICU (2nd)
+          {icuCount > 0 && (
+            <span
+              className={`ml-1.5 ${
+                statusFilter === "FIRST_APPROVED"
+                  ? "text-primary-foreground/70"
+                  : "text-muted-foreground"
+              }`}
+            >
+              ({icuCount})
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
             setStatusFilter("APPROVED");
             setPage(0);
           }}
@@ -444,18 +501,20 @@ export default function KYCApprovalsPage() {
               <XCircle className="h-4 w-4 mr-1" />
               Reject Selected
             </Button>
-            <Button
-              size="sm"
-              onClick={handleBatchApprove}
-              disabled={batchAuthorise.isPending}
-            >
-              {batchAuthorise.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <CheckCircle2 className="h-4 w-4 mr-1" />
-              )}
-              Approve Selected
-            </Button>
+            {statusFilter !== "FIRST_APPROVED" && (
+              <Button
+                size="sm"
+                onClick={handleBatchApprove}
+                disabled={batchAuthorise.isPending}
+              >
+                {batchAuthorise.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                )}
+                Approve Selected
+              </Button>
+            )}
           </div>
         )}
       </Card>
@@ -570,14 +629,17 @@ export default function KYCApprovalsPage() {
                                 {row?.supportingDocuments?.length})
                               </Button>
                             )}
-                            {row.status === "PENDING" && (
+                            {(row.status === "PENDING" ||
+                              row.status === "FIRST_APPROVED") && (
                               <Button
                                 size="sm"
                                 className="gap-1"
                                 onClick={() => openReview(row)}
                               >
                                 <Eye className="h-3.5 w-3.5" />
-                                Review
+                                {row.status === "FIRST_APPROVED"
+                                  ? "ICU Review"
+                                  : "Review"}
                               </Button>
                             )}
                             {row.status === "PENDING" &&
@@ -686,11 +748,24 @@ export default function KYCApprovalsPage() {
                     Submitted by {reviewRow.initiatorName || "Initiator"}
                   </div>
                   <div className="flex items-center gap-3 text-sm">
-                    <div className="h-5 w-5 rounded-full bg-amber-200 animate-pulse shrink-0" />
-                    Approved By —{" "}
-                    <span className="font-medium">
-                      {reviewRow?.authorisedBy || "Pending your action"}
-                    </span>
+                    <div
+                      className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${reviewIsIcu ? "bg-green-100" : "bg-amber-200 animate-pulse"}`}
+                    >
+                      {reviewIsIcu && (
+                        <CheckCircle2 className="h-3 w-3 text-green-600" />
+                      )}
+                    </div>
+                    {reviewIsIcu
+                      ? `1st-level approved${reviewRow?.authorisedBy ? ` by ${reviewRow.authorisedBy}` : ""}`
+                      : "1st-level — pending your action"}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div
+                      className={`h-5 w-5 rounded-full shrink-0 ${reviewIsIcu ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`}
+                    />
+                    {reviewIsIcu
+                      ? "ICU — pending your action"
+                      : "ICU (2nd-level) sign-off"}
                   </div>
                 </div>
               </div>
@@ -711,7 +786,7 @@ export default function KYCApprovalsPage() {
                   variant="destructive"
                   className="flex-1"
                   onClick={handleSingleReject}
-                  disabled={rejectSingle.isPending || authorizeSingle.isPending}
+                  disabled={rejectSingle.isPending || approvingSingle}
                 >
                   {rejectSingle.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-1" />
@@ -721,14 +796,14 @@ export default function KYCApprovalsPage() {
                 <Button
                   className="flex-1"
                   onClick={handleSingleApprove}
-                  disabled={rejectSingle.isPending || authorizeSingle.isPending}
+                  disabled={rejectSingle.isPending || approvingSingle}
                 >
-                  {authorizeSingle.isPending ? (
+                  {approvingSingle ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-1" />
                   ) : (
                     <CheckCircle2 className="h-4 w-4 mr-1" />
                   )}
-                  Approve
+                  {reviewIsIcu ? "ICU Approve & Apply" : "First Approve"}
                 </Button>
               </div>
             </div>

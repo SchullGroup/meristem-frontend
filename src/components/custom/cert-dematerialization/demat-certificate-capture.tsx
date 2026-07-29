@@ -147,7 +147,7 @@ export function DematCertificateCapture({
       stockbrokerId: selectedBrokerId,
       totalUnits: foundCert.units,
       unitPrice: UNIT_PRICES[foundCert.register] ?? 0,
-      status: "PENDING_HOD",
+      status: "PENDING_TEAM_LEAD",
       documents: {
         dematForms: dematFiles.map((f) => ({ name: f.name, size: "—" })),
         scannedCerts: certFiles.map((f) => ({ name: f.name, size: "—" })),
@@ -204,7 +204,7 @@ export function DematCertificateCapture({
         dematForms: mergedDematForms,
         scannedCerts: mergedScannedCerts,
       },
-      status: "PENDING_HOD",
+      status: "PENDING_TEAM_LEAD",
     });
 
     toast.success("Request resubmitted successfully.");

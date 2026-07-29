@@ -1,8 +1,9 @@
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type DematStatus =
+  | "PENDING_TEAM_LEAD"
   | "PENDING_HOD"
-  | "PENDING_COO"
+  | "PENDING_CEO"
   | "PENDING_ICU"
   | "APPROVED"
   | "LODGED"
@@ -388,7 +389,7 @@ export const SEED_REQUESTS: DematRequest[] = [
     stockbrokerId: "sb1",
     totalUnits: 15000,
     unitPrice: 285,
-    status: "PENDING_HOD",
+    status: "PENDING_TEAM_LEAD",
     documents: {
       dematForms: [{ name: "demat_form_DR001.pdf", size: "245 KB" }],
       scannedCerts: [{ name: "cert_001234.pdf", size: "1.2 MB" }],

@@ -41,24 +41,26 @@ export function downloadShareholdersCsv(
 ) {
   downloadCsvData(
     [
+      "Payment No",
       "Name",
       "Register",
+      "Share Account Number",
       "New Account Number",
       "Bank",
       "BVN",
       "Address",
-      "Dividend Number",
       "Amount (NGN)",
       "Source",
     ],
-    shareholders.map((s) => [
+    shareholders.map((s, i) => [
+      String(i + 1),
       s.name,
       s.registerSymbol,
+      s.oldAccountNumber,
       s.newAccountNumber,
       s.bank,
       s.bvn,
       s.address,
-      s.dividendNumber,
       s.amount.toFixed(2),
       s.source,
     ]),

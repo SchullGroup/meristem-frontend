@@ -1,7 +1,8 @@
 import { format } from "date-fns";
 
 export function formatNaira(amount?: number | null): string {
-  if (amount === null || amount === undefined || Number.isNaN(amount)) return "—";
+  if (amount === null || amount === undefined || Number.isNaN(amount))
+    return "—";
   if (amount >= 1_000_000_000) {
     return `₦${(amount / 1_000_000_000).toFixed(2)}B`;
   }
@@ -61,4 +62,3 @@ export const formatCurrency = (num?: number | null) => {
   if (num === null || num === undefined) return "—";
   return `₦${num.toLocaleString()}`;
 };
-

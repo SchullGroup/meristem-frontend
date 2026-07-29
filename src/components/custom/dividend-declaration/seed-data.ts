@@ -200,8 +200,11 @@ export function generatePrelist(
       holderName,
       email: `${holderName.toLowerCase().replace(/\s+/g, ".")}@shareholdermail.com`,
       address: pick(ADDRESS_POOL),
-      // ~75% mandated (clean KYC), ~25% others (KYC conflict, needs mandating)
-      category: Math.random() < 0.75 ? "MANDATED" : "OTHERS",
+      // ~70% mandated (clean KYC), ~20% others (KYC conflict), ~10% cautioned
+      category: (() => {
+        const x = Math.random();
+        return x < 0.7 ? "MANDATED" : x < 0.9 ? "OTHERS" : "CAUTIONED";
+      })(),
       bvn: randomDigits(11),
       nin: randomDigits(11),
       units,

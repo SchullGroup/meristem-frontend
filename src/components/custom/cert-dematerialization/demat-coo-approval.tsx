@@ -38,15 +38,15 @@ export function DematCooApproval({ requests, onApprove, onReject }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-muted-foreground" />
-          <h3 className="text-base font-semibold">COO / CEO Approval</h3>
+          <h3 className="text-base font-semibold">CEO Approval</h3>
           <Badge variant="secondary">{requests.length}</Badge>
         </div>
       </div>
 
       {/* Description */}
       <p className="text-sm text-muted-foreground">
-        High-value requests (units &gt; 10M or value &gt; ₦5M) require
-        executive approval.
+        High-value requests (units &gt; 10M or value &gt; ₦5M) require executive
+        approval.
       </p>
 
       {/* Info banner */}

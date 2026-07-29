@@ -30,6 +30,9 @@ interface ApprovalStageTabProps {
   emptyLabel: string;
   csvName: string;
   banner?: ReactNode;
+  // Allow the initiator to exclude / manually add shareholders at this stage.
+  editable?: boolean;
+  editStage?: string;
 }
 
 // Generic straight approve/reject gate — used by Pending Approval (Initiator),
@@ -43,6 +46,8 @@ export function ApprovalStageTab({
   emptyLabel,
   csvName,
   banner,
+  editable = false,
+  editStage,
 }: ApprovalStageTabProps) {
   const { currentUser } = useStore();
   const { data: batches = [], isLoading } = useMandateBatches({ status });
@@ -104,6 +109,8 @@ export function ApprovalStageTab({
           title={reviewTitle}
           onBack={backToList}
           banner={banner}
+          editable={editable}
+          editStage={editStage}
           actions={
             <Button
               size="sm"

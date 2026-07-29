@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   APPROVERS,
-  MOCK_REGISTERS,
   SEED_BATCHES,
   SEED_NOTIFICATION_LOG,
+  SEED_OUTSTANDING_POOL,
   SEED_REJECTED_SHAREHOLDERS,
-  makeShareholders,
+  generateEligibleShareholders,
   nextBatchRef,
   processBatchPayments,
   reRollFailedPayments,
@@ -15,6 +15,7 @@ import type {
   MandateBatchStatus,
   MandateNotificationLogEntry,
   MandateRejectionStage,
+  MandateShareholder,
 } from "@/types/mandate-payment-flow";
 
 // Mock data source — mutates the shared seed arrays in place so a batch visibly
@@ -95,9 +96,26 @@ export function useMandateNotificationLog(batchId?: string) {
 
 // ── Create batch ─────────────────────────────────────────────────────────────
 
+// Preview the eligible shareholders for a set of registers before creating the
+// batch (newly-mandated + approved + outstanding dividends). Mock — see
+// generateEligibleShareholders.
+export function usePreviewEligibleBatch() {
+  return useMutation({
+    mutationFn: async ({
+      registerSymbols,
+      dividendNumber,
+    }: {
+      registerSymbols: string[];
+      dividendNumber?: string;
+    }) => {
+      await delay(500);
+      return generateEligibleShareholders(registerSymbols, dividendNumber);
+    },
+  });
+}
+
 export interface CreateBatchPayload {
-  registerSymbols: string[];
-  count: number;
+  shareholders: MandateShareholder[];
   initiatedBy: string;
 }
 
@@ -105,11 +123,17 @@ export function useCreateBatch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: CreateBatchPayload) => {
-      await delay(700);
-      const symbols =
-        payload.registerSymbols.length > 0
-          ? payload.registerSymbols
-          : MOCK_REGISTERS.slice(0, 3).map((r) => r.symbol);
+      await delay(600);
+      // Batched shareholders leave the outstanding / excluded pools.
+      const ids = new Set(payload.shareholders.map((s) => s.id));
+      for (let i = SEED_REJECTED_SHAREHOLDERS.length - 1; i >= 0; i--) {
+        if (ids.has(SEED_REJECTED_SHAREHOLDERS[i].id))
+          SEED_REJECTED_SHAREHOLDERS.splice(i, 1);
+      }
+      for (let i = SEED_OUTSTANDING_POOL.length - 1; i >= 0; i--) {
+        if (ids.has(SEED_OUTSTANDING_POOL[i].id))
+          SEED_OUTSTANDING_POOL.splice(i, 1);
+      }
       const batchRef = nextBatchRef();
       const batch: MandateBatch = {
         id: batchRef,
@@ -117,7 +141,7 @@ export function useCreateBatch() {
         createdAt: today(),
         status: "QUEUED",
         initiatedBy: payload.initiatedBy,
-        shareholders: makeShareholders(payload.count, symbols),
+        shareholders: payload.shareholders,
         excluded: [],
         approvalTrail: [
           {
@@ -131,7 +155,10 @@ export function useCreateBatch() {
       SEED_BATCHES.push(batch);
       return batch;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: [BATCHES_KEY] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [BATCHES_KEY] });
+      qc.invalidateQueries({ queryKey: [REJECTED_KEY] });
+    },
   });
 }
 
@@ -255,11 +282,15 @@ export function useExcludeShareholders() {
       shareholderIds,
       actor,
       reason,
+      stage = "2nd ICU Approval",
     }: {
       id: string;
       shareholderIds: string[];
       actor: string;
       reason?: string;
+      // The stage the exclusion happened at (Review Queue / Pending Approval /
+      // 2nd ICU) — recorded on the audit trail.
+      stage?: string;
     }) => {
       await delay(500);
       const existing = findBatch(id);
@@ -271,10 +302,11 @@ export function useExcludeShareholders() {
       );
       const stamped = removed.map((s) => ({
         ...s,
-        excludedReason: reason || "Excluded during 2nd ICU review.",
+        excludedReason: reason || `Excluded at ${stage}.`,
         excludedFromBatchRef: existing.batchRef,
       }));
-      // Excluded shareholders return to the Review Queue's Rejected view.
+      // Excluded shareholders' dividends remain OUTSTANDING — they return to the
+      // Review Queue's Excluded view and can be re-added to a future batch.
       SEED_REJECTED_SHAREHOLDERS.unshift(...stamped);
       return replaceBatch({
         ...existing,
@@ -283,7 +315,7 @@ export function useExcludeShareholders() {
         approvalTrail: [
           ...existing.approvalTrail,
           {
-            stage: "2nd ICU Approval",
+            stage,
             actor,
             action: "EXCLUDED",
             comment: `${removed.length} shareholder(s) excluded${reason ? ` — ${reason}` : ""}`,
@@ -295,6 +327,90 @@ export function useExcludeShareholders() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [BATCHES_KEY] });
       qc.invalidateQueries({ queryKey: [REJECTED_KEY] });
+    },
+  });
+}
+
+// Manually add specific outstanding-dividend shareholders to a batch (initiator).
+export function useAddShareholdersToBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      shareholders,
+      actor,
+      stage = "Batch Creation",
+    }: {
+      id: string;
+      shareholders: MandateShareholder[];
+      actor: string;
+      stage?: string;
+    }) => {
+      await delay(500);
+      const existing = findBatch(id);
+      const addedIds = new Set(shareholders.map((s) => s.id));
+      // Remove them from the outstanding / excluded pools so they can't be
+      // double-batched.
+      for (let i = SEED_REJECTED_SHAREHOLDERS.length - 1; i >= 0; i--) {
+        if (addedIds.has(SEED_REJECTED_SHAREHOLDERS[i].id))
+          SEED_REJECTED_SHAREHOLDERS.splice(i, 1);
+      }
+      for (let i = SEED_OUTSTANDING_POOL.length - 1; i >= 0; i--) {
+        if (addedIds.has(SEED_OUTSTANDING_POOL[i].id))
+          SEED_OUTSTANDING_POOL.splice(i, 1);
+      }
+      const clean = shareholders.map((s) => ({
+        ...s,
+        excludedReason: undefined,
+        excludedFromBatchRef: undefined,
+      }));
+      return replaceBatch({
+        ...existing,
+        shareholders: [...existing.shareholders, ...clean],
+        approvalTrail: [
+          ...existing.approvalTrail,
+          {
+            stage,
+            actor,
+            action: "ADDED",
+            comment: `${shareholders.length} shareholder(s) added manually`,
+            date: today(),
+          },
+        ],
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [BATCHES_KEY] });
+      qc.invalidateQueries({ queryKey: [REJECTED_KEY] });
+    },
+  });
+}
+
+// Search outstanding-dividend shareholders not already in the batch (manual add).
+export function useSearchOutstandingShareholders() {
+  return useMutation({
+    mutationFn: async ({
+      query,
+      excludeIds = [],
+    }: {
+      query: string;
+      excludeIds?: string[];
+    }) => {
+      await delay(350);
+      const q = query.trim().toLowerCase();
+      const exclude = new Set(excludeIds);
+      const pool = [...SEED_REJECTED_SHAREHOLDERS, ...SEED_OUTSTANDING_POOL];
+      return pool
+        .filter((s) => !exclude.has(s.id))
+        .filter(
+          (s) =>
+            !q ||
+            s.name.toLowerCase().includes(q) ||
+            s.oldAccountNumber.toLowerCase().includes(q) ||
+            s.newAccountNumber.includes(q) ||
+            s.bvn.includes(q),
+        )
+        .slice(0, 25);
     },
   });
 }

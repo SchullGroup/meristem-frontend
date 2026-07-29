@@ -5,7 +5,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { useAuthoriseKycChange, useRejectKycChange } from "@/hooks/useAccountMaintenance";
+import {
+    useFirstApproveKycChange,
+    useIcuApproveKycChange,
+    useRejectKycChange,
+} from "@/hooks/useAccountMaintenance";
 import { KycChange } from "@/types/account-maintenance";
 
 interface KYCReviewDialogProps {
@@ -23,8 +27,15 @@ export const KYCReviewDialog: React.FC<KYCReviewDialogProps> = ({
     const [comment, setComment] = useState("");
     const currentUser = useStore((state) => state.currentUser);
 
-    const authorizeMutation = useAuthoriseKycChange();
+    const firstApproveMutation = useFirstApproveKycChange();
+    const icuApproveMutation = useIcuApproveKycChange();
     const rejectMutation = useRejectKycChange();
+
+    // A change already at FIRST_APPROVED needs the ICU (2nd-level) sign-off that
+    // applies it; anything else pending gets the 1st-level approval.
+    const isIcuStage = selected?.status === "FIRST_APPROVED";
+    const approving =
+        firstApproveMutation.isPending || icuApproveMutation.isPending;
 
     const handleApprove = () => {
         if (!selected) return;
@@ -34,20 +45,37 @@ export const KYCReviewDialog: React.FC<KYCReviewDialogProps> = ({
             return;
         }
 
-        authorizeMutation.mutate({
-            id: selected?.id,
-            data: {
-                comment,
-                authorisedBy: currentUser?.email
-            }
-        }, {
+        const callbacks = {
             onSuccess: () => {
-                toast.success("KYC adjustment updated successfully");
+                toast.success(
+                    isIcuStage
+                        ? "ICU approval recorded — change applied."
+                        : "First-level approval recorded.",
+                );
                 setReviewOpen(false);
-            }, onError: (err: any) => {
-                toast.error(err.message || "Failed to update account changes")
-            }
-        });
+            },
+            onError: (err: any) => {
+                toast.error(err.message || "Failed to update account changes");
+            },
+        };
+
+        if (isIcuStage) {
+            icuApproveMutation.mutate(
+                {
+                    id: selected.id,
+                    data: { approvedBy: currentUser.email, comment },
+                },
+                callbacks,
+            );
+        } else {
+            firstApproveMutation.mutate(
+                {
+                    id: selected.id,
+                    data: { comment, authorisedBy: currentUser.email },
+                },
+                callbacks,
+            );
+        }
     };
 
     const handleReject = () => {
@@ -117,8 +145,18 @@ export const KYCReviewDialog: React.FC<KYCReviewDialogProps> = ({
                                     <div className="text-sm">Submitted by {selected?.initiatorName || "System Initiator"}</div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="h-5 w-5 rounded-full flex items-center justify-center shrink-0 bg-amber-200 animate-pulse" />
-                                    <div className="text-sm">Authoriser — Pending your action</div>
+                                    <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${isIcuStage ? "bg-green-100" : "bg-amber-200 animate-pulse"}`}>
+                                        {isIcuStage && <Check className="h-3 w-3 text-green-600" />}
+                                    </div>
+                                    <div className="text-sm">
+                                        {isIcuStage ? "1st-level approved" : "1st-level — pending your action"}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 ${isIcuStage ? "bg-amber-200 animate-pulse" : "border-2 border-muted bg-background"}`} />
+                                    <div className="text-sm">
+                                        {isIcuStage ? "ICU — pending your action" : "ICU (2nd-level) sign-off"}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -138,16 +176,20 @@ export const KYCReviewDialog: React.FC<KYCReviewDialogProps> = ({
                                 variant="destructive"
                                 className="flex-1"
                                 onClick={handleReject}
-                                disabled={rejectMutation.isPending || authorizeMutation.isPending}
+                                disabled={rejectMutation.isPending || approving}
                             >
                                 {rejectMutation.isPending ? "Rejecting..." : "Reject Request"}
                             </Button>
                             <Button
                                 className="flex-1"
                                 onClick={handleApprove}
-                                disabled={rejectMutation.isPending || authorizeMutation.isPending}
+                                disabled={rejectMutation.isPending || approving}
                             >
-                                {authorizeMutation.isPending ? "Authorising..." : "Authorise KYC Changes"}
+                                {approving
+                                    ? "Approving..."
+                                    : isIcuStage
+                                        ? "ICU Approve & Apply"
+                                        : "First Approve"}
                             </Button>
                         </div>
                     </div>
