@@ -228,7 +228,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               alt="RegisPro Logo"
               width={160}
               height={36}
-              className="h-8 w-auto object-contain"
+              className="h-15 w-auto object-contain"
               priority
               unoptimized
             />

@@ -309,7 +309,7 @@ export default function DashboardHome() {
                           </td>
                           <td className="px-4 py-3">{div.dividendType}</td>
                           <td className="px-4 py-3 text-right tabular-nums">
-                            ₦{div.rate.toFixed(4)}
+                            {div.rate != null ? `₦${div.rate.toFixed(4)}` : "—"}
                           </td>
                           <td className="px-4 py-3 text-right tabular-nums">
                             {formatNaira(div.grossLiability)}
