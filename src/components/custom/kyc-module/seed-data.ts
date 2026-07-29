@@ -45,9 +45,9 @@ export const BANK_POOL = [
 export const ACCOUNT_TYPES = ["Savings", "Current", "Domiciliary"];
 
 export const OFFICERS = [
-  "amaka.eze@meristem.com",
-  "tunde.bello@meristem.com",
-  "chioma.adaeze@meristem.com",
+  "amaka.eze@RegisPro.com",
+  "tunde.bello@RegisPro.com",
+  "chioma.adaeze@RegisPro.com",
 ];
 
 function randInt(min: number, max: number) {
@@ -143,7 +143,9 @@ export function generateNibssRows(count = 24): NibssBatchRow[] {
   return rows;
 }
 
-function makeRequest(overrides: Partial<KycRequest> & Pick<KycRequest, "channel" | "status">): KycRequest {
+function makeRequest(
+  overrides: Partial<KycRequest> & Pick<KycRequest, "channel" | "status">,
+): KycRequest {
   const reg = pick(KYC_REGISTERS);
   const holderName = pick(NAME_POOL);
   const rid = overrides.requestId ?? nextRequestId();
@@ -157,7 +159,9 @@ function makeRequest(overrides: Partial<KycRequest> & Pick<KycRequest, "channel"
     submittedDate: "2026-07-18",
     ageingDays: randInt(0, 9),
     changes: [],
-    documents: [{ name: "supporting-doc.pdf", url: "#", type: "application/pdf" }],
+    documents: [
+      { name: "supporting-doc.pdf", url: "#", type: "application/pdf" },
+    ],
     hasUnpaidDividend: Math.random() < 0.5,
     ...overrides,
     id: rid,
@@ -166,32 +170,109 @@ function makeRequest(overrides: Partial<KycRequest> & Pick<KycRequest, "channel"
 }
 
 const STANDARD_CHANGES = [
-  { field: "address", label: "Residential Address", oldValue: "12 Old Rd, Lagos", newValue: "45 New Ave, Lekki, Lagos" },
-  { field: "phone", label: "Phone Number", oldValue: "08031112222", newValue: "08039998888" },
-  { field: "email", label: "Email", oldValue: "old@mail.com", newValue: "new@mail.com" },
+  {
+    field: "address",
+    label: "Residential Address",
+    oldValue: "12 Old Rd, Lagos",
+    newValue: "45 New Ave, Lekki, Lagos",
+  },
+  {
+    field: "phone",
+    label: "Phone Number",
+    oldValue: "08031112222",
+    newValue: "08039998888",
+  },
+  {
+    field: "email",
+    label: "Email",
+    oldValue: "old@mail.com",
+    newValue: "new@mail.com",
+  },
 ];
 
 const BANK_CHANGES = [
-  { field: "bankName", label: "Bank Name", oldValue: "First Bank", newValue: "GTBank" },
-  { field: "nuban", label: "NUBAN Account No", oldValue: "3011122233", newValue: "0123456789" },
-  { field: "bvn", label: "BVN", oldValue: "22233344455", newValue: "22299988877" },
+  {
+    field: "bankName",
+    label: "Bank Name",
+    oldValue: "First Bank",
+    newValue: "GTBank",
+  },
+  {
+    field: "nuban",
+    label: "NUBAN Account No",
+    oldValue: "3011122233",
+    newValue: "0123456789",
+  },
+  {
+    field: "bvn",
+    label: "BVN",
+    oldValue: "22233344455",
+    newValue: "22299988877",
+  },
 ];
 
 const CSCS_CHANGES = [
-  { field: "bankName", label: "Bank Name", oldValue: "First Bank", newValue: "Access Bank", accepted: true },
-  { field: "nuban", label: "Account No.", oldValue: "3011122233", newValue: "0987654321", accepted: true },
-  { field: "address", label: "Address", oldValue: "12 Old Rd, Lagos", newValue: "88 New Rd, Abuja", accepted: true },
-  { field: "bvn", label: "BVN", oldValue: "22233344455", newValue: "22233344455", accepted: true },
+  {
+    field: "bankName",
+    label: "Bank Name",
+    oldValue: "First Bank",
+    newValue: "Access Bank",
+    accepted: true,
+  },
+  {
+    field: "nuban",
+    label: "Account No.",
+    oldValue: "3011122233",
+    newValue: "0987654321",
+    accepted: true,
+  },
+  {
+    field: "address",
+    label: "Address",
+    oldValue: "12 Old Rd, Lagos",
+    newValue: "88 New Rd, Abuja",
+    accepted: true,
+  },
+  {
+    field: "bvn",
+    label: "BVN",
+    oldValue: "22233344455",
+    newValue: "22233344455",
+    accepted: true,
+  },
 ];
 
 const MERI_CHANGES = [
-  { field: "phone", label: "Phone Number", oldValue: "08031112222", newValue: "07066554433", accepted: true },
-  { field: "email", label: "Email", oldValue: "old@mail.com", newValue: "holder@newmail.com", accepted: true },
-  { field: "address", label: "Address", oldValue: "5 Marina, Lagos", newValue: "9 Ikoyi Cres, Lagos", accepted: true },
+  {
+    field: "phone",
+    label: "Phone Number",
+    oldValue: "08031112222",
+    newValue: "07066554433",
+    accepted: true,
+  },
+  {
+    field: "email",
+    label: "Email",
+    oldValue: "old@mail.com",
+    newValue: "holder@newmail.com",
+    accepted: true,
+  },
+  {
+    field: "address",
+    label: "Address",
+    oldValue: "5 Marina, Lagos",
+    newValue: "9 Ikoyi Cres, Lagos",
+    accepted: true,
+  },
 ];
 
 export const SEED_KYC_REQUESTS: KycRequest[] = [
-  makeRequest({ channel: "STANDARD", status: "SUBMITTED", requestId: "KYC-2026-0001", changes: STANDARD_CHANGES }),
+  makeRequest({
+    channel: "STANDARD",
+    status: "SUBMITTED",
+    requestId: "KYC-2026-0001",
+    changes: STANDARD_CHANGES,
+  }),
   makeRequest({
     channel: "CSCS",
     status: "DRAFT",
@@ -221,7 +302,9 @@ export const SEED_KYC_REQUESTS: KycRequest[] = [
     externalRef: "MC-REF-55102",
     requestType: "Contact Update",
     changes: MERI_CHANGES,
-    documents: [{ name: "utility-bill.pdf", url: "#", type: "application/pdf" }],
+    documents: [
+      { name: "utility-bill.pdf", url: "#", type: "application/pdf" },
+    ],
   }),
   makeRequest({
     channel: "MERICONNECT",
@@ -240,12 +323,43 @@ export const SEED_KYC_REQUESTS: KycRequest[] = [
     requestId: "KYC-2026-0002",
     reason: "Change of bank",
     changes: BANK_CHANGES,
-    validation: { nuban: "PASS", nameEnquiry: "PASS", bvnMatch: "WARN", nameEnquiryResult: "Partial match" },
+    validation: {
+      nuban: "PASS",
+      nameEnquiry: "PASS",
+      bvnMatch: "WARN",
+      nameEnquiryResult: "Partial match",
+    },
   }),
-  makeRequest({ channel: "STANDARD", status: "RETURNED", requestId: "KYC-2026-0003", changes: STANDARD_CHANGES.slice(0, 1), rejectionReason: "Attach a valid utility bill." }),
-  makeRequest({ channel: "NIBSS", status: "APPROVED", requestId: "KYC-2026-0004", reason: "Wrong account on record", changes: BANK_CHANGES, hasUnpaidDividend: true }),
-  makeRequest({ channel: "STANDARD", status: "APPROVED", requestId: "KYC-2026-0005", changes: STANDARD_CHANGES, hasUnpaidDividend: false }),
-  makeRequest({ channel: "NIBSS", status: "APPROVED", requestId: "KYC-2026-0006", reason: "Change of bank", changes: BANK_CHANGES, hasUnpaidDividend: true }),
+  makeRequest({
+    channel: "STANDARD",
+    status: "RETURNED",
+    requestId: "KYC-2026-0003",
+    changes: STANDARD_CHANGES.slice(0, 1),
+    rejectionReason: "Attach a valid utility bill.",
+  }),
+  makeRequest({
+    channel: "NIBSS",
+    status: "APPROVED",
+    requestId: "KYC-2026-0004",
+    reason: "Wrong account on record",
+    changes: BANK_CHANGES,
+    hasUnpaidDividend: true,
+  }),
+  makeRequest({
+    channel: "STANDARD",
+    status: "APPROVED",
+    requestId: "KYC-2026-0005",
+    changes: STANDARD_CHANGES,
+    hasUnpaidDividend: false,
+  }),
+  makeRequest({
+    channel: "NIBSS",
+    status: "APPROVED",
+    requestId: "KYC-2026-0006",
+    reason: "Change of bank",
+    changes: BANK_CHANGES,
+    hasUnpaidDividend: true,
+  }),
 ];
 
 export const SEED_NIBSS_BATCHES: NibssBatch[] = [
@@ -262,6 +376,18 @@ export const SEED_NIBSS_BATCHES: NibssBatch[] = [
 export const SEED_MANDATING_QUEUE: MandatingQueueEntry[] = [];
 
 export const SEED_SYNC_LOG: SyncLogEntry[] = [
-  { id: "SYNC-1", ranAt: "2026-07-22T06:00:00Z", recordsPulled: 12, errors: 0, ranBy: "Scheduler" },
-  { id: "SYNC-2", ranAt: "2026-07-21T06:00:00Z", recordsPulled: 9, errors: 1, ranBy: "Scheduler" },
+  {
+    id: "SYNC-1",
+    ranAt: "2026-07-22T06:00:00Z",
+    recordsPulled: 12,
+    errors: 0,
+    ranBy: "Scheduler",
+  },
+  {
+    id: "SYNC-2",
+    ranAt: "2026-07-21T06:00:00Z",
+    recordsPulled: 9,
+    errors: 1,
+    ranBy: "Scheduler",
+  },
 ];

@@ -43,9 +43,11 @@ export function DematReversal({ requests }: Props) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
 
-  function buildEmailContent(
-    results: ResponseResults,
-  ): { to: string; subject: string; body: string } {
+  function buildEmailContent(results: ResponseResults): {
+    to: string;
+    subject: string;
+    body: string;
+  } {
     const uniqueBrokerIds = Array.from(
       new Set(requests.map((r) => r.stockbrokerId)),
     );
@@ -74,7 +76,10 @@ export function DematReversal({ requests }: Props) {
 
     const successList = successRequests.length
       ? successRequests
-          .map((r) => `  - ${r.id}: ${r.holderName} (${formatNumber(r.totalUnits)} units)`)
+          .map(
+            (r) =>
+              `  - ${r.id}: ${r.holderName} (${formatNumber(r.totalUnits)} units)`,
+          )
           .join("\n")
       : "  None";
 
@@ -87,7 +92,7 @@ export function DematReversal({ requests }: Props) {
           .join("\n")
       : "  None";
 
-    const body = `Dear ${brokerName},\n\nWe write to inform you of the status of dematerialization requests submitted to CSCS for lodgment.\n\nSuccessful:\n${successList}\n\nFailed:\n${failedList}\n\nPlease contact us for further assistance regarding any failed requests.\n\nRegards,\nMeristem Registrars`;
+    const body = `Dear ${brokerName},\n\nWe write to inform you of the status of dematerialization requests submitted to CSCS for lodgment.\n\nSuccessful:\n${successList}\n\nFailed:\n${failedList}\n\nPlease contact us for further assistance regarding any failed requests.\n\nRegards,\nRegisPro Registrars`;
 
     return { to, subject, body };
   }
@@ -154,7 +159,9 @@ export function DematReversal({ requests }: Props) {
         {selectedFile && (
           <div className="flex items-center gap-2 px-4 py-3 bg-muted rounded-lg text-sm">
             <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="flex-1 truncate font-medium">{selectedFile.name}</span>
+            <span className="flex-1 truncate font-medium">
+              {selectedFile.name}
+            </span>
             <button
               type="button"
               onClick={() => setSelectedFile(null)}

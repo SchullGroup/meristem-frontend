@@ -354,8 +354,8 @@ export default function RegistersPage() {
                         }`}
                       >
                         {r?.registerType
-                          .toLowerCase()
-                          .replace(/\b\w/g, (c) => c.toUpperCase())}
+                          ?.toLowerCase()
+                          .replace(/\b\w/g, (c) => c.toUpperCase()) || "—"}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">

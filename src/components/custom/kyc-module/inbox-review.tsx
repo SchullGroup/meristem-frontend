@@ -1,13 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Check, X, Loader2, Send, FileQuestion } from "lucide-react";
+import { Check, X, Loader2, Send, FileQuestion, Gavel } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import {
@@ -47,6 +54,7 @@ export function InboxReview({
   const [accepted, setAccepted] = useState<Set<string> | null>(null);
   const [extraDocs, setExtraDocs] = useState<KycDoc[]>([]);
   const [reason, setReason] = useState("");
+  const [decisionOpen, setDecisionOpen] = useState(false);
 
   if (isLoading || !record) {
     return (
@@ -126,41 +134,18 @@ export function InboxReview({
         title={`${CHANNEL_SHORT[record.channel]} Review — ${record.requestId}`}
         subtitle={`${record.holderName} (${record.registerSymbol}) · Ref ${record.externalRef ?? "—"}`}
         actions={
-          <Badge className={`border-0 ${requestStatusClass(record.status)}`}>
-            {requestStatusLabel(record.status)}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge className={`border-0 ${requestStatusClass(record.status)}`}>
+              {requestStatusLabel(record.status)}
+            </Badge>
+            {!readOnly && (
+              <Button size="sm" className="gap-1.5" onClick={() => setDecisionOpen(true)}>
+                <Gavel className="h-4 w-4" /> Review &amp; Decide
+              </Button>
+            )}
+          </div>
         }
       />
-
-      {!readOnly && (
-        <Card className="mrpsl-card p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
-            <div className="flex-1 space-y-1.5">
-              <label className="mrpsl-label">
-                Reason{" "}
-                <span className="font-normal text-muted-foreground">
-                  (required to reject{allowRequestDoc ? " / request document" : ""})
-                </span>
-              </label>
-              <Textarea value={reason} onChange={(e) => setReason(e.target.value)} className="resize-none" rows={2} />
-            </div>
-            <div className="flex gap-2 shrink-0 flex-wrap">
-              {allowRequestDoc && (
-                <Button variant="outline" className="gap-1.5" onClick={doRequestDoc} disabled={busy}>
-                  <FileQuestion className="h-4 w-4" /> Request Document
-                </Button>
-              )}
-              <Button variant="destructive" className="gap-1.5" onClick={doReject} disabled={busy}>
-                <X className="h-4 w-4" /> Reject
-              </Button>
-              <Button className="gap-1.5" onClick={doSubmit} disabled={busy}>
-                <Send className="h-4 w-4" /> Submit for Approval
-                {submit.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
 
       {/* Comparison with per-field accept */}
       <Card className="mrpsl-card overflow-hidden">
@@ -240,6 +225,67 @@ export function InboxReview({
           {acc.size} of {changedFields.length} changed field(s) accepted.
         </div>
       )}
+
+      {/* Decision modal — comment + submit / reject / request-document */}
+      <Dialog open={decisionOpen} onOpenChange={setDecisionOpen}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Review — {record.requestId}</DialogTitle>
+            <DialogDescription>
+              Submit the accepted changes for approval, or reject
+              {allowRequestDoc ? " / request an additional document" : ""} with a
+              reason.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 pt-1">
+            <label className="mrpsl-label">
+              Reason{" "}
+              <span className="font-normal text-muted-foreground">
+                (required to reject{allowRequestDoc ? " / request document" : ""})
+              </span>
+            </label>
+            <Textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Add a note for the approval trail…"
+              className="resize-none"
+              rows={4}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 pt-4 border-t border-border/60">
+            <Button className="w-full gap-1.5" onClick={doSubmit} disabled={busy}>
+              <Send className="h-4 w-4" /> Submit for Approval
+              {submit.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            </Button>
+            <div className="flex gap-2">
+              {allowRequestDoc && (
+                <Button
+                  variant="outline"
+                  className="flex-1 gap-1.5"
+                  onClick={doRequestDoc}
+                  disabled={busy}
+                >
+                  <FileQuestion className="h-4 w-4" /> Request Document
+                  {requestDoc.isPending && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                </Button>
+              )}
+              <Button
+                variant="destructive"
+                className="flex-1 gap-1.5"
+                onClick={doReject}
+                disabled={busy}
+              >
+                <X className="h-4 w-4" /> Reject
+                {reject.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

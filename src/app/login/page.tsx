@@ -291,7 +291,7 @@ export default function LoginPage() {
                   Welcome back
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Sign in to your MRPSL CPA account
+                  Sign in to your RegisPro CPA account
                 </p>
               </div>
 
@@ -306,7 +306,7 @@ export default function LoginPage() {
                       setError("");
                     }}
                     onKeyDown={(e) => e.key === "Enter" && handleCredentials()}
-                    placeholder="name@meristemregistrars.com"
+                    placeholder="name@regisproregistrars.com"
                     className="mrpsl-input"
                     autoComplete="email"
                     autoFocus
@@ -521,7 +521,7 @@ export default function LoginPage() {
                       setError("");
                     }}
                     onKeyDown={(e) => e.key === "Enter" && handleForgot()}
-                    placeholder="name@meristemregistrars.com"
+                    placeholder="name@regisproregistrars.com"
                     className="mrpsl-input"
                   />
                 </div>

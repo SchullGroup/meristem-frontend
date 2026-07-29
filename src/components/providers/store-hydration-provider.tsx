@@ -60,12 +60,13 @@ export default function StoreHydrationProvider({
                 }}
               >
                 <Image
-                  src="/logo.svg"
-                  alt="Meristem Logo"
+                  src="/regispro.png"
+                  alt="RegisPro Logo"
                   width={200}
                   height={45}
                   className="h-12 w-auto object-contain"
                   priority
+                  unoptimized
                 />
               </motion.div>
 

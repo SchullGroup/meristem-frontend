@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Download, Check, X, Loader2 } from "lucide-react";
+import { Download, Gavel } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import {
 import { batchTotalAmount, formatNaira } from "./helpers";
 import { BatchListTable } from "./batch-list-table";
 import { BatchDetailPanel } from "./batch-detail-panel";
+import { DecisionDialog } from "@/components/custom/dividend-declaration/decision-dialog";
 import { downloadBatchListCsv } from "./csv";
 
 interface ApprovalStageTabProps {
@@ -48,7 +49,7 @@ export function ApprovalStageTab({
   const decideMutation = useDecideBatch();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [comment, setComment] = useState("");
+  const [decisionOpen, setDecisionOpen] = useState(false);
 
   const selected: MandateBatch | null =
     batches.find((b) => b.id === selectedId) ?? null;
@@ -62,24 +63,15 @@ export function ApprovalStageTab({
     { shareholders: 0, amount: 0 },
   );
 
-  function openReview(b: MandateBatch) {
-    setSelectedId(b.id);
-    setComment("");
-  }
-
   function backToList() {
     setSelectedId(null);
-    setComment("");
+    setDecisionOpen(false);
   }
 
-  function decide(decision: "APPROVE" | "REJECT") {
+  function decide(decision: "APPROVE" | "REJECT", comment: string) {
     if (!selected) return;
     if (!currentUser?.email) {
       toast.error("Your session has expired. Please login again.");
-      return;
-    }
-    if (decision === "REJECT" && !comment.trim()) {
-      toast.error("Comment is required for rejection.");
       return;
     }
     decideMutation.mutate(
@@ -88,7 +80,7 @@ export function ApprovalStageTab({
         stage,
         decision,
         actor: currentUser.email,
-        comment: comment.trim() || undefined,
+        comment: comment || undefined,
       },
       {
         onSuccess: () => {
@@ -106,37 +98,33 @@ export function ApprovalStageTab({
 
   if (selected) {
     return (
-      <BatchDetailPanel
-        batch={selected}
-        title={reviewTitle}
-        onBack={backToList}
-        banner={banner}
-        showComment
-        comment={comment}
-        onCommentChange={setComment}
-        footer={
-          <>
+      <>
+        <BatchDetailPanel
+          batch={selected}
+          title={reviewTitle}
+          onBack={backToList}
+          banner={banner}
+          actions={
             <Button
-              variant="destructive"
-              className="flex-1 gap-1.5"
-              onClick={() => decide("REJECT")}
-              disabled={decideMutation.isPending}
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setDecisionOpen(true)}
             >
-              <X className="h-4 w-4" /> Reject
+              <Gavel className="h-4 w-4" /> Review &amp; Decide
             </Button>
-            <Button
-              className="flex-1 gap-1.5"
-              onClick={() => decide("APPROVE")}
-              disabled={decideMutation.isPending}
-            >
-              <Check className="h-4 w-4" /> {approveLabel}
-              {decideMutation.isPending && (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              )}
-            </Button>
-          </>
-        }
-      />
+          }
+        />
+        <DecisionDialog
+          open={decisionOpen}
+          onOpenChange={setDecisionOpen}
+          title={`${reviewTitle} — ${selected.batchRef}`}
+          description="Approve to advance the batch, or reject with a reason."
+          approveLabel={approveLabel}
+          onApprove={(c) => decide("APPROVE", c)}
+          onReject={(c) => decide("REJECT", c)}
+          isPending={decideMutation.isPending}
+        />
+      </>
     );
   }
 
@@ -176,7 +164,7 @@ export function ApprovalStageTab({
         batches={batches}
         isLoading={isLoading}
         actionLabel="Review"
-        onAction={openReview}
+        onAction={(b) => setSelectedId(b.id)}
         emptyLabel={emptyLabel}
       />
     </div>

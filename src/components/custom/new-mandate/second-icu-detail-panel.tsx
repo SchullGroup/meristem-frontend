@@ -1,18 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  Download,
-  Search,
-  Ban,
-  Check,
-  X,
-  Loader2,
-} from "lucide-react";
+import { ArrowLeft, Download, Search, Ban, Gavel, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import type { MandateBatch } from "@/types/mandate-payment-flow";
@@ -23,6 +14,7 @@ import {
 import { BatchSummaryCards } from "./batch-summary-cards";
 import { ShareholderTable } from "./shareholder-table";
 import { IcuSignOffBanner } from "./icu-sign-off-banner";
+import { DecisionDialog } from "@/components/custom/dividend-declaration/decision-dialog";
 import { downloadShareholdersCsv } from "./csv";
 
 // 2nd ICU editable batch view (spec §6.6): search, bulk select/exclude, an
@@ -45,7 +37,7 @@ export function SecondIcuDetailPanel({
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [excludeReason, setExcludeReason] = useState("");
-  const [comment, setComment] = useState("");
+  const [decisionOpen, setDecisionOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -106,13 +98,9 @@ export function SecondIcuDetailPanel({
     );
   }
 
-  function decide(decision: "APPROVE" | "REJECT") {
+  function decide(decision: "APPROVE" | "REJECT", comment: string) {
     if (!currentUser?.email) {
       toast.error("Your session has expired. Please login again.");
-      return;
-    }
-    if (decision === "REJECT" && !comment.trim()) {
-      toast.error("Comment is required for rejection.");
       return;
     }
     decideMutation.mutate(
@@ -121,7 +109,7 @@ export function SecondIcuDetailPanel({
         stage: "ICU_2",
         decision,
         actor: currentUser.email,
-        comment: comment.trim() || undefined,
+        comment: comment || undefined,
       },
       {
         onSuccess: () => {
@@ -130,6 +118,7 @@ export function SecondIcuDetailPanel({
               ? `Batch ${batch.batchRef} sent to MD for final approval.`
               : `Batch ${batch.batchRef} rejected.`,
           );
+          setDecisionOpen(false);
           onBack();
         },
         onError: (err) => toast.error(err?.message || "Failed to record decision."),
@@ -151,6 +140,14 @@ export function SecondIcuDetailPanel({
           2nd ICU Approval —{" "}
           <span className="font-mono text-base">{batch.batchRef}</span>
         </h2>
+        <Button
+          size="sm"
+          className="gap-1.5"
+          onClick={() => setDecisionOpen(true)}
+          disabled={batch.shareholders.length === 0}
+        >
+          <Gavel className="h-4 w-4" /> Review &amp; Decide
+        </Button>
       </div>
 
       <IcuSignOffBanner ordinal="2nd" />
@@ -243,36 +240,16 @@ export function SecondIcuDetailPanel({
         <ExcludedItemsTable batch={batch} />
       )}
 
-      <div className="space-y-2">
-        <label className="mrpsl-label">Comment</label>
-        <Textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Required when rejecting…"
-          className="resize-none"
-        />
-      </div>
-
-      <div className="flex gap-3 pt-3 border-t border-border/60">
-        <Button
-          variant="destructive"
-          className="flex-1 gap-1.5"
-          onClick={() => decide("REJECT")}
-          disabled={decideMutation.isPending}
-        >
-          <X className="h-4 w-4" /> Reject
-        </Button>
-        <Button
-          className="flex-1 gap-1.5"
-          onClick={() => decide("APPROVE")}
-          disabled={decideMutation.isPending || batch.shareholders.length === 0}
-        >
-          <Check className="h-4 w-4" /> Send to MD for Final Approval
-          {decideMutation.isPending && (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          )}
-        </Button>
-      </div>
+      <DecisionDialog
+        open={decisionOpen}
+        onOpenChange={setDecisionOpen}
+        title={`2nd ICU Decision — ${batch.batchRef}`}
+        description="Approve to send the batch to MD for final approval, or reject with a reason."
+        approveLabel="Send to MD for Final Approval"
+        onApprove={(c) => decide("APPROVE", c)}
+        onReject={(c) => decide("REJECT", c)}
+        isPending={decideMutation.isPending}
+      />
     </div>
   );
 }

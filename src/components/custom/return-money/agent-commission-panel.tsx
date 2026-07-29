@@ -57,7 +57,7 @@ const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
   },
   {
     id: "c4",
-    agentName: "Meristem Securities Ltd",
+    agentName: "RegisPro Securities Ltd",
     agentType: "Stockbroker",
     totalApplications: 3200,
     totalValueSubmitted: 258_750_000,
@@ -80,11 +80,15 @@ const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
 ];
 
 export function AgentCommissionPanel() {
-  const [records, setRecords] = useState<AgentCommissionRecord[]>(MOCK_COMMISSIONS);
+  const [records, setRecords] =
+    useState<AgentCommissionRecord[]>(MOCK_COMMISSIONS);
   const [generatingFile, setGeneratingFile] = useState(false);
 
   const pendingRecords = records.filter((r) => r.status === "PENDING");
-  const totalCommissionPending = pendingRecords.reduce((s, r) => s + r.commissionAmount, 0);
+  const totalCommissionPending = pendingRecords.reduce(
+    (s, r) => s + r.commissionAmount,
+    0,
+  );
   const totalCommissionPaid = records
     .filter((r) => r.status === "PAID")
     .reduce((s, r) => s + r.commissionAmount, 0);
@@ -92,7 +96,9 @@ export function AgentCommissionPanel() {
   const handleMarkPaid = (id: string) => {
     const record = records.find((r) => r.id === id);
     if (!record) return;
-    setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, status: "PAID" } : r)));
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: "PAID" } : r)),
+    );
     toast.success(`Commission for ${record.agentName} marked as paid.`);
   };
 
@@ -115,13 +121,22 @@ export function AgentCommissionPanel() {
       <div className="grid grid-cols-4 gap-3">
         {[
           { label: "Total Agents", value: records.length.toString() },
-          { label: "Pending Commission", value: `₦${totalCommissionPending.toLocaleString()}`, highlight: true },
-          { label: "Paid Commission", value: `₦${totalCommissionPaid.toLocaleString()}` },
+          {
+            label: "Pending Commission",
+            value: `₦${totalCommissionPending.toLocaleString()}`,
+            highlight: true,
+          },
+          {
+            label: "Paid Commission",
+            value: `₦${totalCommissionPaid.toLocaleString()}`,
+          },
           { label: "Pending Agents", value: pendingRecords.length.toString() },
         ].map(({ label, value, highlight }) => (
           <Card key={label} className="mrpsl-card p-3">
             <p className="mrpsl-label">{label}</p>
-            <p className={`font-mono font-bold text-lg mt-1 ${highlight ? "text-primary" : ""}`}>
+            <p
+              className={`font-mono font-bold text-lg mt-1 ${highlight ? "text-primary" : ""}`}
+            >
               {value}
             </p>
           </Card>
@@ -131,19 +146,27 @@ export function AgentCommissionPanel() {
       {/* Info note */}
       <Card className="mrpsl-card p-3 bg-muted/30 border-dashed">
         <p className="text-xs text-muted-foreground">
-          Commission is calculated on the value of each agent's applications that resulted in a
-          refund. Commission rates are configured per agent in Offer Setup → Receiving Agents &
-          Stockbrokers.
+          Commission is calculated on the value of each agent's applications
+          that resulted in a refund. Commission rates are configured per agent
+          in Offer Setup → Receiving Agents & Stockbrokers.
         </p>
       </Card>
 
       {/* Actions */}
       <div className="flex justify-end">
-        <Button onClick={handleGenerateFile} disabled={generatingFile || pendingRecords.length === 0}>
+        <Button
+          onClick={handleGenerateFile}
+          disabled={generatingFile || pendingRecords.length === 0}
+        >
           {generatingFile ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</>
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…
+            </>
           ) : (
-            <><FileDown className="h-4 w-4 mr-2" /> Generate Commission Payment File</>
+            <>
+              <FileDown className="h-4 w-4 mr-2" /> Generate Commission Payment
+              File
+            </>
           )}
         </Button>
       </div>
@@ -159,13 +182,23 @@ export function AgentCommissionPanel() {
           <table className="w-full text-sm">
             <thead>
               <tr className="mrpsl-table-header">
-                <th className="text-left px-4 py-2.5 font-medium">Agent Name</th>
+                <th className="text-left px-4 py-2.5 font-medium">
+                  Agent Name
+                </th>
                 <th className="text-left px-4 py-2.5 font-medium">Type</th>
-                <th className="text-right px-4 py-2.5 font-medium">Applications</th>
-                <th className="text-right px-4 py-2.5 font-medium">Value Submitted</th>
-                <th className="text-right px-4 py-2.5 font-medium">Value Refunded</th>
+                <th className="text-right px-4 py-2.5 font-medium">
+                  Applications
+                </th>
+                <th className="text-right px-4 py-2.5 font-medium">
+                  Value Submitted
+                </th>
+                <th className="text-right px-4 py-2.5 font-medium">
+                  Value Refunded
+                </th>
                 <th className="text-right px-4 py-2.5 font-medium">Rate (%)</th>
-                <th className="text-right px-4 py-2.5 font-medium">Commission Owed</th>
+                <th className="text-right px-4 py-2.5 font-medium">
+                  Commission Owed
+                </th>
                 <th className="text-left px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5" />
               </tr>
@@ -174,15 +207,21 @@ export function AgentCommissionPanel() {
               {records.map((r) => (
                 <tr key={r.id} className="mrpsl-table-row">
                   <td className="px-4 py-2.5 font-medium">{r.agentName}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">{r.agentType}</td>
-                  <td className="px-4 py-2.5 text-right font-mono">{r.totalApplications.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                    {r.agentType}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono">
+                    {r.totalApplications.toLocaleString()}
+                  </td>
                   <td className="px-4 py-2.5 text-right font-mono">
                     ₦{(r.totalValueSubmitted / 1e6).toFixed(1)}M
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono">
                     ₦{(r.totalValueRefunded / 1e6).toFixed(1)}M
                   </td>
-                  <td className="px-4 py-2.5 text-right font-mono">{r.commissionRate.toFixed(2)}%</td>
+                  <td className="px-4 py-2.5 text-right font-mono">
+                    {r.commissionRate.toFixed(2)}%
+                  </td>
                   <td className="px-4 py-2.5 text-right font-mono font-semibold text-primary">
                     ₦{r.commissionAmount.toLocaleString()}
                   </td>

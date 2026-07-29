@@ -60,9 +60,10 @@ export function InitiatorReReviewTab() {
             </p>
           </Card>
         }
-        footer={
+        actions={
           <Button
-            className="flex-1 gap-1.5"
+            size="sm"
+            className="gap-1.5"
             onClick={handleForward}
             disabled={forwardMutation.isPending}
           >

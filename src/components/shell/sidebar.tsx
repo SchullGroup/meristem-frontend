@@ -93,6 +93,7 @@ const OPERATIONS_GROUPS = [
     items: [
       { label: "Declaration", href: "/dividends/declaration" },
       { label: "New Mandate Payment", href: "/dividends/new-mandate" },
+      { label: "Dividend Reversals", href: "/dividends/reversals" },
       { label: "Dividend Split", href: "/dividends/split" },
       { label: "Warrant Mark-Off", href: "/dividends/warrant-markoff" },
       { label: "Dividend Reports", href: "/dividends/reports" },
@@ -162,7 +163,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       return;
     }
     onClose?.();
-  }, [pathname]);
+  }, [pathname, onClose]);
 
   if (!currentUser) return null;
 
@@ -223,12 +224,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <div className="h-14.25 px-6 flex items-center border-b border-border/60 shrink-0">
           <Link href="/" className="flex items-center">
             <Image
-              src="/logo.svg"
-              alt="Meristem Logo"
+              src="/regispro.png"
+              alt="RegisPro Logo"
               width={160}
               height={36}
-              className="h-8 w-auto object-contain"
+              className="h-15 w-auto object-contain"
               priority
+              unoptimized
             />
           </Link>
         </div>

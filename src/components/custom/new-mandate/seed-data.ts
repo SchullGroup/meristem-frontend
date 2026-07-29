@@ -171,7 +171,7 @@ export function nextBatchRef() {
   return `NMB-2026/${String(1000 + BATCH_SEQ++).slice(1)}`;
 }
 
-const INITIATOR = "michael.uyanna@meristem.com";
+const INITIATOR = "michael.uyanna@RegisPro.com";
 
 function buildBatch(config: {
   batchRef: string;
@@ -293,12 +293,14 @@ export const SEED_BATCHES: MandateBatch[] = [
 export const SEED_REJECTED_SHAREHOLDERS: MandateShareholder[] = [
   makeShareholder({
     registerSymbol: "MTNN",
-    excludedReason: "BVN mismatch against KYC record — pending re-verification.",
+    excludedReason:
+      "BVN mismatch against KYC record — pending re-verification.",
     excludedFromBatchRef: "NMB-2026/003",
   }),
   makeShareholder({
     registerSymbol: "ZENITHBANK",
-    excludedReason: "Duplicate mandate — shareholder already in an earlier batch.",
+    excludedReason:
+      "Duplicate mandate — shareholder already in an earlier batch.",
     excludedFromBatchRef: "NMB-2026/007",
   }),
 ];

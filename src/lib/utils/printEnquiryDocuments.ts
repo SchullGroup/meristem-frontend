@@ -1,6 +1,6 @@
 import type { DividendStatement, HolderStatement } from "@/types/enquiry";
 
-export const REGISTRAR_NAME = "Meristem Registrars & Probate Services Ltd";
+export const REGISTRAR_NAME = "RegisPro Registrars & Probate Services Ltd";
 export const REGISTRAR_ADDRESS = "213 Herbert Macaulay Way, Yaba, Lagos";
 export const BRAND_COLOR = "#004023";
 
@@ -21,7 +21,7 @@ interface BrandedDocumentOptions {
 }
 
 function logoUrl(): string {
-  return `${window.location.origin}/logo.svg`;
+  return `${window.location.origin}/regispro.png`;
 }
 
 const brandedStyles = `
@@ -70,7 +70,10 @@ function brandedDocumentHTML({
   tableRowsHtml,
 }: BrandedDocumentOptions): string {
   const cardsHTML = summaryCards
-    .map((c) => `<div class="card"><small>${c.label}</small><h3>${c.value}</h3></div>`)
+    .map(
+      (c) =>
+        `<div class="card"><small>${c.label}</small><h3>${c.value}</h3></div>`,
+    )
     .join("");
   const headerRow = tableHeaders.map((h) => `<th>${h}</th>`).join("");
 
@@ -84,7 +87,7 @@ function brandedDocumentHTML({
       </head>
       <body>
         <div class="letterhead">
-          <img src="${logoUrl()}" alt="Meristem" />
+          <img src="${logoUrl()}" alt="RegisPro" />
           <div class="registrar">
             <div class="name">${REGISTRAR_NAME}</div>
             <div class="addr">${REGISTRAR_ADDRESS}</div>
@@ -117,7 +120,9 @@ function openPrintWindow(html: string): void {
   const printWindow = window.open("", "", "height=900,width=1100");
 
   if (!printWindow) {
-    console.error("Failed to open print window — check pop-up blocker settings");
+    console.error(
+      "Failed to open print window — check pop-up blocker settings",
+    );
     return;
   }
 
@@ -161,14 +166,27 @@ export function printStatementOfAccount(
       address: holderAddress,
     },
     summaryCards: [
-      { label: "Current Holdings", value: statement.currentHoldings.toLocaleString() },
-      { label: "Opening Balance", value: statement.openingBalance.toLocaleString() },
+      {
+        label: "Current Holdings",
+        value: statement.currentHoldings.toLocaleString(),
+      },
+      {
+        label: "Opening Balance",
+        value: statement.openingBalance.toLocaleString(),
+      },
       {
         label: "Net Movement",
         value: `${statement.netMovement >= 0 ? "+" : ""}${statement.netMovement.toLocaleString()}`,
       },
     ],
-    tableHeaders: ["Date", "Transaction", "Reference", "Debit", "Credit", "Balance"],
+    tableHeaders: [
+      "Date",
+      "Transaction",
+      "Reference",
+      "Debit",
+      "Credit",
+      "Balance",
+    ],
     tableRowsHtml: rows,
   });
 
@@ -209,9 +227,15 @@ export function printDividendStatement(
       address: holderAddress,
     },
     summaryCards: [
-      { label: "Total Gross (₦)", value: statement.totalGross.toLocaleString() },
+      {
+        label: "Total Gross (₦)",
+        value: statement.totalGross.toLocaleString(),
+      },
       { label: "Total Net (₦)", value: statement.totalNet.toLocaleString() },
-      { label: "Unpaid Amount (₦)", value: statement.unpaidAmount.toLocaleString() },
+      {
+        label: "Unpaid Amount (₦)",
+        value: statement.unpaidAmount.toLocaleString(),
+      },
     ],
     tableHeaders: [
       "Dividend No",
@@ -254,7 +278,7 @@ export function printSignatureOnFile(
       </head>
       <body>
         <div class="letterhead">
-          <img src="${logoUrl()}" alt="Meristem" />
+          <img src="${logoUrl()}" alt="RegisPro" />
           <div class="registrar">
             <div class="name">${REGISTRAR_NAME}</div>
             <div class="addr">${REGISTRAR_ADDRESS}</div>

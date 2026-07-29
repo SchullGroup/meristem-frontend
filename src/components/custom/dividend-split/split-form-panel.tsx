@@ -469,9 +469,9 @@ export function SplitFormPanel() {
             </div>
             <div className="flex justify-between text-[13px]">
               <span className="text-muted-foreground">Payment No</span>
-              {/* Payment number is not part of the eligible-dividend object;
-                  it will be supplied by the backend. */}
-              <span className="font-mono font-medium">—</span>
+              <span className="font-mono font-medium">
+                {selectedDividendMeta.dividendNumber}
+              </span>
             </div>
             <div className="flex justify-between text-[13px]">
               <span className="text-muted-foreground">Warrant No</span>
