@@ -511,7 +511,7 @@ export function RefundRequestsTab() {
                             {isApproved && (
                               <Button
                                 size="sm"
-                                className="h-7 w-1/2 text-xs"
+                                className="h-7 w-1/2 text-xs px-8"
                                 onClick={() =>
                                   setMarkConfirm({
                                     id: req.id,

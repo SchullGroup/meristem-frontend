@@ -111,7 +111,7 @@ export default function PrincipalsPage() {
   const toggleStatus = () => {
     if (!selectedPrincipal) return;
     const newStatus =
-      selectedPrincipal.status.toLowerCase() === "active"
+      selectedPrincipal.status?.toLowerCase() === "active"
         ? "INACTIVE"
         : "ACTIVE";
 
@@ -381,9 +381,9 @@ export default function PrincipalsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        className={`border-0 text-xs ${p.status.toLowerCase() === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
+                        className={`border-0 text-xs ${p.status?.toLowerCase() === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
                       >
-                        {p.status}
+                        {p.status || "—"}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -419,7 +419,7 @@ export default function PrincipalsPage() {
                             onClick={() => openStatusConfirm(p)}
                           >
                             <Power className="mr-2 h-4 w-4" />{" "}
-                            {p.status.toLowerCase() === "active"
+                            {p.status?.toLowerCase() === "active"
                               ? "Deactivate"
                               : "Activate"}
                           </DropdownMenuItem>
