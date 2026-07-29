@@ -36,6 +36,7 @@ import { GetImageUrl } from "@/lib/utils/get-image-url";
 import { useEmailShareholders } from "@/hooks/useRights";
 import { useMutation } from "@tanstack/react-query";
 import { EMAIL_SHAREHOLDERS } from "@/actions/bonusIssuesAction";
+import { TestEmailPanel } from "@/components/custom/email/test-email-panel";
 
 /* ─── shared types ------─────────────────────────── */
 
@@ -1048,6 +1049,7 @@ export function EmailPreviewModal({
   const [refundReason, setRefundReason] = useState("");
   const [uploading, setUploading] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [testRecipients, setTestRecipients] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const isRights = offerType === "rights";
@@ -1090,6 +1092,7 @@ export function EmailPreviewModal({
       setCompanyLogoUrl(null);
       setCircularLinkUrl("");
       setRefundReason("");
+      setTestRecipients([]);
       setSubject(
         getDefaultSubject({
           isIPORefund,
@@ -1547,6 +1550,15 @@ export function EmailPreviewModal({
                   </span>
                 )}
               </span>
+            </div>
+            <div className="p-4 border-b bg-background">
+              <TestEmailPanel
+                recipients={testRecipients}
+                onRecipientsChange={setTestRecipients}
+                subject={subject}
+                templateLabel={`${companyName} — ${offerName}`}
+                disabled={isLoading}
+              />
             </div>
             <EmailBody
               isRights={isRights}

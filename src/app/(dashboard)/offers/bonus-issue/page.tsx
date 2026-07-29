@@ -151,6 +151,7 @@ const MOCK_USERS: Record<string, { name: string; role: string }> = {
 const MOCK_ENTITLEMENTS: {
   id: string;
   accountNumber: string;
+  certNo: string;
   name: string;
   shareholderName: string;
   unitsAtQualDate: number;
@@ -162,6 +163,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-01",
     accountNumber: "ZB2024-001",
+    certNo: "CERT-00001",
     name: "ADEBISI OLUWASEUN PETERS",
     shareholderName: "ADEBISI OLUWASEUN PETERS",
     unitsAtQualDate: 50000,
@@ -173,6 +175,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-02",
     accountNumber: "ZB2024-002",
+    certNo: "CERT-00002",
     name: "CHUKWUEMEKA OBIORA OKAFOR",
     shareholderName: "CHUKWUEMEKA OBIORA OKAFOR",
     unitsAtQualDate: 75000,
@@ -184,6 +187,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-03",
     accountNumber: "ZB2024-003",
+    certNo: "CERT-00003",
     name: "FATIMA ABDULLAHI YUSUF",
     shareholderName: "FATIMA ABDULLAHI YUSUF",
     unitsAtQualDate: 22001,
@@ -195,6 +199,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-04",
     accountNumber: "ZB2024-004",
+    certNo: "CERT-00004",
     name: "MICHAEL KOLADE ADEYEMI",
     shareholderName: "MICHAEL KOLADE ADEYEMI",
     unitsAtQualDate: 137000,
@@ -206,6 +211,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-05",
     accountNumber: "ZB2024-005",
+    certNo: "CERT-00005",
     name: "NGOZI CHIDINMA OKAFOR",
     shareholderName: "NGOZI CHIDINMA OKAFOR",
     unitsAtQualDate: 11000,
@@ -217,6 +223,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-06",
     accountNumber: "ZB2024-006",
+    certNo: "CERT-00006",
     name: "IBRAHIM USMAN HASSAN",
     shareholderName: "IBRAHIM USMAN HASSAN",
     unitsAtQualDate: 83503,
@@ -228,6 +235,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-07",
     accountNumber: "ZB2024-007",
+    certNo: "CERT-00007",
     name: "BLESSING ADESANYA ORIMOTO",
     shareholderName: "BLESSING ADESANYA ORIMOTO",
     unitsAtQualDate: 213000,
@@ -239,6 +247,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-08",
     accountNumber: "ZB2024-008",
+    certNo: "CERT-00008",
     name: "AMAKA CHISOM EZENWACHI",
     shareholderName: "AMAKA CHISOM EZENWACHI",
     unitsAtQualDate: 35700,
@@ -250,6 +259,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-09",
     accountNumber: "ZB2024-009",
+    certNo: "CERT-00009",
     name: "TUNDE FASHOLA KAYODE",
     shareholderName: "TUNDE FASHOLA KAYODE",
     unitsAtQualDate: 98002,
@@ -261,6 +271,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-10",
     accountNumber: "ZB2024-010",
+    certNo: "CERT-00010",
     name: "AISHA IBRAHIM BELLO",
     shareholderName: "AISHA IBRAHIM BELLO",
     unitsAtQualDate: 57000,
@@ -272,6 +283,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-11",
     accountNumber: "ZB2024-011",
+    certNo: "CERT-00011",
     name: "PETER OKOYE NWACHUKWU",
     shareholderName: "PETER OKOYE NWACHUKWU",
     unitsAtQualDate: 43000,
@@ -283,6 +295,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-12",
     accountNumber: "ZB2024-012",
+    certNo: "CERT-00012",
     name: "GRACE OMOLARA ADELEKE",
     shareholderName: "GRACE OMOLARA ADELEKE",
     unitsAtQualDate: 18700,
@@ -294,6 +307,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-13",
     accountNumber: "ZB2024-013",
+    certNo: "CERT-00013",
     name: "SAMUEL ADEWALE BABATUNDE",
     shareholderName: "SAMUEL ADEWALE BABATUNDE",
     unitsAtQualDate: 61000,
@@ -305,6 +319,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-14",
     accountNumber: "ZB2024-014",
+    certNo: "CERT-00014",
     name: "OBIAGELI NKECHI OKONKWO",
     shareholderName: "OBIAGELI NKECHI OKONKWO",
     unitsAtQualDate: 29001,
@@ -316,6 +331,7 @@ const MOCK_ENTITLEMENTS: {
   {
     id: "ent-15",
     accountNumber: "ZB2024-015",
+    certNo: "CERT-00015",
     name: "JOHN EMEKA IGWE",
     shareholderName: "JOHN EMEKA IGWE",
     unitsAtQualDate: 71500,
@@ -801,6 +817,7 @@ function BonusTableHead() {
       <tr>
         <th className="px-4 py-2.5">#</th>
         <th className="px-4 py-2.5">ACCOUNT NO</th>
+        <th className="px-4 py-2.5">CERT NO</th>
         <th className="px-4 py-2.5">HOLDER NAME</th>
         <th className="px-4 py-2.5 text-right">UNITS AT QUAL DATE</th>
         <th className="px-4 py-2.5 text-right">BONUS DUE</th>
@@ -816,6 +833,7 @@ function EntitlementTableRows({
 }: {
   rows: {
     accountNumber: string;
+    certNo?: string;
     name: string;
     unitsAtQualDate: number;
     bonusDue: number;
@@ -829,7 +847,7 @@ function EntitlementTableRows({
     return (
       <tr>
         <td
-          colSpan={6}
+          colSpan={7}
           className="px-4 py-10 text-center text-muted-foreground font-sans text-sm"
         >
           No records found
@@ -847,6 +865,9 @@ function EntitlementTableRows({
             </td>
           )}
           <td className="px-4 py-2.5">{s?.accountNumber}</td>
+          <td className="px-4 py-2.5 text-muted-foreground">
+            {s?.certNo || "—"}
+          </td>
           <td className="px-4 py-2.5 font-sans font-medium">
             {s?.name || s?.shareholderName}
           </td>
@@ -880,7 +901,7 @@ function EntitlementTfoot({
     <tfoot className="bg-muted/30 border-t-2 font-mono font-bold text-[13px]">
       <tr>
         <td
-          colSpan={4}
+          colSpan={5}
           className="px-4 py-2.5 text-right text-muted-foreground"
         >
           PAGE TOTALS ({total.toLocaleString()} total shareholders)

@@ -40,7 +40,7 @@ export default function TransferPage() {
             value="pending"
             className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
           >
-            Pending Approvals
+            Teamlead Approval
           </TabsTrigger>
           <TabsTrigger
             value="approved"

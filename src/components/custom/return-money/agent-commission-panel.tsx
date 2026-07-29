@@ -1,25 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, FileDown, Loader2 } from "lucide-react";
+import { CheckCircle2, FileDown, History, Loader2, Undo2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-
-type CommissionStatus = "PENDING" | "PAID";
-
-interface AgentCommissionRecord {
-  id: string;
-  agentName: string;
-  agentType: string;
-  totalApplications: number;
-  totalValueSubmitted: number;
-  totalValueRefunded: number;
-  commissionRate: number;
-  commissionAmount: number;
-  status: CommissionStatus;
-}
+import { useStore } from "@/lib/store";
+import { AgentCommissionApprovalDialog } from "./agent-commission-approval-dialog";
+import {
+  COMMISSION_STATUS_LABELS,
+  COMMISSION_STATUS_STYLES,
+  type AgentCommissionRecord,
+} from "./agent-commission-types";
 
 const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
   {
@@ -31,7 +24,8 @@ const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
     totalValueRefunded: 127_125_000,
     commissionRate: 0.75,
     commissionAmount: 953_437,
-    status: "PENDING",
+    status: "PENDING_OPS_REVIEW",
+    approvalTrail: [],
   },
   {
     id: "c2",
@@ -42,7 +36,16 @@ const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
     totalValueRefunded: 85_781_250,
     commissionRate: 0.75,
     commissionAmount: 643_359,
-    status: "PENDING",
+    status: "PENDING_ICU_REVIEW",
+    approvalTrail: [
+      {
+        stage: "OPS",
+        actor: "operations@RegisProregistrars.com",
+        action: "APPROVED",
+        remark: "Application counts reconciled against the receiving bank schedule.",
+        date: "2026-07-24T10:15:00.000Z",
+      },
+    ],
   },
   {
     id: "c3",
@@ -54,6 +57,27 @@ const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
     commissionRate: 0.75,
     commissionAmount: 316_992,
     status: "PAID",
+    approvalTrail: [
+      {
+        stage: "OPS",
+        actor: "operations@RegisProregistrars.com",
+        action: "APPROVED",
+        date: "2026-07-20T09:02:00.000Z",
+      },
+      {
+        stage: "ICU",
+        actor: "icu@RegisProregistrars.com",
+        action: "APPROVED",
+        remark: "Rate verified against the agent agreement.",
+        date: "2026-07-21T14:40:00.000Z",
+      },
+      {
+        stage: "PAYMENT",
+        actor: "treasury@RegisProregistrars.com",
+        action: "MARKED_PAID",
+        date: "2026-07-22T11:05:00.000Z",
+      },
+    ],
   },
   {
     id: "c4",
@@ -64,7 +88,21 @@ const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
     totalValueRefunded: 21_979_687,
     commissionRate: 1.0,
     commissionAmount: 219_796,
-    status: "PENDING",
+    status: "APPROVED_FOR_PAYMENT",
+    approvalTrail: [
+      {
+        stage: "OPS",
+        actor: "operations@RegisProregistrars.com",
+        action: "APPROVED",
+        date: "2026-07-25T08:30:00.000Z",
+      },
+      {
+        stage: "ICU",
+        actor: "icu@RegisProregistrars.com",
+        action: "APPROVED",
+        date: "2026-07-26T16:12:00.000Z",
+      },
+    ],
   },
   {
     id: "c5",
@@ -75,7 +113,23 @@ const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
     totalValueRefunded: 18_742_500,
     commissionRate: 1.0,
     commissionAmount: 187_425,
-    status: "PAID",
+    status: "ICU_REJECTED",
+    approvalTrail: [
+      {
+        stage: "OPS",
+        actor: "operations@RegisProregistrars.com",
+        action: "APPROVED",
+        date: "2026-07-23T12:00:00.000Z",
+      },
+      {
+        stage: "ICU",
+        actor: "icu@RegisProregistrars.com",
+        action: "REJECTED",
+        remark:
+          "Commission rate applied is 1.00% but the agent agreement states 0.85%. Recompute and resubmit.",
+        date: "2026-07-24T09:45:00.000Z",
+      },
+    ],
   },
 ];
 
@@ -83,55 +137,173 @@ export function AgentCommissionPanel() {
   const [records, setRecords] =
     useState<AgentCommissionRecord[]>(MOCK_COMMISSIONS);
   const [generatingFile, setGeneratingFile] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const currentUser = useStore((state) => state.currentUser);
 
-  const pendingRecords = records.filter((r) => r.status === "PENDING");
-  const totalCommissionPending = pendingRecords.reduce(
-    (s, r) => s + r.commissionAmount,
-    0,
-  );
-  const totalCommissionPaid = records
-    .filter((r) => r.status === "PAID")
-    .reduce((s, r) => s + r.commissionAmount, 0);
+  const byStatus = (...statuses: AgentCommissionRecord["status"][]) =>
+    records.filter((r) => statuses.includes(r.status));
+
+  const awaitingOps = byStatus("PENDING_OPS_REVIEW");
+  const awaitingIcu = byStatus("PENDING_ICU_REVIEW");
+  const approvedRecords = byStatus("APPROVED_FOR_PAYMENT");
+  const rejectedRecords = byStatus("OPS_REJECTED", "ICU_REJECTED");
+
+  const sum = (rows: AgentCommissionRecord[]) =>
+    rows.reduce((s, r) => s + r.commissionAmount, 0);
+
+  const totalApprovedForPayment = sum(approvedRecords);
+  const totalAwaitingApproval = sum([...awaitingOps, ...awaitingIcu]);
+  const totalCommissionPaid = sum(byStatus("PAID"));
+
+  const reviewRecord = records.find((r) => r.id === reviewId) ?? null;
+
+  const appendTrail = (
+    record: AgentCommissionRecord,
+    entry: AgentCommissionRecord["approvalTrail"][number],
+  ) => ({ ...record, approvalTrail: [...record.approvalTrail, entry] });
+
+  const handleDecision = (
+    approved: boolean,
+    remark: string,
+    actor: string,
+  ) => {
+    if (!reviewRecord) return;
+    const isOpsStage = reviewRecord.status === "PENDING_OPS_REVIEW";
+    const stage = isOpsStage ? "OPS" : "ICU";
+
+    const nextStatus: AgentCommissionRecord["status"] = approved
+      ? isOpsStage
+        ? "PENDING_ICU_REVIEW"
+        : "APPROVED_FOR_PAYMENT"
+      : isOpsStage
+        ? "OPS_REJECTED"
+        : "ICU_REJECTED";
+
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === reviewRecord.id
+          ? {
+              ...appendTrail(r, {
+                stage,
+                actor,
+                action: approved ? "APPROVED" : "REJECTED",
+                remark: remark || undefined,
+                date: new Date().toISOString(),
+              }),
+              status: nextStatus,
+            }
+          : r,
+      ),
+    );
+
+    toast.success(
+      approved
+        ? `${reviewRecord.agentName} approved at ${isOpsStage ? "first approval" : "ICU"} — ${
+            isOpsStage ? "now awaiting ICU approval." : "now approved for payment."
+          }`
+        : `${reviewRecord.agentName} rejected at ${isOpsStage ? "first approval" : "ICU"}.`,
+    );
+  };
+
+  const handleResubmit = (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    if (!currentUser?.email) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...appendTrail(r, {
+                stage: "OPS",
+                actor: currentUser.email,
+                action: "RESUBMITTED",
+                date: new Date().toISOString(),
+              }),
+              status: "PENDING_OPS_REVIEW",
+            }
+          : r,
+      ),
+    );
+    toast.success(`${record.agentName} returned for first approval.`);
+  };
 
   const handleMarkPaid = (id: string) => {
     const record = records.find((r) => r.id === id);
     if (!record) return;
+    // Belt and braces — the button is only rendered for approved rows.
+    if (record.status !== "APPROVED_FOR_PAYMENT") {
+      toast.error(
+        "This commission must clear first approval and ICU approval before it can be paid.",
+      );
+      return;
+    }
+    if (!currentUser?.email) {
+      toast.error("Your session has expired. Please login again.");
+      return;
+    }
     setRecords((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "PAID" } : r)),
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...appendTrail(r, {
+                stage: "PAYMENT",
+                actor: currentUser.email,
+                action: "MARKED_PAID",
+                date: new Date().toISOString(),
+              }),
+              status: "PAID",
+            }
+          : r,
+      ),
     );
     toast.success(`Commission for ${record.agentName} marked as paid.`);
   };
 
   const handleGenerateFile = async () => {
-    if (pendingRecords.length === 0) {
-      toast.info("No pending commissions to generate a payment file for.");
+    // Only fully approved commissions belong in a payment file.
+    if (approvedRecords.length === 0) {
+      toast.info(
+        "No approved commissions to pay. Commissions must clear first approval and ICU approval first.",
+      );
       return;
     }
     setGeneratingFile(true);
     await new Promise((r) => setTimeout(r, 900));
     setGeneratingFile(false);
     toast.success(
-      `Commission payment file generated for ${pendingRecords.length} agents (₦${totalCommissionPending.toLocaleString()} total).`,
+      `Commission payment file generated for ${approvedRecords.length} agents (₦${totalApprovedForPayment.toLocaleString()} total).`,
     );
   };
 
   return (
     <div className="space-y-4">
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { label: "Total Agents", value: records.length.toString() },
           {
-            label: "Pending Commission",
-            value: `₦${totalCommissionPending.toLocaleString()}`,
+            label: "Awaiting Approval",
+            value: `₦${totalAwaitingApproval.toLocaleString()}`,
+            sub: `${awaitingOps.length} first · ${awaitingIcu.length} ICU`,
+          },
+          {
+            label: "Approved for Payment",
+            value: `₦${totalApprovedForPayment.toLocaleString()}`,
+            sub: `${approvedRecords.length} agents`,
             highlight: true,
           },
           {
             label: "Paid Commission",
             value: `₦${totalCommissionPaid.toLocaleString()}`,
           },
-          { label: "Pending Agents", value: pendingRecords.length.toString() },
-        ].map(({ label, value, highlight }) => (
+          {
+            label: "Rejected",
+            value: rejectedRecords.length.toString(),
+          },
+        ].map(({ label, value, sub, highlight }) => (
           <Card key={label} className="mrpsl-card p-3">
             <p className="mrpsl-label">{label}</p>
             <p
@@ -139,6 +311,9 @@ export function AgentCommissionPanel() {
             >
               {value}
             </p>
+            {sub && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
+            )}
           </Card>
         ))}
       </div>
@@ -146,9 +321,12 @@ export function AgentCommissionPanel() {
       {/* Info note */}
       <Card className="mrpsl-card p-3 bg-muted/30 border-dashed">
         <p className="text-xs text-muted-foreground">
-          Commission is calculated on the value of each agent's applications
-          that resulted in a refund. Commission rates are configured per agent
-          in Offer Setup → Receiving Agents & Stockbrokers.
+          Commission is calculated on the value of each agent&apos;s
+          applications that resulted in a refund. Rates are configured per agent
+          in Offer Setup → Receiving Agents &amp; Stockbrokers. Every commission
+          must clear <span className="font-semibold">first approval</span> and{" "}
+          <span className="font-semibold">ICU approval</span> before it can be
+          included in a payment file or marked as paid.
         </p>
       </Card>
 
@@ -156,7 +334,7 @@ export function AgentCommissionPanel() {
       <div className="flex justify-end">
         <Button
           onClick={handleGenerateFile}
-          disabled={generatingFile || pendingRecords.length === 0}
+          disabled={generatingFile || approvedRecords.length === 0}
         >
           {generatingFile ? (
             <>
@@ -204,57 +382,107 @@ export function AgentCommissionPanel() {
               </tr>
             </thead>
             <tbody>
-              {records.map((r) => (
-                <tr key={r.id} className="mrpsl-table-row">
-                  <td className="px-4 py-2.5 font-medium">{r.agentName}</td>
-                  <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {r.agentType}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-mono">
-                    {r.totalApplications.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-mono">
-                    ₦{(r.totalValueSubmitted / 1e6).toFixed(1)}M
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-mono">
-                    ₦{(r.totalValueRefunded / 1e6).toFixed(1)}M
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-mono">
-                    {r.commissionRate.toFixed(2)}%
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-mono font-semibold text-primary">
-                    ₦{r.commissionAmount.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <Badge
-                      className={
-                        r.status === "PAID"
-                          ? "bg-green-100 text-green-800 border-0 text-[11px]"
-                          : "bg-amber-100 text-amber-800 border-0 text-[11px]"
-                      }
-                    >
-                      {r.status === "PAID" ? "Paid" : "Pending"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    {r.status === "PENDING" && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs h-7"
-                        onClick={() => handleMarkPaid(r.id)}
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Mark Paid
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {records.map((r) => {
+                const isRejected =
+                  r.status === "OPS_REJECTED" || r.status === "ICU_REJECTED";
+                const awaitingReview =
+                  r.status === "PENDING_OPS_REVIEW" ||
+                  r.status === "PENDING_ICU_REVIEW";
+                const lastRemark = [...r.approvalTrail]
+                  .reverse()
+                  .find((e) => e.action === "REJECTED")?.remark;
+
+                return (
+                  <tr key={r.id} className="mrpsl-table-row">
+                    <td className="px-4 py-2.5 font-medium">{r.agentName}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                      {r.agentType}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono">
+                      {r.totalApplications.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono">
+                      ₦{(r.totalValueSubmitted / 1e6).toFixed(1)}M
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono">
+                      ₦{(r.totalValueRefunded / 1e6).toFixed(1)}M
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono">
+                      {r.commissionRate.toFixed(2)}%
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold text-primary">
+                      ₦{r.commissionAmount.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Badge className={COMMISSION_STATUS_STYLES[r.status]}>
+                        {COMMISSION_STATUS_LABELS[r.status]}
+                      </Badge>
+                      {isRejected && lastRemark && (
+                        <p className="text-[11px] text-muted-foreground mt-1 max-w-56">
+                          {lastRemark}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      {awaitingReview && (
+                        <Button
+                          size="sm"
+                          className="text-xs h-7"
+                          onClick={() => setReviewId(r.id)}
+                        >
+                          {r.status === "PENDING_OPS_REVIEW"
+                            ? "Review"
+                            : "ICU Review"}
+                        </Button>
+                      )}
+                      {r.status === "APPROVED_FOR_PAYMENT" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7"
+                          onClick={() => handleMarkPaid(r.id)}
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Mark Paid
+                        </Button>
+                      )}
+                      {isRejected && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs h-7"
+                          onClick={() => handleResubmit(r.id)}
+                        >
+                          <Undo2 className="h-3 w-3 mr-1" />
+                          Resubmit
+                        </Button>
+                      )}
+                      {!awaitingReview && r.approvalTrail.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs h-7 ml-1"
+                          onClick={() => setReviewId(r.id)}
+                          aria-label={`Approval trail for ${r.agentName}`}
+                        >
+                          <History className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </Card>
+
+      <AgentCommissionApprovalDialog
+        open={reviewId !== null}
+        onOpenChange={(v) => !v && setReviewId(null)}
+        record={reviewRecord}
+        onDecision={handleDecision}
+      />
     </div>
   );
 }

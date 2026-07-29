@@ -523,7 +523,7 @@ export const SEED_CONSOLIDATION_REQUESTS: ConsolidationRequest[] = [
       "Merging UBA certificates across multiple accounts per holder request",
     submittedBy: "admin@RegisPro.com",
     status: "APPROVED",
-    approvedBy: "ICU Manager",
+    approvedBy: "Teamlead",
     approvedAt: "05 Jul 2026",
   },
   {
@@ -564,7 +564,7 @@ export const SEED_CONSOLIDATION_REQUESTS: ConsolidationRequest[] = [
     status: "REJECTED",
     rejectionComment:
       "Certificate GTCO/2022/006789 has a pending transfer order. Resolve the pending transfer before consolidating.",
-    rejectedBy: "ICU Manager",
+    rejectedBy: "Teamlead",
     rejectedAt: "04 Jul 2026",
   },
   {

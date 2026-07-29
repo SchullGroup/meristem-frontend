@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { useSendMandateNotification } from "@/hooks/useMandatePaymentFlow";
 import type { MandateBatch } from "@/types/mandate-payment-flow";
+import { TestEmailPanel } from "@/components/custom/email/test-email-panel";
 import { formatDate } from "./helpers";
 
 function defaultSubject(batch: MandateBatch) {
@@ -204,6 +205,7 @@ export function MandateEmailDialog({
   const [note, setNote] = useState("");
   const [mode, setMode] = useState<"all" | "selected">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [testRecipients, setTestRecipients] = useState<string[]>([]);
 
   // Reset the composer when the dialog opens for a (possibly different) batch.
   const openKey = open ? (batch?.id ?? "__none__") : null;
@@ -215,6 +217,7 @@ export function MandateEmailDialog({
     setNote("");
     setMode("all");
     setSelectedIds(new Set());
+    setTestRecipients([]);
   }
 
   if (!batch) return null;
@@ -365,6 +368,15 @@ export function MandateEmailDialog({
               <span className="font-semibold">Template preview</span> —
               placeholders in <em>italics</em> are replaced with each
               shareholder&apos;s data when sent.
+            </div>
+            <div className="p-4 border-b bg-background">
+              <TestEmailPanel
+                recipients={testRecipients}
+                onRecipientsChange={setTestRecipients}
+                subject={subject}
+                templateLabel={`Mandate batch ${batch.batchRef}`}
+                disabled={sendMutation.isPending}
+              />
             </div>
             <EmailPreview batch={batch} note={note} />
           </div>

@@ -571,3 +571,93 @@ The KYC Update page has a new "History" tab (`KycChangesHistory`) — a read-onl
 - **Frontend behavior today:** the History table renders "—" in the Register column until this field exists; already wired to display `row.registerSymbol` the moment the backend adds it, no frontend change needed.
 
 - **Action:** Add an optional `accountNumber` field to the `POST /dividend/mandate-payments/load` request body/filters, scoping the loaded queue to that account when provided.
+
+---
+
+# Email Templates — Test Send (new)
+
+## 21. New: Dispatch a template to test recipients before the real send
+
+All three "Email Setup → Email Preview" dialogs now have a **Send a test first** panel on the preview step, where staff can add up to 10 addresses (picked from `GET /users` or typed) and email the rendered template to themselves for review before it goes out to shareholders.
+
+Affected UI:
+
+- `EmailTemplateDialog` — dividend payment advice
+- `MandateEmailDialog` — mandate batch notification
+- `EmailPreviewModal` — bonus, rights, IPO, IPO refund, rights circular
+
+### 21a. The endpoint
+
+There is currently **no** way to render a template to arbitrary addresses — the only email endpoints are `POST /offers/{rights,bonus}-issue/declarations/{id}/email-shareholders`, which take no request body and always send to the full shareholder list.
+
+- **Add:** an optional `testRecipients: string[]` field to the request body of every shareholder-email endpoint.
+- When **absent or empty** — behavior is unchanged: real send to all shareholders.
+- When **present** — render the *identical* template and send only to those addresses. This must be a true no-op against business state:
+  - do **not** mark any shareholder as emailed, do not set `emailStatus` / `deliveryStatus`
+  - do **not** advance the declaration/batch status
+  - do **not** write to the notification or delivery-tracking tables
+  - do log the test send for audit (who, when, which template, which recipients)
+- Cap `testRecipients` server-side (10 is the client limit) and validate address format.
+- Consider prefixing the subject with `[TEST]` so a test can't be mistaken for the real notice.
+
+Placeholders (`[SHAREHOLDER NAME]`, `[NET AMOUNT]`, …) should be filled with either sample data or the first shareholder's data, so reviewers see a realistic email rather than raw tokens — please confirm which you implement.
+
+### 21b. Frontend status
+
+The UI is complete and wired to a single stub: `SEND_TEST_EMAIL` in `src/actions/testEmailAction.ts`, consumed via the `useSendTestEmail` hook. It currently resolves after a short delay **without sending anything**. Once the endpoint above ships, replacing the body of that one function is the only frontend change required.
+
+---
+
+# Bonus Issue — Certificate Number on Entitlements (new)
+
+## 22. Add `certNo` to `EntitlementResponse`
+
+The bonus issue provisional allotment schedule (entitlement list) now has a **CERT NO** column, shown in all six tabs that render the schedule: Declaration, Authoriser, ICU, Lodgement, Allotment, and Reports.
+
+`EntitlementResponse` currently returns:
+
+```
+shareholderId, accountNumber, name, email,
+unitsAtQualDate, bonusDue, fractionalRemainder, status
+```
+
+- **Add:** `certNo` (string, nullable) — the share certificate number for the holding at the qualification date.
+- Nullable is expected: dematerialised/CSCS holdings have no paper certificate. The frontend renders `—` when the field is absent or null, so shipping it nullable is safe.
+- Please confirm behaviour where a holder has **multiple** certificates for one holding. The column currently assumes a single value; if multiple is possible, either return a comma-joined string or an array and we'll adjust the cell (the demat screens already display multi-cert as `CERT NO(S)`).
+
+**Frontend status:** the column is live against mock data. It reads `certNo` off each entitlement row and needs no further change once the API supplies the field.
+
+---
+
+# Offer Administration → Return Money — Agent Commission Approvals (new)
+
+## 23. Two-stage approval before an agent commission can be paid
+
+The Agent Commission tab previously allowed a single "Mark Paid" action straight from `PENDING`. It now enforces maker-checker: a commission must clear **first approval (OPS)** and then **ICU approval** before it can be paid or included in a payment file.
+
+```
+PENDING_OPS_REVIEW → PENDING_ICU_REVIEW → APPROVED_FOR_PAYMENT → PAID
+        ↓ reject              ↓ reject
+   OPS_REJECTED          ICU_REJECTED   → (resubmit) → PENDING_OPS_REVIEW
+```
+
+Stage naming deliberately matches the sibling IPO refund flow (`PENDING_OPS_REVIEW` / `PENDING_ICU_REVIEW` / `OPS_REJECTED` / `ICU_REJECTED`) so both review queues behave the same way.
+
+### 23a. There is no commission API at all
+
+The spec has no commission endpoints or schemas — only `/agents*` for agent records. The entire tab runs on local mock state. The following are needed:
+
+- `GET /offers/{offerType}/{offerId}/agent-commissions` — list, with `status` filter. Each row: `agentId`, `agentName`, `agentType`, `totalApplications`, `totalValueSubmitted`, `totalValueRefunded`, `commissionRate`, `commissionAmount`, `status`, `approvalTrail[]`.
+- `POST /offers/{offerType}/{offerId}/agent-commissions/{id}/review` — body `{ approved: boolean, remark?: string, reviewedBy: string }`. The server derives the stage from the record's current status; it must **reject a review posted against the wrong stage** rather than trusting the client.
+- `POST /offers/{offerType}/{offerId}/agent-commissions/{id}/mark-paid` — must **refuse unless status is `APPROVED_FOR_PAYMENT`**.
+- `POST /offers/{offerType}/{offerId}/agent-commissions/{id}/resubmit` — returns a rejected record to `PENDING_OPS_REVIEW`.
+- `approvalTrail[]` entries: `{ stage: "OPS"|"ICU"|"PAYMENT", actor, action: "APPROVED"|"REJECTED"|"MARKED_PAID"|"RESUBMITTED", remark?, date }`.
+
+### 23b. Controls the server must own
+
+- **Role enforcement.** The UI gates actions on record status only, matching the existing refund dialog — it does **not** check roles. First approval should require OPS/ADMIN and ICU approval should require the ICU role, enforced server-side.
+- **Segregation of duties.** Please confirm whether the same user may perform both approvals. The UI does not currently prevent it (deliberately, so the flow is testable with one login); if the policy is that they must differ, the server must reject it and we will surface the error.
+- **Rejection remarks are mandatory** — enforced client-side today, must also be enforced server-side.
+- Payment file generation must include only `APPROVED_FOR_PAYMENT` records.
+
+**Frontend status:** complete against mock state in `agent-commission-panel.tsx`, with the state machine and labels isolated in `agent-commission-types.ts` for easy swap to server data.
