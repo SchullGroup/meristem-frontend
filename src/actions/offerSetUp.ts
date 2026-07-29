@@ -181,3 +181,129 @@ export const GET_A_SINGLE_RIGHT_OFFERS = async (id: string | number) => {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+// Bonus Offer Setup
+
+export const CREATE_BONUS_OFFER = async (data: {
+  name: string;
+  registerId: string;
+  ratioNumerator: number;
+  ratioDenominator: number;
+  qualificationDate: string;
+  closureDate: string;
+  allotmentDate: string;
+  roundingRule: string;
+  eventId: string;
+  fractionAccountNumber: string;
+  narrative: string;
+  receivingBanks: { bankName: string; accountNumber: string }[];
+  createdBy: string;
+}) => {
+  try {
+    const res = await api.post(`/offers/bonus-issue/setup`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const EDIT_BONUS_OFFER = async (
+  id: string | number,
+  data: {
+    name: string;
+    registerId: string;
+    ratioNumerator: number;
+    ratioDenominator: number;
+    qualificationDate: string;
+    closureDate: string;
+    allotmentDate: string;
+    roundingRule: string;
+    eventId: string;
+    fractionAccountNumber: string;
+    narrative: string;
+    receivingBanks: { bankName: string; accountNumber: string }[];
+  },
+) => {
+  try {
+    const res = await api.put(`/offers/bonus-issue/setup/${id}`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const MOVE_BONUS_TO_REGISTER = async (
+  id: string | number,
+  data: { openedBy: string },
+) => {
+  try {
+    const res = await api.post(`/offers/bonus-issue/setup/${id}/open`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_BONUS_OFFERS = async (params?: GetOffersParams) => {
+  try {
+    const res = await api.get("/offers/bonus-issue/setup", {
+      params,
+    });
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_A_SINGLE_BONUS_OFFERS = async (id: string | number) => {
+  try {
+    const res = await api.get(`/offers/bonus-issue/setup/${id}`);
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Agent Setup
+export const ASSIGN_AGENT_TO_OFFER = async (
+  offerType: string,
+  offerId: string | number,
+  data: {
+    agentId: string | number;
+    offerDate: string;
+    offerValue: number;
+    numberOfForms: number;
+    totalUnits: number;
+    totalAmountPaid: number;
+    commissionRate: number;
+  },
+) => {
+  try {
+    const res = await api.post(`/offers/${offerType}/${offerId}/agents`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_OFFER_ASSIGNED_AGENTS = async (
+  offerType: string,
+  offerId: string | number,
+) => {
+  try {
+    const res = await api.get(`/offers/${offerType}/${offerId}/agents`);
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
