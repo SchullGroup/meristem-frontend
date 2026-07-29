@@ -9,12 +9,18 @@ import {
   getDeclarationSummaryReport,
   getLiabilityRegisterReport,
   getMandatePaymentsReport,
+  getMandatedAccountReport,
+  getMandatedUnpaidExceptionsReport,
+  getUftfStatutoryRemittanceReport,
   getPaymentStatusReport,
   getUnclaimedDividendsReport,
   getWhtDeductionReport,
   ReportFilters,
   PaginatedReportFilters,
   DividendReport,
+  MandatedAccountReport,
+  MandatedUnpaidExceptionsReport,
+  UftfStatutoryRemittanceReport,
   ReportExportFormat,
   DividendReportType,
 } from "@/actions/dividendReportActions";
@@ -112,6 +118,54 @@ export const useGetLiabilityRegisterReport = (
     ...options,
   });
 };
+// Mandated Account Report (dummy endpoint)
+export const useGetMandatedAccountReport = (
+  params: PaginatedReportFilters,
+  options?: Omit<
+    UseQueryOptions<ApiResponse<MandatedAccountReport>, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["dividend-report", "mandated-account", params],
+    queryFn: () => getMandatedAccountReport(params),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+// Mandated Unpaid Dividend Exceptions Report (dummy endpoint)
+export const useGetMandatedUnpaidExceptionsReport = (
+  params: PaginatedReportFilters,
+  options?: Omit<
+    UseQueryOptions<ApiResponse<MandatedUnpaidExceptionsReport>, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["dividend-report", "mandated-unpaid-exceptions", params],
+    queryFn: () => getMandatedUnpaidExceptionsReport(params),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
+// UFTF Statutory Remittance Report (dummy endpoint)
+export const useGetUftfStatutoryRemittanceReport = (
+  params: PaginatedReportFilters,
+  options?: Omit<
+    UseQueryOptions<ApiResponse<UftfStatutoryRemittanceReport>, Error>,
+    "queryKey" | "queryFn"
+  >,
+) => {
+  return useQuery({
+    queryKey: ["dividend-report", "uftf-statutory-remittance", params],
+    queryFn: () => getUftfStatutoryRemittanceReport(params),
+    refetchOnWindowFocus: false,
+    ...options,
+  });
+};
+
 // Declaration Summary
 
 export type DeclarationSummaryFilters = Omit<ReportFilters, "dividendId">;

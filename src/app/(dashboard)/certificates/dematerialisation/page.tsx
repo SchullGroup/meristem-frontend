@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { DematVerification } from "@/components/custom/cert-dematerialization/demat-verification";
 import { DematCertificateCapture } from "@/components/custom/cert-dematerialization/demat-certificate-capture";
+import { DematTeamLeadApproval } from "@/components/custom/cert-dematerialization/demat-team-lead-approval";
 import { DematHodApproval } from "@/components/custom/cert-dematerialization/demat-hod-approval";
 import { DematCooApproval } from "@/components/custom/cert-dematerialization/demat-coo-approval";
 import { DematIcuApproval } from "@/components/custom/cert-dematerialization/demat-icu-approval-new";
@@ -22,28 +23,26 @@ export default function DematerializationPage() {
   const [activeTab, setActiveTab] = useState("verification");
   const [captureSearchCert, setCaptureSearchCert] = useState("");
 
+  const pendingTeamLead = requests.filter(
+    (r) => r.status === "PENDING_TEAM_LEAD",
+  ).length;
   const pendingHod = requests.filter((r) => r.status === "PENDING_HOD").length;
-  const pendingCoo = requests.filter((r) => r.status === "PENDING_COO").length;
+  const pendingCeo = requests.filter((r) => r.status === "PENDING_CEO").length;
   const pendingIcu = requests.filter((r) => r.status === "PENDING_ICU").length;
   const pendingLodgment = requests.filter(
     (r) => r.status === "APPROVED",
   ).length;
 
-  function approveHod(id: string) {
+  // Chain: Team Lead → HOD → ICU → (CEO if high value) → Approved → Lodgment.
+  function approveTeamLead(id: string) {
     setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const value = r.totalUnits * r.unitPrice;
-        const nextStatus: DematStatus =
-          r.totalUnits > 10_000_000 || value > 5_000_000
-            ? "PENDING_COO"
-            : "PENDING_ICU";
-        return { ...r, status: nextStatus };
-      }),
+      prev.map((r) =>
+        r.id === id ? { ...r, status: "PENDING_HOD" as DematStatus } : r,
+      ),
     );
   }
 
-  function approveCoo(id: string) {
+  function approveHod(id: string) {
     setRequests((prev) =>
       prev.map((r) =>
         r.id === id ? { ...r, status: "PENDING_ICU" as DematStatus } : r,
@@ -52,6 +51,20 @@ export default function DematerializationPage() {
   }
 
   function approveIcu(id: string) {
+    setRequests((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const value = r.totalUnits * r.unitPrice;
+        const nextStatus: DematStatus =
+          r.totalUnits > 10_000_000 || value > 5_000_000
+            ? "PENDING_CEO"
+            : "APPROVED";
+        return { ...r, status: nextStatus };
+      }),
+    );
+  }
+
+  function approveCoo(id: string) {
     setRequests((prev) =>
       prev.map((r) =>
         r.id === id ? { ...r, status: "APPROVED" as DematStatus } : r,
@@ -76,14 +89,18 @@ export default function DematerializationPage() {
   function lodgeRequest(id: string, date: string) {
     setRequests((prev) =>
       prev.map((r) =>
-        r.id === id ? { ...r, status: "LODGED" as DematStatus, lodgmentDate: date } : r,
+        r.id === id
+          ? { ...r, status: "LODGED" as DematStatus, lodgmentDate: date }
+          : r,
       ),
     );
   }
 
   function delodgeRequest(id: string) {
     setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "DELODGED" as DematStatus } : r)),
+      prev.map((r) =>
+        r.id === id ? { ...r, status: "DELODGED" as DematStatus } : r,
+      ),
     );
   }
 
@@ -100,7 +117,7 @@ export default function DematerializationPage() {
     setRequests((prev) =>
       prev.map((r) =>
         r.id === id
-          ? { ...r, ...updates, status: "PENDING_HOD" as DematStatus }
+          ? { ...r, ...updates, status: "PENDING_TEAM_LEAD" as DematStatus }
           : r,
       ),
     );
@@ -115,7 +132,11 @@ export default function DematerializationPage() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab((v as string) || "verification")} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab((v as string) || "verification")}
+        className="w-full"
+      >
         <TabsList className="flex flex-wrap gap-1 h-auto mb-5">
           <TabsTrigger
             value="verification"
@@ -129,6 +150,17 @@ export default function DematerializationPage() {
           >
             Certificate Capture
           </TabsTrigger>
+          <TabsTrigger
+            value="teamlead"
+            className="gap-1.5 cursor-pointer px-3 py-2"
+          >
+            Team Lead Approval
+            {pendingTeamLead > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {pendingTeamLead}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="hod" className="gap-1.5 cursor-pointer px-3 py-2">
             HOD Approval
             {pendingHod > 0 && (
@@ -137,19 +169,19 @@ export default function DematerializationPage() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="coo" className="gap-1.5 cursor-pointer px-3 py-2">
-            COO / CEO Approval
-            {pendingCoo > 0 && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                {pendingCoo}
-              </Badge>
-            )}
-          </TabsTrigger>
           <TabsTrigger value="icu" className="gap-1.5 cursor-pointer px-3 py-2">
             ICU Approval
             {pendingIcu > 0 && (
               <Badge variant="secondary" className="text-xs px-1.5 py-0">
                 {pendingIcu}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="coo" className="gap-1.5 cursor-pointer px-3 py-2">
+            CEO Approval
+            {pendingCeo > 0 && (
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {pendingCeo}
               </Badge>
             )}
           </TabsTrigger>
@@ -191,32 +223,44 @@ export default function DematerializationPage() {
           />
         </TabsContent>
 
-        <TabsContent value="hod">
-          <DematHodApproval
-            requests={requests}
-            onApprove={approveHod}
+        <TabsContent value="teamlead">
+          <DematTeamLeadApproval
+            requests={requests.filter((r) => r.status === "PENDING_TEAM_LEAD")}
+            onApprove={approveTeamLead}
             onReject={rejectRequest}
           />
         </TabsContent>
 
-        <TabsContent value="coo">
-          <DematCooApproval
-            requests={requests}
-            onApprove={approveCoo}
+        <TabsContent value="hod">
+          <DematHodApproval
+            requests={requests.filter((r) => r.status === "PENDING_HOD")}
+            onApprove={approveHod}
             onReject={rejectRequest}
           />
         </TabsContent>
 
         <TabsContent value="icu">
           <DematIcuApproval
-            requests={requests}
+            requests={requests.filter((r) => r.status === "PENDING_ICU")}
             onApprove={approveIcu}
             onReject={rejectRequest}
           />
         </TabsContent>
 
+        <TabsContent value="coo">
+          <DematCooApproval
+            requests={requests.filter((r) => r.status === "PENDING_CEO")}
+            onApprove={approveCoo}
+            onReject={rejectRequest}
+          />
+        </TabsContent>
+
         <TabsContent value="lodgment">
-          <DematLodgment requests={requests} onLodge={lodgeRequest} onDelodge={delodgeRequest} />
+          <DematLodgment
+            requests={requests}
+            onLodge={lodgeRequest}
+            onDelodge={delodgeRequest}
+          />
         </TabsContent>
 
         <TabsContent value="reversal">

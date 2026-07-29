@@ -44,12 +44,16 @@ const STATUS_BADGE_VARIANTS: Record<
   string,
   { label: string; className: string }
 > = {
+  PENDING_TEAM_LEAD: {
+    label: "Pending Team Lead",
+    className: "bg-sky-100 text-sky-800 border-sky-200",
+  },
   PENDING_HOD: {
     label: "Pending HOD",
     className: "bg-yellow-100 text-yellow-800 border-yellow-200",
   },
-  PENDING_COO: {
-    label: "Pending COO",
+  PENDING_CEO: {
+    label: "Pending CEO",
     className: "bg-orange-100 text-orange-800 border-orange-200",
   },
   PENDING_ICU: {

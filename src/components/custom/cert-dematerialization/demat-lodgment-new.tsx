@@ -57,26 +57,48 @@ export function DematLodgment({ requests, onLodge, onDelodge }: Props) {
     closeDetail();
   }
 
-  function buildTextContent(req: DematRequest): string {
-    return [
-      `DEMAT REQUEST: ${req.id}`,
-      `Holder: ${req.holderName}`,
-      `CHN: ${req.holderChn}`,
-      `Register: ${req.registerSymbol}`,
-      `Certificates: ${req.certificateNos.join(", ")}`,
-      `Units: ${req.totalUnits}`,
-      `Date: ${req.createdAt}`,
-      "",
-    ].join("\n");
+  // Proper comma-separated CSV (header + one row per request).
+  function buildCsvContent(req: DematRequest): string {
+    const value = req.totalUnits * req.unitPrice;
+    const header = [
+      "Request ID",
+      "Holder Name",
+      "CHN",
+      "Register",
+      "Certificate No(s)",
+      "Total Units",
+      "Value (NGN)",
+      "Captured On",
+    ].join(",");
+    const row = [
+      req.id,
+      `"${req.holderName}"`,
+      req.holderChn,
+      req.registerSymbol,
+      `"${req.certificateNos.join("; ")}"`,
+      req.totalUnits,
+      value,
+      req.createdAt,
+    ].join(",");
+    return `${header}\n${row}\n`;
   }
 
-  function triggerDownload(req: DematRequest) {
-    const content = buildTextContent(req);
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  // Flat pipe-delimited text file for CSCS lodgement — Header / Detail / Trailer.
+  function buildCscsText(req: DematRequest): string {
+    const lines = [
+      `H|${req.id}|${req.holderChn}|${req.holderName}|${req.registerSymbol}|${req.totalUnits}|${req.createdAt}`,
+      ...req.certificateNos.map((c, i) => `D|${i + 1}|${c}`),
+      `T|${req.certificateNos.length}|${req.totalUnits}`,
+    ];
+    return lines.join("\n") + "\n";
+  }
+
+  function triggerDownload(content: string, filename: string, mime: string) {
+    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `demat_${req.id}.txt`;
+    anchor.download = filename;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -87,11 +109,21 @@ export function DematLodgment({ requests, onLodge, onDelodge }: Props) {
     return format(d, "dd MMM yyyy");
   }
 
-  function handleDownloadCsv(req: DematRequest) {
-    triggerDownload(req);
+  function markLodged(req: DematRequest) {
     const d = lodgmentDates[req.id] ?? new Date();
     onLodge(req.id, formatLodgmentDate(d));
+  }
+
+  function handleDownloadCsv(req: DematRequest) {
+    triggerDownload(buildCsvContent(req), `demat_${req.id}.csv`, "text/csv");
+    markLodged(req);
     toast.success(`CSV downloaded for ${req.id}`);
+  }
+
+  function handleDownloadText(req: DematRequest) {
+    triggerDownload(buildCscsText(req), `demat_${req.id}.txt`, "text/plain");
+    markLodged(req);
+    toast.success(`CSCS text file downloaded for ${req.id}`);
   }
 
   function handleMarkLodged(id: string) {
@@ -102,10 +134,18 @@ export function DematLodgment({ requests, onLodge, onDelodge }: Props) {
 
   function handleDownloadAll() {
     approved.forEach((req) => {
-      triggerDownload(req);
-      toast.success(`CSV downloaded for ${req.id}`);
-      onLodge(req.id, formatLodgmentDate(lodgmentDates[req.id] ?? new Date()));
+      triggerDownload(buildCsvContent(req), `demat_${req.id}.csv`, "text/csv");
+      markLodged(req);
     });
+    toast.success(`CSV downloaded for ${approved.length} request(s)`);
+  }
+
+  function handleDownloadAllText() {
+    approved.forEach((req) => {
+      triggerDownload(buildCscsText(req), `demat_${req.id}.txt`, "text/plain");
+      markLodged(req);
+    });
+    toast.success(`CSCS text file downloaded for ${approved.length} request(s)`);
   }
 
   return (
@@ -123,19 +163,31 @@ export function DematLodgment({ requests, onLodge, onDelodge }: Props) {
               )}
             </div>
             <p className="text-sm text-muted-foreground">
-              Download CSV files for submission to CSCS.
+              Download the CSV or CSCS text (.txt) lodgement file for submission
+              to CSCS.
             </p>
           </div>
           {approved.length > 0 && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 gap-1.5"
-              onClick={handleDownloadAll}
-            >
-              <Download className="h-3.5 w-3.5" />
-              Download All (CSV)
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={handleDownloadAll}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download All (CSV)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={handleDownloadAllText}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Download All (Text)
+              </Button>
+            </div>
           )}
         </div>
 
@@ -241,7 +293,16 @@ export function DematLodgment({ requests, onLodge, onDelodge }: Props) {
                                 onClick={() => handleDownloadCsv(req)}
                               >
                                 <Download className="h-3 w-3" />
-                                Download CSV
+                                CSV
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-[12px] gap-1"
+                                onClick={() => handleDownloadText(req)}
+                              >
+                                <FileText className="h-3 w-3" />
+                                Text
                               </Button>
                               <Button
                                 size="sm"

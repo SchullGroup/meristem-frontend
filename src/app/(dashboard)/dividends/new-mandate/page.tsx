@@ -78,6 +78,8 @@ export default function NewMandatePage() {
               approveLabel="Send to HOP for Approval"
               emptyLabel="No batches pending approval."
               csvName="mandate_pending_approval.csv"
+              editable
+              editStage="Pending Approval"
             />
           </TabsContent>
 

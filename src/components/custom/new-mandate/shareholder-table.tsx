@@ -1,7 +1,9 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import type { MandateShareholder } from "@/types/mandate-payment-flow";
+import { SOURCE_SHORT, sourceBadgeClass } from "./helpers";
 
 interface ShareholderTableProps {
   shareholders: MandateShareholder[];
@@ -10,6 +12,8 @@ interface ShareholderTableProps {
   selectedIds?: Set<string>;
   onToggle?: (id: string) => void;
   onToggleAll?: () => void;
+  // Show a per-row Source column (used by the Create Batch preview).
+  showSource?: boolean;
   emptyLabel?: string;
   maxHeight?: string;
 }
@@ -21,6 +25,7 @@ export function ShareholderTable({
   selectedIds,
   onToggle,
   onToggleAll,
+  showSource = false,
   emptyLabel = "No shareholders in this batch.",
   maxHeight = "max-h-96",
 }: ShareholderTableProps) {
@@ -28,7 +33,7 @@ export function ShareholderTable({
     shareholders.length > 0 &&
     shareholders.every((s) => selectedIds?.has(s.id));
 
-  const colCount = selectable ? 9 : 8;
+  const colCount = 8 + (selectable ? 1 : 0) + (showSource ? 1 : 0);
 
   return (
     <div
@@ -44,12 +49,13 @@ export function ShareholderTable({
             )}
             <th className="px-3 py-2">NAME</th>
             <th className="px-3 py-2">REGISTER</th>
+            <th className="px-3 py-2">SHARE ACCT NO</th>
             <th className="px-3 py-2">NEW ACCOUNT NO</th>
             <th className="px-3 py-2">BANK</th>
             <th className="px-3 py-2">BVN</th>
-            <th className="px-3 py-2">ADDRESS</th>
-            <th className="px-3 py-2">DIVIDEND NO</th>
+            <th className="px-3 py-2">PAYMENT NO</th>
             <th className="px-3 py-2 text-right">AMOUNT (₦)</th>
+            {showSource && <th className="px-3 py-2 text-center">SOURCE</th>}
           </tr>
         </thead>
         <tbody className="divide-y text-[13px]">
@@ -63,7 +69,7 @@ export function ShareholderTable({
               </td>
             </tr>
           ) : (
-            shareholders.map((s) => {
+            shareholders.map((s, i) => {
               const checked = selectedIds?.has(s.id) ?? false;
               return (
                 <tr
@@ -80,20 +86,27 @@ export function ShareholderTable({
                   )}
                   <td className="px-3 py-2 font-medium">{s.name}</td>
                   <td className="px-3 py-2 font-semibold">{s.registerSymbol}</td>
+                  <td className="px-3 py-2 font-mono">{s.oldAccountNumber}</td>
                   <td className="px-3 py-2 font-mono">{s.newAccountNumber}</td>
                   <td className="px-3 py-2">{s.bank}</td>
                   <td className="px-3 py-2 font-mono text-muted-foreground">
                     {s.bvn}
                   </td>
-                  <td className="px-3 py-2 text-muted-foreground max-w-[220px] truncate" title={s.address}>
-                    {s.address}
-                  </td>
                   <td className="px-3 py-2 font-mono text-muted-foreground">
-                    {s.dividendNumber}
+                    {i + 1}
                   </td>
                   <td className="px-3 py-2 text-right font-mono font-semibold">
                     {s.amount.toLocaleString()}.00
                   </td>
+                  {showSource && (
+                    <td className="px-3 py-2 text-center">
+                      <Badge
+                        className={`border-0 text-[11px] ${sourceBadgeClass(s.source)}`}
+                      >
+                        {SOURCE_SHORT[s.source]}
+                      </Badge>
+                    </td>
+                  )}
                 </tr>
               );
             })

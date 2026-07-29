@@ -22,6 +22,9 @@ import PaymentStatusReport from "@/components/custom/dividend-reports/payment-st
 import UnclaimedDividendsReport from "@/components/custom/dividend-reports/unclaimed-dividends-report";
 import DeclarationSummaryReport from "@/components/custom/dividend-reports/declaration-summary-report";
 import MandatePaymentReport from "@/components/custom/dividend-reports/mandate-payment-report";
+import MandatedAccountReport from "@/components/custom/dividend-reports/mandated-account-report";
+import MandatedUnpaidExceptionsReport from "@/components/custom/dividend-reports/mandated-unpaid-exceptions-report";
+import UftfStatutoryRemittanceReport from "@/components/custom/dividend-reports/uftf-statutory-remittance-report";
 import { DateRangePicker } from "@/components/custom/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -34,6 +37,9 @@ const REPORT_TYPES = [
   "Unclaimed Dividends Report",
   "Declaration Summary",
   "Mandate Payment Report",
+  "Mandated Account Report",
+  "Mandated Unpaid Dividend Exceptions Report",
+  "UFTF Statutory Remittance Report",
 ] as const;
 type ReportType = (typeof REPORT_TYPES)[number];
 
@@ -73,7 +79,7 @@ export default function DividendReportsPage() {
       ? format(reportDateRange.to, "yyyy-MM-dd")
       : undefined,
     size: pageSize,
-    page: page
+    page: page,
   };
 
   function handleRunReport() {
@@ -257,6 +263,29 @@ export default function DividendReportsPage() {
           onTotalChange={setTotal}
         />
       )}
+      {reportGenerated && selectedReport === "Mandated Account Report" && (
+        <MandatedAccountReport
+          filters={sharedFilters}
+          generated={reportGenerated}
+          onTotalChange={setTotal}
+        />
+      )}
+      {reportGenerated &&
+        selectedReport === "Mandated Unpaid Dividend Exceptions Report" && (
+          <MandatedUnpaidExceptionsReport
+            filters={sharedFilters}
+            generated={reportGenerated}
+            onTotalChange={setTotal}
+          />
+        )}
+      {reportGenerated &&
+        selectedReport === "UFTF Statutory Remittance Report" && (
+          <UftfStatutoryRemittanceReport
+            filters={sharedFilters}
+            generated={reportGenerated}
+            onTotalChange={setTotal}
+          />
+        )}
 
       {reportGenerated && (
         <PaginationBar

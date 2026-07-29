@@ -28,7 +28,7 @@ import { MOCK_REGISTERS } from "./seed-data";
 import { batchDividendNumbers, batchRegisters } from "./helpers";
 import { BatchListTable } from "./batch-list-table";
 import { BatchDetailPanel } from "./batch-detail-panel";
-import { CreateBatchDialog } from "./create-batch-dialog";
+import { CreateBatchPanel } from "./create-batch-panel";
 import { downloadBatchListCsv } from "./csv";
 
 export function ReviewQueueTab() {
@@ -41,7 +41,7 @@ export function ReviewQueueTab() {
   const [view, setView] = useState<"active" | "rejected">("active");
   const [register, setRegister] = useState("");
   const [dividend, setDividend] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const dividendOptions = useMemo(
@@ -84,6 +84,11 @@ export function ReviewQueueTab() {
     );
   }
 
+  // In-place create-batch sub-screen.
+  if (creating) {
+    return <CreateBatchPanel onBack={() => setCreating(false)} />;
+  }
+
   // In-place batch detail sub-screen.
   if (selected) {
     return (
@@ -91,6 +96,8 @@ export function ReviewQueueTab() {
         batch={selected}
         title="Batch Detail"
         onBack={() => setSelectedId(null)}
+        editable={selected.status === "QUEUED"}
+        editStage="Review Queue"
         actions={
           selected.status === "QUEUED" ? (
             <Button
@@ -137,9 +144,9 @@ export function ReviewQueueTab() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Rejected{" "}
+            Excluded{" "}
             {rejected.length > 0 && (
-              <Badge className="ml-1 bg-red-100 text-red-700 border-0 text-[11px]">
+              <Badge className="ml-1 bg-amber-100 text-amber-700 border-0 text-[11px]">
                 {rejected.length}
               </Badge>
             )}
@@ -147,7 +154,7 @@ export function ReviewQueueTab() {
         </div>
 
         {view === "active" && (
-          <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
+          <Button className="gap-1.5" onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4" /> Create New Batch
           </Button>
         )}
@@ -224,8 +231,6 @@ export function ReviewQueueTab() {
       ) : (
         <RejectedView rejected={rejected} isLoading={rejectedLoading} />
       )}
-
-      <CreateBatchDialog open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }
@@ -239,10 +244,16 @@ function RejectedView({
 }) {
   const rows = rejected ?? [];
   return (
-    <Card className="mrpsl-card overflow-hidden">
-      <div className="px-4 py-3 bg-red-50 border-b border-red-200 text-[13px] font-bold uppercase tracking-wide text-red-700">
-        Excluded / Rejected Shareholders ({rows.length})
-      </div>
+    <div className="space-y-3">
+      <p className="text-[13px] text-muted-foreground">
+        Shareholders excluded from a batch. Their dividends{" "}
+        <span className="font-medium text-foreground">remain outstanding</span> —
+        they were simply not paid in that batch and can be added to a future one.
+      </p>
+      <Card className="mrpsl-card overflow-hidden">
+        <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 text-[13px] font-bold uppercase tracking-wide text-amber-800">
+          Excluded Shareholders — Still Outstanding ({rows.length})
+        </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="mrpsl-table-header">
@@ -297,7 +308,8 @@ function RejectedView({
             )}
           </tbody>
         </table>
-      </div>
-    </Card>
+        </div>
+      </Card>
+    </div>
   );
 }

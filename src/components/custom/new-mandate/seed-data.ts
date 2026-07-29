@@ -131,6 +131,25 @@ export function makeShareholders(count: number, registerSymbols?: string[]) {
   return rows;
 }
 
+// Mock "eligibility pull": the newly-mandated, approved (NIBSS/CSCS/KYC/Manual)
+// shareholders in the selected registers who have outstanding dividends. In
+// production this is a backend query; here we synthesise a register-scoped set.
+export function generateEligibleShareholders(
+  registerSymbols: string[],
+  dividendNumber?: string,
+): MandateShareholder[] {
+  const rows: MandateShareholder[] = [];
+  for (const sym of registerSymbols) {
+    const n = randInt(3, 14);
+    for (let i = 0; i < n; i++) {
+      const sh = makeShareholder({ registerSymbol: sym });
+      if (dividendNumber) sh.dividendNumber = dividendNumber;
+      rows.push(sh);
+    }
+  }
+  return rows;
+}
+
 // ── Payment simulation ────────────────────────────────────────────────────────
 
 function withProcessedPayments(
@@ -304,5 +323,14 @@ export const SEED_REJECTED_SHAREHOLDERS: MandateShareholder[] = [
     excludedFromBatchRef: "NMB-2026/007",
   }),
 ];
+
+// Shareholders with outstanding dividends who are NOT currently in a batch —
+// the pool the initiator searches when manually adding to a batch. Excluded
+// shareholders (SEED_REJECTED_SHAREHOLDERS) remain outstanding and are also
+// searchable/re-addable.
+export const SEED_OUTSTANDING_POOL: MandateShareholder[] = makeShareholders(
+  60,
+  MOCK_REGISTERS.map((r) => r.symbol),
+);
 
 export const SEED_NOTIFICATION_LOG: MandateNotificationLogEntry[] = [];

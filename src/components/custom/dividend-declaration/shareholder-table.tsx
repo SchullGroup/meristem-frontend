@@ -255,6 +255,7 @@ export function ShareholderTable({
                   <SelectItem value="">All Categories</SelectItem>
                   <SelectItem value="MANDATED">Mandated</SelectItem>
                   <SelectItem value="OTHERS">Others</SelectItem>
+                  <SelectItem value="CAUTIONED">Cautioned</SelectItem>
                 </SelectContent>
               </Select>
             </div>
