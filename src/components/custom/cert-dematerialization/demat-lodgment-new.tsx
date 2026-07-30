@@ -1,450 +1,146 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Loader2, PackageCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Download, CheckCircle2, FileText, CalendarIcon, AlertTriangle, X } from "lucide-react";
-import { format } from "date-fns";
-import { formatNumber } from "@/lib/utils/format";
-import type { DematRequest } from "./demat-types";
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
+import { formatNumber } from "@/lib/utils/format";
+import { DematDetailDialog, StatusBadge, fmtDate } from "./demat-shared";
+import { useGetAllCertificateDemat, useLodgetDematRequest } from "@/hooks/useCertDematerialisation";
+import type { Demat } from "@/actions/certDematActions";
 
-interface Props {
-  requests: DematRequest[];
-  onLodge: (id: string, date: string) => void;
-  onDelodge: (id: string) => void;
+type Rin = "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS";
+type Method = "DOWNLOAD" | "PUSH";
+
+function LodgeDialog({ record, open, onClose, onLodge, busy }: {
+  record: Demat | null; open: boolean; onClose: () => void;
+  onLodge: (rinStatus: Rin, method: Method) => void; busy: boolean;
+}) {
+  const [rin, setRin] = useState<Rin>("RIN_AT_CSCS");
+  const [method, setMethod] = useState<Method>("DOWNLOAD");
+  if (!record) return null;
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+        <div className="px-6 pt-6 pb-4 border-b border-border">
+          <DialogTitle className="text-base font-bold">Lodge with CSCS</DialogTitle>
+          <p className="text-[13px] text-muted-foreground mt-1 font-mono">{record.chn} · {record.register} · {formatNumber(record.totalUnits ?? 0)} units</p>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div className="space-y-1.5">
+            <label className="mrpsl-label">RIN Status</label>
+            <Select value={rin} onValueChange={(v) => setRin(v as Rin)}>
+              <SelectTrigger className="mrpsl-input"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="RIN_AT_CSCS">RIN at CSCS</SelectItem>
+                <SelectItem value="RIN_NOT_AT_CSCS">RIN not at CSCS</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="mrpsl-label">Lodgment Method</label>
+            <Select value={method} onValueChange={(v) => setMethod(v as Method)}>
+              <SelectTrigger className="mrpsl-input"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="DOWNLOAD">Download file</SelectItem>
+                <SelectItem value="PUSH">Push to CSCS</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="px-6 py-4 border-t border-border bg-muted/20 flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={busy} onClick={() => onLodge(rin, method)}>
+            {busy && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />} Lodge
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
-export function DematLodgment({ requests, onLodge, onDelodge }: Props) {
-  const approved = requests.filter((r) => r.status === "APPROVED");
-  const visible = requests.filter(
-    (r) => r.status === "APPROVED" || r.status === "LODGED",
+export function DematLodgment() {
+  const ready = useGetAllCertificateDemat({ status: "ICU_APPROVED", size: 100 });
+  const failed = useGetAllCertificateDemat({ status: "LODGMENT_FAILED", size: 100 });
+  const lodge = useLodgetDematRequest();
+
+  const records = useMemo(
+    () => [...(ready.data?.content ?? []), ...(failed.data?.content ?? [])],
+    [ready.data, failed.data],
   );
 
-  // per-row date state for APPROVED entries; defaults to today
-  const [lodgmentDates, setLodgmentDates] = useState<Record<string, Date>>(
-    () => Object.fromEntries(approved.map((r) => [r.id, new Date()])),
-  );
+  const [detail, setDetail] = useState<Demat | null>(null);
+  const [lodgeTarget, setLodgeTarget] = useState<Demat | null>(null);
 
-  // detail dialog state
-  const [detailReq, setDetailReq] = useState<DematRequest | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  const doLodge = async (rinStatus: Rin, method: Method) => {
+    if (!lodgeTarget) return;
+    try {
+      await lodge.mutateAsync({ id: lodgeTarget.id, data: { rinStatus, method } });
+      toast.success(`Lodged ${lodgeTarget.chn} with CSCS.`);
+      setLodgeTarget(null);
+    } catch (e) { toast.error((e as Error).message); }
+  };
 
-  function openDetail(req: DematRequest) {
-    setDetailReq(req);
-    setConfirming(false);
-  }
-
-  function closeDetail() {
-    setDetailReq(null);
-    setConfirming(false);
-  }
-
-  function handleConfirmDelodge() {
-    if (!detailReq) return;
-    onDelodge(detailReq.id);
-    toast.success(`Certificate ${detailReq.id} has been delodged.`);
-    closeDetail();
-  }
-
-  // Proper comma-separated CSV (header + one row per request).
-  function buildCsvContent(req: DematRequest): string {
-    const value = req.totalUnits * req.unitPrice;
-    const header = [
-      "Request ID",
-      "Holder Name",
-      "CHN",
-      "Register",
-      "Certificate No(s)",
-      "Total Units",
-      "Value (NGN)",
-      "Captured On",
-    ].join(",");
-    const row = [
-      req.id,
-      `"${req.holderName}"`,
-      req.holderChn,
-      req.registerSymbol,
-      `"${req.certificateNos.join("; ")}"`,
-      req.totalUnits,
-      value,
-      req.createdAt,
-    ].join(",");
-    return `${header}\n${row}\n`;
-  }
-
-  // Flat pipe-delimited text file for CSCS lodgement — Header / Detail / Trailer.
-  function buildCscsText(req: DematRequest): string {
-    const lines = [
-      `H|${req.id}|${req.holderChn}|${req.holderName}|${req.registerSymbol}|${req.totalUnits}|${req.createdAt}`,
-      ...req.certificateNos.map((c, i) => `D|${i + 1}|${c}`),
-      `T|${req.certificateNos.length}|${req.totalUnits}`,
-    ];
-    return lines.join("\n") + "\n";
-  }
-
-  function triggerDownload(content: string, filename: string, mime: string) {
-    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
-  }
-
-  function formatLodgmentDate(d: Date): string {
-    return format(d, "dd MMM yyyy");
-  }
-
-  function markLodged(req: DematRequest) {
-    const d = lodgmentDates[req.id] ?? new Date();
-    onLodge(req.id, formatLodgmentDate(d));
-  }
-
-  function handleDownloadCsv(req: DematRequest) {
-    triggerDownload(buildCsvContent(req), `demat_${req.id}.csv`, "text/csv");
-    markLodged(req);
-    toast.success(`CSV downloaded for ${req.id}`);
-  }
-
-  function handleDownloadText(req: DematRequest) {
-    triggerDownload(buildCscsText(req), `demat_${req.id}.txt`, "text/plain");
-    markLodged(req);
-    toast.success(`CSCS text file downloaded for ${req.id}`);
-  }
-
-  function handleMarkLodged(id: string) {
-    const d = lodgmentDates[id] ?? new Date();
-    onLodge(id, formatLodgmentDate(d));
-    toast.success(`Request ${id} marked as lodged`);
-  }
-
-  function handleDownloadAll() {
-    approved.forEach((req) => {
-      triggerDownload(buildCsvContent(req), `demat_${req.id}.csv`, "text/csv");
-      markLodged(req);
-    });
-    toast.success(`CSV downloaded for ${approved.length} request(s)`);
-  }
-
-  function handleDownloadAllText() {
-    approved.forEach((req) => {
-      triggerDownload(buildCscsText(req), `demat_${req.id}.txt`, "text/plain");
-      markLodged(req);
-    });
-    toast.success(`CSCS text file downloaded for ${approved.length} request(s)`);
+  if (ready.isLoading || failed.isLoading) {
+    return <div className="flex items-center justify-center py-16 text-muted-foreground text-sm"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading…</div>;
   }
 
   return (
-    <>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold">CSCS Lodgment</h2>
-              {approved.length > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  {approved.length} Approved
-                </Badge>
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">ICU-approved records ready to lodge with CSCS. Failed lodgments can be retried here.</p>
+      <Card className="mrpsl-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="mrpsl-table-header">
+              <tr>
+                <th className="px-4 py-3">CHN</th>
+                <th className="px-4 py-3">HOLDER</th>
+                <th className="px-4 py-3">REGISTER</th>
+                <th className="px-4 py-3 text-right">CERTS</th>
+                <th className="px-4 py-3 text-right">TOTAL UNITS</th>
+                <th className="px-4 py-3">STATUS</th>
+                <th className="px-4 py-3">ICU APPROVED</th>
+                <th className="px-4 py-3 text-right">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {records.map((r) => (
+                <tr key={r.id} className="mrpsl-table-row">
+                  <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">{r.chn}</td>
+                  <td className="px-4 py-3 font-medium text-sm">{r.holderName || "—"}</td>
+                  <td className="px-4 py-3"><Badge className="border-0 text-[12px] bg-gray-100 text-gray-800">{r.register}</Badge></td>
+                  <td className="px-4 py-3 text-right font-mono">{r.certificates?.length ?? 0}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{formatNumber(r.totalUnits ?? 0)}</td>
+                  <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                  <td className="px-4 py-3 text-[13px] text-muted-foreground">{r.icuApprovedBy || "—"}<br /><span className="text-[11px]">{fmtDate(r.icuApprovedAt)}</span></td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-1.5">
+                      <Button size="sm" variant="ghost" onClick={() => setDetail(r)}>View</Button>
+                      <Button size="sm" onClick={() => setLodgeTarget(r)}>
+                        {r.status === "LODGMENT_FAILED" ? "Re-lodge" : "Lodge"}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {records.length === 0 && (
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-muted-foreground text-sm">
+                  <PackageCheck className="h-5 w-5 inline mr-1.5 text-green-500" /> Nothing awaiting lodgement.
+                </td></tr>
               )}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Download the CSV or CSCS text (.txt) lodgement file for submission
-              to CSCS.
-            </p>
-          </div>
-          {approved.length > 0 && (
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={handleDownloadAll}
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download All (CSV)
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={handleDownloadAllText}
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Download All (Text)
-              </Button>
-            </div>
-          )}
+            </tbody>
+          </table>
         </div>
+      </Card>
 
-        {/* Table or empty state */}
-        {visible.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
-            <FileText className="h-10 w-10 opacity-30" />
-            <p className="text-sm">No requests ready for lodgment.</p>
-          </div>
-        ) : (
-          <Card className="mrpsl-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="mrpsl-table-header">
-                  <tr>
-                    <th className="px-4 py-3">REQUEST ID</th>
-                    <th className="px-4 py-3">HOLDER</th>
-                    <th className="px-4 py-3">CHN</th>
-                    <th className="px-4 py-3">REGISTER</th>
-                    <th className="px-4 py-3">CERT NO(S)</th>
-                    <th className="px-4 py-3 text-right">UNITS</th>
-                    <th className="px-4 py-3 text-right">VALUE (&#8358;)</th>
-                    <th className="px-4 py-3">LODGMENT DATE</th>
-                    <th className="px-4 py-3">STATUS</th>
-                    <th className="px-4 py-3 text-right">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-[13px]">
-                  {visible.map((req) => {
-                    const value = req.totalUnits * req.unitPrice;
-                    const isApproved = req.status === "APPROVED";
-
-                    return (
-                      <tr key={req.id} className="mrpsl-table-row">
-                        <td className="px-4 py-3 font-mono text-xs">{req.id}</td>
-                        <td className="px-4 py-3 font-medium">{req.holderName}</td>
-                        <td className="px-4 py-3 font-mono text-muted-foreground text-xs">
-                          {req.holderChn}
-                        </td>
-                        <td className="px-4 py-3">{req.registerSymbol}</td>
-                        <td
-                          className="px-4 py-3 font-mono truncate max-w-48 text-xs"
-                          title={req.certificateNos.join(", ")}
-                        >
-                          {req.certificateNos.join(", ")}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums font-semibold">
-                          {formatNumber(req.totalUnits)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
-                          {formatNumber(value)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isApproved ? (
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 w-40 justify-start text-xs font-normal cursor-pointer"
-                                >
-                                  <CalendarIcon className="h-3 w-3 mr-1.5 opacity-50 shrink-0" />
-                                  {lodgmentDates[req.id]
-                                    ? format(lodgmentDates[req.id], "dd MMM yyyy")
-                                    : "Pick date"}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                  mode="single"
-                                  captionLayout="dropdown"
-                                  selected={lodgmentDates[req.id]}
-                                  onSelect={(d) =>
-                                    d && setLodgmentDates((prev) => ({ ...prev, [req.id]: d }))
-                                  }
-                                />
-                              </PopoverContent>
-                            </Popover>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">
-                              {req.lodgmentDate ?? "—"}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {isApproved ? (
-                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 text-xs">
-                              Ready
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 text-xs">
-                              Lodged
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {isApproved ? (
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-[12px] gap-1"
-                                onClick={() => handleDownloadCsv(req)}
-                              >
-                                <Download className="h-3 w-3" />
-                                CSV
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-[12px] gap-1"
-                                onClick={() => handleDownloadText(req)}
-                              >
-                                <FileText className="h-3 w-3" />
-                                Text
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="h-7 text-[12px] gap-1"
-                                onClick={() => handleMarkLodged(req.id)}
-                              >
-                                <CheckCircle2 className="h-3 w-3" />
-                                Mark as Lodged
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2.5 text-xs cursor-pointer"
-                              onClick={() => openDetail(req)}
-                            >
-                              View Details
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
-      </div>
-
-      {/* ── Lodged certificate detail dialog ───────────────────────────── */}
-      <Dialog open={!!detailReq} onOpenChange={(v) => !v && closeDetail()}>
-        <DialogContent className="max-w-lg" showCloseButton={false}>
-          <DialogTitle className="sr-only">Certificate Detail</DialogTitle>
-
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-lg font-bold font-mono">{detailReq?.id}</p>
-                <p className="text-sm text-muted-foreground">{detailReq?.holderName}</p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0 -mt-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                onClick={closeDetail}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </DialogHeader>
-
-          {detailReq && (
-            <div className="px-8 pb-2 space-y-5">
-              {/* Status metadata banners */}
-              <div className="flex gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-2 text-xs text-green-800 dark:text-green-300">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  <span className="font-medium">Lodgement Status:</span>
-                  <span>LODGED</span>
-                </div>
-                <div className="flex items-center gap-1.5 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs text-blue-800 dark:text-blue-300">
-                  <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="font-medium">Original Lodgement Date:</span>
-                  <span>{detailReq.lodgmentDate ?? "—"}</span>
-                </div>
-              </div>
-
-              {/* Details grid */}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-border bg-muted/30 p-4 text-sm">
-                <div>
-                  <p className="mrpsl-label mb-0.5">Holder Name</p>
-                  <p className="font-medium">{detailReq.holderName}</p>
-                </div>
-                <div>
-                  <p className="mrpsl-label mb-0.5">CHN</p>
-                  <p className="font-mono">{detailReq.holderChn}</p>
-                </div>
-                <div>
-                  <p className="mrpsl-label mb-0.5">Register</p>
-                  <p className="font-mono font-medium">{detailReq.registerSymbol}</p>
-                </div>
-                <div>
-                  <p className="mrpsl-label mb-0.5">Total Units</p>
-                  <p className="font-semibold tabular-nums">{formatNumber(detailReq.totalUnits)}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="mrpsl-label mb-0.5">Certificate(s)</p>
-                  <div className="flex flex-wrap gap-1">
-                    {detailReq.certificateNos.map((c) => (
-                      <span key={c} className="font-mono text-xs bg-muted rounded px-2 py-0.5">{c}</span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="mrpsl-label mb-0.5">Stockbroker</p>
-                  <p>{detailReq.stockbrokerName}</p>
-                </div>
-                <div>
-                  <p className="mrpsl-label mb-0.5">Captured On</p>
-                  <p className="text-muted-foreground">{detailReq.createdAt}</p>
-                </div>
-              </div>
-
-              {/* Confirmation warning */}
-              {confirming && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                  <p>This will reverse the CSCS lodgement for this certificate. This action cannot be undone.</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter>
-            {confirming ? (
-              <>
-                <Button variant="outline" onClick={() => setConfirming(false)} className="cursor-pointer">
-                  Cancel
-                </Button>
-                <Button variant="destructive" onClick={handleConfirmDelodge} className="cursor-pointer">
-                  Confirm Delodgement
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={closeDetail} className="cursor-pointer">
-                  Close
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setConfirming(true)}
-                  className="cursor-pointer"
-                >
-                  Delodge Certificate
-                </Button>
-              </>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      <DematDetailDialog record={detail} open={detail !== null} onClose={() => setDetail(null)} />
+      <LodgeDialog record={lodgeTarget} open={lodgeTarget !== null} onClose={() => setLodgeTarget(null)} onLodge={doLodge} busy={lodge.isPending} />
+    </div>
   );
 }
