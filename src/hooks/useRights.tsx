@@ -38,6 +38,10 @@ import {
   listRightsBatchRecords,
   submitRightsReturn,
   bulkUploadRightsReturns,
+  listRightsReturns,
+  deleteRightsReturn,
+  forwardRightsBatchToHod,
+  hodActionRightsBatch,
   type CreateReturnBatchPayload,
 } from "@/actions/rightsActions";
 import {
@@ -647,5 +651,45 @@ export const useBulkUploadRightsReturns = () => {
     mutationFn: ({ id, txType, file, batchId }: { id: string | number; txType: string; file: File; batchId?: string | number }) =>
       bulkUploadRightsReturns(id, txType, file, batchId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "batch-records"] }),
+  });
+};
+
+export const useListRightsReturns = (
+  id?: string | number,
+  params?: { page?: number; size?: number; status?: string; txType?: string },
+) =>
+  useQuery({
+    queryKey: ["rights", "returns", String(id ?? ""), params ?? {}],
+    queryFn: () => listRightsReturns(id!, params),
+    enabled: !!id,
+  });
+
+export const useDeleteRightsReturn = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, returnId }: { id: string | number; returnId: string | number }) =>
+      deleteRightsReturn(id, returnId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "returns"] }),
+  });
+};
+
+export const useForwardRightsBatchToHod = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, batchId, submittedBy }: { id: string | number; batchId: string | number; submittedBy?: string }) =>
+      forwardRightsBatchToHod(id, batchId, submittedBy),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rights", "return-batches"] });
+      qc.invalidateQueries({ queryKey: ["rights", "returns"] });
+    },
+  });
+};
+
+export const useHodActionRightsBatch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, batchId, approve, actor, comment }: { id: string | number; batchId: string | number; approve: boolean; actor?: string; comment?: string }) =>
+      hodActionRightsBatch(id, batchId, approve, actor, comment),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "return-batches"] }),
   });
 };

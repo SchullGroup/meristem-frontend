@@ -688,3 +688,83 @@ export interface RightsReturnBatch {
   createdAt: string | null;
 }
 
+// ── Rights Preview + HoD approval ────────────────────────────────────────────
+
+/** Lists captured returns for a declaration (used by the cross-batch Preview). */
+export const listRightsReturns = async (
+  id: string | number,
+  params?: { page?: number; size?: number; status?: string; txType?: string },
+) => {
+  try {
+    const response = await api.get(
+      `/offers/rights-issue/declarations/${id}/returns`,
+      { params },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const deleteRightsReturn = async (id: string | number, returnId: string | number) => {
+  try {
+    const response = await api.delete(
+      `/offers/rights-issue/declarations/${id}/returns/${returnId}`,
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const forwardRightsBatchToHod = async (
+  id: string | number,
+  batchId: string | number,
+  submittedBy?: string,
+) => {
+  try {
+    const response = await api.post(
+      `/offers/rights-issue/declarations/${id}/returns/batches/${batchId}/forward`,
+      { submittedBy },
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const hodActionRightsBatch = async (
+  id: string | number,
+  batchId: string | number,
+  approve: boolean,
+  actor?: string,
+  comment?: string,
+) => {
+  try {
+    const response = await api.post(
+      `/offers/rights-issue/declarations/${id}/returns/batches/${batchId}/${approve ? "hod-approve" : "hod-reject"}`,
+      approve ? { approvedBy: actor, comment } : { rejectedBy: actor, comment },
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const downloadRightsBatchExport = async (id: string | number, batchId: string | number) => {
+  try {
+    const response = await api.get<Blob>(
+      `/offers/rights-issue/declarations/${id}/returns/batches/${batchId}/export`,
+      { responseType: "blob" },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+

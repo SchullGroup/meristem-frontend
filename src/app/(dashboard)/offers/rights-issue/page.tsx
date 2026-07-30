@@ -34,6 +34,8 @@ import { toast } from "sonner";
 // Rights Issue-specific components
 import { ProvisionalAllotment } from "@/components/custom/rights-issue/provisional-allotment";
 import { ReturnsCapture } from "@/components/custom/rights-issue/returns-capture";
+import { RightsPreviewReal } from "@/components/custom/rights-issue/rights-preview-real";
+import { RightsHodApproval } from "@/components/custom/rights-issue/hod-approval";
 
 // Shared offer-administration components
 import { AllotmentRulesEngine } from "@/components/custom/offer-administration/allotment-rules-engine";
@@ -72,6 +74,7 @@ const TABS = [
   "provisional",
   "returns",
   "preview",
+  "hod",
   "sec-reports",
   "allotment",
   "icu",
@@ -88,6 +91,7 @@ const TAB_LABELS: Record<TabValue, string> = {
   provisional: "Provisional Allotment",
   returns: "Returns Capture",
   preview: "Rights Preview",
+  hod: "HoD Approval",
   "sec-reports": "SEC Reports",
   allotment: "Allotment Rule Engine",
   icu: "ICU Approval",
@@ -1559,7 +1563,11 @@ export default function RightsIssuePage() {
 
           {/* Rights Preview */}
           <TabsContent value="preview">
-            <RightsPreviewTab />
+            <RightsPreviewReal declarationId={declarationId || undefined} />
+          </TabsContent>
+
+          <TabsContent value="hod">
+            <RightsHodApproval declarationId={declarationId || undefined} />
           </TabsContent>
 
           {/* SEC Reports */}
