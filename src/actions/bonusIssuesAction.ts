@@ -143,6 +143,37 @@ export const DOWNLOAD_BONUS_PRELIST = async (declarationId: string | number) => 
   }
 };
 
+/** Downloads the bonus CSCS lodgement file (fixed-width) in the given format. */
+export const DOWNLOAD_BONUS_LODGEMENT = async (
+  declarationId: string | number,
+  format: "CSCS_STANDARD" | "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS" = "CSCS_STANDARD",
+) => {
+  try {
+    const res = await api.get<Blob>(
+      `/offers/bonus-issue/declarations/${declarationId}/lodgement/download`,
+      { params: { format }, responseType: "blob" },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+/** Marks a bonus issue as lodged with CSCS. */
+export const LODGE_BONUS = async (
+  declarationId: string | number,
+  payload: { lodgmentDate?: string; lodgmentRef?: string; notes?: string; processedBy?: string },
+) => {
+  try {
+    const res = await api.post(`/offers/bonus-issue/declarations/${declarationId}/lodge`, payload);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const COMPUTE_BONUS_ISSUE_DECLARATION = async ({
   declarationId,
 }: {

@@ -15,6 +15,7 @@ import {
   RETURN_DECLARATION_TO_OPS,
   GET_DELCARED_BONUS_ALLOTMENTS,
   EMAIL_SHAREHOLDERS,
+  LODGE_BONUS,
 } from "@/actions/bonusIssuesAction";
 
 export const useBonusOffers = () =>
@@ -139,3 +140,12 @@ export const useEmailBonusShareholders = () =>
     mutationFn: ({ declarationId }: { declarationId: string | number }) =>
       EMAIL_SHAREHOLDERS({ declarationId }),
   });
+
+export const useLodgeBonus = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ declarationId, payload }: { declarationId: string | number; payload: { lodgmentDate?: string; lodgmentRef?: string; notes?: string; processedBy?: string } }) =>
+      LODGE_BONUS(declarationId, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bonus", "declarations"] }),
+  });
+};
