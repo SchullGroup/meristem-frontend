@@ -141,6 +141,61 @@ interface ListParams {
   size?: number;
 }
 
+/* ─── Report types (mirror the backend report DTOs) ────────────────────────── */
+
+export interface SubscriptionSummaryReport {
+  fundName: string | null;
+  fundRegisterId: string | null;
+  period: { from: string | null; to: string | null } | null;
+  totalSubscriptions: number;
+  totalUnitsSubscribed: number;
+  totalAmountPaid: number | null;
+  newSubscribers: number;
+  existingHolders: number;
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  rows: {
+    ref: string; holderName: string | null; accountNo: string | null; subscriberType: string | null;
+    unitsSubscribed: number; amountPaid: number | null; subscriptionDate: string | null; status: string;
+    approvedBy: string | null; submittedBy: string | null; ageInDays: number | null;
+    rejectedBy: string | null; rejectionRemark: string | null;
+  }[];
+}
+
+export interface RedemptionSummaryReport {
+  fundName: string | null;
+  fundRegisterId: string | null;
+  period: { from: string | null; to: string | null } | null;
+  totalRedemptions: number;
+  totalUnitsRedeemed: number;
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  rows: {
+    ref: string; holderName: string | null; accountNo: string | null; unitsRequested: number;
+    redemptionDate: string | null; datePayable: string | null; status: string;
+    approvedBy: string | null; submittedBy: string | null; ageInDays: number | null;
+    rejectedBy: string | null; rejectionRemark: string | null;
+  }[];
+}
+
+export interface RegisterMovementReport {
+  fundName: string | null;
+  fundRegisterId: string | null;
+  period: { from: string | null; to: string | null } | null;
+  openingBalance: number;
+  totalSubscribed: number;
+  totalRedeemed: number;
+  closingBalance: number;
+  rows: {
+    date: string | null; ref: string; holderName: string | null; accountNo: string | null;
+    type: string; units: number; runningBalance: number;
+  }[];
+}
+
+interface ReportParams { fundRegisterId?: string; from?: string; to?: string }
+
 /* ─── Shared holder typeahead ──────────────────────────────────────────────── */
 
 export const SEARCH_FUND_HOLDERS = async (q: string, fundRegisterId?: string) => {
@@ -294,3 +349,21 @@ export const UPDATE_REDEMPTION_FM_EMAIL = async (id: string, fundManagerEmail: s
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
 };
+
+/* ─── Reports ──────────────────────────────────────────────────────────────── */
+
+const getReport = async <T>(path: string, params: ReportParams) => {
+  try {
+    const res = await api.get(`/funds/reports/${path}`, { params });
+    return res.data.data as T;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
+export const GET_SUBSCRIPTION_SUMMARY = (p: ReportParams) => getReport<SubscriptionSummaryReport>("subscriptions/summary", p);
+export const GET_PENDING_SUBSCRIPTIONS_REPORT = (p: ReportParams) => getReport<SubscriptionSummaryReport>("subscriptions/pending", p);
+export const GET_REJECTED_SUBSCRIPTIONS_REPORT = (p: ReportParams) => getReport<SubscriptionSummaryReport>("subscriptions/rejected", p);
+export const GET_REDEMPTION_SUMMARY = (p: ReportParams) => getReport<RedemptionSummaryReport>("redemptions/summary", p);
+export const GET_PENDING_REDEMPTIONS_REPORT = (p: ReportParams) => getReport<RedemptionSummaryReport>("redemptions/pending", p);
+export const GET_REGISTER_MOVEMENT = (p: ReportParams) => getReport<RegisterMovementReport>("register-movement", p);
