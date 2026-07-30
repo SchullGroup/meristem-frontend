@@ -42,6 +42,7 @@ import { RightsIcuApproval } from "@/components/custom/rights-issue/rights-icu-a
 import { RightsReturnMonies } from "@/components/custom/rights-issue/rights-return-monies";
 import { RightsCscsLodgement } from "@/components/custom/rights-issue/rights-cscs-lodgement";
 import { RightsCscsReversals } from "@/components/custom/rights-issue/rights-cscs-reversals";
+import { RightsDispatch } from "@/components/custom/rights-issue/rights-dispatch";
 
 // Existing API-connected rights-issue components (preserved untouched)
 import RightsIssueReports from "@/components/custom/rights-issue/rights-reports";
@@ -1602,13 +1603,7 @@ export default function RightsIssuePage() {
 
           {/* Dispatch & Notification */}
           <TabsContent value="dispatch">
-            {selectedOffer && (
-              <DispatchTab
-                offerName={selectedOffer.name}
-                offerRatio={selectedOffer.ratio}
-                offerPrice={selectedOffer.offerPrice}
-              />
-            )}
+            <RightsDispatch declarationId={declarationId || undefined} />
           </TabsContent>
 
           {/* Reports */}

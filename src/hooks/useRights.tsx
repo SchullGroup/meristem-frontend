@@ -50,6 +50,7 @@ import {
   queueRightsRefunds,
   uploadRightsReversal,
   initiateRightsReversal,
+  dispatchTestRights,
   type CreateReturnBatchPayload,
   type AllotmentBand,
 } from "@/actions/rightsActions";
@@ -772,4 +773,18 @@ export const useInitiateRightsReversal = () =>
   useMutation({
     mutationFn: ({ id, accountNumbers, resolution, initiatedBy }: { id: string | number; accountNumbers: string[]; resolution: string; initiatedBy?: string }) =>
       initiateRightsReversal(id, accountNumbers, resolution, initiatedBy),
+  });
+
+// ── Dispatch & notifications ──────────────────────────────────────────────────
+
+export const useDispatchRightsEmails = () =>
+  useMutation({
+    mutationFn: ({ id, subject, html }: { id: string; subject?: string; html?: string }) =>
+      emailShareholders(id, { subject, html }),
+  });
+
+export const useDispatchTestRights = () =>
+  useMutation({
+    mutationFn: ({ id, subject, html, recipients }: { id: string | number; subject?: string; html?: string; recipients: string[] }) =>
+      dispatchTestRights(id, { subject, html, recipients }),
   });

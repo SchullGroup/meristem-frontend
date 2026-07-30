@@ -377,14 +377,32 @@ export const lodgeRightsIssueDeclaration = async (
   }
 };
 
-// email shareholders their rights issue declaration
+// email shareholders their rights issue declaration (optional composer HTML template)
 export const emailShareholders = async (
   id: string,
+  data?: { subject?: string; html?: string },
 ) => {
-
   try {
-    const response = await api.post<ApiResponse<string>>(
-      `/offers/rights-issue/declarations/${id}/email-shareholders`
+    const response = await api.post<ApiResponse<{ sent: number }>>(
+      `/offers/rights-issue/declarations/${id}/email-shareholders`,
+      data ?? {},
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// send a dispatch test email to typed addresses (not the real shareholders)
+export const dispatchTestRights = async (
+  id: string | number,
+  data: { subject?: string; html?: string; recipients: string[] },
+) => {
+  try {
+    const response = await api.post<ApiResponse<{ sent: number }>>(
+      `/offers/rights-issue/declarations/${id}/dispatch/test`,
+      data,
     );
     return response.data;
   } catch (error) {
