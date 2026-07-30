@@ -18,6 +18,11 @@ import {
   LODGE_BONUS,
   UPLOAD_BONUS_REVERSAL,
   INITIATE_BONUS_REVERSAL,
+  GET_BONUS_EMAIL_PREVIEW,
+  SEND_BONUS_EMAILS,
+  SEND_BONUS_TEST_EMAIL,
+  GET_BONUS_EMAIL_LOGS,
+  GET_BONUS_EMAIL_SUMMARY,
 } from "@/actions/bonusIssuesAction";
 
 export const useBonusOffers = () =>
@@ -162,4 +167,45 @@ export const useInitiateBonusReversal = () =>
   useMutation({
     mutationFn: ({ declarationId, accountNumbers, resolution, initiatedBy }: { declarationId: string | number; accountNumbers: string[]; resolution: string; initiatedBy?: string }) =>
       INITIATE_BONUS_REVERSAL(declarationId, accountNumbers, resolution, initiatedBy),
+  });
+
+// ── Bonus dispatch emails ─────────────────────────────────────────────────────
+
+export const useBonusEmailPreview = (declarationId?: string) =>
+  useQuery({
+    queryKey: ["bonus", "email-preview", String(declarationId ?? "")],
+    queryFn: () => GET_BONUS_EMAIL_PREVIEW(declarationId!),
+    enabled: !!declarationId,
+  });
+
+export const useSendBonusEmails = () =>
+  useMutation({
+    mutationFn: ({ declarationId, subject, html, sentBy }: { declarationId: string | number; subject?: string; html: string; sentBy?: string }) =>
+      SEND_BONUS_EMAILS(declarationId, { subject, html, sentBy }),
+  });
+
+export const useSendBonusTestEmail = () =>
+  useMutation({
+    mutationFn: ({ declarationId, subject, html, recipients, sentBy }: { declarationId: string | number; subject?: string; html: string; recipients: string[]; sentBy?: string }) =>
+      SEND_BONUS_TEST_EMAIL(declarationId, { subject, html, recipients, sentBy }),
+  });
+
+export const useBonusEmailLogs = (
+  declarationId?: string,
+  params?: { status?: string; test?: boolean },
+  refetchInterval?: number,
+) =>
+  useQuery({
+    queryKey: ["bonus", "email-logs", String(declarationId ?? ""), params ?? {}],
+    queryFn: () => GET_BONUS_EMAIL_LOGS(declarationId!, params),
+    enabled: !!declarationId,
+    refetchInterval,
+  });
+
+export const useBonusEmailSummary = (declarationId?: string, refetchInterval?: number) =>
+  useQuery({
+    queryKey: ["bonus", "email-summary", String(declarationId ?? "")],
+    queryFn: () => GET_BONUS_EMAIL_SUMMARY(declarationId!),
+    enabled: !!declarationId,
+    refetchInterval,
   });

@@ -143,6 +143,80 @@ export const DOWNLOAD_BONUS_PRELIST = async (declarationId: string | number) => 
   }
 };
 
+// ── Bonus notification emails (delivery-tracked) ─────────────────────────────
+
+export interface BonusEmailLog {
+  id: string;
+  recipientEmail: string;
+  recipientName: string | null;
+  subject: string | null;
+  status: "QUEUED" | "SENT" | "FAILED";
+  errorMessage: string | null;
+  test: boolean;
+  sentBy: string | null;
+  createdAt: string | null;
+  sentAt: string | null;
+}
+
+export const GET_BONUS_EMAIL_PREVIEW = async (declarationId: string | number) => {
+  try {
+    const res = await api.get(`/offers/bonus-issue/declarations/${declarationId}/email/preview`);
+    return res.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const SEND_BONUS_EMAILS = async (
+  declarationId: string | number,
+  data: { subject?: string; html: string; sentBy?: string },
+) => {
+  try {
+    const res = await api.post(`/offers/bonus-issue/declarations/${declarationId}/email/send`, data);
+    return res.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const SEND_BONUS_TEST_EMAIL = async (
+  declarationId: string | number,
+  data: { subject?: string; html: string; recipients: string[]; sentBy?: string },
+) => {
+  try {
+    const res = await api.post(`/offers/bonus-issue/declarations/${declarationId}/email/test`, data);
+    return res.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_BONUS_EMAIL_LOGS = async (
+  declarationId: string | number,
+  params?: { status?: string; test?: boolean },
+) => {
+  try {
+    const res = await api.get(`/offers/bonus-issue/declarations/${declarationId}/email/logs`, { params });
+    return res.data.data as BonusEmailLog[];
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const GET_BONUS_EMAIL_SUMMARY = async (declarationId: string | number) => {
+  try {
+    const res = await api.get(`/offers/bonus-issue/declarations/${declarationId}/email/summary`);
+    return res.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 /** Downloads the bonus CSCS lodgement file (fixed-width) in the given format. */
 export const DOWNLOAD_BONUS_LODGEMENT = async (
   declarationId: string | number,
