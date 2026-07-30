@@ -233,6 +233,10 @@ export function StepResolveStates({
                 const isConfirmed = h.isConfirmed;
                 const hasFileState = !!h.fileState;
                 const resolved = h.resolvedState ?? "";
+                // A GIS value of "UNKNOWN" means the address/state couldn't be mapped to a
+                // Nigerian state — treat it as no suggestion so it can't be accepted as a state.
+                const gisSuggestion =
+                  h.gisState && h.gisState.toUpperCase() !== "UNKNOWN" ? h.gisState : null;
 
                 return (
                   <tr key={`${h.register}-${h.chn}`} className="hover:bg-accent/5 align-top">
@@ -263,7 +267,7 @@ export function StepResolveStates({
                                 : "border-green-300 bg-green-50 text-green-900"
                             }`}
                           >
-                            <SelectValue placeholder={h.gisState ? `${h.gisState} (GIS)` : "Select state…"} />
+                            <SelectValue placeholder={gisSuggestion ? `${gisSuggestion} (GIS)` : "Select state…"} />
                           </SelectTrigger>
                           <SelectContent className="max-h-60">
                             {NIGERIA_STATE_NAMES.map((s) => (
@@ -272,21 +276,21 @@ export function StepResolveStates({
                           </SelectContent>
                         </Select>
 
-                        {!readOnly && !isConfirmed && h.gisState && (
+                        {!readOnly && !isConfirmed && gisSuggestion && (
                           <Button
                             size="sm"
                             variant="outline"
                             className="h-9 px-2.5 shrink-0 border-green-300 text-green-700 hover:bg-green-50 text-xs"
-                            onClick={() => setRowState(h, h.gisState!, "GIS")}
+                            onClick={() => setRowState(h, gisSuggestion, "GIS")}
                           >
                             <Check className="h-3.5 w-3.5 mr-1" /> Accept GIS
                           </Button>
                         )}
                         {isConfirmed && <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />}
                       </div>
-                      {isConfirmed && h.gisState && h.resolvedState !== h.gisState && (
+                      {isConfirmed && gisSuggestion && h.resolvedState !== gisSuggestion && (
                         <p className="text-[12px] text-muted-foreground mt-1">
-                          GIS suggested: <span className="font-medium">{h.gisState}</span>
+                          GIS suggested: <span className="font-medium">{gisSuggestion}</span>
                         </p>
                       )}
                     </td>
