@@ -111,6 +111,38 @@ export const CREATE_BONUS_ISSUE_DECLARATION = async (bonusData: unknown) => {
   }
 };
 
+/** Gets or creates the declaration administering an Offer-Setup bonus offer; returns the envelope. */
+export const GET_OR_CREATE_BONUS_DECLARATION = async (
+  offerId: string | number,
+  createdBy?: string,
+) => {
+  try {
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/from-offer/${offerId}`,
+      undefined,
+      { params: createdBy ? { createdBy } : {} },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+/** Downloads the provisional bonus pre-list (entitlements) as CSV. */
+export const DOWNLOAD_BONUS_PRELIST = async (declarationId: string | number) => {
+  try {
+    const res = await api.get<Blob>(
+      `/offers/bonus-issue/declarations/${declarationId}/entitlements/export`,
+      { responseType: "blob" },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const COMPUTE_BONUS_ISSUE_DECLARATION = async ({
   declarationId,
 }: {
