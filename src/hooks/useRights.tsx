@@ -42,7 +42,12 @@ import {
   deleteRightsReturn,
   forwardRightsBatchToHod,
   hodActionRightsBatch,
+  getRightsAllotmentRules,
+  saveRightsAllotmentRules,
+  getRightsAllotmentSummary,
+  runRightsAllotment,
   type CreateReturnBatchPayload,
+  type AllotmentBand,
 } from "@/actions/rightsActions";
 import {
   CreateRightsIssue,
@@ -691,5 +696,41 @@ export const useHodActionRightsBatch = () => {
     mutationFn: ({ id, batchId, approve, actor, comment }: { id: string | number; batchId: string | number; approve: boolean; actor?: string; comment?: string }) =>
       hodActionRightsBatch(id, batchId, approve, actor, comment),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "return-batches"] }),
+  });
+};
+
+// ── Allotment rule engine ─────────────────────────────────────────────────────
+
+export const useRightsAllotmentRules = (id?: string | number) =>
+  useQuery({
+    queryKey: ["rights", "allotment-rules", String(id ?? "")],
+    queryFn: () => getRightsAllotmentRules(id!),
+    enabled: !!id,
+  });
+
+export const useRightsAllotmentSummary = (id?: string | number) =>
+  useQuery({
+    queryKey: ["rights", "allotment-summary", String(id ?? "")],
+    queryFn: () => getRightsAllotmentSummary(id!),
+    enabled: !!id,
+  });
+
+export const useSaveRightsAllotmentRules = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, bands }: { id: string | number; bands: AllotmentBand[] }) =>
+      saveRightsAllotmentRules(id, bands),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["rights", "allotment-rules", String(v.id)] });
+      qc.invalidateQueries({ queryKey: ["rights", "allotment-summary", String(v.id)] });
+    },
+  });
+};
+
+export const useRunRightsAllotment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string | number }) => runRightsAllotment(id),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["rights", "allotment-summary", String(v.id)] }),
   });
 };

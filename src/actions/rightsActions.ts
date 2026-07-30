@@ -661,13 +661,32 @@ export const downloadRightsDeclarationReport = async (
   id: string | number,
   reportType: string,
   format: "excel" | "csv" = "excel",
+  extra?: Record<string, string | number>,
 ) => {
   try {
     const response = await api.get<Blob>(
       `/offers/rights-issue/declarations/${id}/reports/${reportType}`,
-      { params: { format }, responseType: "blob" },
+      { params: { format, ...(extra ?? {}) }, responseType: "blob" },
     );
     return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+/** Fetches a declaration-scoped report as JSON (for on-screen preview). */
+export const fetchRightsDeclarationReport = async (
+  id: string | number,
+  reportType: string,
+  extra?: Record<string, string | number>,
+) => {
+  try {
+    const response = await api.get<ApiResponse<Record<string, unknown>>>(
+      `/offers/rights-issue/declarations/${id}/reports/${reportType}`,
+      { params: { format: "json", ...(extra ?? {}) } },
+    );
+    return response.data.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
@@ -762,6 +781,79 @@ export const downloadRightsBatchExport = async (id: string | number, batchId: st
       { responseType: "blob" },
     );
     return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// ── Allotment rule engine (applies to additional shares only) ────────────────
+
+export interface AllotmentBand {
+  minUnits: number | null;
+  maxUnits: number | null;
+  flatAllotment: number | null;
+  proRataPercent: number | null;
+}
+
+export interface RightsAllotmentSummary {
+  rightsIssueId: number;
+  totalUnitsOffered: number;
+  totalUnitsApplied: number;
+  totalApplicants: number;
+  respondedApplicants: number;
+  offerPrice: number;
+  executed: boolean;
+  totalUnitsAllotted: number;
+  totalRefundUnits: number;
+  totalRefundValue: number;
+  refundApplicants: number;
+  bandsConfigured: number;
+}
+
+export const getRightsAllotmentRules = async (id: string | number) => {
+  try {
+    const response = await api.get<ApiResponse<AllotmentBand[]>>(
+      `/offers/rights-issue/declarations/${id}/allotment/rules`,
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const saveRightsAllotmentRules = async (id: string | number, bands: AllotmentBand[]) => {
+  try {
+    const response = await api.post<ApiResponse<AllotmentBand[]>>(
+      `/offers/rights-issue/declarations/${id}/allotment/rules`,
+      { bands },
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const getRightsAllotmentSummary = async (id: string | number) => {
+  try {
+    const response = await api.get<ApiResponse<RightsAllotmentSummary>>(
+      `/offers/rights-issue/declarations/${id}/allotment/summary`,
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const runRightsAllotment = async (id: string | number) => {
+  try {
+    const response = await api.post<ApiResponse<Record<string, unknown>>>(
+      `/offers/rights-issue/declarations/${id}/allotment/execute`,
+    );
+    return response.data.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));

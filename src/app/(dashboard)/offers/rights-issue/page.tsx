@@ -36,9 +36,8 @@ import { ProvisionalAllotment } from "@/components/custom/rights-issue/provision
 import { ReturnsCapture } from "@/components/custom/rights-issue/returns-capture";
 import { RightsPreviewReal } from "@/components/custom/rights-issue/rights-preview-real";
 import { RightsHodApproval } from "@/components/custom/rights-issue/hod-approval";
-
-// Shared offer-administration components
-import { AllotmentRulesEngine } from "@/components/custom/offer-administration/allotment-rules-engine";
+import { RightsSecReports } from "@/components/custom/rights-issue/rights-sec-reports";
+import { RightsAllotmentEngine } from "@/components/custom/rights-issue/rights-allotment-engine";
 
 // Existing API-connected rights-issue components (preserved untouched)
 import RightsIssueReports from "@/components/custom/rights-issue/rights-reports";
@@ -102,8 +101,6 @@ const TAB_LABELS: Record<TabValue, string> = {
   reports: "Reports",
 };
 
-const RIGHTS_ALLOTMENT_BANNER =
-  "Accepted Rights (guaranteed) are excluded from banding — only Additional Shares Applied and Traded/Bought Rights are subject to the bands below.";
 
 /* ─── Mock data for inline tabs ─────────────────────────── */
 
@@ -1572,12 +1569,12 @@ export default function RightsIssuePage() {
 
           {/* SEC Reports */}
           <TabsContent value="sec-reports">
-            <SECReportsTab />
+            <RightsSecReports declarationId={declarationId || undefined} />
           </TabsContent>
 
           {/* Allotment Rule Engine */}
           <TabsContent value="allotment">
-            <AllotmentRulesEngine bannerMessage={RIGHTS_ALLOTMENT_BANNER} />
+            <RightsAllotmentEngine declarationId={declarationId || undefined} />
           </TabsContent>
 
           {/* ICU Approval */}
