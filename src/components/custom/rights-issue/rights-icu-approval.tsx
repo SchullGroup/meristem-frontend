@@ -23,7 +23,7 @@ export function RightsIcuApproval({ declarationId }: { declarationId?: string })
 
   const { data: summary } = useRightsAllotmentSummary(declarationId);
   const { data: allotment, isLoading } = useGetAllotment(
-    { id: declarationId, page: 0, pageSize: 500 },
+    { id: declarationId, page: 1, pageSize: 500 },
     { enabled: !!declarationId },
   );
   const approve = useIcuApprove();

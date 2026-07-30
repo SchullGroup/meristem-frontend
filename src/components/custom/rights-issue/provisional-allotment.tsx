@@ -46,7 +46,7 @@ export function ProvisionalAllotment({
   const email = useEmailShareholders();
 
   const { data: sh, isFetching, refetch } = useGetRightsIssueShareholders({
-    params: { id: declarationId, page: 0, pageSize: 2000 },
+    params: { id: declarationId, page: 1, pageSize: 2000 },
     options: { enabled: computed && !!declarationId },
   });
 
