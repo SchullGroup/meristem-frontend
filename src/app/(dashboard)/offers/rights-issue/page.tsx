@@ -1554,7 +1554,7 @@ export default function RightsIssuePage() {
 
           {/* Returns Capture */}
           <TabsContent value="returns">
-            <ReturnsCapture />
+            <ReturnsCapture declarationId={declarationId || undefined} />
           </TabsContent>
 
           {/* Rights Preview */}
