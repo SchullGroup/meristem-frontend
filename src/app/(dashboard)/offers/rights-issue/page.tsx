@@ -40,6 +40,8 @@ import { RightsSecReports } from "@/components/custom/rights-issue/rights-sec-re
 import { RightsAllotmentEngine } from "@/components/custom/rights-issue/rights-allotment-engine";
 import { RightsIcuApproval } from "@/components/custom/rights-issue/rights-icu-approval";
 import { RightsReturnMonies } from "@/components/custom/rights-issue/rights-return-monies";
+import { RightsCscsLodgement } from "@/components/custom/rights-issue/rights-cscs-lodgement";
+import { RightsCscsReversals } from "@/components/custom/rights-issue/rights-cscs-reversals";
 
 // Existing API-connected rights-issue components (preserved untouched)
 import RightsIssueReports from "@/components/custom/rights-issue/rights-reports";
@@ -1590,12 +1592,12 @@ export default function RightsIssuePage() {
 
           {/* CSCS Lodgement */}
           <TabsContent value="cscs-lodgment">
-            <CSCSLodgmentTab />
+            <RightsCscsLodgement declarationId={declarationId || undefined} />
           </TabsContent>
 
           {/* CSCS Reversals & Error Resolution */}
           <TabsContent value="cscs-reversals">
-            <CSCSReversalsTab />
+            <RightsCscsReversals declarationId={declarationId || undefined} />
           </TabsContent>
 
           {/* Dispatch & Notification */}

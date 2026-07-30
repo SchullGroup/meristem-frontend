@@ -919,3 +919,79 @@ export const downloadRightsRefunds = async (id: string | number) => {
   }
 };
 
+// ── CSCS lodgement + reversal ────────────────────────────────────────────────
+
+export interface RightsReversalUploadResult {
+  credited: { accountNumber: string; name: string; units: number }[];
+  errors: { accountNumber: string; name: string; chn: string; units: number; reason: string }[];
+  totalCredited: number;
+  totalErrors: number;
+}
+
+export const downloadRightsLodgement = async (
+  id: string | number,
+  format: "RIN_AT_CSCS" | "RIN_NOT_AT_CSCS" = "RIN_AT_CSCS",
+) => {
+  try {
+    const response = await api.get<Blob>(
+      `/offers/rights-issue/declarations/${id}/lodgement/download`,
+      { params: { format }, responseType: "blob" },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const uploadRightsReversal = async (
+  id: string | number,
+  file: File,
+  uploadedBy: string,
+) => {
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await api.post<ApiResponse<RightsReversalUploadResult>>(
+      `/offers/rights-issue/declarations/${id}/cscs-reversals/upload`,
+      form,
+      { params: { uploadedBy } },
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const initiateRightsReversal = async (
+  id: string | number,
+  accountNumbers: string[],
+  resolution: string,
+  initiatedBy?: string,
+) => {
+  try {
+    const response = await api.post(
+      `/offers/rights-issue/declarations/${id}/cscs-reversals/initiate`,
+      { accountNumbers, resolution, initiatedBy },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const downloadRightsReversalErrors = async (id: string | number) => {
+  try {
+    const response = await api.get<Blob>(
+      `/offers/rights-issue/declarations/${id}/cscs-reversals/error-list/download`,
+      { responseType: "blob" },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+

@@ -48,6 +48,8 @@ import {
   runRightsAllotment,
   getRightsRefundSubscribers,
   queueRightsRefunds,
+  uploadRightsReversal,
+  initiateRightsReversal,
   type CreateReturnBatchPayload,
   type AllotmentBand,
 } from "@/actions/rightsActions";
@@ -757,3 +759,17 @@ export const useQueueRightsRefunds = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "refunds"] }),
   });
 };
+
+// ── CSCS reversal ─────────────────────────────────────────────────────────────
+
+export const useUploadRightsReversal = () =>
+  useMutation({
+    mutationFn: ({ id, file, uploadedBy }: { id: string | number; file: File; uploadedBy: string }) =>
+      uploadRightsReversal(id, file, uploadedBy),
+  });
+
+export const useInitiateRightsReversal = () =>
+  useMutation({
+    mutationFn: ({ id, accountNumbers, resolution, initiatedBy }: { id: string | number; accountNumbers: string[]; resolution: string; initiatedBy?: string }) =>
+      initiateRightsReversal(id, accountNumbers, resolution, initiatedBy),
+  });
