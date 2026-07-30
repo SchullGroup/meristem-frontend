@@ -16,6 +16,8 @@ import {
   GET_DELCARED_BONUS_ALLOTMENTS,
   EMAIL_SHAREHOLDERS,
   LODGE_BONUS,
+  UPLOAD_BONUS_REVERSAL,
+  INITIATE_BONUS_REVERSAL,
 } from "@/actions/bonusIssuesAction";
 
 export const useBonusOffers = () =>
@@ -149,3 +151,15 @@ export const useLodgeBonus = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["bonus", "declarations"] }),
   });
 };
+
+export const useUploadBonusReversal = () =>
+  useMutation({
+    mutationFn: ({ declarationId, file, uploadedBy }: { declarationId: string | number; file: File; uploadedBy: string }) =>
+      UPLOAD_BONUS_REVERSAL(declarationId, file, uploadedBy),
+  });
+
+export const useInitiateBonusReversal = () =>
+  useMutation({
+    mutationFn: ({ declarationId, accountNumbers, resolution, initiatedBy }: { declarationId: string | number; accountNumbers: string[]; resolution: string; initiatedBy?: string }) =>
+      INITIATE_BONUS_REVERSAL(declarationId, accountNumbers, resolution, initiatedBy),
+  });

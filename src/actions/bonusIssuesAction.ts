@@ -302,6 +302,83 @@ export const EMAIL_SHAREHOLDERS = async ({
   }
 };
 
+export interface BonusReversalUploadResult {
+  credited: { accountNumber: string; name: string; bonusDue: number }[];
+  errors: { accountNumber: string; name: string; chn: string; bonusDue: number; reason: string }[];
+  totalCredited: number;
+  totalErrors: number;
+}
+
+/** Uploads a CSCS response file for a bonus issue; classifies credited vs error rows. */
+export const UPLOAD_BONUS_REVERSAL = async (
+  declarationId: string | number,
+  file: File,
+  uploadedBy: string,
+) => {
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/${declarationId}/cscs-reversals/upload`,
+      form,
+      { params: { uploadedBy }, headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const INITIATE_BONUS_REVERSAL = async (
+  declarationId: string | number,
+  accountNumbers: string[],
+  resolution: string,
+  initiatedBy?: string,
+) => {
+  try {
+    const res = await api.post(
+      `/offers/bonus-issue/declarations/${declarationId}/cscs-reversals/initiate`,
+      { accountNumbers, resolution, initiatedBy },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const DOWNLOAD_BONUS_REVERSAL_ERRORS = async (declarationId: string | number) => {
+  try {
+    const res = await api.get<Blob>(
+      `/offers/bonus-issue/declarations/${declarationId}/cscs-reversals/error-list/download`,
+      { responseType: "blob" },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+/** Declaration-scoped report (e.g. the per-declaration "bonus-report"). */
+export const GENERATE_BONUS_DECLARATION_REPORT = async (
+  declarationId: string | number,
+  reportType: string,
+  format: "json" | "excel" = "json",
+) => {
+  try {
+    const res = await api.get(
+      `/offers/bonus-issue/declarations/${declarationId}/reports/${reportType}`,
+      { params: { format }, ...(format === "excel" ? { responseType: "blob" as const } : {}) },
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const GENERATE_BONUS_REPORT = async (
   reportTypePath: string,
   params?: {
