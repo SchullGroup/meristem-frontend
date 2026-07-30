@@ -38,10 +38,11 @@ import { RightsPreviewReal } from "@/components/custom/rights-issue/rights-previ
 import { RightsHodApproval } from "@/components/custom/rights-issue/hod-approval";
 import { RightsSecReports } from "@/components/custom/rights-issue/rights-sec-reports";
 import { RightsAllotmentEngine } from "@/components/custom/rights-issue/rights-allotment-engine";
+import { RightsIcuApproval } from "@/components/custom/rights-issue/rights-icu-approval";
+import { RightsReturnMonies } from "@/components/custom/rights-issue/rights-return-monies";
 
 // Existing API-connected rights-issue components (preserved untouched)
 import RightsIssueReports from "@/components/custom/rights-issue/rights-reports";
-import { RightsRefundProcessing } from "@/components/custom/rights-issue/rights-refund-processing";
 
 // Email modal
 import { EmailPreviewModal } from "@/components/custom/shareholder-outreach-modals";
@@ -1579,12 +1580,12 @@ export default function RightsIssuePage() {
 
           {/* ICU Approval */}
           <TabsContent value="icu">
-            <ICUApprovalTab onApprove={handleICUApprove} />
+            <RightsIcuApproval declarationId={declarationId || undefined} />
           </TabsContent>
 
-          {/* Rights Refund Processing */}
+          {/* Return Monies */}
           <TabsContent value="refund">
-            <RightsRefundProcessing />
+            <RightsReturnMonies declarationId={declarationId || undefined} />
           </TabsContent>
 
           {/* CSCS Lodgement */}

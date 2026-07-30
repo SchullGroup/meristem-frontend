@@ -46,6 +46,8 @@ import {
   saveRightsAllotmentRules,
   getRightsAllotmentSummary,
   runRightsAllotment,
+  getRightsRefundSubscribers,
+  queueRightsRefunds,
   type CreateReturnBatchPayload,
   type AllotmentBand,
 } from "@/actions/rightsActions";
@@ -732,5 +734,26 @@ export const useRunRightsAllotment = () => {
   return useMutation({
     mutationFn: ({ id }: { id: string | number }) => runRightsAllotment(id),
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["rights", "allotment-summary", String(v.id)] }),
+  });
+};
+
+// ── Return monies ─────────────────────────────────────────────────────────────
+
+export const useRightsRefundSubscribers = (
+  id?: string | number,
+  params?: { reason?: string; status?: string; page?: number; size?: number },
+) =>
+  useQuery({
+    queryKey: ["rights", "refunds", String(id ?? ""), params ?? {}],
+    queryFn: () => getRightsRefundSubscribers(id!, params),
+    enabled: !!id,
+  });
+
+export const useQueueRightsRefunds = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, subscriberIds, queuedBy }: { id: string | number; subscriberIds: number[]; queuedBy?: string }) =>
+      queueRightsRefunds(id, subscriberIds, queuedBy),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "refunds"] }),
   });
 };

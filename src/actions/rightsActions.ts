@@ -860,3 +860,62 @@ export const runRightsAllotment = async (id: string | number) => {
   }
 };
 
+// ── Return monies (un-allotted additional rights) ────────────────────────────
+
+export interface RightsRefundRecord {
+  id: number;
+  accountNo: string | null;
+  holderName: string | null;
+  amountApplied: number | null;
+  amountAllotted: number | null;
+  refundAmount: number | null;
+  reason: string | null;
+  status: string | null;
+}
+
+export const getRightsRefundSubscribers = async (
+  id: string | number,
+  params?: { reason?: string; status?: string; page?: number; size?: number },
+) => {
+  try {
+    const response = await api.get(
+      `/offers/rights-issue/declarations/${id}/refund/subscribers`,
+      { params },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const queueRightsRefunds = async (
+  id: string | number,
+  subscriberIds: number[],
+  queuedBy?: string,
+) => {
+  try {
+    const response = await api.post(
+      `/offers/rights-issue/declarations/${id}/refund/queue`,
+      { subscriberIds, queuedBy },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const downloadRightsRefunds = async (id: string | number) => {
+  try {
+    const response = await api.get<Blob>(
+      `/offers/rights-issue/declarations/${id}/refund/download`,
+      { responseType: "blob" },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
