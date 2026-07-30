@@ -649,7 +649,10 @@ export const bulkUploadRightsReturns = async (
     const response = await api.post(
       `/offers/rights-issue/declarations/${id}/returns/bulk`,
       form,
-      { params: { txType, ...(batchId ? { batchId } : {}) } },
+      {
+        params: { txType, ...(batchId ? { batchId } : {}) },
+        headers: { "Content-Type": "multipart/form-data" },
+      },
     );
     return response.data;
   } catch (error) {
@@ -973,7 +976,10 @@ export const uploadRightsReversal = async (
     const response = await api.post<ApiResponse<RightsReversalUploadResult>>(
       `/offers/rights-issue/declarations/${id}/cscs-reversals/upload`,
       form,
-      { params: { uploadedBy } },
+      {
+        params: { uploadedBy },
+        headers: { "Content-Type": "multipart/form-data" },
+      },
     );
     return response.data.data;
   } catch (error) {
