@@ -18,7 +18,7 @@ import type { DateRange } from "react-day-picker";
 import { DateRangePicker } from "@/components/custom/date-range-picker";
 import type { ReversalRequest } from "@/types/dividend-reversal-flow";
 import { useReversalRequests } from "@/hooks/useDividendReversalFlow";
-import { MOCK_REGISTERS } from "./seed-data";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import {
   REVERSAL_TYPE_SHORT,
   formatDate,
@@ -33,6 +33,8 @@ export function HistoryTab() {
   const { data: rows = [], isLoading } = useReversalRequests({
     status: ["APPROVED", "REJECTED"],
   });
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registerOptions = registersData?.content ?? [];
 
   const [type, setType] = useState("");
   const [decision, setDecision] = useState("");
@@ -106,7 +108,7 @@ export function HistoryTab() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Registers</SelectItem>
-                {MOCK_REGISTERS.map((r) => (
+                {registerOptions.map((r) => (
                   <SelectItem key={r.symbol} value={r.symbol}>
                     {r.symbol}
                   </SelectItem>
