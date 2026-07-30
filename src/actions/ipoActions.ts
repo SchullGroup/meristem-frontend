@@ -613,10 +613,12 @@ export const executeIpoAllotment = async (offerId: string) => {
 // Generic batch list by status — for reversal/dispatch batch pickers.
 export const listIpoBatchesByStatus = async (status: string) => {
   try {
-    const response = await api.get<ContentPaginatedResponse<IPO>>(`/ipo/batches`, {
-      params: { status, size: 200 },
-    });
-    return response.data;
+    // drafts backend wraps the page in the ApiResponse envelope — unwrap to the page.
+    const response = await api.get<ApiResponse<ContentPaginatedResponse<IPO>>>(
+      `/ipo/batches`,
+      { params: { status, size: 200 } },
+    );
+    return response.data.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
