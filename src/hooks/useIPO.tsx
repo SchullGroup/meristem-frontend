@@ -829,6 +829,11 @@ import {
   emailIpoShareholders,
   downloadIpoStickyLabels,
   listIpoBatchesByStatus,
+  getIpoEmailPreview,
+  sendIpoEmails,
+  sendIpoTestEmail,
+  getIpoEmailLogs,
+  getIpoEmailSummary,
 } from "@/actions/ipoActions";
 
 export const useUploadIpoReversalFile = () =>
@@ -859,4 +864,45 @@ export const useListIpoBatchesByStatus = (status: string) =>
   useQuery({
     queryKey: ["ipo", "batches-by-status", status],
     queryFn: () => listIpoBatchesByStatus(status),
+  });
+
+// ── IPO Notification Emails ──────────────────────────────────────────────────
+
+export const useIpoEmailPreview = (batchRef: string) =>
+  useQuery({
+    queryKey: ["ipo", "email", "preview", batchRef],
+    queryFn: () => getIpoEmailPreview(batchRef),
+    enabled: !!batchRef,
+  });
+
+export const useSendIpoEmails = () =>
+  useMutation({
+    mutationFn: ({ batchRef, subject, html, sentBy }: { batchRef: string; subject?: string; html: string; sentBy: string }) =>
+      sendIpoEmails(batchRef, { subject, html, sentBy }),
+  });
+
+export const useSendIpoTestEmail = () =>
+  useMutation({
+    mutationFn: ({ batchRef, subject, html, recipients, sentBy }: { batchRef: string; subject?: string; html: string; recipients: string[]; sentBy: string }) =>
+      sendIpoTestEmail(batchRef, { subject, html, recipients, sentBy }),
+  });
+
+export const useIpoEmailLogs = (
+  batchRef: string,
+  params?: { status?: string; test?: boolean },
+  refetchInterval?: number,
+) =>
+  useQuery({
+    queryKey: ["ipo", "email", "logs", batchRef, params ?? {}],
+    queryFn: () => getIpoEmailLogs(batchRef, params),
+    enabled: !!batchRef,
+    refetchInterval,
+  });
+
+export const useIpoEmailSummary = (batchRef: string, refetchInterval?: number) =>
+  useQuery({
+    queryKey: ["ipo", "email", "summary", batchRef],
+    queryFn: () => getIpoEmailSummary(batchRef),
+    enabled: !!batchRef,
+    refetchInterval,
   });

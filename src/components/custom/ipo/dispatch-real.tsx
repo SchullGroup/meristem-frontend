@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -11,40 +10,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Download, Loader2, Mail } from "lucide-react";
+import { Download, Loader2, AlertCircle } from "lucide-react";
 import {
   useListIpoBatchesByStatus,
-  useEmailIpoShareholders,
   useDownloadIpoStickyLabels,
 } from "@/hooks/useIPO";
 import { useStore } from "@/lib/store";
+import IpoEmailComposer from "./email/ipo-email-composer";
+import IpoEmailDeliveryReport from "./email/ipo-email-delivery-report";
 
 export default function IpoDispatchReal() {
   const { currentUser } = useStore();
   const [batchRef, setBatchRef] = useState("");
-  const [subject, setSubject] = useState("");
 
   const { data: batchesData } = useListIpoBatchesByStatus("LODGED");
-  const emailShareholders = useEmailIpoShareholders();
   const downloadLabels = useDownloadIpoStickyLabels();
 
   const batches = batchesData?.content ?? [];
 
-  function handleEmail() {
-    if (!batchRef || !currentUser?.email) {
-      toast.error("Select a lodged batch first.");
-      return;
-    }
-    emailShareholders.mutate(
-      { batchRef, subject: subject || undefined, sentBy: currentUser.email },
-      {
-        onSuccess: (res) => toast.success(`${res.data?.sent ?? 0} notification email(s) queued.`),
-        onError: (err) => toast.error(err.message),
-      },
-    );
-  }
-
+  // ── Sticky labels (preserved) ───────────────────────────────────────────────
   async function handleDownloadLabels() {
     if (!batchRef) {
       toast.error("Select a lodged batch first.");
@@ -69,7 +55,9 @@ export default function IpoDispatchReal() {
         <div className="space-y-1.5 w-72">
           <label className="mrpsl-label">Lodged Batch</label>
           <Select value={batchRef} onValueChange={(v) => setBatchRef(v ?? "")}>
-            <SelectTrigger className="mrpsl-input"><SelectValue placeholder="Select a lodged batch" /></SelectTrigger>
+            <SelectTrigger className="mrpsl-input">
+              <SelectValue placeholder="Select a lodged batch" />
+            </SelectTrigger>
             <SelectContent>
               {batches.map((b) => (
                 <SelectItem key={b.batchReference} value={b.batchReference}>
@@ -79,31 +67,64 @@ export default function IpoDispatchReal() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5 flex-1 min-w-60">
-          <label className="mrpsl-label">Email Subject (optional)</label>
-          <Input className="mrpsl-input" placeholder="Public Offer Allotment Notification" value={subject} onChange={(e) => setSubject(e.target.value)} />
-        </div>
       </Card>
 
-      <Card className="mrpsl-card p-6 space-y-4">
-        <div>
-          <h3 className="text-base font-semibold">Dispatch &amp; Notification</h3>
-          <p className="text-[13px] text-muted-foreground mt-1">
-            Email allotment notifications to the batch&apos;s approved subscribers, or download
-            sticky labels for postal dispatch.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button className="gap-2" disabled={!batchRef || emailShareholders.isPending} onClick={handleEmail}>
-            {emailShareholders.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-            Email Approved Shareholders
-          </Button>
-          <Button variant="outline" className="gap-2" disabled={!batchRef || downloadLabels.isPending} onClick={handleDownloadLabels}>
-            {downloadLabels.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Download Sticky Labels (CSV)
-          </Button>
-        </div>
-      </Card>
+      {!batchRef ? (
+        <Card className="mrpsl-card p-10 flex flex-col items-center justify-center text-center text-muted-foreground gap-2">
+          <AlertCircle className="h-6 w-6 opacity-40" />
+          <p className="text-sm">Select a lodged batch above to compose notifications or view the delivery report.</p>
+        </Card>
+      ) : (
+        <Tabs defaultValue="compose" className="w-full">
+          <TabsList className="h-auto p-1 bg-muted rounded-xl gap-0.5">
+            <TabsTrigger
+              value="compose"
+              className="rounded-lg px-4 py-2 text-[13px] font-medium data-active:bg-background data-active:shadow-sm cursor-pointer"
+            >
+              Compose &amp; Send
+            </TabsTrigger>
+            <TabsTrigger
+              value="delivery"
+              className="rounded-lg px-4 py-2 text-[13px] font-medium data-active:bg-background data-active:shadow-sm cursor-pointer"
+            >
+              Delivery Report
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="mt-5">
+            <TabsContent value="compose" className="space-y-5">
+              <IpoEmailComposer batchRef={batchRef} sentBy={currentUser?.email ?? ""} />
+
+              {/* Postal dispatch — sticky labels (preserved) */}
+              <Card className="mrpsl-card p-5 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Postal Dispatch</h3>
+                  <p className="text-[13px] text-muted-foreground mt-0.5">
+                    Download sticky labels for postal dispatch to the batch&apos;s approved subscribers.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  disabled={!batchRef || downloadLabels.isPending}
+                  onClick={handleDownloadLabels}
+                >
+                  {downloadLabels.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download Sticky Labels (CSV)
+                </Button>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="delivery">
+              <IpoEmailDeliveryReport batchRef={batchRef} />
+            </TabsContent>
+          </div>
+        </Tabs>
+      )}
     </div>
   );
 }

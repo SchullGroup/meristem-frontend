@@ -275,3 +275,35 @@ export interface IpoReversalUploadResponse {
   totalCredited: number;
   totalErrors: number;
 }
+
+// ── IPO Notification Emails ──────────────────────────────────────────────────
+export interface IpoEmailPreview {
+  batchReference: string;
+  suggestedSubject: string;
+  recipientCount: number;
+  recipientsWithoutEmail: number;
+  tokens: string[];
+}
+
+export type IpoEmailStatus = "QUEUED" | "SENT" | "FAILED";
+
+export interface IpoEmailLog {
+  id: string;
+  recipientEmail: string;
+  recipientName: string | null;
+  subject: string | null;
+  status: IpoEmailStatus;
+  errorMessage: string | null;
+  test: boolean;
+  sentBy: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
+
+export interface IpoEmailSummary {
+  batchReference: string;
+  total: number;
+  queued: number;
+  sent: number;
+  failed: number;
+}

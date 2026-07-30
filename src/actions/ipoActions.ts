@@ -19,6 +19,9 @@ import {
   RefundReviewRequest,
   StateSummaryResponse,
   IpoReversalUploadResponse,
+  IpoEmailPreview,
+  IpoEmailLog,
+  IpoEmailSummary,
 } from "@/types/ipo";
 import { ErrorLike, returnErrorMessage } from "@/utils/errorManager";
 
@@ -883,6 +886,80 @@ export const downloadIpoStickyLabels = async (batchRef: string) => {
       { responseType: "blob" },
     );
     return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// ── IPO Notification Emails ──────────────────────────────────────────────────
+
+export const getIpoEmailPreview = async (batchRef: string) => {
+  try {
+    const response = await api.get<ApiResponse<IpoEmailPreview>>(
+      `/ipo/batches/${batchRef}/email/preview`,
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const sendIpoEmails = async (
+  batchRef: string,
+  data: { subject?: string; html: string; sentBy: string },
+) => {
+  try {
+    const response = await api.post<ApiResponse<{ queued: number; skipped: number }>>(
+      `/ipo/batches/${batchRef}/email/send`,
+      data,
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const sendIpoTestEmail = async (
+  batchRef: string,
+  data: { subject?: string; html: string; recipients: string[]; sentBy: string },
+) => {
+  try {
+    const response = await api.post<ApiResponse<{ queued: number }>>(
+      `/ipo/batches/${batchRef}/email/test`,
+      data,
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const getIpoEmailLogs = async (
+  batchRef: string,
+  params?: { status?: string; test?: boolean },
+) => {
+  try {
+    const response = await api.get<ApiResponse<IpoEmailLog[]>>(
+      `/ipo/batches/${batchRef}/email/logs`,
+      { params },
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const getIpoEmailSummary = async (batchRef: string) => {
+  try {
+    const response = await api.get<ApiResponse<IpoEmailSummary>>(
+      `/ipo/batches/${batchRef}/email/summary`,
+    );
+    return response.data.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
