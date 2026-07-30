@@ -24,7 +24,7 @@ import {
   useRejectedShareholders,
   useSendBatchForApproval,
 } from "@/hooks/useMandatePaymentFlow";
-import { MOCK_REGISTERS } from "./seed-data";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import { batchDividendNumbers, batchRegisters } from "./helpers";
 import { BatchListTable } from "./batch-list-table";
 import { BatchDetailPanel } from "./batch-detail-panel";
@@ -37,6 +37,8 @@ export function ReviewQueueTab() {
   const { data: rejected = [], isLoading: rejectedLoading } =
     useRejectedShareholders();
   const sendMutation = useSendBatchForApproval();
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registerOptions = registersData?.content ?? [];
 
   const [view, setView] = useState<"active" | "rejected">("active");
   const [register, setRegister] = useState("");
@@ -175,7 +177,7 @@ export function ReviewQueueTab() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ALL">All Registers</SelectItem>
-                    {MOCK_REGISTERS.map((r) => (
+                    {registerOptions.map((r) => (
                       <SelectItem key={r.symbol} value={r.symbol}>
                         <span className="font-bold">{r.registerName}</span> —{" "}
                         <span className="text-xs">{r.symbol}</span>
