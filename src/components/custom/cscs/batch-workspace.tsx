@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { StepRegistersRecords } from "./step-registers-records";
 import { StepResolveStates } from "./step-resolve-states";
 import { StepReviewBankChanges } from "./step-review-bank-changes";
-import { StepComputeTrades, MultiAccountGroup } from "./step-compute-trades";
+import { StepComputeTrades } from "./step-compute-trades";
 import { StepApplyHandoff } from "./step-apply-handoff";
 import { ProcessedLogView } from "./processed-log-view";
+import { useCscsBatch } from "@/hooks/useCscsPipeline";
 
 type StepNum = 1 | 2 | 3 | 4 | 5;
 type ViewMode = "step" | "log";
@@ -36,11 +37,15 @@ export function BatchWorkspace({ batch, onBack }: BatchWorkspaceProps) {
   const [completedSteps, setCompletedSteps] = useState<Set<StepNum>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("step");
   const [jumpRegister, setJumpRegister] = useState<string | undefined>(undefined);
-  const [multiAccountGroups, setMultiAccountGroups] = useState<MultiAccountGroup[]>([]);
 
-  const markComplete = (step: StepNum, excluded?: MultiAccountGroup[]) => {
+  // Lock signals — once states are committed / balances applied / batch finalized,
+  // those steps become read-only (no GIS regeneration, no recompute, no re-editing).
+  const { data: batchDetail } = useCscsBatch(batch.batchRef);
+  const batchCompleted = (batchDetail?.status ?? batch.status) === "COMPLETED";
+  const statesLocked = !!batchDetail?.statesCommitted || batchCompleted;
+
+  const markComplete = (step: StepNum) => {
     setCompletedSteps((prev) => new Set([...prev, step]));
-    if (step === 4 && excluded) setMultiAccountGroups(excluded);
     if (step < 5) setActiveStep((step + 1) as StepNum);
   };
 
@@ -147,6 +152,7 @@ export function BatchWorkspace({ batch, onBack }: BatchWorkspaceProps) {
             batchRef={batch.batchRef}
             onComplete={() => markComplete(2)}
             initialRegister={jumpRegister}
+            readOnly={statesLocked}
           />
         ) : activeStep === 3 ? (
           <StepReviewBankChanges
@@ -156,14 +162,13 @@ export function BatchWorkspace({ batch, onBack }: BatchWorkspaceProps) {
         ) : activeStep === 4 ? (
           <StepComputeTrades
             batchRef={batch.batchRef}
-            onProceed={(excluded) => markComplete(4, excluded)}
+            onProceed={() => markComplete(4)}
             initialRegister={jumpRegister}
           />
         ) : (
           <StepApplyHandoff
             batchRef={batch.batchRef}
             onViewLog={() => setViewMode("log")}
-            multiAccountGroups={multiAccountGroups}
           />
         )}
       </div>
