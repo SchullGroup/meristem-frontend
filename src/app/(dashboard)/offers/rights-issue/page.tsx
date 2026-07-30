@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { GET_RIGHT_OFFERS } from "@/actions/offerSetUp";
+import { useGetOrCreateRightsDeclaration } from "@/hooks/useRights";
+import { useStore } from "@/lib/store";
 import {
   Building2,
   AlertCircle,
@@ -55,29 +59,6 @@ interface RightsOfferSummary {
   closingDate: Date | null;
   status: RightsOfferStatus;
 }
-
-const MOCK_RIGHTS_OFFERS: RightsOfferSummary[] = [
-  {
-    id: "1",
-    name: "Fidelity Bank PLC Rights Issue 2024",
-    register: "Fidelity Bank Ord. Shares",
-    ratio: "1 for 10",
-    offerPrice: 9.25,
-    openingDate: new Date("2024-07-15"),
-    closingDate: new Date("2024-07-31"),
-    status: "CLOSED",
-  },
-  {
-    id: "2",
-    name: "Zenith Bank PLC Rights Issue 2025",
-    register: "Zenith Bank Ord. Shares",
-    ratio: "1 for 5",
-    offerPrice: 42.0,
-    openingDate: null,
-    closingDate: null,
-    status: "DRAFT",
-  },
-];
 
 const STATUS_COLORS: Record<RightsOfferStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
@@ -1387,11 +1368,59 @@ function DispatchTab({
 /* ─── Main page ─────────────────────────────────────────── */
 
 export default function RightsIssuePage() {
+  const { currentUser } = useStore();
   const [activeTab, setActiveTab] = useState<TabValue>("provisional");
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
+  const [declarationId, setDeclarationId] = useState<string>("");
 
-  const selectedOffer =
-    MOCK_RIGHTS_OFFERS.find((o) => o.id === selectedOfferId) ?? null;
+  // Real Offer-Setup rights offers to work against (replaces the demo list).
+  const { data: offersRes } = useQuery({
+    queryKey: ["rights-offers", "admin-selector"],
+    queryFn: () => GET_RIGHT_OFFERS({ size: 100 }),
+  });
+
+  const offers: RightsOfferSummary[] = useMemo(() => {
+    const raw = offersRes?.data?.content ?? offersRes?.content ?? [];
+    return raw.map(
+      (o: {
+        id: number | string;
+        name: string;
+        registerId?: string;
+        ratioNumerator?: number;
+        ratioDenominator?: number;
+        pricePerShare?: number;
+        openingDate?: string | null;
+        closingDate?: string | null;
+        status?: string;
+      }) => ({
+        id: String(o.id),
+        name: o.name,
+        register: o.registerId ?? "",
+        ratio: `${o.ratioNumerator ?? 1} for ${o.ratioDenominator ?? 1}`,
+        offerPrice: o.pricePerShare ?? 0,
+        openingDate: o.openingDate ? new Date(o.openingDate) : null,
+        closingDate: o.closingDate ? new Date(o.closingDate) : null,
+        status: (o.status as RightsOfferStatus) ?? "DRAFT",
+      }),
+    );
+  }, [offersRes]);
+
+  const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
+
+  // Materialise (once) the declaration that administers the selected offer.
+  const getOrCreateDeclaration = useGetOrCreateRightsDeclaration();
+  const handleSelectOffer = (v: string | null) => {
+    setSelectedOfferId(v ?? "");
+    setDeclarationId("");
+    if (!v) return;
+    getOrCreateDeclaration.mutate(
+      { offerId: v, createdBy: currentUser?.email },
+      {
+        onSuccess: (decl) => setDeclarationId(String((decl as { id: number | string })?.id ?? "")),
+        onError: (err) => toast.error((err as Error).message),
+      },
+    );
+  };
 
   const handleICUApprove = () => {
     setActiveTab("cscs-lodgment");
@@ -1417,15 +1446,12 @@ export default function RightsIssuePage() {
             <span className="text-sm font-medium">Active Offer</span>
           </div>
           <div className="flex-1 min-w-60">
-            <Select
-              value={selectedOfferId}
-              onValueChange={(v) => setSelectedOfferId(v ?? "")}
-            >
+            <Select value={selectedOfferId} onValueChange={handleSelectOffer}>
               <SelectTrigger className="mrpsl-input h-9 w-full max-w-sm">
                 <SelectValue placeholder="Select a rights issue to work with…" />
               </SelectTrigger>
               <SelectContent>
-                {MOCK_RIGHTS_OFFERS.map((o) => (
+                {offers.map((o) => (
                   <SelectItem key={o.id} value={o.id}>
                     {o.name}
                   </SelectItem>
@@ -1509,6 +1535,7 @@ export default function RightsIssuePage() {
               </Card>
             ) : (
               <ProvisionalAllotment
+                declarationId={declarationId || undefined}
                 offerName={selectedOffer.name}
                 ratioLabel={`${selectedOffer.ratio} held`}
                 ratioDenominator={parseInt(

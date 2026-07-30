@@ -528,3 +528,163 @@ export const exportAcceptanceSummaryReport = async (registerId?: string, format?
   }
 };
 
+// ── Offer → declaration bridge ───────────────────────────────────────────────
+
+/** Gets or creates the declaration administering an Offer-Setup rights offer; returns it. */
+export const getOrCreateRightsDeclaration = async (
+  offerId: string | number,
+  createdBy?: string,
+) => {
+  try {
+    const response = await api.post<ApiResponse<RightsIssue>>(
+      `/offers/rights-issue/declarations/from-offer/${offerId}`,
+      undefined,
+      { params: createdBy ? { createdBy } : {} },
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// ── Returns-capture batches ──────────────────────────────────────────────────
+
+export interface CreateReturnBatchPayload {
+  receivingAgentName: string;
+  receivingAgentType?: string;
+  batchDate?: string;
+  notes?: string;
+  createdBy?: string;
+}
+
+export const createRightsReturnBatch = async (
+  id: string | number,
+  data: CreateReturnBatchPayload,
+) => {
+  try {
+    const response = await api.post<ApiResponse<RightsReturnBatch>>(
+      `/offers/rights-issue/declarations/${id}/returns/batches`,
+      data,
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const listRightsReturnBatches = async (id: string | number) => {
+  try {
+    const response = await api.get<ApiResponse<RightsReturnBatch[]>>(
+      `/offers/rights-issue/declarations/${id}/returns/batches`,
+    );
+    return response.data.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const listRightsBatchRecords = async (
+  id: string | number,
+  batchId: string | number,
+  params?: { page?: number; size?: number },
+) => {
+  try {
+    const response = await api.get(
+      `/offers/rights-issue/declarations/${id}/returns/batches/${batchId}/records`,
+      { params },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const submitRightsReturn = async (
+  id: string | number,
+  data: Record<string, unknown>,
+) => {
+  try {
+    const response = await api.post(
+      `/offers/rights-issue/declarations/${id}/returns`,
+      data,
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const bulkUploadRightsReturns = async (
+  id: string | number,
+  txType: string,
+  file: File,
+  batchId?: string | number,
+) => {
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await api.post(
+      `/offers/rights-issue/declarations/${id}/returns/bulk`,
+      form,
+      { params: { txType, ...(batchId ? { batchId } : {}) } },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export const downloadRightsReturnsTemplate = async (
+  id: string | number,
+  txType: string,
+) => {
+  try {
+    const response = await api.get<Blob>(
+      `/offers/rights-issue/declarations/${id}/returns/template`,
+      { params: { txType }, responseType: "blob" },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+/** Downloads a declaration-scoped report as a file (e.g. the prelist) in the given format. */
+export const downloadRightsDeclarationReport = async (
+  id: string | number,
+  reportType: string,
+  format: "excel" | "csv" = "excel",
+) => {
+  try {
+    const response = await api.get<Blob>(
+      `/offers/rights-issue/declarations/${id}/reports/${reportType}`,
+      { params: { format }, responseType: "blob" },
+    );
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+export interface RightsReturnBatch {
+  id: number;
+  declarationId: number;
+  batchReference: string;
+  receivingAgentName: string | null;
+  receivingAgentType: string | null;
+  batchDate: string | null;
+  notes: string | null;
+  status: string;
+  createdBy: string | null;
+  returnCount: number;
+  createdAt: string | null;
+}
+

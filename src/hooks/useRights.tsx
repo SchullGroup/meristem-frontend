@@ -32,6 +32,13 @@ import {
   exportAcceptanceSummaryReport,
   lodgeRightsIssueDeclaration,
   emailShareholders,
+  getOrCreateRightsDeclaration,
+  createRightsReturnBatch,
+  listRightsReturnBatches,
+  listRightsBatchRecords,
+  submitRightsReturn,
+  bulkUploadRightsReturns,
+  type CreateReturnBatchPayload,
 } from "@/actions/rightsActions";
 import {
   CreateRightsIssue,
@@ -587,5 +594,58 @@ export const useGetAcceptanceSummaryReport = (
     queryFn: () => exportAcceptanceSummaryReport(registerId, format),
     refetchOnWindowFocus: false,
     ...options,
+  });
+};
+
+// ── Offer→declaration bridge + returns batches ───────────────────────────────
+
+export const useGetOrCreateRightsDeclaration = () =>
+  useMutation({
+    mutationFn: ({ offerId, createdBy }: { offerId: string | number; createdBy?: string }) =>
+      getOrCreateRightsDeclaration(offerId, createdBy),
+  });
+
+export const useCreateRightsReturnBatch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: CreateReturnBatchPayload }) =>
+      createRightsReturnBatch(id, data),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["rights", "return-batches", String(v.id)] }),
+  });
+};
+
+export const useListRightsReturnBatches = (id?: string | number) =>
+  useQuery({
+    queryKey: ["rights", "return-batches", String(id ?? "")],
+    queryFn: () => listRightsReturnBatches(id!),
+    enabled: !!id,
+  });
+
+export const useListRightsBatchRecords = (
+  id?: string | number,
+  batchId?: string | number,
+  params?: { page?: number; size?: number },
+) =>
+  useQuery({
+    queryKey: ["rights", "batch-records", String(id ?? ""), String(batchId ?? ""), params ?? {}],
+    queryFn: () => listRightsBatchRecords(id!, batchId!, params),
+    enabled: !!id && !!batchId,
+  });
+
+export const useSubmitRightsReturn = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: Record<string, unknown> }) =>
+      submitRightsReturn(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "batch-records"] }),
+  });
+};
+
+export const useBulkUploadRightsReturns = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, txType, file, batchId }: { id: string | number; txType: string; file: File; batchId?: string | number }) =>
+      bulkUploadRightsReturns(id, txType, file, batchId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "batch-records"] }),
   });
 };
