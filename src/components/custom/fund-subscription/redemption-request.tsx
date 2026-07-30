@@ -25,93 +25,51 @@ import {
 } from "@/components/ui/select";
 import DateInput from "@/components/ui/date-input";
 import { useGetRegistersByType } from "@/hooks/useRegisters";
+import { useSubmitRedemption, useBulkRedemption, useSearchFundHolders } from "@/hooks/useFunds";
+import { useStore } from "@/lib/store";
+import type { FundUnitHolder } from "@/actions/fundActions";
 import { toast } from "sonner";
 
 type EntryMode = "single" | "bulk";
+type UnitHolder = FundUnitHolder;
 
-interface UnitHolder {
-  id: string;
-  accountNo: string;
-  name: string;
-  chn: string;
-  email: string;
-  fundManagerEmail: string;
-  availableUnits: number;
-  fund: string;
-}
-
-const MOCK_HOLDERS: UnitHolder[] = [
-  {
-    id: "h1",
-    accountNo: "FND-00123456",
-    name: "Adebayo Oluwaseun",
-    chn: "CHN-0012345678",
-    email: "adebayo@email.com",
-    fundManagerEmail: "fm@stanbicastset.com",
-    availableUnits: 15_000,
-    fund: "Stanbic IBTC Dollar Fund",
-  },
-  {
-    id: "h2",
-    accountNo: "FND-00234567",
-    name: "Chinwe Okafor-Nwosu",
-    chn: "CHN-0023456789",
-    email: "chinwe@email.com",
-    fundManagerEmail: "fm@armgroup.net",
-    availableUnits: 8_500,
-    fund: "ARM Discovery Balanced Fund",
-  },
-  {
-    id: "h3",
-    accountNo: "FND-00345678",
-    name: "Emeka Nwachukwu",
-    chn: "CHN-0034567890",
-    email: "emeka@email.com",
-    fundManagerEmail: "fm@stanbicastset.com",
-    availableUnits: 42_000,
-    fund: "Stanbic IBTC Dollar Fund",
-  },
-  {
-    id: "h4",
-    accountNo: "FND-00456789",
-    name: "Fatima Garba Abubakar",
-    chn: "CHN-0045678901",
-    email: "fatima@email.com",
-    fundManagerEmail: "fm@coronationam.com",
-    availableUnits: 120_000,
-    fund: "Coronation Money Market Fund",
-  },
-];
-
-let refCounter = 1;
-function generateRef() {
-  const ref = `REDM-2024-${String(refCounter).padStart(6, "0")}`;
-  refCounter++;
-  return ref;
-}
+const toIso = (d: Date | null) => (d ? new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10) : "");
 
 function HolderDropdown({
   query,
+  fundRegisterId,
   onSelect,
 }: {
   query: string;
+  fundRegisterId: string;
   onSelect: (h: UnitHolder) => void;
 }) {
-  if (!query || query.length < 2) return null;
-  const matches = MOCK_HOLDERS.filter(
-    (h) =>
-      h.name.toLowerCase().includes(query.toLowerCase()) ||
-      h.accountNo.toLowerCase().includes(query.toLowerCase()) ||
-      h.chn.toLowerCase().includes(query.toLowerCase()),
+  const { data: matches = [], isLoading } = useSearchFundHolders(
+    query,
+    fundRegisterId || undefined,
+    query.length >= 2 && !!fundRegisterId,
   );
+  if (!query || query.length < 2) return null;
+  if (!fundRegisterId)
+    return (
+      <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md p-3 text-sm text-muted-foreground">
+        Select a fund register first.
+      </div>
+    );
+  if (isLoading)
+    return (
+      <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md p-3 text-sm text-muted-foreground">
+        Searching…
+      </div>
+    );
   if (!matches.length)
     return (
       <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md p-3 text-sm text-muted-foreground">
-        No matching unit holders found.
+        No unit holders with a position in this fund register.
       </div>
     );
   return (
-    <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md overflow-hidden">
+    <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md overflow-hidden max-h-64 overflow-y-auto">
       {matches.map((h) => (
         <button
           key={h.id}
@@ -121,8 +79,7 @@ function HolderDropdown({
         >
           <p className="font-medium">{h.name}</p>
           <p className="text-xs text-muted-foreground font-mono">
-            {h.accountNo} · {h.chn} · {h.availableUnits.toLocaleString()} units
-            available
+            {h.accountNo}{h.chn ? ` · ${h.chn}` : ""} · {(h.availableUnits ?? 0).toLocaleString()} units available
           </p>
         </button>
       ))}
@@ -228,7 +185,7 @@ function MandateView({
           <div>
             <p className="font-semibold">{holder.name}</p>
             <p className="text-xs text-muted-foreground font-mono mt-0.5">
-              {holder.accountNo} · {holder.chn} · {holder.fund}
+              {holder.accountNo}{holder.chn ? ` · ${holder.chn}` : ""} · {holder.fundName ?? "—"}
             </p>
           </div>
           {signatureMatch !== null &&
@@ -331,6 +288,9 @@ function MandateView({
 export function RedemptionRequest() {
   const { data: fundRegisters, isLoading: loadingRegisters } =
     useGetRegistersByType("Fund");
+  const actor = useStore((s) => s.currentUser)?.email;
+  const submitSingle = useSubmitRedemption();
+  const submitBulk = useBulkRedemption();
 
   const [entryMode, setEntryMode] = useState<EntryMode>("single");
 
@@ -354,11 +314,8 @@ export function RedemptionRequest() {
   const [submittedRef, setSubmittedRef] = useState("");
 
   const parsedUnits = parseInt(unitsRequested, 10) || 0;
-  const insufficient = !!(
-    selectedHolder &&
-    parsedUnits > 0 &&
-    parsedUnits > selectedHolder.availableUnits
-  );
+  const avail = selectedHolder?.availableUnits ?? 0;
+  const insufficient = !!(selectedHolder && parsedUnits > 0 && parsedUnits > avail);
 
   const canSubmitSingle = !!(
     fundRegister &&
@@ -376,14 +333,32 @@ export function RedemptionRequest() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-    const ref = generateRef();
-    setSubmittedRef(ref);
-    setSubmitting(false);
-    setSubmitted(true);
-    toast.success(
-      `Redemption request ${ref} submitted. Pending Team Lead approval.`,
-    );
+    try {
+      if (entryMode === "bulk") {
+        const res = await submitBulk.mutateAsync({
+          file: bulkFile!,
+          meta: { fundRegisterId: fundRegister, createdBy: actor },
+        });
+        setSubmittedRef(`${res.created} created, ${res.failed} failed`);
+      } else {
+        const created = await submitSingle.mutateAsync({
+          fundRegisterId: fundRegister,
+          holderId: selectedHolder!.id,
+          unitsRequested: parsedUnits,
+          redemptionDate: toIso(redemptionDate),
+          datePayable: toIso(datePayable),
+          narration: narration || undefined,
+          createdBy: actor,
+        });
+        setSubmittedRef(created.ref);
+      }
+      setSubmitted(true);
+      toast.success("Redemption request submitted. Pending Team Lead approval.");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -454,7 +429,7 @@ export function RedemptionRequest() {
                     <label className="mrpsl-label">Fund Register *</label>
                     <Select
                       value={fundRegister}
-                      onValueChange={(v) => setFundRegister(v ?? "")}
+                      onValueChange={(v) => { setFundRegister(v ?? ""); setSelectedHolder(null); setSearchQuery(""); }}
                     >
                       <SelectTrigger className="mrpsl-input">
                         <SelectValue placeholder="Select Fund Register" />
@@ -504,6 +479,7 @@ export function RedemptionRequest() {
                       />
                       <HolderDropdown
                         query={searchQuery}
+                        fundRegisterId={fundRegister}
                         onSelect={handleSelectHolder}
                       />
                     </div>
@@ -514,12 +490,12 @@ export function RedemptionRequest() {
                             {selectedHolder.name}
                           </span>
                           <span className="font-mono font-bold text-primary">
-                            {selectedHolder.availableUnits.toLocaleString()}{" "}
+                            {avail.toLocaleString()}{" "}
                             units available
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {selectedHolder.fund} · {selectedHolder.accountNo}
+                          {selectedHolder.fundName ?? "—"} · {selectedHolder.accountNo}
                         </p>
                       </div>
                     )}
@@ -543,7 +519,7 @@ export function RedemptionRequest() {
                         <p className="text-xs text-destructive flex items-center gap-1">
                           <AlertCircle className="h-3 w-3" />
                           Insufficient units. Available:{" "}
-                          {selectedHolder!.availableUnits.toLocaleString()}.
+                          {avail.toLocaleString()}.
                         </p>
                       )}
                     </div>
@@ -554,11 +530,7 @@ export function RedemptionRequest() {
                       <Input
                         className="mrpsl-input font-mono bg-muted/30"
                         readOnly
-                        value={
-                          selectedHolder
-                            ? selectedHolder.availableUnits.toLocaleString()
-                            : "—"
-                        }
+                        value={selectedHolder ? avail.toLocaleString() : "—"}
                       />
                     </div>
                   </div>
