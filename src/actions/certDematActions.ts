@@ -98,6 +98,14 @@ export interface DematHolder {
   status?: string;
 }
 
+/** A stockbroker (dealing member) row for the Verification tab (from GET /holders/stockbrokers). */
+export interface DematStockbroker {
+  firmName: string;
+  stockbrokerCode: string;
+  holderCount: number;
+  totalUnits: number;
+}
+
 export interface ReversalRowResult {
   certNo: string;
   outcome: string; // SUCCESS | FAILED | UNMATCHED
@@ -142,6 +150,27 @@ export const getAllCertificateDemat = async (params?: DematParams) => {
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
+  }
+};
+
+export interface CaptureFromCertificatesRequest {
+  chn: string;
+  register: string;
+  holderName?: string;
+  broker?: string;
+  shareholderIdRef?: string;
+  dematFormRef?: string;
+  scannedCertsRef?: string;
+  certificateIds: string[];
+}
+
+// Capture a demat request by LINKING existing certificates (Certificate Capture is a search)
+export const captureDematFromCertificates = async (data: CaptureFromCertificatesRequest) => {
+  try {
+    const res = await api.post<Demat>(`/demat/from-certificates`, data, { headers: getXUserHeader() });
+    return res.data;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
   }
 };
 
@@ -363,6 +392,16 @@ export const searchDematHolders = async (params: {
   try {
     const res = await api.get<ContentPaginatedResponse<DematHolder>>(`/holders`, { params });
     return res.data;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
+// Stockbroker Verification — search distinct stockbrokers by firm name or CSCS code
+export const searchDematStockbrokers = async (q: string) => {
+  try {
+    const res = await api.get<DematStockbroker[]>(`/holders/stockbrokers`, { params: { q } });
+    return res.data ?? [];
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }

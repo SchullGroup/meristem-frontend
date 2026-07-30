@@ -7,6 +7,7 @@ import {
 import {
   getAllCertificateDemat,
   captureDematRequest,
+  captureDematFromCertificates,
   rejectDematRequest,
   lodgetDematRequest,
   icuApproveDematRequest,
@@ -20,12 +21,15 @@ import {
   processDematReversal,
   notifyDematReversal,
   searchDematHolders,
+  searchDematStockbrokers,
   getDematRecordById,
   getWorkflowStageCounts,
   DematParams,
   Demat,
   CaptureDematRequest,
+  CaptureFromCertificatesRequest,
   DematHolder,
+  DematStockbroker,
 } from "@/actions/certDematActions";
 import { ContentPaginatedResponse } from "@/types";
 
@@ -55,6 +59,14 @@ export const useCaptureDematRequest = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["demat"] });
     },
+  });
+};
+
+export const useCaptureDematFromCertificates = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CaptureFromCertificatesRequest) => captureDematFromCertificates(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["demat"] }),
   });
 };
 
@@ -182,6 +194,14 @@ export const useSearchDematHolders = (
     queryKey: ["demat", "holders", params],
     queryFn: () => searchDematHolders(params),
     enabled,
+    refetchOnWindowFocus: false,
+  });
+
+export const useSearchDematStockbrokers = (q: string, enabled: boolean) =>
+  useQuery<DematStockbroker[]>({
+    queryKey: ["demat", "stockbrokers", q],
+    queryFn: () => searchDematStockbrokers(q),
+    enabled: enabled && q.trim().length >= 2,
     refetchOnWindowFocus: false,
   });
 
