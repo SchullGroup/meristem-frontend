@@ -1,26 +1,26 @@
 "use client";
 
-import { useMemo, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { TrendingUp, Users, TrendingDown, X, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  TrendingUp,
+  Users,
+  TrendingDown,
+  LayoutGrid,
+  Rows3,
+  Loader2,
+} from "lucide-react";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { ShareholderSearchInput } from "@/components/custom/shareholder-search-input";
+import { ShareholderQueryBuilder } from "@/components/custom/shareholder-query-builder";
+import { ShareholderResultCard } from "@/components/custom/shareholder-result-card";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import {
-  getShareholders,
-  getShareholderSummary,
-} from "@/actions/enquiryActions";
+import { getShareholderSummary } from "@/actions/enquiryActions";
+import { useSearchShareholders } from "@/hooks/useEnquiry";
 import { useGetRegisters } from "@/hooks/useRegisters";
+import type { ShareholderSearchCriteria } from "@/types/enquiry";
 
 const STATUS_BADGE: Record<string, string> = {
   ACTIVE: "bg-green-100 text-green-800",
@@ -28,7 +28,6 @@ const STATUS_BADGE: Record<string, string> = {
   CAUTIONED: "bg-amber-100 text-amber-800",
   SUSPENDED: "bg-red-100 text-red-800",
 };
-
 const STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Active",
   DORMANT: "Inactive",
@@ -36,151 +35,80 @@ const STATUS_LABEL: Record<string, string> = {
   SUSPENDED: "Suspended",
 };
 
-const STATUS_ROW_BG: Record<string, string> = {
-  ACTIVE: "",
-  DORMANT: "",
-  CAUTIONED: "bg-amber-50/40",
-  SUSPENDED: "bg-red-50/30",
-};
+type AppliedCriteria = Omit<ShareholderSearchCriteria, "page" | "size" | "sort">;
+const EMPTY_CRITERIA: AppliedCriteria = { combinator: "AND", rules: [] };
 
 export default function ShareholderRegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const [registerFilter, setRegisterFilter] = useState("");
-  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
-  const [statusFilter, setStatusFilter] = useState("");
-
+  const [applied, setApplied] = useState<AppliedCriteria>(EMPTY_CRITERIA);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const [view, setView] = useState<"cards" | "table">("cards");
 
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(0);
-    }, 300);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [search]);
-
-  const { data: registersData, isLoading: isRegisterLoading } = useGetRegisters(
-    {
-      size: 100,
-    },
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registers = useMemo(
+    () =>
+      (registersData?.content ?? [])
+        .filter((r) => r?.status === "ACTIVE")
+        .map((r) => ({ symbol: r.symbol, registerName: r.registerName })),
+    [registersData],
   );
-  const registerlist = registersData?.content;
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: [
-      "shareholders",
-      page,
-      pageSize,
-      debouncedSearch,
-      registerFilter,
-      statusFilter,
-    ],
-    queryFn: () =>
-      getShareholders({
-        page,
-        size: pageSize,
-        q: debouncedSearch || undefined,
-        registerSymbol: registerFilter || undefined,
-        status: (statusFilter as any) || undefined,
-      }),
-  });
+  const criteria: ShareholderSearchCriteria = useMemo(
+    () => ({ ...applied, page, size: pageSize, sort: "createdAt,desc" }),
+    [applied, page, pageSize],
+  );
 
+  const { data, isFetching, error } = useSearchShareholders(criteria);
+
+  // Summary is a wholly independent query — the (server-cached, background-refreshed) aggregates
+  // never block the paginated result list from rendering. Scoped to the applied register.
   const { data: summaryData } = useQuery({
-    queryKey: ["shareholderSummary", registerFilter],
-    queryFn: () => getShareholderSummary(registerFilter || undefined),
+    queryKey: ["shareholderSummary", applied.registerSymbol ?? ""],
+    queryFn: () => getShareholderSummary(applied.registerSymbol || undefined),
   });
 
-  const shareholdersData = data?.content || [];
-
-  const registerMap = useMemo(
-    () => new Map((registerlist ?? []).map((r) => [r.registerId, r])),
-    [registerlist],
-  );
-
+  const rows = data?.content ?? [];
   const summary = summaryData?.data;
-  const totalShareholdersCount = summary?.totalShareholders ?? 0;
-  const activeCount = summary?.activeCount ?? 0;
-  const dormantCount = summary?.dormantCount ?? 0;
-  const cautionedCount = summary?.cautionedCount ?? 0;
-  const totalHoldings = useMemo(() => {
-    const activeFilters =
-      registerFilter !== "" || search.trim() !== "" || statusFilter !== "";
-    if (activeFilters) {
-      return shareholdersData.reduce((sum, s) => sum + (s.holdings || 0), 0);
-    }
-    return summary?.totalHoldings ?? 0;
-  }, [registerFilter, search, statusFilter, shareholdersData, summary]);
-
   const total = data?.totalElements ?? 0;
   const totalPages = data?.totalPages ?? 1;
   const from = total === 0 ? 0 : page * pageSize + 1;
   const to = Math.min((page + 1) * pageSize, total);
 
-  function clearFilters() {
-    setRegisterFilter("");
-    setSearch("");
-    setStatusFilter("");
-    setPage(0);
-  }
-
-  const hasFilters =
-    registerFilter !== "" || search.trim() !== "" || statusFilter !== "";
-
   function goToHolder(s: { id: string }) {
     router.push(`/enquiry/holder?id=${s.id}`);
   }
 
+  function applySearch(next: AppliedCriteria) {
+    setApplied(next);
+    setPage(0);
+  }
+  function clearSearch() {
+    setApplied(EMPTY_CRITERIA);
+    setPage(0);
+  }
+
+  const stats = [
+    { label: "Total", value: summary?.totalShareholders ?? 0, icon: Users, color: "" },
+    { label: "Active", value: summary?.activeCount ?? 0, icon: TrendingUp, color: "text-green-600" },
+    { label: "Inactive", value: summary?.dormantCount ?? 0, icon: TrendingDown, color: "text-gray-500" },
+    { label: "Cautioned", value: summary?.cautionedCount ?? 0, icon: null, color: "text-amber-600" },
+  ];
+
   return (
     <div className="space-y-5">
-      {/* ── Page header + summary stats ── */}
-      <div className="flex items-start justify-between gap-6">
+      {/* Header + summary stats */}
+      <div className="flex items-start justify-between gap-6 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Shareholder Register
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">Shareholder Register</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            View, search and inspect all shareholders across registers
+            Search and inspect shareholders across registers
           </p>
         </div>
-        <div className="flex gap-3 shrink-0">
-          {[
-            {
-              label: "Total",
-              value: totalShareholdersCount,
-              icon: Users,
-              color: "",
-            },
-            {
-              label: "Active",
-              value: activeCount,
-              icon: TrendingUp,
-              color: "text-green-600",
-            },
-            {
-              label: "Inactive",
-              value: dormantCount,
-              icon: TrendingDown,
-              color: "text-gray-500",
-            },
-            {
-              label: "Cautioned",
-              value: cautionedCount,
-              icon: null,
-              color: "text-amber-600",
-            },
-          ].map(({ label, value, icon: Icon, color }) => (
-            <Card
-              key={label}
-              className="px-4 py-2.5 flex items-center gap-3 min-w-22.5"
-            >
+        <div className="flex gap-3 shrink-0 flex-wrap">
+          {stats.map(({ label, value, icon: Icon, color }) => (
+            <Card key={label} className="px-4 py-2.5 flex items-center gap-3 min-w-22.5">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                   {label}
@@ -189,191 +117,127 @@ export default function ShareholderRegisterPage() {
                   {value.toLocaleString()}
                 </p>
               </div>
-              {Icon && (
-                <Icon className={`h-5 w-5 ml-auto opacity-30 ${color}`} />
-              )}
+              {Icon && <Icon className={`h-5 w-5 ml-auto opacity-30 ${color}`} />}
             </Card>
           ))}
         </div>
       </div>
 
-      {/* ── Search bar ── */}
+      {/* Quick jump-to-holder typeahead */}
       <ShareholderSearchInput
-        registerSymbol={registerFilter}
+        registerSymbol={applied.registerSymbol ?? ""}
         className="w-full"
-        placeholder="Search shareholders — type a surname, account no or CHN to see suggestions…"
+        placeholder="Quick find — type a surname, account no or CHN to jump straight to a holder…"
         onSelect={goToHolder}
-        onQueryChange={setSearch}
-        value={search}
       />
 
-      {/* ── Filter bar ── */}
-      <div className="flex gap-2.5 items-center flex-wrap">
-        <Select
-          value={registerFilter}
-          onValueChange={(v) => {
-            setRegisterFilter(v || "");
-            setPage(0);
-          }}
-        >
-          <SelectTrigger className="w-45 mrpsl-input">
-            <SelectValue placeholder="All Registers" />
-          </SelectTrigger>
-          <SelectContent>
-            {isRegisterLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-4 w-4 animate-spin" />
-              </div>
-            ) : (
-              <>
-                <SelectItem value="">All Registers</SelectItem>
-                {registerlist
-                  ?.filter((r) => r?.status === "ACTIVE")
-                  .map((r) => (
-                    <SelectItem key={r.registerId} value={r.symbol}>
-                      <span className="font-bold">{r.registerName}</span> -
-                      <span className="text-sm">{r.symbol}</span>
-                    </SelectItem>
-                  ))}
-              </>
-            )}
-          </SelectContent>
-        </Select>
+      {/* Interactive query builder */}
+      <ShareholderQueryBuilder
+        registers={registers}
+        onSearch={applySearch}
+        onClear={clearSearch}
+        loading={isFetching}
+      />
 
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => {
-            setStatusFilter(v || "");
-            setPage(0);
-          }}
-        >
-          <SelectTrigger className="w-37.5 mrpsl-input">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
-            <SelectItem value="ACTIVE">Active</SelectItem>
-            <SelectItem value="DORMANT">Inactive</SelectItem>
-            <SelectItem value="CAUTIONED">Cautioned</SelectItem>
-            <SelectItem value="SUSPENDED">Suspended</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {hasFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-10 text-muted-foreground gap-1"
-            onClick={clearFilters}
-          >
-            <X className="h-3.5 w-3.5" /> Clear
-          </Button>
-        )}
-
-        <div className="ml-auto text-[12px] text-muted-foreground self-center">
-          {totalHoldings > 0 && (
+      {/* Results toolbar */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-[13px] text-muted-foreground">
+          {isFetching ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+            </span>
+          ) : (
             <span>
-              {hasFilters ? "Total filtered holdings" : "Total Holdings"}:{" "}
-              <span className="font-mono font-semibold text-foreground">
-                {totalHoldings.toLocaleString()}
-              </span>{" "}
-              units
+              <span className="font-semibold text-foreground">{total.toLocaleString()}</span>{" "}
+              {total === 1 ? "shareholder" : "shareholders"}
+              {summary && summary.totalHoldings > 0 && (
+                <>
+                  {" · "}
+                  <span className="font-mono font-semibold text-foreground">
+                    {summary.totalHoldings.toLocaleString()}
+                  </span>{" "}
+                  units in scope
+                </>
+              )}
             </span>
           )}
         </div>
+        <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40">
+          <button
+            onClick={() => setView("cards")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors ${
+              view === "cards"
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <LayoutGrid className="h-4 w-4" /> Cards
+          </button>
+          <button
+            onClick={() => setView("table")}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium rounded-md transition-colors ${
+              view === "table"
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Rows3 className="h-4 w-4" /> Table
+          </button>
+        </div>
       </div>
 
-      {/* ── Table ── */}
-      <Card className="mrpsl-card overflow-hidden">
-        <table className="w-full text-sm text-left">
-          <thead className="mrpsl-table-header">
-            <tr>
-              <th className="px-3 py-2.5 w-10">#</th>
-              <th className="px-3 py-2.5">ACCOUNT NO</th>
-              <th className="px-3 py-2.5">HOLDER NAME</th>
-              <th className="px-3 py-2.5">CHN</th>
-              <th className="px-3 py-2.5 text-right">HOLDINGS</th>
-              <th className="px-3 py-2.5">STATUS</th>
-              <th className="px-3 py-2.5">REGISTER</th>
-              <th className="px-3 py-2.5">TYPE</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              Array.from({ length: pageSize }).map((_, i) => (
-                <tr key={`skeleton-${i}`} className="animate-pulse">
-                  <td className="px-3 py-3">
-                    <div className="h-4 w-5 bg-muted rounded" />
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="h-4 w-24 bg-muted rounded font-mono" />
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="h-4 w-40 bg-muted rounded" />
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="h-4 w-24 bg-muted rounded font-mono" />
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="h-4 w-20 bg-muted rounded ml-auto" />
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="h-5 w-16 bg-muted rounded-full" />
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="h-4 w-12 bg-muted rounded" />
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="h-4 w-20 bg-muted rounded" />
-                  </td>
-                </tr>
+      {/* Results */}
+      {error ? (
+        <Card className="mrpsl-card p-14 text-center text-red-500 text-sm font-medium">
+          Failed to load shareholders. Please try again.
+        </Card>
+      ) : !isFetching && rows.length === 0 ? (
+        <Card className="mrpsl-card p-14 text-center text-muted-foreground text-sm">
+          No shareholders match the current search.
+        </Card>
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {isFetching && rows.length === 0
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <Card key={`sk-${i}`} className="mrpsl-card p-4 h-52 animate-pulse bg-muted/40" />
               ))
-            ) : error ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="py-14 text-center text-red-500 text-sm font-medium"
-                >
-                  Failed to load shareholders. Please try again.
-                </td>
-              </tr>
-            ) : shareholdersData.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="py-14 text-center text-muted-foreground text-sm"
-                >
-                  No shareholders match the current filters.
-                </td>
-              </tr>
-            ) : (
-              shareholdersData.map((s, idx) => {
-                const reg = registerMap.get(s.registerId);
-                return (
+            : rows.map((s) => (
+                <ShareholderResultCard key={s.id} shareholder={s} onClick={() => goToHolder(s)} />
+              ))}
+        </div>
+      ) : (
+        <Card className="mrpsl-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="mrpsl-table-header">
+                <tr>
+                  <th className="px-3 py-2.5">ACCOUNT NO</th>
+                  <th className="px-3 py-2.5">HOLDER NAME</th>
+                  <th className="px-3 py-2.5">CHN</th>
+                  <th className="px-3 py-2.5">BVN</th>
+                  <th className="px-3 py-2.5">NIN</th>
+                  <th className="px-3 py-2.5 text-right">HOLDINGS</th>
+                  <th className="px-3 py-2.5">STATUS</th>
+                  <th className="px-3 py-2.5">REGISTER</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {rows.map((s) => (
                   <tr
                     key={s.id}
                     onClick={() => goToHolder(s)}
-                    className={[
-                      "transition-colors text-[13px] cursor-pointer",
-                      STATUS_ROW_BG[s.status] || "",
-                      "hover:bg-muted/30",
-                    ].join(" ")}
+                    className="transition-colors text-[13px] cursor-pointer hover:bg-muted/30"
                   >
-                    <td className="px-3 py-2.5 text-muted-foreground tabular-nums">
-                      {from + idx}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono font-medium">
-                      {s.accountNumber}
-                    </td>
+                    <td className="px-3 py-2.5 font-mono font-medium">{s.accountNumber}</td>
                     <td className="px-3 py-2.5 font-medium">
                       {s.lastName}, {s.firstName}
                       {s.otherNames ? ` ${s.otherNames}` : ""}
                     </td>
-                    <td className="px-3 py-2.5 font-mono text-muted-foreground">
-                      {s.chn}
-                    </td>
+                    <td className="px-3 py-2.5 font-mono text-muted-foreground">{s.chn}</td>
+                    <td className="px-3 py-2.5 font-mono text-muted-foreground">{s.bvn || "—"}</td>
+                    <td className="px-3 py-2.5 font-mono text-muted-foreground">{s.nin || "—"}</td>
                     <td className="px-3 py-2.5 text-right font-mono tabular-nums">
-                      {s.holdings.toLocaleString()}
+                      {(s.holdings ?? 0).toLocaleString()}
                     </td>
                     <td className="px-3 py-2.5">
                       <Badge
@@ -382,19 +246,18 @@ export default function ShareholderRegisterPage() {
                         {STATUS_LABEL[s.status] || s.status || "—"}
                       </Badge>
                     </td>
-                    <td className="px-3 py-2.5 text-muted-foreground">
-                      {s.registerSymbol || reg?.symbol || "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-muted-foreground">
-                      {s.holderType}
-                    </td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{s.registerSymbol || "—"}</td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-        <div className="px-4 py-2 border-t">
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Pagination */}
+      {rows.length > 0 && (
+        <Card className="mrpsl-card px-4 py-2">
           <TablePagination
             page={page + 1}
             pageSize={pageSize}
@@ -408,8 +271,8 @@ export default function ShareholderRegisterPage() {
               setPage(0);
             }}
           />
-        </div>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }
