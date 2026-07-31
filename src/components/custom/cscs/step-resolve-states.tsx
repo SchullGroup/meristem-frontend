@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Check, CheckCircle, MapPin } from "lucide-react";
+import { useState } from "react";
+import { Check, CheckCircle, MapPin, Loader2, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,307 +12,172 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PaginationBar } from "@/components/custom/pagination-bar";
 import { toast } from "sonner";
 import { NIGERIA_STATE_NAMES } from "@/lib/mocks/nigeria-geo";
+import {
+  useCscsBatchHolders,
+  useCscsBatchRegisters,
+  useUpdateCscsHolderState,
+  useAcceptCscsGisStates,
+  useCommitCscsStates,
+} from "@/hooks/useCscsPipeline";
+import type { CscsHolderItem } from "@/actions/cscsPipelineActions";
 
-interface HolderRecord {
-  id: string;
-  register: string;
-  chn: string;
-  name: string;
-  address: string;
-  actualState: string; // from file — may be "UNKNOWN"
-  gisState: string; // Google geocoded suggestion
-}
-
-const SEED_HOLDERS: HolderRecord[] = [
-  {
-    id: "1",
-    register: "DANGCEM",
-    chn: "C0012345AK",
-    name: "JOHN ADEYEMI BABATUNDE",
-    address: "14 Allen Avenue, Ikeja, Lagos Island",
-    actualState: "Lagos",
-    gisState: "Lagos",
-  },
-  {
-    id: "2",
-    register: "DANGCEM",
-    chn: "C0023456BK",
-    name: "NGOZI CHIDINMA OKAFOR",
-    address: "45 Trans-Ekulu Road, Enugu North",
-    actualState: "UNKNOWN",
-    gisState: "Enugu",
-  },
-  {
-    id: "3",
-    register: "DANGCEM",
-    chn: "C0033211DK",
-    name: "TUNDE ABIODUN SALAMI",
-    address: "9 Taiwo Street, Ilorin",
-    actualState: "UNKNOWN",
-    gisState: "Kwara",
-  },
-  {
-    id: "4",
-    register: "MTNN",
-    chn: "C0034567CK",
-    name: "SAMUEL OLUWASEUN ADELEKE",
-    address: "23 Old Bodija Estate, Ibadan",
-    actualState: "UNKNOWN",
-    gisState: "Oyo",
-  },
-  {
-    id: "5",
-    register: "MTNN",
-    chn: "C0045678DK",
-    name: "FATIMA ABUBAKAR MUSA",
-    address: "12 Ahmadu Bello Way, Kaduna South",
-    actualState: "Kaduna",
-    gisState: "Kaduna",
-  },
-  {
-    id: "6",
-    register: "MTNN",
-    chn: "C0046789EK",
-    name: "ADAEZE CHIBUIKE IROEGBU",
-    address: "3 Aba Road, Port Harcourt",
-    actualState: "UNKNOWN",
-    gisState: "Rivers",
-  },
-  {
-    id: "7",
-    register: "SEPLAT",
-    chn: "C0056789EK",
-    name: "EMEKA CHUKWUEMEKA EZE",
-    address: "8 Owerri Road, Owerri North",
-    actualState: "UNKNOWN",
-    gisState: "Imo",
-  },
-  {
-    id: "8",
-    register: "SEPLAT",
-    chn: "C0067890FK",
-    name: "AMAKA NGOZI OKONKWO",
-    address: "5 Onitsha Road, Onitsha North",
-    actualState: "Anambra",
-    gisState: "Anambra",
-  },
-  {
-    id: "9",
-    register: "UBA",
-    chn: "C0078901GK",
-    name: "IBRAHIM USMAN HASSAN",
-    address: "7 Zaria Road, Kano Municipal",
-    actualState: "UNKNOWN",
-    gisState: "Kano",
-  },
-  {
-    id: "10",
-    register: "UBA",
-    chn: "C0089012HK",
-    name: "BLESSING CHISOM NWOSU",
-    address: "22 Airport Road, Port Harcourt",
-    actualState: "Rivers",
-    gisState: "Rivers",
-  },
-  {
-    id: "11",
-    register: "UBA",
-    chn: "C0099123IK",
-    name: "CHUKWUEMEKA OKAFOR",
-    address: "14 Agbani Road, Enugu South",
-    actualState: "UNKNOWN",
-    gisState: "Enugu",
-  },
-  {
-    id: "12",
-    register: "UBA",
-    chn: "C0109234JK",
-    name: "YETUNDE ADEFOPE ADEYEMI",
-    address: "6 Ring Road, Ibadan North",
-    actualState: "UNKNOWN",
-    gisState: "Oyo",
-  },
-];
-
-const REGISTERS = Array.from(new Set(SEED_HOLDERS.map((h) => h.register)));
+type ViewFilter = "ALL" | "MISSING" | "CONFIRMED";
 
 interface StepResolveStatesProps {
   batchRef: string;
   onComplete: () => void;
   initialRegister?: string;
+  /** Once states have been committed to the live register, the screen is display-only. */
+  readOnly?: boolean;
 }
 
 export function StepResolveStates({
-  batchRef: _batchRef,
+  batchRef,
   onComplete,
   initialRegister,
+  readOnly = false,
 }: StepResolveStatesProps) {
-  const [registerFilter, setRegisterFilter] = useState(
-    initialRegister ?? "All",
-  );
-  const [viewFilter, setViewFilter] = useState("All");
-  // confirmed states keyed by holder id
-  const [confirmedStates, setConfirmedStates] = useState<
-    Record<string, string>
-  >({});
-  const [gisAccepted, setGisAccepted] = useState(false);
+  const [registerFilter, setRegisterFilter] = useState(initialRegister ?? "All");
+  const [viewFilter, setViewFilter] = useState<ViewFilter>("ALL");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
-  const resolvedForRow = (h: HolderRecord): string | null => {
-    if (confirmedStates[h.id] !== undefined) return confirmedStates[h.id];
-    if (h.actualState !== "UNKNOWN") return h.actualState;
-    if (gisAccepted) return h.gisState;
-    return null;
+  const { data: registersData } = useCscsBatchRegisters(batchRef);
+  const registerOptions = registersData?.registers.map((r) => r.symbol) ?? [];
+
+  const { data, isLoading, isError, error } = useCscsBatchHolders(batchRef, {
+    register: registerFilter === "All" ? undefined : registerFilter,
+    stateFilter: viewFilter,
+    page,
+    pageSize,
+  });
+
+  const holders = data?.data ?? [];
+  const meta = data?.meta;
+  const missingCount = meta?.missingCount ?? 0;
+  const confirmedCount = meta?.confirmedCount ?? 0;
+  const totalHolders = missingCount + confirmedCount;
+
+  const updateState = useUpdateCscsHolderState();
+  const acceptAllGis = useAcceptCscsGisStates();
+  const commit = useCommitCscsStates();
+
+  const setRowState = (h: CscsHolderItem, resolvedState: string, source: "GIS" | "MANUAL") => {
+    updateState.mutate(
+      { batchRef, chn: h.chn, payload: { register: h.register, resolvedState, source } },
+      {
+        onSuccess: () => toast.success(`${h.name} → ${resolvedState}`),
+        onError: (err) => toast.error((err as Error).message),
+      },
+    );
   };
 
-  const missingCount = SEED_HOLDERS.filter(
-    (h) => resolvedForRow(h) === null,
-  ).length;
-
-  const confirmedCount = SEED_HOLDERS.filter(
-    (h) => resolvedForRow(h) !== null,
-  ).length;
-
-  const filtered = useMemo(() => {
-    return SEED_HOLDERS.filter((h) => {
-      if (registerFilter !== "All" && h.register !== registerFilter)
-        return false;
-      if (viewFilter === "Missing") return resolvedForRow(h) === null;
-      if (viewFilter === "Confirmed") return resolvedForRow(h) !== null;
-      return true;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registerFilter, viewFilter, confirmedStates, gisAccepted]);
-
-  const acceptGis = (h: HolderRecord) => {
-    setConfirmedStates((prev) => ({ ...prev, [h.id]: h.gisState }));
-  };
-
-  const acceptAllGis = () => {
-    const next: Record<string, string> = {};
-    SEED_HOLDERS.forEach((h) => {
-      if (h.actualState === "UNKNOWN") next[h.id] = h.gisState;
-    });
-    setConfirmedStates((prev) => ({ ...prev, ...next }));
-    setGisAccepted(true);
-    toast.success("All GIS suggestions accepted.");
-  };
-
-  const revertGis = () => {
-    setGisAccepted(false);
-    const next = { ...confirmedStates };
-    SEED_HOLDERS.forEach((h) => {
-      if (next[h.id] === h.gisState && h.actualState === "UNKNOWN")
-        delete next[h.id];
-    });
-    setConfirmedStates(next);
-    toast.info("GIS suggestions reverted.");
+  const handleAcceptAllGis = () => {
+    acceptAllGis.mutate(
+      { batchRef },
+      {
+        onSuccess: (res) => toast.success(`${res.updatedCount} GIS suggestion${res.updatedCount !== 1 ? "s" : ""} accepted.`),
+        onError: (err) => toast.error((err as Error).message),
+      },
+    );
   };
 
   const handleCommit = () => {
-    if (missingCount > 0) {
-      toast.error(
-        `YOU STILL HAVE ${missingCount} UNKNOWN STATE${missingCount !== 1 ? "S" : ""}. Resolve all before saving.`,
-      );
-      return;
-    }
-    toast.success(
-      `Shareholder records updated — ${SEED_HOLDERS.length} rows committed.`,
+    commit.mutate(
+      { batchRef },
+      {
+        onSuccess: (res) => {
+          toast.success(`Shareholder records updated — ${res.committedCount} state${res.committedCount !== 1 ? "s" : ""} committed.`);
+          onComplete();
+        },
+        onError: (err) => toast.error((err as Error).message),
+      },
     );
-    onComplete();
   };
 
   return (
     <div className="space-y-4">
       {/* Header counters + actions */}
-      <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex-wrap gap-3">
-        <div className="flex items-center gap-2 text-sm text-blue-900">
-          <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
+      {readOnly ? (
+        <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-900">
+          <Lock className="h-4 w-4 text-green-700 shrink-0" />
           <span>
-            <strong>
-              {missingCount} MISSING STATE{missingCount !== 1 ? "S" : ""}
-            </strong>
-            &nbsp;·&nbsp;
-            <strong>
-              {SEED_HOLDERS.filter((h) => h.actualState === "UNKNOWN").length}{" "}
-              GIS SUGGESTED STATES
-            </strong>
-            &nbsp;— Review GIS suggestions and confirm or override each row.
+            <strong>States committed.</strong> These resolved states have already been written to the
+            shareholders&apos; records — this screen is now read-only.
           </span>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {missingCount > 0 && (
+      ) : (
+        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex-wrap gap-3">
+          <div className="flex items-center gap-2 text-sm text-blue-900">
+            <MapPin className="h-4 w-4 text-blue-600 shrink-0" />
+            <span>
+              <strong>{missingCount} MISSING STATE{missingCount !== 1 ? "S" : ""}</strong>
+              &nbsp;·&nbsp;
+              <strong>{confirmedCount} CONFIRMED</strong>
+              &nbsp;— Review GIS suggestions and confirm or override each row.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {missingCount > 0 && (
+              <Button
+                className="cursor-pointer"
+                size="sm"
+                variant="outline"
+                onClick={handleAcceptAllGis}
+                disabled={acceptAllGis.isPending}
+              >
+                {acceptAllGis.isPending && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+                Accept All GIS Suggestions
+              </Button>
+            )}
             <Button
+              size="sm"
+              onClick={handleCommit}
+              disabled={missingCount > 0 || commit.isPending}
               className="cursor-pointer"
-              size="sm"
-              variant="outline"
-              onClick={acceptAllGis}
+              title={missingCount > 0 ? `${missingCount} unresolved state(s) remaining` : undefined}
             >
-              Accept All GIS Suggestions
+              {commit.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <Check className="h-4 w-4 mr-1.5" />
+              )}
+              Update Shareholders Records
             </Button>
-          )}
-          {gisAccepted && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-muted-foreground cursor-pointer"
-              onClick={revertGis}
-            >
-              Revert GIS Suggestions
-            </Button>
-          )}
-          <Button
-            size="sm"
-            onClick={handleCommit}
-            disabled={missingCount > 0}
-            className="cursor-pointer"
-            title={
-              missingCount > 0
-                ? `${missingCount} unresolved state(s) remaining`
-                : undefined
-            }
-          >
-            <Check className="h-4 w-4 mr-1.5" />
-            Update Shareholders Records
-          </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Filters */}
       <div className="grid grid-cols-[1fr_1fr_1fr] gap-2 items-center">
-        <Select
-          value={registerFilter}
-          onValueChange={(v) => setRegisterFilter(v ?? "All")}
-        >
+        <Select value={registerFilter} onValueChange={(v) => { setRegisterFilter(v ?? "All"); setPage(1); }}>
           <SelectTrigger className="w-44 mrpsl-input">
             <SelectValue placeholder="All Registers" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="All">All Registers</SelectItem>
-            {REGISTERS.map((r) => (
-              <SelectItem key={r} value={r}>
-                {r}
-              </SelectItem>
+            {registerOptions.map((r) => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <div className="flex items-center gap-1">
           {[
-            { label: "View All", value: "All" },
-            { label: "View Missing States", value: "Missing" },
-            { label: "Confirmed", value: "Confirmed" },
+            { label: "View All", value: "ALL" as const },
+            { label: "View Missing States", value: "MISSING" as const },
+            { label: "Confirmed", value: "CONFIRMED" as const },
           ].map((f) => (
             <button
               key={f.value}
-              onClick={() => setViewFilter(f.value)}
+              onClick={() => { setViewFilter(f.value); setPage(1); }}
               className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all border cursor-pointer
-                ${
-                  viewFilter === f.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted"
-                }`}
+                ${viewFilter === f.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted"}`}
             >
               {f.label}
             </button>
@@ -320,21 +185,17 @@ export function StepResolveStates({
         </div>
 
         <span className="ml-auto text-[13px] text-muted-foreground">
-          <span className="text-primary font-semibold">{confirmedCount}</span> /{" "}
-          {SEED_HOLDERS.length} confirmed
+          <span className="text-primary font-semibold">{confirmedCount}</span> / {totalHolders} confirmed
         </span>
       </div>
 
       {/* Guidance */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-        <p className="font-semibold text-emerald-900 text-sm mb-0.5">
-          Recommended Workflow for Large Batches
-        </p>
+        <p className="font-semibold text-emerald-900 text-sm mb-0.5">Recommended Workflow for Large Batches</p>
         <p className="text-[13px] text-emerald-800">
-          Click <strong>View Missing States</strong>, review GIS suggestions,
-          then use <strong>Accept All GIS Suggestions</strong> before saving.
-          State is mandatory for legal compliance — you cannot save while any
-          UNKNOWN states remain.
+          Click <strong>View Missing States</strong>, review GIS suggestions, then use{" "}
+          <strong>Accept All GIS Suggestions</strong> before saving. State is mandatory for legal
+          compliance — you cannot save while any UNKNOWN states remain.
         </p>
       </div>
 
@@ -354,48 +215,50 @@ export function StepResolveStates({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {filtered.map((h) => {
-                const resolved = resolvedForRow(h);
-                const isConfirmed = resolved !== null;
-                const isUnknown = h.actualState === "UNKNOWN";
+              {isLoading && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground text-sm">
+                    <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Loading holders…
+                  </td>
+                </tr>
+              )}
+              {isError && !isLoading && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-red-600 text-sm">
+                    {(error as Error)?.message ?? "Failed to load holders."}
+                  </td>
+                </tr>
+              )}
+              {!isLoading && !isError && holders.map((h) => {
+                const isConfirmed = h.isConfirmed;
+                const hasFileState = !!h.fileState;
+                const resolved = h.resolvedState ?? "";
+                // A GIS value of "UNKNOWN" means the address/state couldn't be mapped to a
+                // Nigerian state — treat it as no suggestion so it can't be accepted as a state.
+                const gisSuggestion =
+                  h.gisState && h.gisState.toUpperCase() !== "UNKNOWN" ? h.gisState : null;
 
                 return (
-                  <tr key={h.id} className="hover:bg-accent/5 align-top">
+                  <tr key={`${h.register}-${h.chn}`} className="hover:bg-accent/5 align-top">
                     <td className="px-4 py-3.5">
-                      <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">
-                        {h.register}
-                      </Badge>
+                      <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">{h.register}</Badge>
                     </td>
-                    <td className="px-4 py-3.5 font-medium text-sm">
-                      {h.name}
-                    </td>
-                    <td className="px-4 py-3.5 font-mono text-[13px] text-muted-foreground">
-                      {h.chn}
-                    </td>
-                    <td className="px-4 py-3.5 text-[13px] text-muted-foreground max-w-52 leading-relaxed">
-                      {h.address}
-                    </td>
+                    <td className="px-4 py-3.5 font-medium text-sm">{h.name}</td>
+                    <td className="px-4 py-3.5 font-mono text-[13px] text-muted-foreground">{h.chn}</td>
+                    <td className="px-4 py-3.5 text-[13px] text-muted-foreground max-w-52 leading-relaxed">{h.address ?? "—"}</td>
                     <td className="px-4 py-3.5 text-[13px]">
-                      {isUnknown ? (
-                        <span className="text-amber-600 font-semibold">
-                          UNKNOWN
-                        </span>
+                      {hasFileState ? (
+                        <span>{h.fileState}</span>
                       ) : (
-                        <span>{h.actualState}</span>
+                        <span className="text-amber-600 font-semibold">UNKNOWN</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
                         <Select
-                          value={resolved ?? ""}
-                          onValueChange={(v) => {
-                            if (!v) return;
-                            setConfirmedStates((prev) => ({
-                              ...prev,
-                              [h.id]: v,
-                            }));
-                            toast.success(`${h.name} → ${v}`);
-                          }}
+                          value={resolved}
+                          disabled={readOnly}
+                          onValueChange={(v) => { if (v) setRowState(h, v, "MANUAL"); }}
                         >
                           <SelectTrigger
                             className={`h-9 text-[13px] flex-1 min-w-0 ${
@@ -404,69 +267,46 @@ export function StepResolveStates({
                                 : "border-green-300 bg-green-50 text-green-900"
                             }`}
                           >
-                            <SelectValue
-                              placeholder={
-                                isUnknown
-                                  ? h.gisState + " (GIS)"
-                                  : h.actualState
-                              }
-                            />
+                            <SelectValue placeholder={gisSuggestion ? `${gisSuggestion} (GIS)` : "Select state…"} />
                           </SelectTrigger>
                           <SelectContent className="max-h-60">
                             {NIGERIA_STATE_NAMES.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
 
-                        {isUnknown && !isConfirmed && (
+                        {!readOnly && !isConfirmed && gisSuggestion && (
                           <Button
                             size="sm"
                             variant="outline"
                             className="h-9 px-2.5 shrink-0 border-green-300 text-green-700 hover:bg-green-50 text-xs"
-                            onClick={() => {
-                              acceptGis(h);
-                              toast.success(`${h.name} → ${h.gisState} (GIS)`);
-                            }}
+                            onClick={() => setRowState(h, gisSuggestion, "GIS")}
                           >
                             <Check className="h-3.5 w-3.5 mr-1" /> Accept GIS
                           </Button>
                         )}
-                        {isConfirmed && (
-                          <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
-                        )}
+                        {isConfirmed && <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />}
                       </div>
-                      {isConfirmed &&
-                        isUnknown &&
-                        confirmedStates[h.id] !== h.gisState && (
-                          <p className="text-[12px] text-muted-foreground mt-1">
-                            GIS suggested:{" "}
-                            <span className="font-medium">{h.gisState}</span>
-                          </p>
-                        )}
+                      {isConfirmed && gisSuggestion && h.resolvedState !== gisSuggestion && (
+                        <p className="text-[12px] text-muted-foreground mt-1">
+                          GIS suggested: <span className="font-medium">{gisSuggestion}</span>
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       {isConfirmed ? (
-                        <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">
-                          Confirmed
-                        </Badge>
+                        <Badge className="bg-green-100 text-green-800 border-0 text-[13px]">Confirmed</Badge>
                       ) : (
-                        <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">
-                          Pending
-                        </Badge>
+                        <Badge className="bg-amber-100 text-amber-800 border-0 text-[13px]">Pending</Badge>
                       )}
                     </td>
                   </tr>
                 );
               })}
-              {filtered.length === 0 && (
+              {!isLoading && !isError && holders.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-10 text-center text-muted-foreground text-sm"
-                  >
+                  <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground text-sm">
                     No records match the current filters.
                   </td>
                 </tr>
@@ -474,6 +314,16 @@ export function StepResolveStates({
             </tbody>
           </table>
         </div>
+        {meta && meta.total > 0 && (
+          <PaginationBar
+            page={page - 1}
+            total={meta.total}
+            pageSize={pageSize}
+            onPageChange={(p) => setPage(p + 1)}
+            onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+            pageBase={0}
+          />
+        )}
       </Card>
     </div>
   );

@@ -7,269 +7,58 @@ import { DematVerification } from "@/components/custom/cert-dematerialization/de
 import { DematCertificateCapture } from "@/components/custom/cert-dematerialization/demat-certificate-capture";
 import { DematTeamLeadApproval } from "@/components/custom/cert-dematerialization/demat-team-lead-approval";
 import { DematHodApproval } from "@/components/custom/cert-dematerialization/demat-hod-approval";
-import { DematCooApproval } from "@/components/custom/cert-dematerialization/demat-coo-approval";
 import { DematIcuApproval } from "@/components/custom/cert-dematerialization/demat-icu-approval-new";
+import { DematCooApproval } from "@/components/custom/cert-dematerialization/demat-coo-approval";
 import { DematLodgment } from "@/components/custom/cert-dematerialization/demat-lodgment-new";
 import { DematReversal } from "@/components/custom/cert-dematerialization/demat-reversal-new";
 import { DematHistory } from "@/components/custom/cert-dematerialization/demat-history";
-import {
-  SEED_REQUESTS,
-  DematRequest,
-  DematStatus,
-} from "@/components/custom/cert-dematerialization/demat-types";
+import { useGetWorkflowStageCounts } from "@/hooks/useCertDematerialisation";
+
+function CountBadge({ n }: { n?: number }) {
+  if (!n) return null;
+  return <Badge variant="secondary" className="text-xs px-1.5 py-0">{n}</Badge>;
+}
 
 export default function DematerializationPage() {
-  const [requests, setRequests] = useState<DematRequest[]>(SEED_REQUESTS);
   const [activeTab, setActiveTab] = useState("verification");
-  const [captureSearchCert, setCaptureSearchCert] = useState("");
+  const { data: counts } = useGetWorkflowStageCounts();
 
-  const pendingTeamLead = requests.filter(
-    (r) => r.status === "PENDING_TEAM_LEAD",
-  ).length;
-  const pendingHod = requests.filter((r) => r.status === "PENDING_HOD").length;
-  const pendingCeo = requests.filter((r) => r.status === "PENDING_CEO").length;
-  const pendingIcu = requests.filter((r) => r.status === "PENDING_ICU").length;
-  const pendingLodgment = requests.filter(
-    (r) => r.status === "APPROVED",
-  ).length;
-
-  // Chain: Team Lead → HOD → ICU → (CEO if high value) → Approved → Lodgment.
-  function approveTeamLead(id: string) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "PENDING_HOD" as DematStatus } : r,
-      ),
-    );
-  }
-
-  function approveHod(id: string) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "PENDING_ICU" as DematStatus } : r,
-      ),
-    );
-  }
-
-  function approveIcu(id: string) {
-    setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        const value = r.totalUnits * r.unitPrice;
-        const nextStatus: DematStatus =
-          r.totalUnits > 10_000_000 || value > 5_000_000
-            ? "PENDING_CEO"
-            : "APPROVED";
-        return { ...r, status: nextStatus };
-      }),
-    );
-  }
-
-  function approveCoo(id: string) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "APPROVED" as DematStatus } : r,
-      ),
-    );
-  }
-
-  function rejectRequest(id: string, comment: string) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: "REJECTED" as DematStatus,
-              rejectionComment: comment,
-            }
-          : r,
-      ),
-    );
-  }
-
-  function lodgeRequest(id: string, date: string) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, status: "LODGED" as DematStatus, lodgmentDate: date }
-          : r,
-      ),
-    );
-  }
-
-  function delodgeRequest(id: string) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, status: "DELODGED" as DematStatus } : r,
-      ),
-    );
-  }
-
-  function handleCertificateClick(certNo: string) {
-    setCaptureSearchCert(certNo);
-    setActiveTab("capture");
-  }
-
-  function createRequest(req: DematRequest) {
-    setRequests((prev) => [...prev, req]);
-  }
-
-  function editRequest(id: string, updates: Partial<DematRequest>) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, ...updates, status: "PENDING_TEAM_LEAD" as DematStatus }
-          : r,
-      ),
-    );
-  }
+  // Backend stage-counts keys (per DematStatus + derived PENDING_COO / READY_FOR_ICU).
+  const teamLead = counts?.DRAFT;
+  const hod = counts?.CALLOVER;
+  const icu = counts?.READY_FOR_ICU;
+  const ceo = counts?.PENDING_COO;
+  const lodgment = counts?.ICU_APPROVED;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Dematerialisation</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Convert physical share certificates to electronic form.
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Convert physical share certificates to electronic form.</p>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(v) => setActiveTab((v as string) || "verification")}
-        className="w-full"
-      >
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab((v as string) || "verification")} className="w-full">
         <TabsList className="flex flex-wrap gap-1 h-auto mb-5">
-          <TabsTrigger
-            value="verification"
-            className="gap-1.5 cursor-pointer px-3 py-2"
-          >
-            Verification
-          </TabsTrigger>
-          <TabsTrigger
-            value="capture"
-            className="gap-1.5 cursor-pointer px-3 py-2"
-          >
-            Certificate Capture
-          </TabsTrigger>
-          <TabsTrigger
-            value="teamlead"
-            className="gap-1.5 cursor-pointer px-3 py-2"
-          >
-            Team Lead Approval
-            {pendingTeamLead > 0 && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                {pendingTeamLead}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="hod" className="gap-1.5 cursor-pointer px-3 py-2">
-            HOD Approval
-            {pendingHod > 0 && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                {pendingHod}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="icu" className="gap-1.5 cursor-pointer px-3 py-2">
-            ICU Approval
-            {pendingIcu > 0 && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                {pendingIcu}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="coo" className="gap-1.5 cursor-pointer px-3 py-2">
-            CEO Approval
-            {pendingCeo > 0 && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                {pendingCeo}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="lodgment"
-            className="gap-1.5 cursor-pointer px-3 py-2"
-          >
-            CSCS Lodgment
-            {pendingLodgment > 0 && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                {pendingLodgment}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="reversal"
-            className="gap-1.5 cursor-pointer px-3 py-2"
-          >
-            Reversal
-          </TabsTrigger>
-          <TabsTrigger
-            value="history"
-            className="gap-1.5 cursor-pointer px-3 py-2"
-          >
-            History
-          </TabsTrigger>
+          <TabsTrigger value="verification" className="gap-1.5 cursor-pointer px-3 py-2">Verification</TabsTrigger>
+          <TabsTrigger value="capture" className="gap-1.5 cursor-pointer px-3 py-2">Certificate Capture</TabsTrigger>
+          <TabsTrigger value="teamlead" className="gap-1.5 cursor-pointer px-3 py-2">Team Lead Approval <CountBadge n={teamLead} /></TabsTrigger>
+          <TabsTrigger value="hod" className="gap-1.5 cursor-pointer px-3 py-2">HOD Approval <CountBadge n={hod} /></TabsTrigger>
+          <TabsTrigger value="icu" className="gap-1.5 cursor-pointer px-3 py-2">ICU Approval <CountBadge n={icu} /></TabsTrigger>
+          <TabsTrigger value="coo" className="gap-1.5 cursor-pointer px-3 py-2">CEO Approval <CountBadge n={ceo} /></TabsTrigger>
+          <TabsTrigger value="lodgment" className="gap-1.5 cursor-pointer px-3 py-2">CSCS Lodgment <CountBadge n={lodgment} /></TabsTrigger>
+          <TabsTrigger value="reversal" className="gap-1.5 cursor-pointer px-3 py-2">Reversal</TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5 cursor-pointer px-3 py-2">History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="verification">
-          <DematVerification onCertificateClick={handleCertificateClick} />
-        </TabsContent>
-
-        <TabsContent value="capture" keepMounted>
-          <DematCertificateCapture
-            requests={requests}
-            onCreateRequest={createRequest}
-            onEditRequest={editRequest}
-            initialCertNo={captureSearchCert}
-          />
-        </TabsContent>
-
-        <TabsContent value="teamlead">
-          <DematTeamLeadApproval
-            requests={requests.filter((r) => r.status === "PENDING_TEAM_LEAD")}
-            onApprove={approveTeamLead}
-            onReject={rejectRequest}
-          />
-        </TabsContent>
-
-        <TabsContent value="hod">
-          <DematHodApproval
-            requests={requests.filter((r) => r.status === "PENDING_HOD")}
-            onApprove={approveHod}
-            onReject={rejectRequest}
-          />
-        </TabsContent>
-
-        <TabsContent value="icu">
-          <DematIcuApproval
-            requests={requests.filter((r) => r.status === "PENDING_ICU")}
-            onApprove={approveIcu}
-            onReject={rejectRequest}
-          />
-        </TabsContent>
-
-        <TabsContent value="coo">
-          <DematCooApproval
-            requests={requests.filter((r) => r.status === "PENDING_CEO")}
-            onApprove={approveCoo}
-            onReject={rejectRequest}
-          />
-        </TabsContent>
-
-        <TabsContent value="lodgment">
-          <DematLodgment
-            requests={requests}
-            onLodge={lodgeRequest}
-            onDelodge={delodgeRequest}
-          />
-        </TabsContent>
-
-        <TabsContent value="reversal">
-          <DematReversal requests={requests} />
-        </TabsContent>
-
-        <TabsContent value="history">
-          <DematHistory requests={requests} />
-        </TabsContent>
+        <TabsContent value="verification"><DematVerification /></TabsContent>
+        <TabsContent value="capture"><DematCertificateCapture /></TabsContent>
+        <TabsContent value="teamlead"><DematTeamLeadApproval /></TabsContent>
+        <TabsContent value="hod"><DematHodApproval /></TabsContent>
+        <TabsContent value="icu"><DematIcuApproval /></TabsContent>
+        <TabsContent value="coo"><DematCooApproval /></TabsContent>
+        <TabsContent value="lodgment"><DematLodgment /></TabsContent>
+        <TabsContent value="reversal"><DematReversal /></TabsContent>
+        <TabsContent value="history"><DematHistory /></TabsContent>
       </Tabs>
     </div>
   );

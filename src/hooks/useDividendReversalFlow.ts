@@ -1,28 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  SEED_REVERSALS,
-  nextReversalRef,
-} from "@/components/custom/dividend-reversals/seed-data";
+  GET_REVERSALS,
+  CREATE_REVERSAL,
+  DECIDE_REVERSAL,
+} from "@/actions/dividendReversalActions";
 import type {
   ReversalDecision,
-  ReversalRequest,
   ReversalStatus,
   ReversalType,
 } from "@/types/dividend-reversal-flow";
 
-// Mock data source — mutates the shared seed array in place so a request moves
-// from Pending → History as HOP acts, and appears immediately when created from
-// the Enquiry module.
-
-function delay(ms = 350) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+// Real API-backed implementation of the dividend reversals flow. Hook names, signatures and
+// return shapes are unchanged from the previous mock so the Pending / History tabs and the
+// Enquiry-launched request modal bind unchanged — the backend DividendReversalResponse mirrors
+// ReversalRequest 1:1. Status filtering stays client-side (History wants APPROVED+REJECTED,
+// which the single-status backend param can't express in one call).
 
 const KEY = "dividend-reversals";
-
-function today() {
-  return new Date().toISOString().split("T")[0];
-}
 
 export interface ReversalFilters {
   status?: ReversalStatus | ReversalStatus[];
@@ -32,17 +26,15 @@ export function useReversalRequests(filters?: ReversalFilters) {
   return useQuery({
     queryKey: [KEY, filters],
     queryFn: async () => {
-      await delay(250);
-      let rows = [...SEED_REVERSALS];
+      const rows = await GET_REVERSALS(filters?.status);
+      let out = [...rows];
       if (filters?.status) {
         const statuses = Array.isArray(filters.status)
           ? filters.status
           : [filters.status];
-        rows = rows.filter((r) => statuses.includes(r.status));
+        out = out.filter((r) => statuses.includes(r.status));
       }
-      return rows.sort((a, b) =>
-        a.dateRequested < b.dateRequested ? 1 : -1,
-      );
+      return out.sort((a, b) => (a.dateRequested < b.dateRequested ? 1 : -1));
     },
     refetchOnWindowFocus: false,
   });
@@ -64,18 +56,19 @@ export interface CreateReversalPayload {
 export function useCreateReversalRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: CreateReversalPayload) => {
-      await delay(600);
-      const request: ReversalRequest = {
-        id: nextReversalRef(),
-        ...payload,
-        dateRequested: today(),
-        status: "PENDING",
-        sourceAccountNumber: payload.accountNumber,
-      };
-      SEED_REVERSALS.unshift(request);
-      return request;
-    },
+    // requestedBy is derived server-side from the authenticated principal; the rest maps 1:1.
+    mutationFn: (payload: CreateReversalPayload) =>
+      CREATE_REVERSAL({
+        holderName: payload.holderName,
+        registerSymbol: payload.registerSymbol,
+        accountNumber: payload.accountNumber,
+        dividendNumber: payload.dividendNumber,
+        amount: payload.amount,
+        reversalType: payload.reversalType,
+        reason: payload.reason,
+        supportingDocName: payload.supportingDocName,
+        sourceHolderId: payload.sourceHolderId,
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }
@@ -83,30 +76,16 @@ export function useCreateReversalRequest() {
 export function useDecideReversal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       id,
       decision,
-      actor,
       comment,
     }: {
       id: string;
       decision: ReversalDecision;
       actor: string;
       comment?: string;
-    }) => {
-      await delay(600);
-      const idx = SEED_REVERSALS.findIndex((r) => r.id === id);
-      if (idx === -1) throw new Error("Reversal request not found");
-      const updated: ReversalRequest = {
-        ...SEED_REVERSALS[idx],
-        status: decision,
-        decidedBy: actor,
-        decisionDate: today(),
-        decisionComment: comment,
-      };
-      SEED_REVERSALS[idx] = updated;
-      return updated;
-    },
+    }) => DECIDE_REVERSAL(id, { decision, comment }),
     onSuccess: () => qc.invalidateQueries({ queryKey: [KEY] }),
   });
 }

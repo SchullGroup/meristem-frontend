@@ -1,4 +1,4 @@
-import { getAgentDetail, getAgentMandates, getAgents, getCertificateDetail, getCertificates, getDividendStatement, getHolderAdmonRecords, getHolderDividends, getHolderKycChanges, getHolderMergers, getHolderProfile, getHolderStatement, getHolderTransfers, getRightsEntitlements, getRightsHolderDetail, getShareholders, getShareholderSummary, getWarrantDetail, getWarrants, uploadAgentMandate, bulkAgentMandateUpload } from "@/actions/enquiryActions";
+import { getAgentDetail, getAgentMandates, getAgents, getCertificateDetail, getCertificates, getDividendStatement, getHolderAdmonRecords, getHolderDividends, getHolderKycChanges, getHolderMergers, getHolderProfile, getHolderStatement, getHolderTransfers, getRightsEntitlements, getRightsHolderDetail, getShareholders, getShareholderSummary, searchShareholders, getWarrantDetail, getWarrants, uploadAgentMandate, bulkAgentMandateUpload } from "@/actions/enquiryActions";
 import { ApiResponse, ContentPaginatedResponse } from "@/types";
 import { useMutation, useQuery, useQueryClient, UseQueryOptions } from "@tanstack/react-query";
 import {
@@ -26,6 +26,8 @@ import {
     Shareholder,
     ShareholdersParams,
     ShareholderSummary,
+    ShareholderSearchCriteria,
+    ShareholderSearchResult,
     Warrant,
 } from "@/types/enquiry";
 
@@ -189,6 +191,26 @@ export const useGetShareholders = (
         queryKey: ["shareholders", params],
         queryFn: () => getShareholders(params),
         refetchOnWindowFocus: false,
+        ...options,
+    });
+};
+
+export const useSearchShareholders = (
+    criteria: ShareholderSearchCriteria,
+    options?: Omit<
+        UseQueryOptions<
+            ContentPaginatedResponse<ShareholderSearchResult>,
+            Error,
+            ContentPaginatedResponse<ShareholderSearchResult>
+        >,
+        "queryKey" | "queryFn"
+    >,
+) => {
+    return useQuery({
+        queryKey: ["shareholderSearch", criteria],
+        queryFn: () => searchShareholders(criteria),
+        refetchOnWindowFocus: false,
+        placeholderData: (prev) => prev, // keep prior page visible while paging/re-searching
         ...options,
     });
 };

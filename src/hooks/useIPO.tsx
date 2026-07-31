@@ -697,3 +697,212 @@ export const useGetRefundEligibleSubscribers = (
     ...options,
   });
 };
+// ── IPO backend integration (drafts): allotment, vetting, SEC, preview ───────
+import {
+  listIpoBatchesByOffer,
+  getIpoVettingSummary,
+  getIpoVettingApplications,
+  getIpoDuplicateGroups,
+  resolveIpoDuplicate,
+  generateIpoSecReport,
+  exportIpoSecReport,
+  getIpoAllotmentRules,
+  saveIpoAllotmentRules,
+  getIpoAllotmentSummary,
+  executeIpoAllotment,
+  previewIpoAllotment,
+} from "@/actions/ipoActions";
+
+export const useIpoBatchesByOffer = (offerId: string) =>
+  useQuery({
+    queryKey: ["ipoBatchesByOffer", offerId],
+    queryFn: () => listIpoBatchesByOffer(offerId),
+    enabled: !!offerId,
+  });
+
+export const useIpoVettingSummary = (batchRef: string) =>
+  useQuery({
+    queryKey: ["ipoVettingSummary", batchRef],
+    queryFn: () => getIpoVettingSummary(batchRef),
+    enabled: !!batchRef,
+  });
+
+export const useIpoVettingApplications = (params: {
+  batchRef: string;
+  bucket: "VALID" | "REJECTED";
+  search?: string;
+  page?: number;
+  size?: number;
+}) =>
+  useQuery({
+    queryKey: ["ipoVettingApplications", params],
+    queryFn: () => getIpoVettingApplications(params),
+    enabled: !!params.batchRef,
+  });
+
+export const useIpoDuplicateGroups = (batchRef: string) =>
+  useQuery({
+    queryKey: ["ipoDuplicateGroups", batchRef],
+    queryFn: () => getIpoDuplicateGroups(batchRef),
+    enabled: !!batchRef,
+  });
+
+export const useResolveIpoDuplicate = (batchRef: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      subscriberId: string;
+      action: "KEEP" | "MARK_DISTINCT" | "REJECT";
+      resolvedBy: string;
+    }) => resolveIpoDuplicate({ batchRef, ...vars }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ipoDuplicateGroups", batchRef] });
+      queryClient.invalidateQueries({ queryKey: ["ipoVettingSummary", batchRef] });
+      queryClient.invalidateQueries({ queryKey: ["ipoVettingApplications"] });
+    },
+  });
+};
+
+export const useGenerateIpoSecReport = () =>
+  useMutation({
+    mutationFn: ({ batchRef, reportId }: { batchRef: string; reportId: string }) =>
+      generateIpoSecReport(batchRef, reportId),
+  });
+
+export const useExportIpoSecReport = () =>
+  useMutation({
+    mutationFn: ({ batchRef, reportId }: { batchRef: string; reportId: string }) =>
+      exportIpoSecReport(batchRef, reportId),
+  });
+
+export const useGetIpoAllotmentRules = (offerId?: string) =>
+  useQuery({
+    queryKey: ["ipoAllotmentRules", offerId],
+    queryFn: () => getIpoAllotmentRules(offerId as string),
+    enabled: !!offerId,
+  });
+
+export const useSaveIpoAllotmentRules = () =>
+  useMutation({
+    mutationFn: ({
+      offerId,
+      bands,
+    }: {
+      offerId: string;
+      bands: { minUnits: number; maxUnits: number; flatAllotment: number; proRataPercent: number }[];
+    }) => saveIpoAllotmentRules(offerId, bands),
+  });
+
+export const useIpoAllotmentSummary = (offerId?: string) =>
+  useQuery({
+    queryKey: ["ipoAllotmentSummary", offerId],
+    queryFn: () => getIpoAllotmentSummary(offerId as string),
+    enabled: !!offerId,
+  });
+
+export const useExecuteIpoAllotment = (offerId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => executeIpoAllotment(offerId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ipoAllotmentSummary", offerId] });
+    },
+  });
+};
+
+export const usePreviewIpoAllotment = () =>
+  useMutation({
+    mutationFn: ({
+      offerId,
+      bands,
+    }: {
+      offerId: string;
+      bands: { minUnits: number; maxUnits: number; flatAllotment: number; proRataPercent: number }[];
+    }) => previewIpoAllotment(offerId, bands),
+  });
+
+// ── IPO CSCS Reversals + Dispatch + batch-by-status (drafts) ─────────────────
+import {
+  uploadIpoReversalFile,
+  initiateIpoReversal,
+  downloadIpoReversalErrorList,
+  emailIpoShareholders,
+  downloadIpoStickyLabels,
+  listIpoBatchesByStatus,
+  getIpoEmailPreview,
+  sendIpoEmails,
+  sendIpoTestEmail,
+  getIpoEmailLogs,
+  getIpoEmailSummary,
+} from "@/actions/ipoActions";
+
+export const useUploadIpoReversalFile = () =>
+  useMutation({
+    mutationFn: ({ batchRef, file, uploadedBy }: { batchRef: string; file: File; uploadedBy: string }) =>
+      uploadIpoReversalFile(batchRef, file, uploadedBy),
+  });
+
+export const useInitiateIpoReversal = () =>
+  useMutation({
+    mutationFn: ({ batchRef, accountNumbers, initiatedBy }: { batchRef: string; accountNumbers: string[]; initiatedBy: string }) =>
+      initiateIpoReversal(batchRef, accountNumbers, initiatedBy),
+  });
+
+export const useDownloadIpoReversalErrorList = () =>
+  useMutation({ mutationFn: (batchRef: string) => downloadIpoReversalErrorList(batchRef) });
+
+export const useEmailIpoShareholders = () =>
+  useMutation({
+    mutationFn: ({ batchRef, subject, sentBy }: { batchRef: string; subject?: string; sentBy: string }) =>
+      emailIpoShareholders(batchRef, { subject, sentBy }),
+  });
+
+export const useDownloadIpoStickyLabels = () =>
+  useMutation({ mutationFn: (batchRef: string) => downloadIpoStickyLabels(batchRef) });
+
+export const useListIpoBatchesByStatus = (status: string) =>
+  useQuery({
+    queryKey: ["ipo", "batches-by-status", status],
+    queryFn: () => listIpoBatchesByStatus(status),
+  });
+
+// ── IPO Notification Emails ──────────────────────────────────────────────────
+
+export const useIpoEmailPreview = (batchRef: string) =>
+  useQuery({
+    queryKey: ["ipo", "email", "preview", batchRef],
+    queryFn: () => getIpoEmailPreview(batchRef),
+    enabled: !!batchRef,
+  });
+
+export const useSendIpoEmails = () =>
+  useMutation({
+    mutationFn: ({ batchRef, subject, html, sentBy }: { batchRef: string; subject?: string; html: string; sentBy: string }) =>
+      sendIpoEmails(batchRef, { subject, html, sentBy }),
+  });
+
+export const useSendIpoTestEmail = () =>
+  useMutation({
+    mutationFn: ({ batchRef, subject, html, recipients, sentBy }: { batchRef: string; subject?: string; html: string; recipients: string[]; sentBy: string }) =>
+      sendIpoTestEmail(batchRef, { subject, html, recipients, sentBy }),
+  });
+
+export const useIpoEmailLogs = (
+  batchRef: string,
+  params?: { status?: string; test?: boolean },
+  refetchInterval?: number,
+) =>
+  useQuery({
+    queryKey: ["ipo", "email", "logs", batchRef, params ?? {}],
+    queryFn: () => getIpoEmailLogs(batchRef, params),
+    enabled: !!batchRef,
+    refetchInterval,
+  });
+
+export const useIpoEmailSummary = (batchRef: string, refetchInterval?: number) =>
+  useQuery({
+    queryKey: ["ipo", "email", "summary", batchRef],
+    queryFn: () => getIpoEmailSummary(batchRef),
+    enabled: !!batchRef,
+    refetchInterval,
+  });

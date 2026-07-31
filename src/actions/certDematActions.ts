@@ -14,8 +14,10 @@ export type DematStatus =
   | "DRAFT"
   | "CALLOVER"
   | "AUTHORISED"
+  | "COO_APPROVED"
   | "ICU_APPROVED"
   | "LODGED"
+  | "LODGMENT_FAILED"
   | "REJECTED";
 
 export interface DematParams {
@@ -26,6 +28,10 @@ export interface DematParams {
   status?: DematStatus;
   dateFrom?: string;
   dateTo?: string;
+  /** High-value records awaiting CEO/COO approval (AUTHORISED + units > 10M). */
+  pendingCooApproval?: boolean;
+  /** Records ready for ICU approval (COO_APPROVED, or AUTHORISED and not high-value). */
+  readyForIcu?: boolean;
   page?: number;
   size?: number;
 }
@@ -58,6 +64,8 @@ export interface Demat {
   calloverAt: string; // date-time
   authorisedBy: string;
   authorisedAt: string; // date-time
+  cooApprovedBy: string;
+  cooApprovedAt: string; // date-time
   icuApprovedBy: string;
   icuApprovedAt: string; // date-time
   lodgedBy: string;
@@ -68,7 +76,53 @@ export interface Demat {
   rejectedAt: string; // date-time
   rejectionReason: string;
   rejectionStage: string;
+  lodgmentFailureReason?: string;
   totalUnits: number;
+  /** Transient on the backend: totalUnits > 10,000,000. */
+  highValue?: boolean;
+}
+
+/** A holder row for the Shareholder Verification tab (from GET /holders). */
+export interface DematHolder {
+  id?: string;
+  name?: string;
+  chn?: string;
+  registerSymbol?: string;
+  register?: string;
+  broker?: string;
+  stockbrokerCode?: string;
+  cscsAccountNo?: string;
+  accountNo?: string;
+  bvn?: string;
+  units?: number;
+  status?: string;
+}
+
+/** A stockbroker (dealing member) row for the Verification tab (from GET /holders/stockbrokers). */
+export interface DematStockbroker {
+  firmName: string;
+  stockbrokerCode: string;
+  holderCount: number;
+  totalUnits: number;
+}
+
+export interface ReversalRowResult {
+  certNo: string;
+  outcome: string; // SUCCESS | FAILED | UNMATCHED
+  reason?: string;
+  dematId?: string;
+  holderName?: string;
+  register?: string;
+}
+
+export interface ReversalProcessResult {
+  results: ReversalRowResult[];
+  total: number;
+  successCount: number;
+  failedCount: number;
+  unmatchedCount: number;
+  suggestedSubject?: string;
+  suggestedBody?: string;
 }
 
 export interface CaptureDematRequest {
@@ -96,6 +150,27 @@ export const getAllCertificateDemat = async (params?: DematParams) => {
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
+  }
+};
+
+export interface CaptureFromCertificatesRequest {
+  chn: string;
+  register: string;
+  holderName?: string;
+  broker?: string;
+  shareholderIdRef?: string;
+  dematFormRef?: string;
+  scannedCertsRef?: string;
+  certificateIds: string[];
+}
+
+// Capture a demat request by LINKING existing certificates (Certificate Capture is a search)
+export const captureDematFromCertificates = async (data: CaptureFromCertificatesRequest) => {
+  try {
+    const res = await api.post<Demat>(`/demat/from-certificates`, data, { headers: getXUserHeader() });
+    return res.data;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
   }
 };
 
@@ -258,5 +333,76 @@ export const getWorkflowStageCounts = async () => {
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
+  }
+};
+
+// CEO/COO approve (high-value only) — AUTHORISED → COO_APPROVED
+export const cooApproveDematRequest = async (id: string) => {
+  try {
+    const res = await api.patch<Demat>(`/demat/${id}/coo-approve`, {}, { headers: getXUserHeader() });
+    return res.data;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
+// Bulk CEO/COO approve
+export const bulkCooApproveDematRequest = async (ids: string[]) => {
+  try {
+    const res = await api.patch<{ succeeded: string[]; failed: Record<string, string | number | null> }>(
+      `/demat/bulk/coo-approve`, ids, { headers: getXUserHeader() });
+    return res.data;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
+// Reversal — process a CSCS lodgment-response CSV (certNo,outcome,reason)
+export const processDematReversal = async (file: File) => {
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await api.post<ReversalProcessResult>(`/demat/reversal/process`, form, {
+      headers: { ...getXUserHeader(), "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
+// Reversal — send the operator-edited notification email
+export const notifyDematReversal = async (data: { to?: string; subject: string; body: string }) => {
+  try {
+    const res = await api.post(`/demat/reversal/notify`, data, { headers: getXUserHeader() });
+    return res.data;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
+// Shareholder Verification — search holders (+ stockbroker info carried on the holder record)
+export const searchDematHolders = async (params: {
+  name?: string;
+  chn?: string;
+  registerId?: string;
+  page?: number;
+  size?: number;
+}) => {
+  try {
+    const res = await api.get<ContentPaginatedResponse<DematHolder>>(`/holders`, { params });
+    return res.data;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
+// Stockbroker Verification — search distinct stockbrokers by firm name or CSCS code
+export const searchDematStockbrokers = async (q: string) => {
+  try {
+    const res = await api.get<DematStockbroker[]>(`/holders/stockbrokers`, { params: { q } });
+    return res.data ?? [];
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
   }
 };

@@ -10,7 +10,7 @@ export type ReversalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type ReversalDecision = "APPROVED" | "REJECTED";
 
 export interface ReversalRequest {
-  id: string; // e.g. REV-2026/0007
+  id: string; // reversalRef, e.g. REV-2026-0007
   holderName: string;
   registerSymbol: string;
   accountNumber: string;

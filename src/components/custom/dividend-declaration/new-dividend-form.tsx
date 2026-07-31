@@ -18,8 +18,10 @@ import { Textarea } from "@/components/ui/textarea";
 import DateInput from "@/components/ui/date-input";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { MOCK_CURRENCIES, MOCK_REGISTERS } from "./seed-data";
+import { MOCK_CURRENCIES } from "./seed-data";
 import { formatNaira } from "./helpers";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { useGetDividendLiabilityPreview } from "@/hooks/useGetDividendLiabilityPreview";
 import {
   useCreateDividendFlow,
   useEditAndResendDividendFlow,
@@ -130,10 +132,22 @@ export function NewDividendForm({
   const editMutation = useEditAndResendDividendFlow();
   const isPending = createMutation.isPending || editMutation.isPending;
 
-  const register = MOCK_REGISTERS.find((r) => r.symbol === form.registerSymbol);
-  const stockToday = register?.currentStockInIssue || 0;
+  const { data: regData } = useGetRegisters({ size: 100 });
+  const registers = regData?.content ?? [];
+  const register = registers.find((r) => r.symbol === form.registerSymbol);
   const rateNum = typeof form.rate === "number" ? form.rate : 0;
-  const grossLiability = rateNum * stockToday;
+
+  // Real liability is computed by the backend from the register's actual shareholders.
+  const liabilityPreview = useGetDividendLiabilityPreview({
+    registerId: register?.registerId ?? "",
+    rate: rateNum,
+    page: 0,
+  });
+  const previewData = ((liabilityPreview.data as { data?: unknown })?.data ?? liabilityPreview.data) as
+    | { grossLiability?: number; totalShareholders?: number }
+    | undefined;
+  const grossLiability = Number(previewData?.grossLiability ?? 0);
+  const previewShareholders = Number(previewData?.totalShareholders ?? 0);
 
   const whtRateNum =
     form.whtRateOption === "custom"
@@ -280,7 +294,7 @@ export function NewDividendForm({
                 <SelectValue placeholder="Select Register" />
               </SelectTrigger>
               <SelectContent>
-                {MOCK_REGISTERS.map((r) => (
+                {registers.map((r) => (
                   <SelectItem key={r.registerId} value={r.symbol}>
                     <span className="font-bold">{r.registerName}</span> —{" "}
                     <span className="text-xs">{r.symbol}</span>
@@ -290,8 +304,8 @@ export function NewDividendForm({
             </Select>
             {register && (
               <p className="text-[13px] bg-muted/60 p-1.5 rounded text-muted-foreground">
-                Type: {register.registerType} · Shareholders:{" "}
-                {register.currentShareholdersSize.toLocaleString()}
+                Type: {register.registerType}
+                {previewShareholders ? ` · Shareholders: ${previewShareholders.toLocaleString()}` : ""}
               </p>
             )}
           </div>

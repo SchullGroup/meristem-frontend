@@ -53,15 +53,21 @@ export default function UploadIPOData({
       return;
     }
 
+    // Backend batchDate is a LocalDate (yyyy-MM-dd). Use local date parts (not toISOString,
+    // which converts to UTC and can shift the day).
+    const batchDateStr = `${batchDate.getFullYear()}-${String(
+      batchDate.getMonth() + 1,
+    ).padStart(2, "0")}-${String(batchDate.getDate()).padStart(2, "0")}`;
+
     const metadata = JSON.stringify({
       offerId: activeOffer.id,
       offerName: activeOffer.name,
       register: activeOffer.register,
-      batchDate: batchDate.toISOString(),
+      batchDate: batchDateStr,
     });
 
     const form = new FormData();
-    form.append("data", new Blob([metadata], { type: "application/json" }));
+    form.append("metadata", new Blob([metadata], { type: "application/json" }));
     form.append("file", subscriptionFile);
 
     uploadIpoMutation.mutate(form, {

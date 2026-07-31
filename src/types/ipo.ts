@@ -51,6 +51,11 @@ export interface IPOSubscriber {
   symbol: string;
   type: IPOBatchType;
   units: number;
+  bvn?: string | null;
+  suspectedDuplicate?: boolean;
+  duplicateKey?: string | null;
+  duplicateMatchType?: string | null;
+  duplicateResolution?: string | null;
 }
 
 export interface LodgementResponse {
@@ -248,4 +253,57 @@ export interface RefundEligibleParams {
   page?: number;
   type?: string;
   size?: number;
+}
+// ── IPO CSCS Reversal upload result (drafts) ─────────────────────────────────
+export interface IpoReversalCredited {
+  accountNumber: string;
+  name: string;
+  units: number;
+}
+
+export interface IpoReversalError {
+  accountNumber: string;
+  name: string;
+  chn: string;
+  units: number;
+  reason: string;
+}
+
+export interface IpoReversalUploadResponse {
+  credited: IpoReversalCredited[];
+  errors: IpoReversalError[];
+  totalCredited: number;
+  totalErrors: number;
+}
+
+// ── IPO Notification Emails ──────────────────────────────────────────────────
+export interface IpoEmailPreview {
+  batchReference: string;
+  suggestedSubject: string;
+  recipientCount: number;
+  recipientsWithoutEmail: number;
+  tokens: string[];
+}
+
+export type IpoEmailStatus = "QUEUED" | "SENT" | "FAILED";
+
+export interface IpoEmailLog {
+  id: string;
+  recipientEmail: string;
+  recipientName: string | null;
+  subject: string | null;
+  status: IpoEmailStatus;
+  errorMessage: string | null;
+  test: boolean;
+  sentBy: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}
+
+export interface IpoEmailSummary {
+  batchReference: string;
+  total: number;
+  queued: number;
+  sent: number;
+  failed: number;
 }

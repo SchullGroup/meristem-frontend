@@ -32,6 +32,27 @@ import {
   exportAcceptanceSummaryReport,
   lodgeRightsIssueDeclaration,
   emailShareholders,
+  getOrCreateRightsDeclaration,
+  createRightsReturnBatch,
+  listRightsReturnBatches,
+  listRightsBatchRecords,
+  submitRightsReturn,
+  bulkUploadRightsReturns,
+  listRightsReturns,
+  deleteRightsReturn,
+  forwardRightsBatchToHod,
+  hodActionRightsBatch,
+  getRightsAllotmentRules,
+  saveRightsAllotmentRules,
+  getRightsAllotmentSummary,
+  runRightsAllotment,
+  getRightsRefundSubscribers,
+  queueRightsRefunds,
+  uploadRightsReversal,
+  initiateRightsReversal,
+  dispatchTestRights,
+  type CreateReturnBatchPayload,
+  type AllotmentBand,
 } from "@/actions/rightsActions";
 import {
   CreateRightsIssue,
@@ -589,3 +610,181 @@ export const useGetAcceptanceSummaryReport = (
     ...options,
   });
 };
+
+// ── Offer→declaration bridge + returns batches ───────────────────────────────
+
+export const useGetOrCreateRightsDeclaration = () =>
+  useMutation({
+    mutationFn: ({ offerId, createdBy }: { offerId: string | number; createdBy?: string }) =>
+      getOrCreateRightsDeclaration(offerId, createdBy),
+  });
+
+export const useCreateRightsReturnBatch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: CreateReturnBatchPayload }) =>
+      createRightsReturnBatch(id, data),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["rights", "return-batches", String(v.id)] }),
+  });
+};
+
+export const useListRightsReturnBatches = (id?: string | number) =>
+  useQuery({
+    queryKey: ["rights", "return-batches", String(id ?? "")],
+    queryFn: () => listRightsReturnBatches(id!),
+    enabled: !!id,
+  });
+
+export const useListRightsBatchRecords = (
+  id?: string | number,
+  batchId?: string | number,
+  params?: { page?: number; size?: number },
+) =>
+  useQuery({
+    queryKey: ["rights", "batch-records", String(id ?? ""), String(batchId ?? ""), params ?? {}],
+    queryFn: () => listRightsBatchRecords(id!, batchId!, params),
+    enabled: !!id && !!batchId,
+  });
+
+export const useSubmitRightsReturn = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: Record<string, unknown> }) =>
+      submitRightsReturn(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "batch-records"] }),
+  });
+};
+
+export const useBulkUploadRightsReturns = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, txType, file, batchId }: { id: string | number; txType: string; file: File; batchId?: string | number }) =>
+      bulkUploadRightsReturns(id, txType, file, batchId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "batch-records"] }),
+  });
+};
+
+export const useListRightsReturns = (
+  id?: string | number,
+  params?: { page?: number; size?: number; status?: string; txType?: string },
+) =>
+  useQuery({
+    queryKey: ["rights", "returns", String(id ?? ""), params ?? {}],
+    queryFn: () => listRightsReturns(id!, params),
+    enabled: !!id,
+  });
+
+export const useDeleteRightsReturn = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, returnId }: { id: string | number; returnId: string | number }) =>
+      deleteRightsReturn(id, returnId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "returns"] }),
+  });
+};
+
+export const useForwardRightsBatchToHod = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, batchId, submittedBy }: { id: string | number; batchId: string | number; submittedBy?: string }) =>
+      forwardRightsBatchToHod(id, batchId, submittedBy),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rights", "return-batches"] });
+      qc.invalidateQueries({ queryKey: ["rights", "returns"] });
+    },
+  });
+};
+
+export const useHodActionRightsBatch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, batchId, approve, actor, comment }: { id: string | number; batchId: string | number; approve: boolean; actor?: string; comment?: string }) =>
+      hodActionRightsBatch(id, batchId, approve, actor, comment),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "return-batches"] }),
+  });
+};
+
+// ── Allotment rule engine ─────────────────────────────────────────────────────
+
+export const useRightsAllotmentRules = (id?: string | number) =>
+  useQuery({
+    queryKey: ["rights", "allotment-rules", String(id ?? "")],
+    queryFn: () => getRightsAllotmentRules(id!),
+    enabled: !!id,
+  });
+
+export const useRightsAllotmentSummary = (id?: string | number) =>
+  useQuery({
+    queryKey: ["rights", "allotment-summary", String(id ?? "")],
+    queryFn: () => getRightsAllotmentSummary(id!),
+    enabled: !!id,
+  });
+
+export const useSaveRightsAllotmentRules = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, bands }: { id: string | number; bands: AllotmentBand[] }) =>
+      saveRightsAllotmentRules(id, bands),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["rights", "allotment-rules", String(v.id)] });
+      qc.invalidateQueries({ queryKey: ["rights", "allotment-summary", String(v.id)] });
+    },
+  });
+};
+
+export const useRunRightsAllotment = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string | number }) => runRightsAllotment(id),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["rights", "allotment-summary", String(v.id)] }),
+  });
+};
+
+// ── Return monies ─────────────────────────────────────────────────────────────
+
+export const useRightsRefundSubscribers = (
+  id?: string | number,
+  params?: { reason?: string; status?: string; page?: number; size?: number },
+) =>
+  useQuery({
+    queryKey: ["rights", "refunds", String(id ?? ""), params ?? {}],
+    queryFn: () => getRightsRefundSubscribers(id!, params),
+    enabled: !!id,
+  });
+
+export const useQueueRightsRefunds = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, subscriberIds, queuedBy }: { id: string | number; subscriberIds: number[]; queuedBy?: string }) =>
+      queueRightsRefunds(id, subscriberIds, queuedBy),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rights", "refunds"] }),
+  });
+};
+
+// ── CSCS reversal ─────────────────────────────────────────────────────────────
+
+export const useUploadRightsReversal = () =>
+  useMutation({
+    mutationFn: ({ id, file, uploadedBy }: { id: string | number; file: File; uploadedBy: string }) =>
+      uploadRightsReversal(id, file, uploadedBy),
+  });
+
+export const useInitiateRightsReversal = () =>
+  useMutation({
+    mutationFn: ({ id, accountNumbers, resolution, initiatedBy }: { id: string | number; accountNumbers: string[]; resolution: string; initiatedBy?: string }) =>
+      initiateRightsReversal(id, accountNumbers, resolution, initiatedBy),
+  });
+
+// ── Dispatch & notifications ──────────────────────────────────────────────────
+
+export const useDispatchRightsEmails = () =>
+  useMutation({
+    mutationFn: ({ id, subject, html }: { id: string; subject?: string; html?: string }) =>
+      emailShareholders(id, { subject, html }),
+  });
+
+export const useDispatchTestRights = () =>
+  useMutation({
+    mutationFn: ({ id, subject, html, recipients }: { id: string | number; subject?: string; html?: string; recipients: string[] }) =>
+      dispatchTestRights(id, { subject, html, recipients }),
+  });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FolderOpen,
   Loader2,
@@ -8,7 +8,10 @@ import {
   RefreshCw,
   UploadCloud,
   AlertCircle,
+  Search,
 } from "lucide-react";
+import { format } from "date-fns";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,111 +20,15 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { PaginationBar } from "@/components/custom/pagination-bar";
 import { WorkspaceBatch } from "./batch-workspace";
 import { formatNumber } from "@/lib/utils/format";
-
-// ── Types ──────────────────────────────────────────────────────────────────
-type BatchStatus =
-  | "UPLOADED"
-  | "PROCESSING"
-  | "PROCESSED"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "FAILED";
-
-interface MockBatch {
-  batchRef: string;
-  uploadedBy: string;
-  uploadedAt: string;
-  processedBy: string | null;
-  processedAt: string | null;
-  status: BatchStatus;
-  registers: string[];
-  totalRecords: number;
-  totalTransactions: number;
-}
-
-// ── Seeded mock batches ────────────────────────────────────────────────────
-const SEED_BATCHES: MockBatch[] = [
-  {
-    batchRef: "BATCH-CSCS-20260707_143022",
-    uploadedBy: "Abiola Kolawole",
-    uploadedAt: "07 Jul 2026, 14:30",
-    processedBy: "Abiola Kolawole",
-    processedAt: "07 Jul 2026, 14:35",
-    status: "COMPLETED",
-    registers: ["DANGCEM", "MTNN", "SEPLAT", "UBA"],
-    totalRecords: 1279,
-    totalTransactions: 10088,
-  },
-  {
-    batchRef: "BATCH-CSCS-20260706_091545",
-    uploadedBy: "Abiola Kolawole",
-    uploadedAt: "06 Jul 2026, 09:15",
-    processedBy: "Abiola Kolawole",
-    processedAt: "06 Jul 2026, 09:22",
-    status: "PROCESSED",
-    registers: ["DANGCEM", "MTNN", "SEPLAT", "UBA"],
-    totalRecords: 1314,
-    totalTransactions: 9741,
-  },
-  {
-    batchRef: "BATCH-CSCS-20260705_161200",
-    uploadedBy: "Chidi Nwachukwu",
-    uploadedAt: "05 Jul 2026, 16:12",
-    processedBy: null,
-    processedAt: null,
-    status: "PROCESSING",
-    registers: ["DANGCEM", "MTNN"],
-    totalRecords: 0,
-    totalTransactions: 0,
-  },
-  {
-    batchRef: "BATCH-CSCS-20260704_110033",
-    uploadedBy: "Chidi Nwachukwu",
-    uploadedAt: "04 Jul 2026, 11:00",
-    processedBy: null,
-    processedAt: null,
-    status: "UPLOADED",
-    registers: [],
-    totalRecords: 0,
-    totalTransactions: 0,
-  },
-  {
-    batchRef: "BATCH-CSCS-20260703_082145",
-    uploadedBy: "Abiola Kolawole",
-    uploadedAt: "03 Jul 2026, 08:21",
-    processedBy: "Abiola Kolawole",
-    processedAt: "03 Jul 2026, 08:29",
-    status: "IN_PROGRESS",
-    registers: ["DANGCEM", "MTNN", "SEPLAT", "UBA"],
-    totalRecords: 1122,
-    totalTransactions: 8830,
-  },
-  {
-    batchRef: "BATCH-CSCS-20260702_094500",
-    uploadedBy: "Chidi Nwachukwu",
-    uploadedAt: "02 Jul 2026, 09:45",
-    processedBy: null,
-    processedAt: null,
-    status: "FAILED",
-    registers: [],
-    totalRecords: 0,
-    totalTransactions: 0,
-  },
-  {
-    batchRef: "BATCH-CSCS-20260701_155155",
-    uploadedBy: "Abiola Kolawole",
-    uploadedAt: "01 Jul 2026, 15:51",
-    processedBy: "Abiola Kolawole",
-    processedAt: "01 Jul 2026, 16:00",
-    status: "COMPLETED",
-    registers: ["DANGCEM", "MTNN", "SEPLAT", "UBA"],
-    totalRecords: 1340,
-    totalTransactions: 10221,
-  },
-];
+import {
+  useCscsBatches,
+  useUploadCscsBatch,
+  useProcessCscsBatch,
+} from "@/hooks/useCscsPipeline";
+import type { CscsBatchStatus, CscsBatchListItem } from "@/actions/cscsPipelineActions";
 
 // ── Status helpers ─────────────────────────────────────────────────────────
-const STATUS_CHIPS: { label: string; value: BatchStatus | "" }[] = [
+const STATUS_CHIPS: { label: string; value: CscsBatchStatus | "" }[] = [
   { label: "All", value: "" },
   { label: "Uploaded", value: "UPLOADED" },
   { label: "Processing", value: "PROCESSING" },
@@ -131,8 +38,8 @@ const STATUS_CHIPS: { label: string; value: BatchStatus | "" }[] = [
   { label: "Failed", value: "FAILED" },
 ];
 
-function statusBadge(status: BatchStatus) {
-  const map: Record<BatchStatus, string> = {
+function statusBadge(status: CscsBatchStatus) {
+  const map: Record<CscsBatchStatus, string> = {
     UPLOADED: "bg-blue-100   text-blue-800",
     PROCESSING: "bg-yellow-100 text-yellow-800",
     PROCESSED: "bg-indigo-100 text-indigo-800",
@@ -140,7 +47,7 @@ function statusBadge(status: BatchStatus) {
     COMPLETED: "bg-green-100  text-green-800",
     FAILED: "bg-red-100    text-red-800",
   };
-  const label: Record<BatchStatus, string> = {
+  const label: Record<CscsBatchStatus, string> = {
     UPLOADED: "Uploaded",
     PROCESSING: "Processing",
     PROCESSED: "Processed",
@@ -148,52 +55,49 @@ function statusBadge(status: BatchStatus) {
     COMPLETED: "Completed",
     FAILED: "Failed",
   };
-  return (
-    <Badge className={`border-0 text-[12px] ${map[status]}`}>
-      {label[status]}
-    </Badge>
-  );
+  return <Badge className={`border-0 text-[12px] ${map[status]}`}>{label[status]}</Badge>;
 }
 
-// ── Upload modal (mock) ────────────────────────────────────────────────────
-function UploadModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [uploading, setUploading] = useState(false);
+function fmtDate(value: string | null): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : format(d, "dd MMM yyyy, HH:mm");
+}
 
-  const handleFile = () => {
-    setUploading(true);
-    setTimeout(() => {
-      setUploading(false);
-      onClose();
-    }, 1800);
+// ── Upload modal (real) ──────────────────────────────────────────────────
+function UploadModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [isDragging, setIsDragging] = useState(false);
+  const upload = useUploadCscsBatch();
+
+  const handleFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      toast.error("Please upload a .zip archive.");
+      return;
+    }
+    upload.mutate(
+      { file },
+      {
+        onSuccess: (res) => {
+          toast.success(`Batch ${res.batchRef} uploaded — click "Process Batch" to extract & parse.`);
+          onClose();
+        },
+        onError: (err) => toast.error((err as Error).message),
+      },
+    );
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) onClose();
-      }}
-    >
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden">
-        {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-border">
-          <DialogTitle className="text-lg font-bold leading-tight">
-            Upload New Batch
-          </DialogTitle>
+          <DialogTitle className="text-lg font-bold leading-tight">Upload New Batch</DialogTitle>
           <p className="text-[13px] text-muted-foreground mt-1">
             Upload a ZIP file containing all register files for this batch.
           </p>
         </div>
 
-        {/* Body */}
-        {uploading ? (
+        {upload.isPending ? (
           <div className="flex flex-col items-center gap-4 px-6 py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Uploading ZIP file…</p>
@@ -204,15 +108,12 @@ function UploadModal({
               htmlFor="zip-upload"
               className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-xl p-12 cursor-pointer transition-colors
                 ${isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"}`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={(e) => {
                 e.preventDefault();
                 setIsDragging(false);
-                handleFile();
+                handleFile(e.dataTransfer.files?.[0]);
               }}
             >
               <input
@@ -220,17 +121,12 @@ function UploadModal({
                 type="file"
                 accept=".zip"
                 className="hidden"
-                onChange={handleFile}
+                onChange={(e) => handleFile(e.target.files?.[0])}
               />
-              <UploadCloud
-                className={`h-12 w-12 mb-4 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground/30"}`}
-              />
-              <p className="font-semibold text-base">
-                Upload Master Data ZIP (All Registers)
-              </p>
+              <UploadCloud className={`h-12 w-12 mb-4 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground/30"}`} />
+              <p className="font-semibold text-base">Upload Master Data ZIP (All Registers)</p>
               <p className="text-sm text-muted-foreground mt-1.5">
-                Drag &amp; drop or click —{" "}
-                <span className="font-mono text-[13px]">.zip</span> only
+                Drag &amp; drop or click — <span className="font-mono text-[13px]">.zip</span> only
               </p>
               <p className="text-[13px] text-muted-foreground/50 mt-2">
                 Contains master file + transaction file for all active registers
@@ -239,9 +135,8 @@ function UploadModal({
             <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
               <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-[13px] text-amber-800">
-                Uploading <strong>stores the ZIP only</strong> — no extraction
-                or parsing occurs until you click <strong>Process Batch</strong>{" "}
-                on the dashboard.
+                Uploading <strong>stores the ZIP only</strong> — no extraction or parsing occurs until
+                you click <strong>Process Batch</strong> on the dashboard.
               </p>
             </div>
           </div>
@@ -256,52 +151,39 @@ interface BatchDashboardProps {
   onOpenBatch: (batch: WorkspaceBatch) => void;
 }
 
-
 export function BatchDashboard({ onOpenBatch }: BatchDashboardProps) {
-  const [statusFilter, setStatusFilter] = useState<BatchStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<CscsBatchStatus | "">("");
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(10);
 
-  const [batches, setBatches] = useState<MockBatch[]>(SEED_BATCHES);
+  const { data, isLoading, isError, error } = useCscsBatches(
+    {
+      status: statusFilter || undefined,
+      q: search || undefined,
+      page,
+      pageSize,
+    },
+    // Poll while any batch is mid-processing so status flips land automatically.
+    (query) => {
+      const items = query.state.data?.data ?? [];
+      return items.some((b) => b.status === "PROCESSING") ? 4000 : false;
+    },
+  );
 
-  const filtered = batches.filter((b) => {
-    if (statusFilter && b.status !== statusFilter) return false;
-    if (search && !b.batchRef.toLowerCase().includes(search.toLowerCase()))
-      return false;
-    return true;
-  });
+  const batches = useMemo(() => data?.data ?? [], [data]);
+  const total = data?.meta?.total ?? 0;
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  const handleProcess = (batch: MockBatch) => {
-    setBatches((prev) =>
-      prev.map((b) =>
-        b.batchRef === batch.batchRef
-          ? { ...b, status: "PROCESSING" as BatchStatus }
-          : b,
-      ),
+  const process = useProcessCscsBatch();
+  const handleProcess = (batch: CscsBatchListItem) => {
+    process.mutate(
+      { batchRef: batch.batchRef },
+      {
+        onSuccess: () => toast.success(`Processing started for ${batch.batchRef}.`),
+        onError: (err) => toast.error((err as Error).message),
+      },
     );
-    setTimeout(() => {
-      setBatches((prev) =>
-        prev.map((b) =>
-          b.batchRef === batch.batchRef
-            ? {
-                ...b,
-                status: "PROCESSED" as BatchStatus,
-                processedBy: "Abiola Kolawole",
-                processedAt: "07 Jul 2026",
-                registers: ["DANGCEM", "MTNN", "SEPLAT", "UBA"],
-                totalRecords: 1279,
-                totalTransactions: 10088,
-              }
-            : b,
-        ),
-      );
-    }, 2500);
   };
 
   return (
@@ -315,26 +197,20 @@ export function BatchDashboard({ onOpenBatch }: BatchDashboardProps) {
             {STATUS_CHIPS.map((chip) => (
               <button
                 key={chip.value}
-                onClick={() => { setStatusFilter(chip.value as BatchStatus | ""); setPage(1); }}
+                onClick={() => { setStatusFilter(chip.value); setPage(1); }}
                 className={`px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all border cursor-pointer
-                  ${
-                    statusFilter === chip.value
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground"
-                  }`}
+                  ${statusFilter === chip.value
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/40 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground"}`}
               >
                 {chip.label}
-                {chip.value && (
-                  <span className="ml-1.5 text-[11px] opacity-70">
-                    {batches.filter((b) => b.status === chip.value).length}
-                  </span>
-                )}
               </button>
             ))}
           </div>
 
           <div className="flex items-center gap-2">
             <div className="relative w-75">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search batch ref…"
                 className="pl-9 w-full mrpsl-input"
@@ -360,77 +236,66 @@ export function BatchDashboard({ onOpenBatch }: BatchDashboardProps) {
                   <th className="px-4 py-3">DATE UPLOADED</th>
                   <th className="px-4 py-3">PROCESSED BY</th>
                   <th className="px-4 py-3">DATE PROCESSED</th>
-                  <th className="px-4 py-3">REGISTERS</th>
+                  <th className="px-4 py-3 text-right">REGISTERS</th>
                   <th className="px-4 py-3 text-right">RECORDS</th>
+                  <th className="px-4 py-3 text-right">FLAGGED</th>
                   <th className="px-4 py-3">STATUS</th>
                   <th className="px-4 py-3 text-right">ACTION</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {paginated.map((batch) => (
+                {isLoading && (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground text-sm">
+                      <Loader2 className="h-5 w-5 animate-spin inline mr-2" /> Loading batches…
+                    </td>
+                  </tr>
+                )}
+                {isError && !isLoading && (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-12 text-center text-red-600 text-sm">
+                      {(error as Error)?.message ?? "Failed to load batches."}
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && !isError && batches.map((batch) => (
                   <tr key={batch.batchRef} className="mrpsl-table-row">
-                    <td className="px-4 py-3 font-mono text-[13px] font-semibold">
-                      {batch.batchRef}
+                    <td className="px-4 py-3 font-mono text-[13px] font-semibold">{batch.batchRef}</td>
+                    <td className="px-4 py-3 text-[13px] text-muted-foreground">{batch.uploadedBy ?? "—"}</td>
+                    <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
+                      {fmtDate(batch.uploadedAt) ?? <span className="text-muted-foreground/40">—</span>}
                     </td>
                     <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                      {batch.uploadedBy}
+                      {batch.processedBy ?? <span className="text-muted-foreground/40">—</span>}
                     </td>
                     <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
-                      {batch.uploadedAt}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                      {batch.processedBy ?? (
-                        <span className="text-muted-foreground/40">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-muted-foreground whitespace-nowrap">
-                      {batch.processedAt ?? (
-                        <span className="text-muted-foreground/40">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {batch.registers.length > 0 ? (
-                        <div className="flex gap-1 flex-wrap">
-                          {batch.registers.map((r) => (
-                            <Badge
-                              key={r}
-                              className="border-0 text-[11px] bg-gray-100 text-gray-700"
-                            >
-                              {r}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground/40 text-[13px]">
-                          —
-                        </span>
-                      )}
+                      {fmtDate(batch.processedAt) ?? <span className="text-muted-foreground/40">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums font-mono text-[13px]">
-                      {batch.totalRecords > 0 ? (
-                        formatNumber(batch.totalRecords)
-                      ) : (
-                        <span className="text-muted-foreground/40">—</span>
-                      )}
+                      {batch.registerCount > 0 ? batch.registerCount : <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums font-mono text-[13px]">
+                      {batch.totalKyc > 0 ? formatNumber(batch.totalKyc) : <span className="text-muted-foreground/40">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums font-mono text-[13px]">
+                      <span className={batch.flaggedCount > 0 ? "text-red-600 font-semibold" : "text-muted-foreground/40"}>
+                        {batch.flaggedCount > 0 ? formatNumber(batch.flaggedCount) : "—"}
+                      </span>
                     </td>
                     <td className="px-4 py-3">{statusBadge(batch.status)}</td>
                     <td className="px-4 py-3 text-right">
-                      {batch.status === "UPLOADED" && (
+                      {(batch.status === "UPLOADED") && (
                         <Button
                           size="sm"
                           variant="outline"
+                          disabled={process.isPending}
                           onClick={() => handleProcess(batch)}
                         >
                           Process Batch
                         </Button>
                       )}
                       {batch.status === "PROCESSING" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled
-                          className="gap-1.5"
-                        >
+                        <Button size="sm" variant="ghost" disabled className="gap-1.5">
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           Processing…
                         </Button>
@@ -438,15 +303,7 @@ export function BatchDashboard({ onOpenBatch }: BatchDashboardProps) {
                       {(batch.status === "PROCESSED" ||
                         batch.status === "IN_PROGRESS" ||
                         batch.status === "COMPLETED") && (
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            onOpenBatch({
-                              batchRef: batch.batchRef,
-                              status: batch.status,
-                            })
-                          }
-                        >
+                        <Button size="sm" onClick={() => onOpenBatch({ batchRef: batch.batchRef, status: batch.status })}>
                           <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
                           Open Batch
                         </Button>
@@ -456,6 +313,7 @@ export function BatchDashboard({ onOpenBatch }: BatchDashboardProps) {
                           size="sm"
                           variant="outline"
                           className="border-red-200 text-red-700 hover:bg-red-50"
+                          disabled={process.isPending}
                           onClick={() => handleProcess(batch)}
                         >
                           <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
@@ -465,12 +323,9 @@ export function BatchDashboard({ onOpenBatch }: BatchDashboardProps) {
                     </td>
                   </tr>
                 ))}
-                {paginated.length === 0 && (
+                {!isLoading && !isError && batches.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 py-12 text-center text-muted-foreground text-sm"
-                    >
+                    <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground text-sm">
                       No batches match your filters.
                     </td>
                   </tr>
@@ -479,11 +334,11 @@ export function BatchDashboard({ onOpenBatch }: BatchDashboardProps) {
             </table>
           </div>
           <PaginationBar
-            page={currentPage - 1}
-            total={filtered.length}
+            page={page - 1}
+            total={total}
             pageSize={pageSize}
             onPageChange={(p) => setPage(p + 1)}
-            onPageSizeChange={(s) => setPageSize(s)}
+            onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
             pageBase={0}
           />
         </Card>

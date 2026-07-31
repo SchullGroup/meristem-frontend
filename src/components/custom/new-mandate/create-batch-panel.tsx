@@ -21,11 +21,11 @@ import type {
   MandateShareholder,
   MandateSource,
 } from "@/types/mandate-payment-flow";
-import { MOCK_REGISTERS } from "./seed-data";
 import {
   useCreateBatch,
   usePreviewEligibleBatch,
 } from "@/hooks/useMandatePaymentFlow";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import { SOURCE_SHORT, formatNaira, sourceBadgeClass } from "./helpers";
 import { ShareholderTable } from "./shareholder-table";
 import { AddShareholderDialog } from "./add-shareholder-dialog";
@@ -38,6 +38,15 @@ export function CreateBatchPanel({ onBack }: { onBack: () => void }) {
   const { currentUser } = useStore();
   const previewMutation = usePreviewEligibleBatch();
   const createMutation = useCreateBatch();
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registers = useMemo(
+    () =>
+      (registersData?.content ?? []).map((r) => ({
+        symbol: r.symbol,
+        registerName: r.registerName,
+      })),
+    [registersData],
+  );
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -50,13 +59,13 @@ export function CreateBatchPanel({ onBack }: { onBack: () => void }) {
 
   const filteredRegisters = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return MOCK_REGISTERS;
-    return MOCK_REGISTERS.filter(
+    if (!q) return registers;
+    return registers.filter(
       (r) =>
         r.symbol.toLowerCase().includes(q) ||
         r.registerName.toLowerCase().includes(q),
     );
-  }, [search]);
+  }, [search, registers]);
 
   // Any scope change invalidates a stale preview.
   function toggle(symbol: string) {

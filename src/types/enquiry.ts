@@ -64,6 +64,63 @@ export interface ShareholderSummary {
   totalHoldings: number;
 }
 
+// ── Query-builder search ────────────────────────────────────────────────────────
+
+export type ShareholderSearchField =
+  | "name"
+  | "address"
+  | "bvn"
+  | "nin"
+  | "chn"
+  | "accountNo" // internal registrar account number
+  | "cscsAccountNo"
+  | "state"
+  | "phone"
+  | "email";
+
+export type ShareholderSearchOperator = "contains" | "equals" | "startsWith";
+
+export interface ShareholderSearchRule {
+  field: ShareholderSearchField;
+  operator: ShareholderSearchOperator;
+  value: string;
+}
+
+// Flat rule set joined by a single combinator (match ALL / match ANY), optionally scoped.
+export interface ShareholderSearchCriteria {
+  combinator: "AND" | "OR";
+  rules: ShareholderSearchRule[];
+  registerSymbol?: string;
+  status?: string;
+  page?: number;
+  size?: number;
+  sort?: string;
+}
+
+// Detailed result row for the enquiry cards — carries the extra identifying PII fields.
+export interface ShareholderSearchResult {
+  id: string;
+  accountNumber: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  otherNames?: string;
+  chn: string;
+  cscsAccountNo?: string;
+  bvn?: string;
+  nin?: string;
+  address?: string;
+  state?: string;
+  phone?: string;
+  email?: string;
+  bank?: string;
+  holdings: number;
+  status: string;
+  registerId?: string;
+  registerSymbol: string;
+  holderType: string;
+}
+
 export interface HolderTransfer {
   date: string;
   transferNo: string;

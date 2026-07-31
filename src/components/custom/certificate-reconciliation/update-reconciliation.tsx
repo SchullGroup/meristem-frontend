@@ -1,136 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, ArrowLeft, ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, ArrowLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { format } from "date-fns";
 import { formatNumber } from "@/lib/utils/format";
-import { ResolutionWorkspace } from "./reconciliation-review";
+import { ResolutionDesk } from "./resolution-desk";
+import { useReconFlagged } from "@/hooks/useReconciliation";
+import type { ReconFlaggedItem } from "@/actions/reconciliationActions";
 
-export interface FlaggedItem {
-  id: string;
-  batchRef: string;
-  chn: string;
-  holderName: string;
-  register: string;
-  transactionDate: string;
-  attemptedSell: number;
-  holdingsAtFlag: number;
-  shortfall: number;
-  status: "PENDING" | "RESOLVED";
-}
-
-export const SEED_FLAGGED: FlaggedItem[] = [
-  {
-    id: "1",
-    batchRef: "BATCH-CSCS-20260707_143022",
-    chn: "C0023456BK",
-    holderName: "NGOZI CHIDINMA OKAFOR",
-    register: "DANGCEM",
-    transactionDate: "07 Jul 2026",
-    attemptedSell: 13500,
-    holdingsAtFlag: 12500,
-    shortfall: 1000,
-    status: "PENDING",
-  },
-  {
-    id: "2",
-    batchRef: "BATCH-CSCS-20260707_143022",
-    chn: "C0045678DK",
-    holderName: "FATIMA ABUBAKAR MUSA",
-    register: "MTNN",
-    transactionDate: "07 Jul 2026",
-    attemptedSell: 9500,
-    holdingsAtFlag: 8000,
-    shortfall: 1500,
-    status: "PENDING",
-  },
-  {
-    id: "3",
-    batchRef: "BATCH-CSCS-20260707_143022",
-    chn: "C0067890FK",
-    holderName: "AMAKA NGOZI OKONKWO",
-    register: "SEPLAT",
-    transactionDate: "07 Jul 2026",
-    attemptedSell: 36000,
-    holdingsAtFlag: 35700,
-    shortfall: 300,
-    status: "PENDING",
-  },
-  {
-    id: "4",
-    batchRef: "BATCH-CSCS-20260707_143022",
-    chn: "C0089012HK",
-    holderName: "BLESSING CHISOM NWOSU",
-    register: "UBA",
-    transactionDate: "07 Jul 2026",
-    attemptedSell: 48000,
-    holdingsAtFlag: 45000,
-    shortfall: 3000,
-    status: "PENDING",
-  },
-  {
-    id: "5",
-    batchRef: "BATCH-CSCS-20260710_091045",
-    chn: "C0011223AK",
-    holderName: "TUNDE ADEWALE BAKARE",
-    register: "DANGCEM",
-    transactionDate: "10 Jul 2026",
-    attemptedSell: 7500,
-    holdingsAtFlag: 6000,
-    shortfall: 1500,
-    status: "RESOLVED",
-  },
-  {
-    id: "6",
-    batchRef: "BATCH-CSCS-20260710_091045",
-    chn: "C0033445CK",
-    holderName: "HALIMA MOHAMMED BELLO",
-    register: "MTNN",
-    transactionDate: "10 Jul 2026",
-    attemptedSell: 22000,
-    holdingsAtFlag: 20000,
-    shortfall: 2000,
-    status: "PENDING",
-  },
-];
-
-const REGISTERS = ["DANGCEM", "MTNN", "SEPLAT", "UBA"];
-
-interface BatchSummary {
-  batchRef: string;
-  date: string;
-  registers: string[];
-  items: FlaggedItem[];
-}
-
-function deriveBatches(items: FlaggedItem[]): BatchSummary[] {
-  const map = new Map<string, BatchSummary>();
-  for (const item of items) {
-    if (!map.has(item.batchRef)) {
-      map.set(item.batchRef, {
-        batchRef: item.batchRef,
-        date: item.transactionDate,
-        registers: [],
-        items: [],
-      });
-    }
-    const batch = map.get(item.batchRef)!;
-    batch.items.push(item);
-    if (!batch.registers.includes(item.register)) {
-      batch.registers.push(item.register);
-    }
-  }
-  return Array.from(map.values());
+function fmtDate(v: string | null): string {
+  if (!v) return "—";
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? String(v) : format(d, "dd MMM yyyy");
 }
 
 interface UpdateReconciliationProps {
@@ -138,71 +26,72 @@ interface UpdateReconciliationProps {
 }
 
 export default function UpdateReconciliation({ batchRef }: UpdateReconciliationProps) {
-  const [items, setItems] = useState<FlaggedItem[]>(SEED_FLAGGED);
-  const [view, setView] = useState<"batches" | "transactions">(
-    batchRef ? "transactions" : "batches",
-  );
-  const [activeBatchRef, setActiveBatchRef] = useState<string | null>(
-    batchRef ?? null,
-  );
-  const [selected, setSelected] = useState<FlaggedItem | null>(null);
-  const [historyLoadedIds, setHistoryLoadedIds] = useState<Set<string>>(
-    new Set(),
-  );
+  // Pull a wide page of flagged shortfalls and group by batch client-side.
+  const { data, isLoading, isError, error } = useReconFlagged({ pageSize: 500 });
+  const items = useMemo(() => data?.data ?? [], [data]);
 
-  // Transaction list filters
+  const [view, setView] = useState<"batches" | "transactions">(batchRef ? "transactions" : "batches");
+  const [activeBatchRef, setActiveBatchRef] = useState<string | null>(batchRef ?? null);
+  const [selected, setSelected] = useState<ReconFlaggedItem | null>(null);
+
   const [search, setSearch] = useState("");
   const [register, setRegister] = useState("");
   const [status, setStatus] = useState<"" | "PENDING" | "RESOLVED">("");
 
-  const batches = deriveBatches(items);
+  const batches = useMemo(() => {
+    const map = new Map<string, { batchRef: string; date: string | null; registers: string[]; items: ReconFlaggedItem[] }>();
+    for (const it of items) {
+      if (!map.has(it.batchRef)) map.set(it.batchRef, { batchRef: it.batchRef, date: it.transactionDate, registers: [], items: [] });
+      const b = map.get(it.batchRef)!;
+      b.items.push(it);
+      if (it.registerSymbol && !b.registers.includes(it.registerSymbol)) b.registers.push(it.registerSymbol);
+    }
+    return Array.from(map.values());
+  }, [items]);
 
-  const handleOpenBatch = (bRef: string) => {
-    setActiveBatchRef(bRef);
-    setView("transactions");
-    setSearch("");
-    setRegister("");
-    setStatus("");
-  };
+  const registerOptions = useMemo(
+    () => Array.from(new Set(items.filter((i) => i.batchRef === activeBatchRef).map((i) => i.registerSymbol))),
+    [items, activeBatchRef],
+  );
 
-  const handleBackToBatches = () => {
-    setView("batches");
-    setActiveBatchRef(null);
-    setSelected(null);
-  };
-
-  const handleResolved = (id: string) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: "RESOLVED" } : i)),
-    );
-    setSelected(null);
-  };
-
-  const handleHistoryLoaded = (id: string) => {
-    setHistoryLoadedIds((prev) => new Set([...prev, id]));
-  };
-
-  // ── Resolution workspace ──────────────────────────────────────────────────
+  // ── Resolution desk ──
   if (selected) {
     return (
-      <ResolutionWorkspace
-        item={selected}
+      <ResolutionDesk
+        chn={selected.chn}
+        register={selected.registerSymbol}
+        holderName={selected.holderName ?? selected.chn}
+        backLabel="Back to Pending List"
         onBack={() => setSelected(null)}
-        onResolved={() => handleResolved(selected.id)}
-        skipPullHistory={historyLoadedIds.has(selected.id)}
-        onHistoryLoaded={handleHistoryLoaded}
+        onSaved={() => setSelected(null)}
+        context={{
+          flaggedItemId: selected.id,
+          attemptedSell: selected.attemptedSell,
+          holdingsAtFlag: selected.holdingsAtFlag,
+          shortfall: selected.shortfall,
+          transactionDate: selected.transactionDate,
+        }}
       />
     );
   }
 
-  // ── Batch list ────────────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading flagged transactions…
+      </div>
+    );
+  }
+  if (isError) {
+    return <div className="py-16 text-center text-red-600 text-sm">{(error as Error)?.message ?? "Failed to load flagged transactions."}</div>;
+  }
+
+  // ── Batch list ──
   if (view === "batches") {
     return (
       <Card className="mrpsl-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            CSCS Reconciliation Batches
-          </p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">CSCS Reconciliation Batches</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -211,67 +100,45 @@ export default function UpdateReconciliation({ batchRef }: UpdateReconciliationP
                 <th className="px-4 py-3 text-left font-medium">BATCH REF</th>
                 <th className="px-4 py-3 text-left font-medium">DATE</th>
                 <th className="px-4 py-3 text-left font-medium">REGISTERS</th>
-                <th className="px-4 py-3 text-right font-medium">TRANSACTIONS</th>
+                <th className="px-4 py-3 text-right font-medium">FLAGGED TXNS</th>
                 <th className="px-4 py-3 text-left font-medium">RESOLUTION STATUS</th>
                 <th className="px-4 py-3 text-right font-medium">ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {batches.map((batch) => {
-                const allResolved = batch.items.every(
-                  (i) => i.status === "RESOLVED",
-                );
-                const pendingCount = batch.items.filter(
-                  (i) => i.status === "PENDING",
-                ).length;
+                const allResolved = batch.items.every((i) => i.status === "RESOLVED");
+                const pendingCount = batch.items.filter((i) => i.status === "PENDING").length;
                 return (
                   <tr key={batch.batchRef} className="mrpsl-table-row">
-                    <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                      {batch.batchRef}
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                      {batch.date}
-                    </td>
+                    <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">{batch.batchRef}</td>
+                    <td className="px-4 py-3 text-[13px] text-muted-foreground">{fmtDate(batch.date)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1 flex-wrap">
                         {batch.registers.map((r) => (
-                          <Badge
-                            key={r}
-                            className="border-0 text-[11px] bg-gray-100 text-gray-800"
-                          >
-                            {r}
-                          </Badge>
+                          <Badge key={r} className="border-0 text-[11px] bg-gray-100 text-gray-800">{r}</Badge>
                         ))}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {batch.items.length}
-                    </td>
+                    <td className="px-4 py-3 text-right font-mono">{batch.items.length}</td>
                     <td className="px-4 py-3">
                       {allResolved ? (
-                        <Badge className="border-0 text-[11px] bg-green-100 text-green-800">
-                          Resolved
-                        </Badge>
+                        <Badge className="border-0 text-[11px] bg-green-100 text-green-800">Resolved</Badge>
                       ) : (
-                        <Badge className="border-0 text-[11px] bg-amber-100 text-amber-800">
-                          {pendingCount} Pending
-                        </Badge>
+                        <Badge className="border-0 text-[11px] bg-amber-100 text-amber-800">{pendingCount} Pending</Badge>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1"
-                        onClick={() => handleOpenBatch(batch.batchRef)}
-                      >
-                        Open Batch
-                        <ChevronRight className="h-3.5 w-3.5" />
+                      <Button size="sm" variant="outline" className="gap-1" onClick={() => { setActiveBatchRef(batch.batchRef); setView("transactions"); setSearch(""); setRegister(""); setStatus(""); }}>
+                        Open Batch <ChevronRight className="h-3.5 w-3.5" />
                       </Button>
                     </td>
                   </tr>
                 );
               })}
+              {batches.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-muted-foreground text-sm">No flagged transactions. Oversell shortfalls from processed CSCS batches will appear here.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -279,18 +146,14 @@ export default function UpdateReconciliation({ batchRef }: UpdateReconciliationP
     );
   }
 
-  // ── Transaction list ──────────────────────────────────────────────────────
+  // ── Transaction list (batch opened) ──
   const batchItems = items.filter((i) => i.batchRef === activeBatchRef);
   const filtered = batchItems.filter((r) => {
-    if (register && r.register !== register) return false;
+    if (register && r.registerSymbol !== register) return false;
     if (status && r.status !== status) return false;
     if (search) {
       const q = search.toLowerCase();
-      if (
-        !r.chn.toLowerCase().includes(q) &&
-        !r.holderName.toLowerCase().includes(q)
-      )
-        return false;
+      if (!r.chn.toLowerCase().includes(q) && !(r.holderName ?? "").toLowerCase().includes(q)) return false;
     }
     return true;
   });
@@ -298,70 +161,43 @@ export default function UpdateReconciliation({ batchRef }: UpdateReconciliationP
 
   return (
     <div className="space-y-4">
-      {/* Back nav */}
       <div className="flex items-center gap-3 pb-3 border-b border-border">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleBackToBatches}
-          className="gap-2"
-        >
+        <Button variant="ghost" size="sm" onClick={() => { setView("batches"); setActiveBatchRef(null); }} className="gap-2">
           <ArrowLeft className="h-4 w-4" /> Back to Batches
         </Button>
         <div className="h-4 w-px bg-border" />
-        <p className="text-sm font-mono font-medium text-muted-foreground">
-          {activeBatchRef}
-        </p>
+        <p className="text-sm font-mono font-medium text-muted-foreground">{activeBatchRef}</p>
       </div>
 
-      {/* Banner */}
       {pendingInBatch > 0 && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-          <span className="text-sm font-medium text-amber-800">
-            <strong>{pendingInBatch}</strong> flagged transaction
-            {pendingInBatch !== 1 ? "s" : ""} awaiting resolution
-          </span>
+          <span className="text-sm font-medium text-amber-800"><strong>{pendingInBatch}</strong> flagged transaction{pendingInBatch !== 1 ? "s" : ""} awaiting resolution</span>
         </div>
       )}
 
-      {/* Filters */}
       <div className="grid grid-cols-[2fr_1fr_1fr] w-2/3 gap-2 items-center">
-        <Input
-          placeholder="Search CHN or holder name…"
-          className="mrpsl-input"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <Select value={register} onValueChange={(v) => setRegister(v ?? "")}>
-          <SelectTrigger className="w-40 mrpsl-input">
-            <SelectValue placeholder="All Registers" />
-          </SelectTrigger>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Search CHN or holder name…" className="mrpsl-input pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <Select value={register} onValueChange={(v) => setRegister(v === "__all" ? "" : (v ?? ""))}>
+          <SelectTrigger className="w-40 mrpsl-input"><SelectValue placeholder="All Registers" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Registers</SelectItem>
-            {REGISTERS.map((r) => (
-              <SelectItem key={r} value={r}>
-                {r}
-              </SelectItem>
-            ))}
+            <SelectItem value="__all">All Registers</SelectItem>
+            {registerOptions.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select
-          value={status}
-          onValueChange={(v) => setStatus(v as "" | "PENDING" | "RESOLVED")}
-        >
-          <SelectTrigger className="w-36 mrpsl-input">
-            <SelectValue placeholder="All Status" />
-          </SelectTrigger>
+        <Select value={status} onValueChange={(v) => setStatus(((v as string) === "__all" ? "" : v) as "" | "PENDING" | "RESOLVED")}>
+          <SelectTrigger className="w-36 mrpsl-input"><SelectValue placeholder="All Status" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="__all">All Status</SelectItem>
             <SelectItem value="PENDING">Pending</SelectItem>
             <SelectItem value="RESOLVED">Resolved</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Table */}
       <Card className="mrpsl-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -381,66 +217,29 @@ export default function UpdateReconciliation({ batchRef }: UpdateReconciliationP
             <tbody className="divide-y divide-border/60">
               {filtered.map((row) => (
                 <tr key={row.id} className="mrpsl-table-row">
-                  <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">
-                    {row.chn}
-                  </td>
-                  <td className="px-4 py-3 font-medium text-sm">
-                    {row.holderName}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">
-                      {row.register}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-[13px] text-muted-foreground">
-                    {row.transactionDate}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums font-mono text-red-600 font-semibold">
-                    {formatNumber(row.attemptedSell)}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums font-mono">
-                    {formatNumber(row.holdingsAtFlag)}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums font-mono text-amber-600 font-semibold">
-                    {formatNumber(row.shortfall)}
-                  </td>
+                  <td className="px-4 py-3 font-mono text-[13px] text-muted-foreground">{row.chn}</td>
+                  <td className="px-4 py-3 font-medium text-sm">{row.holderName ?? "—"}</td>
+                  <td className="px-4 py-3"><Badge className="border-0 text-[13px] bg-gray-100 text-gray-800">{row.registerSymbol}</Badge></td>
+                  <td className="px-4 py-3 text-[13px] text-muted-foreground">{fmtDate(row.transactionDate)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-mono text-red-600 font-semibold">{formatNumber(row.attemptedSell ?? 0)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-mono">{formatNumber(row.holdingsAtFlag ?? 0)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-mono text-amber-600 font-semibold">{formatNumber(row.shortfall ?? 0)}</td>
                   <td className="px-4 py-3">
                     {row.status === "PENDING" ? (
-                      <Badge className="border-0 text-[12px] bg-amber-100 text-amber-800">
-                        Pending
-                      </Badge>
+                      <Badge className="border-0 text-[12px] bg-amber-100 text-amber-800">Pending</Badge>
                     ) : (
-                      <Badge className="border-0 text-[12px] bg-green-100 text-green-800">
-                        Resolved
-                      </Badge>
+                      <Badge className="border-0 text-[12px] bg-green-100 text-green-800">Resolved</Badge>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {row.status === "PENDING" ? (
-                      <Button size="sm" onClick={() => setSelected(row)}>
-                        Resolve
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelected(row)}
-                      >
-                        View
-                      </Button>
-                    )}
+                    <Button size="sm" variant={row.status === "PENDING" ? "default" : "outline"} onClick={() => setSelected(row)}>
+                      {row.status === "PENDING" ? "Resolve" : "View"}
+                    </Button>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="px-4 py-12 text-center text-muted-foreground text-sm"
-                  >
-                    No transactions match your filters.
-                  </td>
-                </tr>
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-muted-foreground text-sm">No transactions match your filters.</td></tr>
               )}
             </tbody>
           </table>

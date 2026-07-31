@@ -24,6 +24,8 @@ import {
   Shareholder,
   ShareholdersParams,
   ShareholderSummary,
+  ShareholderSearchCriteria,
+  ShareholderSearchResult,
   Warrant,
 } from "@/types/enquiry";
 import { ApiResponse, ContentPaginatedResponse } from "@/types";
@@ -145,6 +147,22 @@ export const getShareholders = async (params?: ShareholdersParams) => {
     );
 
     return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Query-builder search — POST because the criteria payload is structured (rules + combinator).
+// The endpoint wraps the page in ApiResponse, so unwrap to the inner ContentPaginatedResponse.
+export const searchShareholders = async (
+  criteria: ShareholderSearchCriteria,
+): Promise<ContentPaginatedResponse<ShareholderSearchResult>> => {
+  try {
+    const response = await api.post<
+      ApiResponse<ContentPaginatedResponse<ShareholderSearchResult>>
+    >("/enquiry/shareholders/search", criteria);
+    return response.data.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));

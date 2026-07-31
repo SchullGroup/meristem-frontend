@@ -7,19 +7,29 @@ import {
 import {
   getAllCertificateDemat,
   captureDematRequest,
+  captureDematFromCertificates,
   rejectDematRequest,
   lodgetDematRequest,
   icuApproveDematRequest,
   submitForCalloverDematRequest,
   authorizeDematRequest,
+  cooApproveDematRequest,
+  bulkCooApproveDematRequest,
   bulkRejectDematRequest,
   bulkIcuApproveDematRequest,
   bulkAuthorizeDematRequest,
+  processDematReversal,
+  notifyDematReversal,
+  searchDematHolders,
+  searchDematStockbrokers,
   getDematRecordById,
   getWorkflowStageCounts,
   DematParams,
   Demat,
   CaptureDematRequest,
+  CaptureFromCertificatesRequest,
+  DematHolder,
+  DematStockbroker,
 } from "@/actions/certDematActions";
 import { ContentPaginatedResponse } from "@/types";
 
@@ -49,6 +59,14 @@ export const useCaptureDematRequest = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["demat"] });
     },
+  });
+};
+
+export const useCaptureDematFromCertificates = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CaptureFromCertificatesRequest) => captureDematFromCertificates(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["demat"] }),
   });
 };
 
@@ -141,6 +159,51 @@ export const useBulkAuthorizeDematRequest = () => {
     },
   });
 };
+
+export const useCooApproveDematRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cooApproveDematRequest(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["demat"] }),
+  });
+};
+
+export const useBulkCooApproveDematRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => bulkCooApproveDematRequest(ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["demat"] }),
+  });
+};
+
+export const useProcessDematReversal = () =>
+  useMutation({
+    mutationFn: (file: File) => processDematReversal(file),
+  });
+
+export const useNotifyDematReversal = () =>
+  useMutation({
+    mutationFn: (data: { to?: string; subject: string; body: string }) => notifyDematReversal(data),
+  });
+
+export const useSearchDematHolders = (
+  params: { name?: string; chn?: string; registerId?: string; page?: number; size?: number },
+  enabled: boolean,
+) =>
+  useQuery<ContentPaginatedResponse<DematHolder>>({
+    queryKey: ["demat", "holders", params],
+    queryFn: () => searchDematHolders(params),
+    enabled,
+    refetchOnWindowFocus: false,
+  });
+
+export const useSearchDematStockbrokers = (q: string, enabled: boolean) =>
+  useQuery<DematStockbroker[]>({
+    queryKey: ["demat", "stockbrokers", q],
+    queryFn: () => searchDematStockbrokers(q),
+    enabled: enabled && q.trim().length >= 2,
+    refetchOnWindowFocus: false,
+  });
 
 export const useGetDematRecordById = (
   id: string,

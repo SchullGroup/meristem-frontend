@@ -24,59 +24,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useGetRegistersByType } from "@/hooks/useRegisters";
+import { useSubmitSubscription, useBulkSubscription, useSearchFundHolders } from "@/hooks/useFunds";
+import { useStore } from "@/lib/store";
+import type { FundUnitHolder } from "@/actions/fundActions";
 import { toast } from "sonner";
 
 type SubscriberType = "new" | "existing";
 type EntryMode = "single" | "bulk";
-
-interface ExistingHolder {
-  id: string;
-  accountNo: string;
-  name: string;
-  chn: string;
-  email: string;
-  currentFund: string;
-  availableUnits: number;
-}
-
-const MOCK_HOLDERS: ExistingHolder[] = [
-  {
-    id: "h1",
-    accountNo: "FND-00123456",
-    name: "Adebayo Oluwaseun",
-    chn: "CHN-0012345678",
-    email: "adebayo@email.com",
-    currentFund: "Stanbic IBTC Dollar Fund",
-    availableUnits: 15_000,
-  },
-  {
-    id: "h2",
-    accountNo: "FND-00234567",
-    name: "Chinwe Okafor-Nwosu",
-    chn: "CHN-0023456789",
-    email: "chinwe@email.com",
-    currentFund: "ARM Discovery Balanced Fund",
-    availableUnits: 8_500,
-  },
-  {
-    id: "h3",
-    accountNo: "FND-00345678",
-    name: "Emeka Nwachukwu",
-    chn: "CHN-0034567890",
-    email: "emeka@email.com",
-    currentFund: "Stanbic IBTC Dollar Fund",
-    availableUnits: 42_000,
-  },
-  {
-    id: "h4",
-    accountNo: "FND-00456789",
-    name: "Fatima Garba Abubakar",
-    chn: "CHN-0045678901",
-    email: "fatima@email.com",
-    currentFund: "Coronation Money Market Fund",
-    availableUnits: 120_000,
-  },
-];
+type ExistingHolder = FundUnitHolder;
 
 function SearchDropdown({
   query,
@@ -85,13 +40,14 @@ function SearchDropdown({
   query: string;
   onSelect: (h: ExistingHolder) => void;
 }) {
+  const { data: matches = [], isLoading } = useSearchFundHolders(query, undefined, query.length >= 2);
   if (!query || query.length < 2) return null;
-  const matches = MOCK_HOLDERS.filter(
-    (h) =>
-      h.name.toLowerCase().includes(query.toLowerCase()) ||
-      h.accountNo.toLowerCase().includes(query.toLowerCase()) ||
-      h.chn.toLowerCase().includes(query.toLowerCase()),
-  );
+  if (isLoading)
+    return (
+      <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md p-3 text-sm text-muted-foreground">
+        Searching…
+      </div>
+    );
   if (!matches.length)
     return (
       <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md p-3 text-sm text-muted-foreground">
@@ -99,7 +55,7 @@ function SearchDropdown({
       </div>
     );
   return (
-    <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md overflow-hidden">
+    <div className="absolute z-10 top-full mt-1 left-0 right-0 rounded-xl border border-border bg-background shadow-md overflow-hidden max-h-64 overflow-y-auto">
       {matches.map((h) => (
         <button
           key={h.id}
@@ -109,7 +65,7 @@ function SearchDropdown({
         >
           <p className="font-medium">{h.name}</p>
           <p className="text-xs text-muted-foreground font-mono">
-            {h.accountNo} · {h.chn}
+            {h.accountNo}{h.chn ? ` · ${h.chn}` : ""}
           </p>
         </button>
       ))}
@@ -187,6 +143,9 @@ function DocumentUploadArea({
 export function NewSubscription() {
   const { data: fundRegisters, isLoading: loadingRegisters } =
     useGetRegistersByType("Fund");
+  const actor = useStore((s) => s.currentUser)?.email;
+  const submitSingle = useSubmitSubscription();
+  const submitBulk = useBulkSubscription();
 
   const [subscriberType, setSubscriberType] = useState<SubscriberType>("new");
   const [newEntryMode, setNewEntryMode] = useState<EntryMode>("single");
@@ -256,20 +215,64 @@ export function NewSubscription() {
     setSearchQuery(h.name);
   };
 
+  const today = () => new Date().toISOString().slice(0, 10);
+
   const handleSubmit = async () => {
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setSubmitting(false);
-    setSubmitted(true);
-    toast.success(
-      subscriberType === "new"
-        ? newEntryMode === "bulk"
-          ? `Bulk new subscribers uploaded. Pending Team Lead approval.`
-          : `New subscriber "${name}" created on ${fundRegisters?.find((r) => r.registerId === fundRegister)?.registerName ?? fundRegister}. Pending Team Lead approval.`
-        : existingEntryMode === "bulk"
-          ? `Bulk additional subscriptions uploaded. Pending Team Lead approval.`
-          : `Additional units recorded for ${selectedHolder?.name}. Pending Team Lead approval.`,
-    );
+    try {
+      if (subscriberType === "new") {
+        if (newEntryMode === "bulk") {
+          const res = await submitBulk.mutateAsync({
+            file: newBulkFile!,
+            meta: { fundRegisterId: fundRegister, subscriberType: "NEW", createdBy: actor },
+          });
+          toast.success(`Bulk upload: ${res.created} created, ${res.failed} failed. Pending Team Lead approval.`);
+        } else {
+          await submitSingle.mutateAsync({
+            fundRegisterId: fundRegister,
+            subscriberType: "NEW",
+            subscriptionDate: subscriptionDate || today(),
+            holderName: name,
+            email,
+            phone,
+            address,
+            bvn,
+            nextOfKin: nextOfKin || undefined,
+            unitsSubscribed: Number(units),
+            amountPaid: amountPaid ? Number(amountPaid) : undefined,
+            narration,
+            createdBy: actor,
+          });
+          toast.success(`New subscriber "${name}" submitted. Pending Team Lead approval.`);
+        }
+      } else {
+        if (existingEntryMode === "bulk") {
+          const res = await submitBulk.mutateAsync({
+            file: existingBulkFile!,
+            meta: { fundRegisterId: fundRegister, subscriberType: "EXISTING", createdBy: actor },
+          });
+          toast.success(`Bulk upload: ${res.created} created, ${res.failed} failed. Pending Team Lead approval.`);
+        } else {
+          await submitSingle.mutateAsync({
+            fundRegisterId: fundRegister,
+            subscriberType: "EXISTING",
+            subscriptionDate: existingSubDate || today(),
+            holderId: selectedHolder!.id,
+            targetFundRegisterId: targetFundMode === "different" ? targetFund : undefined,
+            unitsSubscribed: Number(existingUnits),
+            amountPaid: existingAmount ? Number(existingAmount) : undefined,
+            narration: existingNarration,
+            createdBy: actor,
+          });
+          toast.success(`Additional units submitted for ${selectedHolder?.name}. Pending Team Lead approval.`);
+        }
+      }
+      setSubmitted(true);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleReset = () => {
@@ -301,7 +304,7 @@ export function NewSubscription() {
     setSubmitted(false);
   };
 
-  const FundRegisterSelect = () => (
+  const fundRegisterSelect = (
     <div className="space-y-1.5">
       <label className="mrpsl-label">Fund Register *</label>
       <Select value={fundRegister} onValueChange={(v) => setFundRegister(v ?? "")}>
@@ -383,7 +386,7 @@ export function NewSubscription() {
       <div className="grid grid-cols-3 gap-5">
         <div className="col-span-2">
           <Card className="mrpsl-card p-5 space-y-4">
-            <FundRegisterSelect />
+            {fundRegisterSelect}
 
             {subscriberType === "new" ? (
               /* ── New Subscriber ── */
@@ -733,11 +736,13 @@ export function NewSubscription() {
                             {selectedHolder.accountNo}
                           </span>
                         </div>
+                        {selectedHolder.email && (
+                          <p className="text-xs text-muted-foreground">
+                            {selectedHolder.email}
+                          </p>
+                        )}
                         <p className="text-xs text-muted-foreground">
-                          Current fund: {selectedHolder.currentFund}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          CHN: {selectedHolder.chn}
+                          CHN: {selectedHolder.chn ?? "—"}
                         </p>
                       </div>
                     )}

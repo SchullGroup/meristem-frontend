@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Building2, AlertCircle } from "lucide-react";
+import { GET_IPO_OFFERS } from "@/actions/offerSetUp";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -15,13 +17,13 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataVettingDashboard } from "@/components/custom/offer-administration/data-vetting-dashboard";
 import { RegulatoryReportHub } from "@/components/custom/offer-administration/regulatory-report-hub";
-import { AllotmentRulesEngine } from "@/components/custom/offer-administration/allotment-rules-engine";
-import { CSCSReversalsWorkspace } from "@/components/custom/offer-administration/cscs-reversals-workspace";
-import { DispatchNotificationPanel } from "@/components/custom/offer-administration/dispatch-notification-panel";
+import IpoAllotmentRulesReal from "@/components/custom/ipo/allotment-rules-real";
 import UploadIPOData from "@/components/custom/ipo/upload-data";
-import PendingApprovalIPO from "@/components/custom/ipo/pending-approval";
-import IcuApprovalIPO from "@/components/custom/ipo/icu-approval";
-import ICULodgment from "@/components/custom/ipo/lodgment";
+import PendingApprovalIpoReal from "@/components/custom/ipo/pending-approval-real";
+import IcuApprovalIpoReal from "@/components/custom/ipo/icu-approval-real";
+import IcuLodgmentReal from "@/components/custom/ipo/lodgment-real";
+import IpoCscsReversalsReal from "@/components/custom/ipo/cscs-reversals-real";
+import IpoDispatchReal from "@/components/custom/ipo/dispatch-real";
 import IPOReports from "@/components/custom/ipo/ipo-reports";
 
 type OfferStatus = "DRAFT" | "OPEN" | "CLOSED" | "ALLOTTED" | "CONCLUDED";
@@ -29,36 +31,13 @@ type OfferStatus = "DRAFT" | "OPEN" | "CLOSED" | "ALLOTTED" | "CONCLUDED";
 interface PublicOfferSummary {
   id: string;
   name: string;
-  register: string;
-  offerPrice: number;
-  totalUnits: number;
-  openingDate: Date | null;
-  closingDate: Date | null;
+  registerId?: string;
+  offerPrice?: number;
+  totalUnits?: number;
+  openingDate?: string | null;
+  closingDate?: string | null;
   status: OfferStatus;
 }
-
-const MOCK_PUBLIC_OFFERS: PublicOfferSummary[] = [
-  {
-    id: "1",
-    name: "Access Holdings PLC Public Offer 2024",
-    register: "Access Holdings Ord. Shares",
-    offerPrice: 22.5,
-    totalUnits: 17_772_612_811,
-    openingDate: new Date("2024-10-07"),
-    closingDate: new Date("2024-10-21"),
-    status: "CLOSED",
-  },
-  {
-    id: "2",
-    name: "Transcorp Power PLC IPO 2024",
-    register: "Transcorp Power Ord. Shares",
-    offerPrice: 5.0,
-    totalUnits: 7_500_000_000,
-    openingDate: null,
-    closingDate: null,
-    status: "DRAFT",
-  },
-];
 
 const STATUS_COLORS: Record<OfferStatus, string> = {
   DRAFT: "bg-gray-100 text-gray-700",
@@ -100,8 +79,24 @@ export default function IPOPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("upload");
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
 
-  const selectedOffer =
-    MOCK_PUBLIC_OFFERS.find((o) => o.id === selectedOfferId) ?? null;
+  const { data: offersData } = useQuery({
+    queryKey: ["ipo-offers", "ipo-admin-selector"],
+    queryFn: () => GET_IPO_OFFERS({ size: 100 }),
+  });
+  const offers: PublicOfferSummary[] = (offersData?.data?.content ?? []).map(
+    (o: PublicOfferSummary) => ({
+      id: o.id,
+      name: o.name,
+      registerId: o.registerId,
+      offerPrice: o.offerPrice,
+      totalUnits: o.totalUnits,
+      openingDate: o.openingDate ?? null,
+      closingDate: o.closingDate ?? null,
+      status: o.status,
+    }),
+  );
+
+  const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -131,7 +126,7 @@ export default function IPOPage() {
                 <SelectValue placeholder="Select an offer to work with…" />
               </SelectTrigger>
               <SelectContent>
-                {MOCK_PUBLIC_OFFERS.map((o) => (
+                {offers.map((o) => (
                   <SelectItem key={o.id} value={o.id}>
                     {o.name}
                   </SelectItem>
@@ -143,19 +138,19 @@ export default function IPOPage() {
             <div className="flex items-center gap-4 flex-wrap text-sm">
               <div>
                 <span className="mrpsl-label mr-1">Register:</span>
-                <span className="font-medium">{selectedOffer.register}</span>
+                <span className="font-medium">{selectedOffer.registerId ?? "—"}</span>
               </div>
               <div>
                 <span className="mrpsl-label mr-1">Price:</span>
                 <span className="font-mono font-semibold">
-                  ₦{selectedOffer.offerPrice.toFixed(2)}
+                  ₦{(selectedOffer.offerPrice ?? 0).toLocaleString()}
                 </span>
               </div>
               <div>
                 <span className="mrpsl-label mr-1">Closing:</span>
                 <span>
                   {selectedOffer.closingDate
-                    ? format(selectedOffer.closingDate, "dd MMM yyyy")
+                    ? format(new Date(selectedOffer.closingDate), "dd MMM yyyy")
                     : "—"}
                 </span>
               </div>
@@ -195,39 +190,56 @@ export default function IPOPage() {
 
         <div className="mt-6">
           <TabsContent value="upload" className="space-y-6">
-            <UploadIPOData tab="upload" activeOffer={selectedOffer} />
+            <UploadIPOData
+              tab="upload"
+              activeOffer={
+                selectedOffer
+                  ? {
+                      id: selectedOffer.id,
+                      name: selectedOffer.name,
+                      register: selectedOffer.registerId ?? "",
+                      offerPrice: selectedOffer.offerPrice ?? 0,
+                      status: selectedOffer.status,
+                    }
+                  : null
+              }
+            />
           </TabsContent>
 
           <TabsContent value="vetting">
-            <DataVettingDashboard />
+            <DataVettingDashboard
+              activeOffer={selectedOffer ? { id: selectedOffer.id, offerName: selectedOffer.name } : null}
+            />
           </TabsContent>
 
           <TabsContent value="sec-reports">
-            <RegulatoryReportHub />
+            <RegulatoryReportHub
+              activeOffer={selectedOffer ? { id: selectedOffer.id, offerName: selectedOffer.name } : null}
+            />
           </TabsContent>
 
           <TabsContent value="allotment">
-            <AllotmentRulesEngine />
+            <IpoAllotmentRulesReal offerId={selectedOffer?.id} />
           </TabsContent>
 
           <TabsContent value="approval" className="space-y-4">
-            <PendingApprovalIPO tab="approval" />
+            <PendingApprovalIpoReal />
           </TabsContent>
 
           <TabsContent value="icu" className="space-y-4">
-            <IcuApprovalIPO tab="icu" />
+            <IcuApprovalIpoReal />
           </TabsContent>
 
           <TabsContent value="lodgement" className="space-y-4">
-            <ICULodgment tab="lodgement" />
+            <IcuLodgmentReal />
           </TabsContent>
 
           <TabsContent value="reversals">
-            <CSCSReversalsWorkspace />
+            <IpoCscsReversalsReal />
           </TabsContent>
 
           <TabsContent value="dispatch">
-            <DispatchNotificationPanel />
+            <IpoDispatchReal />
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-4">
