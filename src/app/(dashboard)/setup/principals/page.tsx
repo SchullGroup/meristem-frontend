@@ -335,10 +335,13 @@ export default function PrincipalsPage() {
                   </tr>
                 ))
               ) : principals?.content && principals?.content?.length > 0 ? (
-                principals?.content?.map((p) => (
-                  <tr key={p.principalId} className="mrpsl-table-row">
+                principals?.content?.map((p, i) => (
+                  <tr
+                    key={p.principalId ?? `principal-${i}`}
+                    className="mrpsl-table-row"
+                  >
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {p.principalId}
+                      {p.principalId || "—"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-foreground">
@@ -395,6 +398,7 @@ export default function PrincipalsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
+                            disabled={!p.principalId}
                             onClick={() =>
                               router.push(
                                 `/setup/registers?principalId=${p.principalId}`,

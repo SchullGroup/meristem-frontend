@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Building2, AlertCircle } from "lucide-react";
+import { Building2, AlertCircle, Loader2 } from "lucide-react";
 import { GET_BONUS_OFFERS } from "@/actions/offerSetUp";
 import { useGetOrCreateBonusDeclaration } from "@/hooks/useBonus";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -76,9 +76,9 @@ export default function BonusIssuePage() {
   const [selectedBonusOfferId, setSelectedBonusOfferId] = useState<string>("");
   const [bonusDeclarationId, setBonusDeclarationId] = useState<string>("");
 
-  const { data: bonusOffersRes } = useQuery({
-    queryKey: ["bonus-offers", "admin-selector"],
-    queryFn: () => GET_BONUS_OFFERS({ size: 100 }),
+  const { data: bonusOffersRes, isLoading: bonusOffersLoading } = useQuery({
+    queryKey: ["bonus-offers", "admin-selector", "OPEN"],
+    queryFn: () => GET_BONUS_OFFERS({ size: 100, status: "OPEN" }),
   });
 
   const bonusOffers: BonusOfferSummary[] = useMemo(() => {
@@ -104,7 +104,7 @@ export default function BonusIssuePage() {
         allotmentDate: o.allotmentDate ? new Date(o.allotmentDate) : null,
         status: (o.status as BonusOfferStatus) ?? "DRAFT",
       }),
-    );
+    ).filter((o: BonusOfferSummary) => o.status === "OPEN");
   }, [bonusOffersRes]);
 
   const selectedBonusOffer = bonusOffers.find((o) => o.id === selectedBonusOfferId) ?? null;
@@ -140,16 +140,33 @@ export default function BonusIssuePage() {
             <span className="text-sm font-medium">Active Bonus Issue</span>
           </div>
           <div className="flex-1 min-w-60">
-            <Select value={selectedBonusOfferId} onValueChange={handleSelectBonusOffer}>
+            <Select
+              value={selectedBonusOfferId}
+              onValueChange={handleSelectBonusOffer}
+              disabled={bonusOffersLoading}
+            >
               <SelectTrigger className="mrpsl-input h-9 w-full max-w-sm">
-                <SelectValue placeholder="Select a bonus issue to work with…" />
+                {bonusOffersLoading ? (
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Loading bonus issues…
+                  </span>
+                ) : (
+                  <SelectValue placeholder="Select a bonus issue to work with…" />
+                )}
               </SelectTrigger>
               <SelectContent>
-                {bonusOffers.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.name}
-                  </SelectItem>
-                ))}
+                {bonusOffers.length === 0 ? (
+                  <div className="px-3 py-2 text-[13px] text-muted-foreground">
+                    No open bonus issues.
+                  </div>
+                ) : (
+                  bonusOffers.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
