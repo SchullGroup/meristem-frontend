@@ -144,7 +144,9 @@ export function UserForm({
     // Basic dup check
     if (
       mode === "create" &&
-      users.some((u) => u.email.toLowerCase() === values.email.toLowerCase())
+      (Array.isArray(users) ? users : []).some(
+        (u) => u?.email?.toLowerCase() === values.email.toLowerCase(),
+      )
     ) {
       form.setError("email", { message: "Email already exists" });
       return;

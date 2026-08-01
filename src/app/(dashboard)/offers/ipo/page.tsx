@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Building2, AlertCircle } from "lucide-react";
+import { Building2, AlertCircle, Loader2 } from "lucide-react";
 import { GET_IPO_OFFERS } from "@/actions/offerSetUp";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -79,12 +79,14 @@ export default function IPOPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("upload");
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
 
-  const { data: offersData } = useQuery({
-    queryKey: ["ipo-offers", "ipo-admin-selector"],
-    queryFn: () => GET_IPO_OFFERS({ size: 100 }),
+  const { data: offersData, isLoading: offersLoading } = useQuery({
+    queryKey: ["ipo-offers", "ipo-admin-selector", "OPEN"],
+    queryFn: () => GET_IPO_OFFERS({ size: 100, status: "OPEN" }),
   });
-  const offers: PublicOfferSummary[] = (offersData?.data?.content ?? []).map(
-    (o: PublicOfferSummary) => ({
+  // Filtered again client-side so a server that ignores `status` can't leak
+  // non-open offers into the selector.
+  const offers: PublicOfferSummary[] = (offersData?.data?.content ?? [])
+    .map((o: PublicOfferSummary) => ({
       id: o.id,
       name: o.name,
       registerId: o.registerId,
@@ -93,8 +95,8 @@ export default function IPOPage() {
       openingDate: o.openingDate ?? null,
       closingDate: o.closingDate ?? null,
       status: o.status,
-    }),
-  );
+    }))
+    .filter((o: PublicOfferSummary) => o.status === "OPEN");
 
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
 
@@ -121,16 +123,30 @@ export default function IPOPage() {
             <Select
               value={selectedOfferId}
               onValueChange={(v) => setSelectedOfferId(v ?? "")}
+              disabled={offersLoading}
             >
               <SelectTrigger className="mrpsl-input h-9 w-full max-w-sm">
-                <SelectValue placeholder="Select an offer to work with…" />
+                {offersLoading ? (
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Loading offers…
+                  </span>
+                ) : (
+                  <SelectValue placeholder="Select an offer to work with…" />
+                )}
               </SelectTrigger>
               <SelectContent>
-                {offers.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.name}
-                  </SelectItem>
-                ))}
+                {offers.length === 0 ? (
+                  <div className="px-3 py-2 text-[13px] text-muted-foreground">
+                    No open offers.
+                  </div>
+                ) : (
+                  offers.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

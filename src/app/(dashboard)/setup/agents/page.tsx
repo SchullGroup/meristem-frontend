@@ -73,6 +73,16 @@ const agentSchema = z.object({
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
+// The API can return null for these enum-ish fields even though the row type
+// declares them as strings, so title-casing has to tolerate a missing value.
+function titleCase(value?: string | null) {
+  if (!value) return "—";
+  return value
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function AgentsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -342,17 +352,14 @@ export default function AgentsPage() {
                     address: string;
                     status: string;
                     id: string;
-                  }) => (
-                    <tr key={a.id} className="mrpsl-table-row">
+                  }, i: number) => (
+                    <tr key={a.id ?? `row-${i}`} className="mrpsl-table-row">
                       <td className="px-4 py-3 font-semibold">{a.name}</td>
                       <td className="px-4 py-3">
                         <Badge
                           className={`border-0 text-xs ${a.type === "BANK" ? "bg-blue-100 text-blue-800" : a.type === "STOCKBROKER" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}
                         >
-                          {a.type
-                            .replace(/_/g, " ")
-                            .toLowerCase()
-                            .replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                          {titleCase(a.type)}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 font-mono">{a.code}</td>
@@ -372,9 +379,7 @@ export default function AgentsPage() {
                                 : "bg-gray-100 text-gray-600"
                           }`}
                         >
-                          {a.status
-                            .toLowerCase()
-                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                          {titleCase(a.status)}
                         </Badge>
                       </td>
                       <td className="px-4 py-3">

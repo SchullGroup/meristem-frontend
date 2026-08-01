@@ -84,8 +84,13 @@ export default function UsersPage() {
     queryFn: async () => {
       const data = await GET_USERS();
       if (data?.isSuccessful && data?.data) {
-        setUsers(data.data);
-        return data.data;
+        // Tolerate either a bare list or a paginated envelope — the whole
+        // store is persisted, so a non-array here poisons localStorage.
+        const list: User[] = Array.isArray(data.data)
+          ? data.data
+          : (data.data.content ?? []);
+        setUsers(list);
+        return list;
       }
       throw new Error(data?.responseMessage || "Failed to fetch users");
     },
@@ -168,7 +173,10 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = (users || []).filter((u) => {
+  // Guards against a previously persisted non-array value in localStorage.
+  const userList: User[] = Array.isArray(users) ? users : [];
+
+  const filteredUsers = userList.filter((u) => {
     const firstName = u.firstName || "";
     const lastName = u.lastName || "";
     const email = u.email || "";
@@ -187,11 +195,11 @@ export default function UsersPage() {
     return matchesSearch && matchesRole && matchesDept && matchesStatus;
   });
 
-  const activeCount = users.filter(
+  const activeCount = userList.filter(
     (u) => u.status?.toUpperCase() === "ACTIVE",
   ).length;
-  const pending2FA = users.filter((u) => !u.enabled && !u.enabled).length;
-  const inactiveCount = users.filter(
+  const pending2FA = userList.filter((u) => !u.enabled).length;
+  const inactiveCount = userList.filter(
     (u) => u.status?.toUpperCase() === "IN_ACTIVE",
   ).length;
 
@@ -204,7 +212,7 @@ export default function UsersPage() {
   const getInitials = (f: string, l: string) =>
     `${f?.[0] || ""}${l?.[0] || ""}`.toUpperCase();
 
-  if (isLoading && users.length === 0) {
+  if (isLoading && userList.length === 0) {
     return (
       <div className="space-y-6">
         <div className="flex justify-between items-start">
@@ -284,7 +292,7 @@ export default function UsersPage() {
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">Total Users</div>
           <div className="text-2xl font-bold font-mono mt-1">
-            {users.length}
+            {userList.length}
           </div>
         </Card>
         <Card className="mrpsl-card p-4">
