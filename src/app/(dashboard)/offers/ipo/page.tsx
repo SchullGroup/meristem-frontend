@@ -132,7 +132,13 @@ export default function IPOPage() {
                     Loading offers…
                   </span>
                 ) : (
-                  <SelectValue placeholder="Select an offer to work with…" />
+                  <SelectValue placeholder="Select an offer to work with…">
+                    {(value: string | null) =>
+                      value
+                        ? (offers.find((o) => o.id === value)?.name ?? value)
+                        : "Select an offer to work with…"
+                    }
+                  </SelectValue>
                 )}
               </SelectTrigger>
               <SelectContent>

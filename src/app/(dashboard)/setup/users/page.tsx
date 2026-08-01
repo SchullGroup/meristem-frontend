@@ -49,12 +49,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DELETE_USER,
   GET_USERS,
+  GET_USER_STATS,
   REMOVE_USER_ROLE,
   TOGGLE_USER,
   TOGGLE_USER_2FA,
 } from "@/actions/userAction";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoles } from "@/hooks/useRoles";
+import { PaginationBar } from "@/components/custom/pagination-bar";
+import { useDebounce } from "@/hooks/useDebounce";
+
+const PAGE_SIZE = 20;
+const USER_TABLE_COLUMNS = 9;
 
 export default function UsersPage() {
   const router = useRouter();
@@ -78,21 +84,67 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
-  const { isLoading } = useQuery({
-    queryKey: ["users"],
+  // Keystrokes are debounced so typing doesn't fire a request per character.
+  const debouncedSearch = useDebounce(search, 500);
+
+  const {
+    data: usersPage,
+    isLoading,
+    isFetching,
+  } = useQuery({
+    queryKey: [
+      "users",
+      currentPage,
+      pageSize,
+      debouncedSearch,
+      roleFilter,
+      deptFilter,
+    ],
     queryFn: async () => {
-      const data = await GET_USERS();
+      const data = await GET_USERS({
+        page: currentPage,
+        size: pageSize,
+        search: debouncedSearch.trim() || undefined,
+        role: roleFilter !== "All" ? roleFilter : undefined,
+        department: deptFilter !== "All" ? deptFilter : undefined,
+      });
       if (data?.isSuccessful && data?.data) {
         // Tolerate either a bare list or a paginated envelope — the whole
         // store is persisted, so a non-array here poisons localStorage.
-        const list: User[] = Array.isArray(data.data)
-          ? data.data
-          : (data.data.content ?? []);
+        const payload = data.data;
+        const list: User[] = Array.isArray(payload)
+          ? payload
+          : (payload.content ?? []);
         setUsers(list);
-        return list;
+        return {
+          content: list,
+          totalElements: Array.isArray(payload)
+            ? list.length
+            : (payload.totalElements ?? list.length),
+          totalPages: Array.isArray(payload) ? 1 : (payload.totalPages ?? 1),
+        };
       }
       throw new Error(data?.responseMessage || "Failed to fetch users");
+    },
+    placeholderData: (prev) => prev,
+  });
+
+  const { data: userStats, isLoading: statsLoading } = useQuery({
+    queryKey: ["users", "stats"],
+    queryFn: async () => {
+      const res = await GET_USER_STATS();
+      if (res?.isSuccessful && res?.data) {
+        return res.data as {
+          totalUsers: number;
+          activeUsers: number;
+          pendingTwoFa: number;
+          inactiveUsers: number;
+        };
+      }
+      throw new Error(res?.responseMessage || "Failed to fetch user stats");
     },
   });
 
@@ -176,32 +228,20 @@ export default function UsersPage() {
   // Guards against a previously persisted non-array value in localStorage.
   const userList: User[] = Array.isArray(users) ? users : [];
 
+  // Search, role and department are applied by the API. Status has no query
+  // param yet, so it stays client-side and only narrows the current page.
   const filteredUsers = userList.filter((u) => {
-    const firstName = u.firstName || "";
-    const lastName = u.lastName || "";
-    const email = u.email || "";
-
-    const matchesSearch =
-      firstName.toLowerCase().includes(search.toLowerCase()) ||
-      lastName.toLowerCase().includes(search.toLowerCase()) ||
-      email.toLowerCase().includes(search.toLowerCase());
-
-    const matchesRole = roleFilter === "All" || u?.roles?.includes(roleFilter);
-    const matchesDept = deptFilter === "All" || u.department === deptFilter;
-    const matchesStatus =
-      statusFilter === "All" ||
-      u.status?.toUpperCase() === statusFilter.toUpperCase();
-
-    return matchesSearch && matchesRole && matchesDept && matchesStatus;
+    if (statusFilter === "All") return true;
+    // Values arrive as "Active" / "ACTIVE" / "INACTIVE"; the options use
+    // "IN_ACTIVE", so compare on letters alone.
+    const normalise = (v?: string | null) =>
+      (v ?? "").toUpperCase().replace(/[^A-Z]/g, "");
+    return normalise(u.status) === normalise(statusFilter);
   });
 
-  const activeCount = userList.filter(
-    (u) => u.status?.toUpperCase() === "ACTIVE",
-  ).length;
-  const pending2FA = userList.filter((u) => !u.enabled).length;
-  const inactiveCount = userList.filter(
-    (u) => u.status?.toUpperCase() === "IN_ACTIVE",
-  ).length;
+  // Result-set size for the pagination bar — reflects the active filters.
+  const totalRecords = usersPage?.totalElements ?? userList.length;
+  const totalPages = usersPage?.totalPages ?? 1;
 
   const handleEdit = (u: User) => {
     setSelectedUser(u);
@@ -260,9 +300,9 @@ export default function UsersPage() {
 
   const uniqueDepartments = [
     ...new Set(
-      users
-        ?.filter((item) => item && item.department)
-        ?.map((item) => item.department),
+      userList
+        .filter((item) => item && item.department)
+        .map((item) => item.department),
     ),
   ];
 
@@ -291,27 +331,43 @@ export default function UsersPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">Total Users</div>
-          <div className="text-2xl font-bold font-mono mt-1">
-            {userList.length}
-          </div>
+          {statsLoading ? (
+            <Skeleton className="h-8 w-16 mt-1" />
+          ) : (
+            <div className="text-2xl font-bold font-mono mt-1">
+              {(userStats?.totalUsers ?? 0).toLocaleString()}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">Active</div>
-          <div className="text-2xl font-bold font-mono mt-1 text-green-600">
-            {activeCount}
-          </div>
+          {statsLoading ? (
+            <Skeleton className="h-8 w-16 mt-1" />
+          ) : (
+            <div className="text-2xl font-bold font-mono mt-1 text-green-600">
+              {(userStats?.activeUsers ?? 0).toLocaleString()}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">Pending 2FA</div>
-          <div className="text-2xl font-bold font-mono mt-1 text-amber-600">
-            {pending2FA}
-          </div>
+          {statsLoading ? (
+            <Skeleton className="h-8 w-16 mt-1" />
+          ) : (
+            <div className="text-2xl font-bold font-mono mt-1 text-amber-600">
+              {(userStats?.pendingTwoFa ?? 0).toLocaleString()}
+            </div>
+          )}
         </Card>
         <Card className="mrpsl-card p-4">
           <div className="mrpsl-section-title">Inactive</div>
-          <div className="text-2xl font-bold font-mono mt-1 text-muted-foreground">
-            {inactiveCount}
-          </div>
+          {statsLoading ? (
+            <Skeleton className="h-8 w-16 mt-1" />
+          ) : (
+            <div className="text-2xl font-bold font-mono mt-1 text-muted-foreground">
+              {(userStats?.inactiveUsers ?? 0).toLocaleString()}
+            </div>
+          )}
         </Card>
       </div>
 
@@ -319,12 +375,18 @@ export default function UsersPage() {
         <Input
           placeholder="Search users..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setCurrentPage(0);
+          }}
           className="w-full sm:w-64 mrpsl-input"
         />
         <Select
           value={roleFilter}
-          onValueChange={(v) => setRoleFilter(v || "")}
+          onValueChange={(v) => {
+            setRoleFilter(v || "All");
+            setCurrentPage(0);
+          }}
         >
           <SelectTrigger className="w-48 mrpsl-input">
             <SelectValue placeholder="Role" />
@@ -340,7 +402,10 @@ export default function UsersPage() {
         </Select>
         <Select
           value={deptFilter}
-          onValueChange={(v) => setDeptFilter(v || "")}
+          onValueChange={(v) => {
+            setDeptFilter(v || "All");
+            setCurrentPage(0);
+          }}
         >
           <SelectTrigger className="w-48 mrpsl-input">
             <SelectValue placeholder="Department" />
@@ -356,7 +421,7 @@ export default function UsersPage() {
         </Select>
         <Select
           value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v || "")}
+          onValueChange={(v) => setStatusFilter(v || "All")}
         >
           <SelectTrigger className="w-36 mrpsl-input">
             <SelectValue placeholder="Status" />
@@ -386,153 +451,188 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="mrpsl-table-row">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <span className="text-primary font-bold text-xs">
-                          {getInitials(u.firstName, u.lastName)}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="font-semibold text-foreground">
-                          {u.firstName} {u.lastName}
+              {isFetching
+                ? // One placeholder row per requested page size, so the table
+                  // keeps its height while the next page loads.
+                  Array.from({ length: pageSize }).map((_, i) => (
+                    <tr key={`user-skeleton-${i}`} className="mrpsl-table-row">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                          <div className="space-y-1.5">
+                            <Skeleton className="h-3.5 w-32" />
+                            <Skeleton className="h-3 w-44" />
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {u.email}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-1 flex-wrap max-w-37.5">
-                      {u?.roles?.length > 0 && (
-                        // <Badge variant="outline" className="text-xs">
-
-                        // </Badge>
-                        <div>
-                          {u?.roles?.map((role) => (
-                            <Badge
-                              key={role}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {role
-                                ?.replace(/_/g, " ")
-                                .replace(/\b\w/g, (c) => c.toUpperCase())}
-                            </Badge>
-                          ))}
-                        </div>
+                      </td>
+                      {Array.from({ length: USER_TABLE_COLUMNS - 1 }).map(
+                        (_, j) => (
+                          <td key={j} className="px-4 py-3">
+                            <Skeleton className="h-4 w-full" />
+                          </td>
+                        ),
                       )}
-                      {/* {u.secondaryRole && (
+                    </tr>
+                  ))
+                : filteredUsers.map((u) => (
+                    <tr key={u.id} className="mrpsl-table-row">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-primary font-bold text-xs">
+                              {getInitials(u.firstName, u.lastName)}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-foreground">
+                              {u.firstName} {u.lastName}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {u.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1 flex-wrap max-w-37.5">
+                          {u?.roles?.length > 0 && (
+                            // <Badge variant="outline" className="text-xs">
+
+                            // </Badge>
+                            <div>
+                              {u?.roles?.map((role) => (
+                                <Badge
+                                  key={role}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
+                                  {role
+                                    ?.replace(/_/g, " ")
+                                    .replace(/\b\w/g, (c) => c.toUpperCase())}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          {/* {u.secondaryRole && (
                         <Badge variant="secondary" className="text-xs">
                           {u.secondaryRole
                             .replace(/_/g, " ")
                             .replace(/\b\w/g, (c) => c.toUpperCase())}
                         </Badge>
                       )} */}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{u.department}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-sm">
-                    {u.certTransactionLimit || 0}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-sm">
-                    {u.divTransactionLimit || 0}
-                  </td>
-                  <td className="px-4 py-3">
-                    {u.twoFaEnabled ? (
-                      <Badge className="bg-green-100 text-green-800 border-0 text-xs">
-                        Enabled
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
-                        {/* Pending */}
-                        Disabled
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      className={`text-xs border-0 ${u.status?.toUpperCase() === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
-                    >
-                      {u.status?.toUpperCase() === "ACTIVE"
-                        ? "Active"
-                        : "Inactive"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {u?.lastLoginTime}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        className="mrpsl-card w-fit"
-                        align="end"
-                      >
-                        <DropdownMenuItem onClick={() => handleEdit(u)}>
-                          <Pencil className="mr-2 h-4 w-4" /> Edit User
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            toast.success(
-                              `Password reset email sent to ${u.email}`,
-                            )
-                          }
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm">{u.department}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-sm">
+                        {u.certTransactionLimit || 0}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-sm">
+                        {u.divTransactionLimit || 0}
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.twoFaEnabled ? (
+                          <Badge className="bg-green-100 text-green-800 border-0 text-xs">
+                            Enabled
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-100 text-amber-800 border-0 text-xs">
+                            {/* Pending */}
+                            Disabled
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          className={`text-xs border-0 ${u.status?.toUpperCase() === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}
                         >
-                          <KeyRound className="mr-2 h-4 w-4" /> Reset Password
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleToggle2FAUser(u.id)}
-                        >
-                          <ShieldCheck className="mr-2 h-4 w-4" /> Toggle 2FA
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
+                          {u.status?.toUpperCase() === "ACTIVE"
+                            ? "Active"
+                            : "Inactive"}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {u?.lastLoginTime}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            className="mrpsl-card w-fit"
+                            align="end"
+                          >
+                            <DropdownMenuItem onClick={() => handleEdit(u)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit User
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                toast.success(
+                                  `Password reset email sent to ${u.email}`,
+                                )
+                              }
+                            >
+                              <KeyRound className="mr-2 h-4 w-4" /> Reset
+                              Password
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleToggle2FAUser(u.id)}
+                            >
+                              <ShieldCheck className="mr-2 h-4 w-4" /> Toggle
+                              2FA
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
 
-                        <DropdownMenuItem
-                          onClick={() => toast.info("Audit log soon")}
-                        >
-                          <History className="mr-2 h-4 w-4" /> View Audit Log
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={u?.roles.length === 0}
-                          onClick={() =>
-                            handleRemoveUserRole({
-                              id: u.id,
-                              roleName: u.roles[0],
-                            })
-                          }
-                        >
-                          <UserCog className="mr-2 h-4 w-4" /> Unassign Role
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleToggleUser(u.id)}
-                        >
-                          <Power className="mr-2 h-4 w-4" />{" "}
-                          {u.status.toUpperCase() === "ACTIVE"
-                            ? "Deactivate"
-                            : "Activate"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                          onClick={() => handleDeleteClick(u)}
-                        >
-                          <UserX2 className="mr-2 h-4 w-4" /> Delete User
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
+                            <DropdownMenuItem
+                              onClick={() => toast.info("Audit log soon")}
+                            >
+                              <History className="mr-2 h-4 w-4" /> View Audit
+                              Log
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={u?.roles.length === 0}
+                              onClick={() =>
+                                handleRemoveUserRole({
+                                  id: u.id,
+                                  roleName: u.roles[0],
+                                })
+                              }
+                            >
+                              <UserCog className="mr-2 h-4 w-4" /> Unassign Role
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleToggleUser(u.id)}
+                            >
+                              <Power className="mr-2 h-4 w-4" />{" "}
+                              {u.status.toUpperCase() === "ACTIVE"
+                                ? "Deactivate"
+                                : "Activate"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                              onClick={() => handleDeleteClick(u)}
+                            >
+                              <UserX2 className="mr-2 h-4 w-4" /> Delete User
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
             </tbody>
           </table>
         </div>
+
+        <PaginationBar
+          page={currentPage}
+          pageSize={pageSize}
+          total={totalRecords}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </Card>
 
       {formOpen && (
