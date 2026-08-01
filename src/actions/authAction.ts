@@ -48,6 +48,22 @@ export const REQUEST_PASSWORD_RESET = async (data: unknown) => {
   }
 };
 
+/** Completes a forgot-password flow using the token from the emailed link. */
+export const RESET_PASSWORD = async (data: {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}) => {
+  try {
+    const res = await api.post(`/password/reset-password`, data);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const CHANGE_PASSWORD = async (data: unknown) => {
   try {
     const res = await api.post(`/password/change-password`, data);

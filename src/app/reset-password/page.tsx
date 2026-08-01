@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { BrandPanel } from "@/components/custom/auth/brand-panel";
 import { SiteLogo } from "@/components/custom/auth/site-logo";
+import { RESET_PASSWORD } from "@/actions/authAction";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -19,8 +20,13 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setError("");
+
+    if (!token) {
+      setError("Invalid or missing reset token. Please request a new link.");
+      return;
+    }
 
     if (!password) {
       setError("Please enter a new password.");
@@ -39,16 +45,27 @@ export default function ResetPasswordPage() {
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsSuccess(true);
+    try {
+      const res = await RESET_PASSWORD({
+        token,
+        newPassword: password,
+        confirmPassword,
+      });
 
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        router.push("/login");
-      }, 3000);
-    }, 1500);
+      if (res?.isSuccessful === false) {
+        throw new Error(res?.responseMessage || "Failed to reset password.");
+      }
+
+      setIsSuccess(true);
+      setTimeout(() => router.push("/login"), 3000);
+    } catch (err) {
+      setError(
+        (err as Error)?.message ||
+          "Failed to reset password. The link may have expired.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
