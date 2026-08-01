@@ -3,9 +3,16 @@
 import api from "@/services/api";
 import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
 
-export const GET_USERS = async () => {
+export const GET_USERS = async (params?: {
+  search?: string;
+  department?: string;
+  role?: string;
+  page?: number;
+  size?: number;
+  sortDir?: "asc" | "desc";
+}) => {
   try {
-    const res = await api.get(`/users`);
+    const res = await api.get(`/users`, { params });
     return res.data;
   } catch (error) {
     const err = error as ErrorLike;

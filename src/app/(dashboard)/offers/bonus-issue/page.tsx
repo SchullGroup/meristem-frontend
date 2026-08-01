@@ -70,6 +70,20 @@ const TAB_LABELS: Record<TabValue, string> = {
   reports: "Reports",
 };
 
+/**
+ * The from-offer endpoint is read either unwrapped ({ id }) or inside the
+ * ApiResponse envelope ({ data: { id } }) depending on the action. Accept
+ * both so a shape change can't silently leave the tabs inert.
+ */
+function extractDeclarationId(res: unknown): string {
+  const r = res as
+    | { id?: string | number; data?: { id?: string | number } }
+    | null
+    | undefined;
+  const id = r?.id ?? r?.data?.id;
+  return id === null || id === undefined ? "" : String(id);
+}
+
 export default function BonusIssuePage() {
   const { currentUser } = useStore();
   const [activeTab, setActiveTab] = useState<TabValue>("declaration");
@@ -83,31 +97,36 @@ export default function BonusIssuePage() {
 
   const bonusOffers: BonusOfferSummary[] = useMemo(() => {
     const raw = bonusOffersRes?.data?.content ?? bonusOffersRes?.content ?? [];
-    return raw.map(
-      (o: {
-        id: number | string;
-        name: string;
-        registerId?: string;
-        ratioNumerator?: number;
-        ratioDenominator?: number;
-        qualificationDate?: string | null;
-        closureDate?: string | null;
-        allotmentDate?: string | null;
-        status?: string;
-      }) => ({
-        id: String(o.id),
-        name: o.name,
-        register: o.registerId ?? "",
-        ratio: `${o.ratioNumerator ?? 1} for ${o.ratioDenominator ?? 1}`,
-        qualificationDate: o.qualificationDate ? new Date(o.qualificationDate) : null,
-        closureDate: o.closureDate ? new Date(o.closureDate) : null,
-        allotmentDate: o.allotmentDate ? new Date(o.allotmentDate) : null,
-        status: (o.status as BonusOfferStatus) ?? "DRAFT",
-      }),
-    ).filter((o: BonusOfferSummary) => o.status === "OPEN");
+    return raw
+      .map(
+        (o: {
+          id: number | string;
+          name: string;
+          registerId?: string;
+          ratioNumerator?: number;
+          ratioDenominator?: number;
+          qualificationDate?: string | null;
+          closureDate?: string | null;
+          allotmentDate?: string | null;
+          status?: string;
+        }) => ({
+          id: String(o.id),
+          name: o.name,
+          register: o.registerId ?? "",
+          ratio: `${o.ratioNumerator ?? 1} for ${o.ratioDenominator ?? 1}`,
+          qualificationDate: o.qualificationDate
+            ? new Date(o.qualificationDate)
+            : null,
+          closureDate: o.closureDate ? new Date(o.closureDate) : null,
+          allotmentDate: o.allotmentDate ? new Date(o.allotmentDate) : null,
+          status: (o.status as BonusOfferStatus) ?? "DRAFT",
+        }),
+      )
+      .filter((o: BonusOfferSummary) => o.status === "OPEN");
   }, [bonusOffersRes]);
 
-  const selectedBonusOffer = bonusOffers.find((o) => o.id === selectedBonusOfferId) ?? null;
+  const selectedBonusOffer =
+    bonusOffers.find((o) => o.id === selectedBonusOfferId) ?? null;
 
   const getOrCreateDeclaration = useGetOrCreateBonusDeclaration();
   const handleSelectBonusOffer = (id: string | null) => {
@@ -117,7 +136,16 @@ export default function BonusIssuePage() {
     getOrCreateDeclaration.mutate(
       { offerId: id, createdBy: currentUser?.email },
       {
-        onSuccess: (res) => setBonusDeclarationId(String(res?.data?.id ?? "")),
+        onSuccess: (res) => {
+          const id = extractDeclarationId(res);
+          if (!id) {
+            toast.error(
+              "Could not open a declaration for this bonus issue. Please try again.",
+            );
+            return;
+          }
+          setBonusDeclarationId(id);
+        },
         onError: (err) => toast.error((err as Error).message),
       },
     );
@@ -126,9 +154,12 @@ export default function BonusIssuePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Bonus Issue Administration</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Bonus Issue Administration
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Compute bonus entitlements, approve, allot and lodge bonus share issues.
+          Compute bonus entitlements, approve, allot and lodge bonus share
+          issues.
         </p>
       </div>
 
@@ -152,7 +183,14 @@ export default function BonusIssuePage() {
                     Loading bonus issues…
                   </span>
                 ) : (
-                  <SelectValue placeholder="Select a bonus issue to work with…" />
+                  <SelectValue placeholder="Select a bonus issue to work with…">
+                    {(value: string | null) =>
+                      value
+                        ? (bonusOffers.find((o) => o.id === value)?.name ??
+                          value)
+                        : "Select a bonus issue to work with…"
+                    }
+                  </SelectValue>
                 )}
               </SelectTrigger>
               <SelectContent>
@@ -174,23 +212,38 @@ export default function BonusIssuePage() {
             <div className="flex items-center gap-4 flex-wrap text-sm">
               <div>
                 <span className="mrpsl-label mr-1">Register:</span>
-                <span className="font-medium">{selectedBonusOffer.register}</span>
+                <span className="font-medium">
+                  {selectedBonusOffer.register}
+                </span>
               </div>
               <div>
                 <span className="mrpsl-label mr-1">Ratio:</span>
-                <span className="font-mono font-semibold">{selectedBonusOffer.ratio}</span>
+                <span className="font-mono font-semibold">
+                  {selectedBonusOffer.ratio}
+                </span>
               </div>
               <div>
                 <span className="mrpsl-label mr-1">Qualification:</span>
                 <span>
                   {selectedBonusOffer.qualificationDate
-                    ? format(selectedBonusOffer.qualificationDate, "dd MMM yyyy")
+                    ? format(
+                        selectedBonusOffer.qualificationDate,
+                        "dd MMM yyyy",
+                      )
                     : "—"}
                 </span>
               </div>
-              <Badge className={`border-0 text-[11px] ${STATUS_COLORS[selectedBonusOffer.status] ?? STATUS_COLORS.DRAFT}`}>
+              <Badge
+                className={`border-0 text-[11px] ${STATUS_COLORS[selectedBonusOffer.status] ?? STATUS_COLORS.DRAFT}`}
+              >
                 {selectedBonusOffer.status}
               </Badge>
+            </div>
+          )}
+          {selectedBonusOffer && getOrCreateDeclaration.isPending && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Preparing declaration…
             </div>
           )}
           {!selectedBonusOffer && (
@@ -202,7 +255,11 @@ export default function BonusIssuePage() {
         </div>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab((v as TabValue) || "declaration")} className="w-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab((v as TabValue) || "declaration")}
+        className="w-full"
+      >
         <TabsList className="h-auto p-1 bg-muted rounded-xl w-full gap-0.5 flex-wrap justify-start">
           {TABS.map((tab) => (
             <TabsTrigger
@@ -238,7 +295,9 @@ export default function BonusIssuePage() {
           </TabsContent>
 
           <TabsContent value="reversals" className="space-y-4">
-            <BonusCscsReversals declarationId={bonusDeclarationId || undefined} />
+            <BonusCscsReversals
+              declarationId={bonusDeclarationId || undefined}
+            />
           </TabsContent>
 
           <TabsContent value="allotment" className="space-y-4">
