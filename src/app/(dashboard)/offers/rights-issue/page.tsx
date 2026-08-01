@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { GET_RIGHT_OFFERS } from "@/actions/offerSetUp";
 import { useGetOrCreateRightsDeclaration } from "@/hooks/useRights";
 import { useStore } from "@/lib/store";
-import { Building2, AlertCircle, MousePointerClick } from "lucide-react";
+import { Building2, AlertCircle, MousePointerClick, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -99,9 +99,9 @@ export default function RightsIssuePage() {
   const [declarationId, setDeclarationId] = useState<string>("");
 
   // Real Offer-Setup rights offers to work against (replaces the demo list).
-  const { data: offersRes } = useQuery({
-    queryKey: ["rights-offers", "admin-selector"],
-    queryFn: () => GET_RIGHT_OFFERS({ size: 100 }),
+  const { data: offersRes, isLoading: offersLoading } = useQuery({
+    queryKey: ["rights-offers", "admin-selector", "OPEN"],
+    queryFn: () => GET_RIGHT_OFFERS({ size: 100, status: "OPEN" }),
   });
 
   const offers: RightsOfferSummary[] = useMemo(() => {
@@ -127,7 +127,7 @@ export default function RightsIssuePage() {
         closingDate: o.closingDate ? new Date(o.closingDate) : null,
         status: (o.status as RightsOfferStatus) ?? "DRAFT",
       }),
-    );
+    ).filter((o: RightsOfferSummary) => o.status === "OPEN");
   }, [offersRes]);
 
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
@@ -167,16 +167,33 @@ export default function RightsIssuePage() {
             <span className="text-sm font-medium">Active Offer</span>
           </div>
           <div className="flex-1 min-w-60">
-            <Select value={selectedOfferId} onValueChange={handleSelectOffer}>
+            <Select
+              value={selectedOfferId}
+              onValueChange={handleSelectOffer}
+              disabled={offersLoading}
+            >
               <SelectTrigger className="mrpsl-input h-9 w-full max-w-sm">
-                <SelectValue placeholder="Select a rights issue to work with…" />
+                {offersLoading ? (
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Loading rights issues…
+                  </span>
+                ) : (
+                  <SelectValue placeholder="Select a rights issue to work with…" />
+                )}
               </SelectTrigger>
               <SelectContent>
-                {offers.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.name}
-                  </SelectItem>
-                ))}
+                {offers.length === 0 ? (
+                  <div className="px-3 py-2 text-[13px] text-muted-foreground">
+                    No open rights issues.
+                  </div>
+                ) : (
+                  offers.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
