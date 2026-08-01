@@ -661,3 +661,30 @@ The spec has no commission endpoints or schemas — only `/agents*` for agent re
 - Payment file generation must include only `APPROVED_FOR_PAYMENT` records.
 
 **Frontend status:** complete against mock state in `agent-commission-panel.tsx`, with the state machine and labels isolated in `agent-commission-types.ts` for easy swap to server data.
+
+---
+
+# Setup → Users — Pagination follow-ups (new)
+
+## 24. `GET /users` is now paginated — two gaps remain
+
+The users table now sends `page` (0-based) and `size` (default 20) and renders the `content` / `totalElements` / `totalPages` envelope. Two things the client can no longer do for itself:
+
+### 24a. Stats must come from the server
+
+The four stat cards are whole-population figures. With only one page in hand the client can only count what it has — 20 of 117 — so **Active**, **Pending 2FA** and **Inactive** now render `—` rather than a wrong number. **Total Users** uses `totalElements` and is correct.
+
+- **Add:** `activeCount`, `pending2faCount`, `inactiveCount` alongside `totalElements` in the `GET /users` `data` object (or a `GET /users/stats` endpoint — `GET_USER_STATS` already exists in `userAction.ts` but is unused; either is fine, please confirm which).
+- The client already reads `data.activeCount` / `data.pending2faCount` / `data.inactiveCount` and will display them the moment they appear — no frontend change needed.
+- Please also confirm what **Pending 2FA** should mean. The client previously counted `!enabled`, but the payload has a separate `twoFaEnabled` field, so the old number looked wrong regardless of pagination.
+
+### 24b. Search and filters must move server-side
+
+The page has Search, Role, Department and Status filters. They currently run in the browser over the **current page only**, so searching for a user on page 6 while viewing page 1 returns nothing — it looks like the user does not exist.
+
+- **Add:** `search`, `role`, `department`, `status` query params to `GET /users`, combined with AND logic and applied before pagination.
+- Until then the filters are quietly page-scoped. This is the most user-visible gap of the two.
+
+### 24c. Duplicate-email check on user creation
+
+`user-form.tsx` blocks duplicate emails by scanning the users list client-side. That list is now one page, so the check only catches collisions against the ~20 loaded users. The server must enforce email uniqueness and return a clear error; the client check is now best-effort only.

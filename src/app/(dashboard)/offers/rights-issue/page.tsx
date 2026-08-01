@@ -6,7 +6,12 @@ import { format } from "date-fns";
 import { GET_RIGHT_OFFERS } from "@/actions/offerSetUp";
 import { useGetOrCreateRightsDeclaration } from "@/hooks/useRights";
 import { useStore } from "@/lib/store";
-import { Building2, AlertCircle, MousePointerClick, Loader2 } from "lucide-react";
+import {
+  Building2,
+  AlertCircle,
+  MousePointerClick,
+  Loader2,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -34,7 +39,6 @@ import { RightsDispatch } from "@/components/custom/rights-issue/rights-dispatch
 
 // Existing API-connected rights-issue components (preserved untouched)
 import RightsIssueReports from "@/components/custom/rights-issue/rights-reports";
-
 
 /* ─── Types & constants ─────────────────────────────────── */
 
@@ -91,6 +95,19 @@ const TAB_LABELS: Record<TabValue, string> = {
   reports: "Reports",
 };
 
+/**
+ * The from-offer endpoint is read either unwrapped ({ id }) or inside the
+ * ApiResponse envelope ({ data: { id } }) depending on the action. Accept
+ * both so a shape change can't silently leave the tabs inert.
+ */
+function extractDeclarationId(res: unknown): string {
+  const r = res as
+    | { id?: string | number; data?: { id?: string | number } }
+    | null
+    | undefined;
+  const id = r?.id ?? r?.data?.id;
+  return id === null || id === undefined ? "" : String(id);
+}
 
 export default function RightsIssuePage() {
   const { currentUser } = useStore();
@@ -106,28 +123,30 @@ export default function RightsIssuePage() {
 
   const offers: RightsOfferSummary[] = useMemo(() => {
     const raw = offersRes?.data?.content ?? offersRes?.content ?? [];
-    return raw.map(
-      (o: {
-        id: number | string;
-        name: string;
-        registerId?: string;
-        ratioNumerator?: number;
-        ratioDenominator?: number;
-        pricePerShare?: number;
-        openingDate?: string | null;
-        closingDate?: string | null;
-        status?: string;
-      }) => ({
-        id: String(o.id),
-        name: o.name,
-        register: o.registerId ?? "",
-        ratio: `${o.ratioNumerator ?? 1} for ${o.ratioDenominator ?? 1}`,
-        offerPrice: o.pricePerShare ?? 0,
-        openingDate: o.openingDate ? new Date(o.openingDate) : null,
-        closingDate: o.closingDate ? new Date(o.closingDate) : null,
-        status: (o.status as RightsOfferStatus) ?? "DRAFT",
-      }),
-    ).filter((o: RightsOfferSummary) => o.status === "OPEN");
+    return raw
+      .map(
+        (o: {
+          id: number | string;
+          name: string;
+          registerId?: string;
+          ratioNumerator?: number;
+          ratioDenominator?: number;
+          pricePerShare?: number;
+          openingDate?: string | null;
+          closingDate?: string | null;
+          status?: string;
+        }) => ({
+          id: String(o.id),
+          name: o.name,
+          register: o.registerId ?? "",
+          ratio: `${o.ratioNumerator ?? 1} for ${o.ratioDenominator ?? 1}`,
+          offerPrice: o.pricePerShare ?? 0,
+          openingDate: o.openingDate ? new Date(o.openingDate) : null,
+          closingDate: o.closingDate ? new Date(o.closingDate) : null,
+          status: (o.status as RightsOfferStatus) ?? "DRAFT",
+        }),
+      )
+      .filter((o: RightsOfferSummary) => o.status === "OPEN");
   }, [offersRes]);
 
   const selectedOffer = offers.find((o) => o.id === selectedOfferId) ?? null;
@@ -141,7 +160,16 @@ export default function RightsIssuePage() {
     getOrCreateDeclaration.mutate(
       { offerId: v, createdBy: currentUser?.email },
       {
-        onSuccess: (decl) => setDeclarationId(String((decl as { id: number | string })?.id ?? "")),
+        onSuccess: (decl) => {
+          const id = extractDeclarationId(decl);
+          if (!id) {
+            toast.error(
+              "Could not open a declaration for this rights issue. Please try again.",
+            );
+            return;
+          }
+          setDeclarationId(id);
+        },
         onError: (err) => toast.error((err as Error).message),
       },
     );
@@ -179,7 +207,13 @@ export default function RightsIssuePage() {
                     Loading rights issues…
                   </span>
                 ) : (
-                  <SelectValue placeholder="Select a rights issue to work with…" />
+                  <SelectValue placeholder="Select a rights issue to work with…">
+                    {(value: string | null) =>
+                      value
+                        ? (offers.find((o) => o.id === value)?.name ?? value)
+                        : "Select a rights issue to work with…"
+                    }
+                  </SelectValue>
                 )}
               </SelectTrigger>
               <SelectContent>
@@ -228,6 +262,12 @@ export default function RightsIssuePage() {
               >
                 {selectedOffer.status}
               </Badge>
+            </div>
+          )}
+          {selectedOffer && getOrCreateDeclaration.isPending && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Preparing declaration…
             </div>
           )}
           {!selectedOffer && (
