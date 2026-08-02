@@ -279,18 +279,18 @@ export default function HolderEnquiryPage() {
     useState<ReversalContext | null>(null);
   const [reversalOpen, setReversalOpen] = useState(false);
 
-  // Signature & KYC documents
+  // Signature & KYC documents — keyed by the holder's UUID (chn is unreliable/NULL post-migration).
   const { data: sigData, isLoading: isLoadingSig } = useQuery({
-    queryKey: ["holderSignature", holder?.chn, holder?.registerSymbol],
-    queryFn: () => getHolderSignature(holder!.chn, holder!.registerSymbol),
-    enabled: !!holder?.chn && !!holder?.registerSymbol,
+    queryKey: ["holderSignature", holder?.id],
+    queryFn: () => getHolderSignature(holder!.id),
+    enabled: !!holder?.id,
   });
   const sigOnFile = sigData?.data ?? null;
 
   const { data: kycDocsData, isLoading: isLoadingDocs } = useQuery({
-    queryKey: ["holderKycDocs", holder?.chn, holder?.registerSymbol],
-    queryFn: () => getHolderKycDocuments(holder!.chn, holder!.registerSymbol),
-    enabled: !!holder?.chn && !!holder?.registerSymbol,
+    queryKey: ["holderKycDocs", holder?.id],
+    queryFn: () => getHolderKycDocuments(holder!.id),
+    enabled: !!holder?.id,
   });
   const kycDocs: {
     id: string;

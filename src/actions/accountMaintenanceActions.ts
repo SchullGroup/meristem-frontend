@@ -909,13 +909,11 @@ export const uploadHolderKycDocuments = async (data: HolderKycDocRequest) => {
   }
 };
 
-export const getHolderKycDocuments = async (
-  chn: string,
-  registerSymbol: string,
-) => {
+// Documents/signatures are looked up by holder id (chn is unreliable/NULL post-migration).
+export const getHolderKycDocuments = async (holderId: string) => {
   try {
     const res = await api.get(
-      `/holders/kyc-documents?chn=${chn}&register=${registerSymbol}`,
+      `/holders/kyc-documents?holderId=${encodeURIComponent(holderId)}`,
     );
 
     return res.data;
@@ -925,13 +923,10 @@ export const getHolderKycDocuments = async (
   }
 };
 
-export const getHolderSignature = async (
-  chn: string,
-  registerSymbol: string,
-) => {
+export const getHolderSignature = async (holderId: string) => {
   try {
     const res = await api.get(
-      `/holders/signature?chn=${chn}&register=${registerSymbol}`,
+      `/holders/signature?holderId=${encodeURIComponent(holderId)}`,
     );
     return res.data;
   } catch (error) {
@@ -979,13 +974,10 @@ export const uploadHolderSignature = async (data: HolderSignatureRequest) => {
   }
 };
 
-export const getHolderSignatureArchive = async (
-  chn: string,
-  registerSymbol: string,
-) => {
+export const getHolderSignatureArchive = async (holderId: string) => {
   try {
     const res = await api.get(
-      `/holders/signature/archive?chn=${chn}&register=${registerSymbol}`,
+      `/holders/signature/archive?holderId=${encodeURIComponent(holderId)}`,
     );
     return res.data;
   } catch (error) {

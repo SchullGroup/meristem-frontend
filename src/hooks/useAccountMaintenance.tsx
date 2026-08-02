@@ -831,24 +831,22 @@ export const useUploadHolderKycDocuments = (
   });
 
 export const useGetHolderSignature = (
-  chn: string,
-  registerSymbol: string,
+  holderId: string,
   options?: Omit<
     UseQueryOptions<{ data: { signatureUrl: string } | null }>,
     "queryKey" | "queryFn"
   >,
 ) =>
   useQuery({
-    queryKey: ["holder-signature", chn, registerSymbol],
-    queryFn: () => getHolderSignature(chn, registerSymbol),
-    enabled: !!chn && !!registerSymbol,
+    queryKey: ["holder-signature", holderId],
+    queryFn: () => getHolderSignature(holderId),
+    enabled: !!holderId,
     refetchOnWindowFocus: false,
     ...options,
   });
 
 export const useGetHolderSignatureArchive = (
-  chn: string,
-  registerSymbol: string,
+  holderId: string,
   options?: Omit<
     UseQueryOptions<{
       data: {
@@ -865,25 +863,24 @@ export const useGetHolderSignatureArchive = (
   >,
 ) =>
   useQuery({
-    queryKey: ["holder-signature-archive", chn, registerSymbol],
-    queryFn: () => getHolderSignatureArchive(chn, registerSymbol),
-    enabled: !!chn && !!registerSymbol,
+    queryKey: ["holder-signature-archive", holderId],
+    queryFn: () => getHolderSignatureArchive(holderId),
+    enabled: !!holderId,
     refetchOnWindowFocus: false,
     ...options,
   });
 
 export const useGetHolderKycDocuments = (
-  chn: string,
-  registerSymbol: string,
+  holderId: string,
   options?: Omit<
     UseQueryOptions<{ data: HolderKycDocument[] }>,
     "queryKey" | "queryFn"
   >,
 ) =>
   useQuery({
-    queryKey: ["holder-kyc-documents", chn, registerSymbol],
-    queryFn: () => getHolderKycDocuments(chn, registerSymbol),
-    enabled: !!chn && !!registerSymbol,
+    queryKey: ["holder-kyc-documents", holderId],
+    queryFn: () => getHolderKycDocuments(holderId),
+    enabled: !!holderId,
     refetchOnWindowFocus: false,
     ...options,
   });

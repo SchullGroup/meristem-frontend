@@ -78,7 +78,8 @@ export interface HolderSignatureRequest {
 
 export interface HolderKycDocument {
   id: string;
-  chn: string;
+  holderId?: string;
+  chn?: string; // nullable post-mrpsl2 migration
   registerSymbol: string;
   holderName: string;
   documentType: string;
