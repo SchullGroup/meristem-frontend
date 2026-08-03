@@ -21,13 +21,8 @@ interface BatchRecord {
   dateQueued: Date;
 }
 
-const PENDING_RECORDS: BatchRecord[] = [
-  { id: "r01", offerType: "IPO", offerName: "Access Holdings PLC IPO 2024", accountNo: "ACC-00123456", holderName: "Adebayo Oluwaseun", bankName: "Access Bank PLC", nuban: "0123456789", refundAmount: 157_500, reason: "Over-subscription", dateQueued: new Date("2024-09-01") },
-  { id: "r03", offerType: "Rights Issue", offerName: "Fidelity Bank PLC Rights Issue 2024", accountNo: "ACC-00345678", holderName: "Emeka Nwachukwu", bankName: "Fidelity Bank PLC", nuban: "0234567891", refundAmount: 92_500, reason: "Over-subscription", dateQueued: new Date("2024-09-02") },
-  { id: "r06", offerType: "IPO", offerName: "Access Holdings PLC IPO 2024", accountNo: "ACC-00678901", holderName: "Ngozi Eze", bankName: "Guaranty Trust Bank", nuban: "0345678901", refundAmount: 185_000, reason: "Over-subscription", dateQueued: new Date("2024-09-02") },
-  { id: "r10", offerType: "IPO", offerName: "Access Holdings PLC IPO 2024", accountNo: "ACC-01012345", holderName: "Halima Mohammed", bankName: "Zenith Bank PLC", nuban: "0456789012", refundAmount: 36_513, reason: "Over-subscription", dateQueued: new Date("2024-09-02") },
-  { id: "r11", offerType: "IPO", offerName: "Access Holdings PLC IPO 2024", accountNo: "ACC-01123456", holderName: "Chukwuemeka Obasi", bankName: "Access Bank PLC", nuban: "0567890123", refundAmount: 150_000, reason: "Rejected — KYC", dateQueued: new Date("2024-09-03") },
-];
+// Awaiting the return-money backend endpoint; nothing is batchable until it is wired up.
+const PENDING_RECORDS: BatchRecord[] = [];
 
 function generateRef(id: string) {
   return `REFUND-${id.toUpperCase()}-2024`;
@@ -177,8 +172,18 @@ export function RefundBatchProcessing() {
               ))}
               {pending.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                    No pending records. All eligible records have been dispatched.
+                  <td colSpan={9} className="px-4 py-16 text-center">
+                    <FileDown className="h-10 w-10 text-muted-foreground/35 mx-auto mb-3" />
+                    <h3 className="font-semibold text-sm text-foreground">
+                      {lockedIds.size > 0
+                        ? "Nothing left to batch"
+                        : "No pending records"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-80 mx-auto">
+                      {lockedIds.size > 0
+                        ? "All eligible records have been dispatched and are awaiting reconciliation."
+                        : "Pending refunds from the Return Money Queue will appear here, ready to be batched into an e-refund file."}
+                    </p>
                   </td>
                 </tr>
               )}
