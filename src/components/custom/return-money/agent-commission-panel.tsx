@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, FileDown, History, Loader2, Undo2 } from "lucide-react";
+import {
+  CheckCircle2,
+  FileDown,
+  History,
+  Loader2,
+  Undo2,
+  Users,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,128 +21,12 @@ import {
   type AgentCommissionRecord,
 } from "./agent-commission-types";
 
-const MOCK_COMMISSIONS: AgentCommissionRecord[] = [
-  {
-    id: "c1",
-    agentName: "Access Bank PLC",
-    agentType: "Bank",
-    totalApplications: 12450,
-    totalValueSubmitted: 1_017_000_000,
-    totalValueRefunded: 127_125_000,
-    commissionRate: 0.75,
-    commissionAmount: 953_437,
-    status: "PENDING_OPS_REVIEW",
-    approvalTrail: [],
-  },
-  {
-    id: "c2",
-    agentName: "GTBank PLC",
-    agentType: "Bank",
-    totalApplications: 8320,
-    totalValueSubmitted: 686_250_000,
-    totalValueRefunded: 85_781_250,
-    commissionRate: 0.75,
-    commissionAmount: 643_359,
-    status: "PENDING_ICU_REVIEW",
-    approvalTrail: [
-      {
-        stage: "OPS",
-        actor: "operations@RegisProregistrars.com",
-        action: "APPROVED",
-        remark: "Application counts reconciled against the receiving bank schedule.",
-        date: "2026-07-24T10:15:00.000Z",
-      },
-    ],
-  },
-  {
-    id: "c3",
-    agentName: "Zenith Bank PLC",
-    agentType: "Bank",
-    totalApplications: 6740,
-    totalValueSubmitted: 497_250_000,
-    totalValueRefunded: 42_265_625,
-    commissionRate: 0.75,
-    commissionAmount: 316_992,
-    status: "PAID",
-    approvalTrail: [
-      {
-        stage: "OPS",
-        actor: "operations@RegisProregistrars.com",
-        action: "APPROVED",
-        date: "2026-07-20T09:02:00.000Z",
-      },
-      {
-        stage: "ICU",
-        actor: "icu@RegisProregistrars.com",
-        action: "APPROVED",
-        remark: "Rate verified against the agent agreement.",
-        date: "2026-07-21T14:40:00.000Z",
-      },
-      {
-        stage: "PAYMENT",
-        actor: "treasury@RegisProregistrars.com",
-        action: "MARKED_PAID",
-        date: "2026-07-22T11:05:00.000Z",
-      },
-    ],
-  },
-  {
-    id: "c4",
-    agentName: "RegisPro Securities Ltd",
-    agentType: "Stockbroker",
-    totalApplications: 3200,
-    totalValueSubmitted: 258_750_000,
-    totalValueRefunded: 21_979_687,
-    commissionRate: 1.0,
-    commissionAmount: 219_796,
-    status: "APPROVED_FOR_PAYMENT",
-    approvalTrail: [
-      {
-        stage: "OPS",
-        actor: "operations@RegisProregistrars.com",
-        action: "APPROVED",
-        date: "2026-07-25T08:30:00.000Z",
-      },
-      {
-        stage: "ICU",
-        actor: "icu@RegisProregistrars.com",
-        action: "APPROVED",
-        date: "2026-07-26T16:12:00.000Z",
-      },
-    ],
-  },
-  {
-    id: "c5",
-    agentName: "CardinalStone Partners Ltd",
-    agentType: "Stockbroker",
-    totalApplications: 2800,
-    totalValueSubmitted: 220_500_000,
-    totalValueRefunded: 18_742_500,
-    commissionRate: 1.0,
-    commissionAmount: 187_425,
-    status: "ICU_REJECTED",
-    approvalTrail: [
-      {
-        stage: "OPS",
-        actor: "operations@RegisProregistrars.com",
-        action: "APPROVED",
-        date: "2026-07-23T12:00:00.000Z",
-      },
-      {
-        stage: "ICU",
-        actor: "icu@RegisProregistrars.com",
-        action: "REJECTED",
-        remark:
-          "Commission rate applied is 1.00% but the agent agreement states 0.85%. Recompute and resubmit.",
-        date: "2026-07-24T09:45:00.000Z",
-      },
-    ],
-  },
-];
+// Awaiting the agent-commission backend endpoint; the panel renders empty until it is wired up.
+const INITIAL_COMMISSIONS: AgentCommissionRecord[] = [];
 
 export function AgentCommissionPanel() {
   const [records, setRecords] =
-    useState<AgentCommissionRecord[]>(MOCK_COMMISSIONS);
+    useState<AgentCommissionRecord[]>(INITIAL_COMMISSIONS);
   const [generatingFile, setGeneratingFile] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const currentUser = useStore((state) => state.currentUser);
@@ -353,7 +244,7 @@ export function AgentCommissionPanel() {
       <Card className="mrpsl-card overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
           <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Agent Commission — Access Holdings Public Offer 2024
+            Agent Commission
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -472,6 +363,22 @@ export function AgentCommissionPanel() {
                   </tr>
                 );
               })}
+              {records.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-16 text-center">
+                    <Users className="h-10 w-10 text-muted-foreground/35 mx-auto mb-3" />
+                    <h3 className="font-semibold text-sm text-foreground">
+                      No agent commissions
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-80 mx-auto">
+                      Commission is computed per receiving agent once an
+                      offer&apos;s refunds are processed. Configure agents and
+                      their rates in Offer Setup → Receiving Agents &amp;
+                      Stockbrokers.
+                    </p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
