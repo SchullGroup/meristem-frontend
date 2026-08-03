@@ -46,7 +46,12 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // A 401 on a public auth call (login / OTP / password) is a credential failure,
+    // not an expired session — let the caller show an inline error instead of the
+    // global "Session Expired" modal. Only treat 401s on authenticated calls as expiry.
+    const url: string = error.config?.url ?? "";
+    const isAuthEndpoint = /\/auth\/login|\/otp\/|\/password\//.test(url);
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       const store = useStore.getState();
       store.setCurrentUser(null);
       store.setUserPermissions([]);
