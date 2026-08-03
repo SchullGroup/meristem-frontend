@@ -24,7 +24,7 @@ import {
   ChevronDown,
   Eye,
   Loader2,
-  Search,
+  SlidersHorizontal,
   Upload,
   X,
 } from "lucide-react";
@@ -37,7 +37,9 @@ import Image from "next/image";
 import { GetPDFUrl } from "@/lib/utils/get-file-url";
 import { GetImageUrl } from "@/lib/utils/get-image-url";
 import BulkAccountConsolidation from "./bulk-account-consolidation";
+import { AdvancedAccountSearch } from "./advanced-account-search";
 import { ShareholderAccount } from "@/types/account-maintenance";
+import type { ShareholderSearchResult } from "@/types/enquiry";
 
 const MAX_SOURCES = 10;
 const MAX_DOCS = 3;
@@ -326,6 +328,10 @@ export default function Consolidate({ tab }: { tab: string }) {
   const [previewExpanded, setPreviewExpanded] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // advanced (query-builder) account search
+  const [advOpen, setAdvOpen] = useState(false);
+  const [advMode, setAdvMode] = useState<"source" | "destination">("source");
+
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (
@@ -425,6 +431,41 @@ export default function Consolidate({ tab }: { tab: string }) {
   function clearDestination() {
     setDestinationAccount(null);
     setDestSearch("");
+  }
+
+  // Map an enquiry search result to the ShareholderAccount shape the pickers expect.
+  function searchResultToAccount(r: ShareholderSearchResult): ShareholderAccount {
+    return {
+      id: r.id,
+      registerId: r.registerId ?? "",
+      registerSymbol: r.registerSymbol ?? "",
+      accountNumber: r.accountNumber ?? "",
+      lastName: r.lastName ?? "",
+      firstName: r.firstName ?? "",
+      otherNames: r.otherNames ?? "",
+      gender: "",
+      holderType: r.holderType ?? "",
+      email: r.email ?? "",
+      phone: r.phone ?? "",
+      phone2: "",
+      address: r.address ?? "",
+      state: r.state ?? "",
+      bvn: r.bvn ?? "",
+      nin: r.nin ?? "",
+      chn: r.chn ?? "",
+      bankName: r.bank ?? "",
+      bankAccountNumber: "",
+      holdings: r.holdings ?? 0,
+      status: r.status ?? "",
+      cautionReason: "",
+      noTax: false,
+    };
+  }
+
+  function handleAdvancedPick(r: ShareholderSearchResult) {
+    const account = searchResultToAccount(r);
+    if (advMode === "source") addAccount(account);
+    else selectDestination(account);
   }
 
   function handleSubmitClick() {
@@ -531,6 +572,19 @@ export default function Consolidate({ tab }: { tab: string }) {
                         </button>
                       )}
                     </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1.5 h-9"
+                      disabled={sourceAccounts.length >= MAX_SOURCES}
+                      onClick={() => {
+                        setAdvMode("source");
+                        setAdvOpen(true);
+                      }}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" /> Advanced
+                    </Button>
                   </div>
 
                   {srcOpen && srcSearch.length > 0 && (
@@ -793,6 +847,18 @@ export default function Consolidate({ tab }: { tab: string }) {
                           </button>
                         )}
                       </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 gap-1.5 h-9"
+                        onClick={() => {
+                          setAdvMode("destination");
+                          setAdvOpen(true);
+                        }}
+                      >
+                        <SlidersHorizontal className="h-3.5 w-3.5" /> Advanced
+                      </Button>
                     </div>
 
                     {destOpen && destSearch.length > 0 && (
@@ -1063,6 +1129,22 @@ export default function Consolidate({ tab }: { tab: string }) {
 
       {/* ── BULK FLOW ── */}
       {mode === "bulk" && <BulkAccountConsolidation mode="bulk" register="" />}
+
+      {/* ── Advanced (query-builder) account search ── */}
+      <AdvancedAccountSearch
+        open={advOpen}
+        onOpenChange={setAdvOpen}
+        mode={advMode}
+        onPick={handleAdvancedPick}
+        disabledIds={
+          advMode === "source"
+            ? [
+                ...sourceAccounts.map((a) => a.holderId),
+                ...(destinationAccount ? [destinationAccount.id] : []),
+              ]
+            : sourceAccounts.map((a) => a.holderId)
+        }
+      />
 
       {/* ── Confirmation dialog ── */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

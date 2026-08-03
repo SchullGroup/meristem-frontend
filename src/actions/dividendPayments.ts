@@ -67,7 +67,7 @@ export interface DividendDeclaration {
   rate: number;
   currency: string;
   qualificationDate: string; // ISO Date string (YYYY-MM-DD)
-  closureDate: string;       // ISO Date string (YYYY-MM-DD)
+  closureDate?: string;      // nullable post-mrpsl2 migration
   paymentDate: string;       // ISO Date string (YYYY-MM-DD)
   grossLiability: number;
   whtAmount: number;

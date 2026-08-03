@@ -496,7 +496,8 @@ export const getDividendNumbers = async (params?: {
     | "AUTHORIZED"
     | "PAID"
     | "REJECTED"
-    | "RECALLED";
+    | "RECALLED"
+    | "UNPAID";
 }) => {
   try {
     const res = await api.get<ApiResponse<string[]>>(

@@ -129,7 +129,7 @@ export interface DividendDeclaration {
   dividendType: "FINAL" | "INTERIM" | "SPECIAL";
   rate: number;
   qualificationDate: string;
-  closureDate: string;
+  closureDate?: string; // nullable post-mrpsl2 migration
   paymentDate: string;
   currency: string;
   grossLiability: number;
@@ -146,7 +146,9 @@ export interface DividendDeclaration {
     | "PENDING_TIER4"
     | "AUTHORIZED"
     | "PAID"
-    | "REJECTED";
+    | "REJECTED"
+    | "RECALLED"
+    | "UNPAID";
   initiatorId: string;
   initiatorName: string;
   approvals: ApprovalStep[];
