@@ -124,9 +124,8 @@ export default function ReturnMoneyPage() {
                     <SelectValue placeholder="All Registers" />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* Register options come from the registers API once this report is wired up. */}
                     <SelectItem value="">All Registers</SelectItem>
-                    <SelectItem value="ACCESS">ACCESS</SelectItem>
-                    <SelectItem value="TRANSCORP">TRANSCORP</SelectItem>
                   </SelectContent>
                 </Select>
                 </div>

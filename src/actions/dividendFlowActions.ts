@@ -4,7 +4,8 @@
 // (/api/v1/dividend/declarations). The backend DividendFlowResponse mirrors the frontend
 // DividendFlowRecord 1:1, so these return the records/log entries directly. Response wrapping is
 // inconsistent across the controller (some endpoints wrap in ApiResponse, some return the DTO
-// raw), so unwrap() tolerates both. Paths omit /api/v1 (the axios baseURL already carries it).
+// raw, and collections may arrive as a Spring Page), so unwrap()/unwrapList() tolerate all of
+// them. Paths omit /api/v1 (the axios baseURL already carries it).
 
 import api from "@/services/api";
 import { returnErrorMessage, type ErrorLike } from "../utils/errorManager";
@@ -21,6 +22,34 @@ function unwrap<T>(body: unknown): T {
     return (body as { data: T }).data;
   }
   return body as T;
+}
+
+// Collections come back three ways across this controller: a raw array, a Spring Page
+// ({content, totalElements, …}), or either of those wrapped in ApiResponse. Always hand callers
+// a plain array — the tabs bind straight to .map/.filter.
+function unwrapList<T>(body: unknown): T[] {
+  const payload = unwrap<unknown>(body);
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === "object") {
+    const page = payload as { content?: unknown };
+    if (Array.isArray(page.content)) return page.content as T[];
+  }
+  return [];
+}
+
+// List DTOs are summaries and may omit the nested collections, but every tab reads
+// record.prelist / record.approvalTrail unguarded — default them here rather than at 15 call sites.
+function normalizeRecord(record: DividendFlowRecord): DividendFlowRecord {
+  if (!record) return record;
+  return {
+    ...record,
+    prelist: Array.isArray(record.prelist) ? record.prelist : [],
+    approvalTrail: Array.isArray(record.approvalTrail) ? record.approvalTrail : [],
+  };
+}
+
+function unwrapRecord(body: unknown): DividendFlowRecord {
+  return normalizeRecord(unwrap<DividendFlowRecord>(body));
 }
 
 export interface CreateDividendFlowBody {
@@ -46,8 +75,15 @@ export const GET_DIVIDEND_FLOWS = async (params?: {
   registerSymbol?: string;
 }) => {
   try {
-    const res = await api.get(`${BASE}/flows`, { params });
-    return unwrap<DividendFlowRecord[]>(res.data) ?? [];
+    // Spring binds List params as `status=A,B`; axios' default array serializer emits
+    // `status[]=A&status[]=B`, which the controller ignores. Join, as mandate-batches does.
+    const res = await api.get(`${BASE}/flows`, {
+      params: {
+        ...params,
+        status: Array.isArray(params?.status) ? params.status.join(",") : params?.status,
+      },
+    });
+    return unwrapList<DividendFlowRecord>(res.data).map(normalizeRecord);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -56,7 +92,7 @@ export const GET_DIVIDEND_FLOWS = async (params?: {
 export const GET_DIVIDEND_FLOW = async (id: string) => {
   try {
     const res = await api.get(`${BASE}/flows/${encodeURIComponent(id)}`);
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -65,7 +101,7 @@ export const GET_DIVIDEND_FLOW = async (id: string) => {
 export const CREATE_DIVIDEND_FLOW = async (body: CreateDividendFlowBody) => {
   try {
     const res = await api.post(BASE, body);
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -74,7 +110,7 @@ export const CREATE_DIVIDEND_FLOW = async (body: CreateDividendFlowBody) => {
 export const EDIT_RESEND_DIVIDEND_FLOW = async (id: string, body: CreateDividendFlowBody) => {
   try {
     const res = await api.post(`${BASE}/${encodeURIComponent(id)}/edit-resend`, body);
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -83,7 +119,7 @@ export const EDIT_RESEND_DIVIDEND_FLOW = async (id: string, body: CreateDividend
 export const GENERATE_PRELIST = async (id: string) => {
   try {
     const res = await api.post(`${BASE}/${encodeURIComponent(id)}/prelist`);
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -92,7 +128,7 @@ export const GENERATE_PRELIST = async (id: string) => {
 export const FORWARD_TO_ICU = async (id: string, actor?: string) => {
   try {
     const res = await api.post(`${BASE}/${encodeURIComponent(id)}/submit`, { actor });
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -104,7 +140,7 @@ export const DECIDE_STAGE = async (
 ) => {
   try {
     const res = await api.post(`${BASE}/${encodeURIComponent(id)}/decide`, body);
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -116,7 +152,7 @@ export const SET_ROWS_EXCLUDED = async (
 ) => {
   try {
     const res = await api.post(`${BASE}/${encodeURIComponent(id)}/exclude-rows`, body);
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -128,7 +164,7 @@ export const MD_DECISION = async (
 ) => {
   try {
     const res = await api.post(`${BASE}/${encodeURIComponent(id)}/md-decision`, body);
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -137,7 +173,7 @@ export const MD_DECISION = async (
 export const REQUEUE_FAILED = async (id: string, actor?: string) => {
   try {
     const res = await api.post(`${BASE}/${encodeURIComponent(id)}/requeue-failed`, { actor });
-    return unwrap<DividendFlowRecord>(res.data);
+    return unwrapRecord(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }
@@ -146,7 +182,7 @@ export const REQUEUE_FAILED = async (id: string, actor?: string) => {
 export const GET_DIVIDEND_NOTIFICATIONS = async (id: string) => {
   try {
     const res = await api.get(`${BASE}/${encodeURIComponent(id)}/notifications`);
-    return unwrap<NotificationLogEntry[]>(res.data) ?? [];
+    return unwrapList<NotificationLogEntry>(res.data);
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }

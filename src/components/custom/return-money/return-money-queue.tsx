@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, Wallet, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,176 +39,8 @@ export interface RefundRecord {
   dateQueued: Date;
 }
 
-const MOCK_RECORDS: RefundRecord[] = [
-  {
-    id: "r01",
-    offerType: "IPO",
-    offerName: "Access Holdings PLC IPO 2024",
-    register: "ACCESS",
-    accountNo: "ACC-00123456",
-    holderName: "Adebayo Oluwaseun",
-    amountApplied: 250_000,
-    amountAllotted: 92_500,
-    refundAmount: 157_500,
-    reason: "Over-subscription",
-    status: "Pending",
-    dateQueued: new Date("2024-09-01"),
-  },
-  {
-    id: "r02",
-    offerType: "IPO",
-    offerName: "Access Holdings PLC IPO 2024",
-    register: "ACCESS",
-    accountNo: "ACC-00234567",
-    holderName: "Chinwe Okafor-Nwosu",
-    amountApplied: 500_000,
-    amountAllotted: 0,
-    refundAmount: 500_000,
-    reason: "Rejected — KYC",
-    status: "Batched",
-    dateQueued: new Date("2024-09-01"),
-  },
-  {
-    id: "r03",
-    offerType: "Rights Issue",
-    offerName: "Fidelity Bank PLC Rights Issue 2024",
-    register: "FIDELITY",
-    accountNo: "ACC-00345678",
-    holderName: "Emeka Nwachukwu",
-    amountApplied: 185_000,
-    amountAllotted: 92_500,
-    refundAmount: 92_500,
-    reason: "Over-subscription",
-    status: "Pending",
-    dateQueued: new Date("2024-09-02"),
-  },
-  {
-    id: "r04",
-    offerType: "IPO",
-    offerName: "Access Holdings PLC IPO 2024",
-    register: "ACCESS",
-    accountNo: "ACC-00456789",
-    holderName: "Fatima Garba Abubakar",
-    amountApplied: 1_000_000,
-    amountAllotted: 0,
-    refundAmount: 1_000_000,
-    reason: "Rejected — Funds",
-    status: "Dispatched",
-    dateQueued: new Date("2024-08-31"),
-  },
-  {
-    id: "r05",
-    offerType: "Rights Issue",
-    offerName: "Fidelity Bank PLC Rights Issue 2024",
-    register: "FIDELITY",
-    accountNo: "ACC-00567890",
-    holderName: "Yemi Olatunde-Bello",
-    amountApplied: 141_700,
-    amountAllotted: 90_000,
-    refundAmount: 51_700,
-    reason: "Over-subscription",
-    status: "Confirmed",
-    dateQueued: new Date("2024-08-30"),
-  },
-  {
-    id: "r06",
-    offerType: "IPO",
-    offerName: "Access Holdings PLC IPO 2024",
-    register: "ACCESS",
-    accountNo: "ACC-00678901",
-    holderName: "Ngozi Eze",
-    amountApplied: 370_000,
-    amountAllotted: 185_000,
-    refundAmount: 185_000,
-    reason: "Over-subscription",
-    status: "Pending",
-    dateQueued: new Date("2024-09-02"),
-  },
-  {
-    id: "r07",
-    offerType: "Rights Issue",
-    offerName: "Fidelity Bank PLC Rights Issue 2024",
-    register: "FIDELITY",
-    accountNo: "ACC-00789012",
-    holderName: "Tunde Adewale Bakare",
-    amountApplied: 84_175,
-    amountAllotted: 0,
-    refundAmount: 84_175,
-    reason: "Rejected — KYC",
-    status: "Failed",
-    dateQueued: new Date("2024-09-01"),
-  },
-  {
-    id: "r08",
-    offerType: "IPO",
-    offerName: "Access Holdings PLC IPO 2024",
-    register: "ACCESS",
-    accountNo: "ACC-00890123",
-    holderName: "Amaka Chidinma Nnaji",
-    amountApplied: 2_500_000,
-    amountAllotted: 1_250_000,
-    refundAmount: 1_250_000,
-    reason: "Over-subscription",
-    status: "Batched",
-    dateQueued: new Date("2024-09-01"),
-  },
-  {
-    id: "r09",
-    offerType: "Rights Issue",
-    offerName: "Fidelity Bank PLC Rights Issue 2024",
-    register: "FIDELITY",
-    accountNo: "ACC-00901234",
-    holderName: "Sunday Okonkwo",
-    amountApplied: 308_025,
-    amountAllotted: 0,
-    refundAmount: 308_025,
-    reason: "Rejected — Funds",
-    status: "Confirmed",
-    dateQueued: new Date("2024-08-29"),
-  },
-  {
-    id: "r10",
-    offerType: "IPO",
-    offerName: "Access Holdings PLC IPO 2024",
-    register: "ACCESS",
-    accountNo: "ACC-01012345",
-    holderName: "Halima Mohammed",
-    amountApplied: 73_025,
-    amountAllotted: 36_512,
-    refundAmount: 36_513,
-    reason: "Over-subscription",
-    status: "Pending",
-    dateQueued: new Date("2024-09-02"),
-  },
-  {
-    id: "r11",
-    offerType: "IPO",
-    offerName: "Access Holdings PLC IPO 2024",
-    register: "ACCESS",
-    accountNo: "ACC-01123456",
-    holderName: "Chukwuemeka Obasi",
-    amountApplied: 150_000,
-    amountAllotted: 0,
-    refundAmount: 150_000,
-    reason: "Rejected — KYC",
-    status: "Pending",
-    dateQueued: new Date("2024-09-03"),
-  },
-  {
-    id: "r12",
-    offerType: "Rights Issue",
-    offerName: "Fidelity Bank PLC Rights Issue 2024",
-    register: "FIDELITY",
-    accountNo: "ACC-01234567",
-    holderName: "Blessing Okeke",
-    amountApplied: 231_250,
-    amountAllotted: 92_500,
-    refundAmount: 138_750,
-    reason: "Over-subscription",
-    status: "Dispatched",
-    dateQueued: new Date("2024-09-01"),
-  },
-];
+// Awaiting the return-money backend endpoint; the queue renders empty until it is wired up.
+const RECORDS: RefundRecord[] = [];
 
 const STATUS_STYLES: Record<RefundStatus, string> = {
   Pending: "bg-amber-100 text-amber-800 border-0",
@@ -243,7 +75,7 @@ export function ReturnMoneyQueue() {
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterReason, setFilterReason] = useState<string>("");
 
-  const filtered = MOCK_RECORDS.filter((r) => {
+  const filtered = RECORDS.filter((r) => {
     if (
       search &&
       !r.holderName.toLowerCase().includes(search.toLowerCase()) &&
@@ -261,10 +93,7 @@ export function ReturnMoneyQueue() {
     .reduce((s, r) => s + r.refundAmount, 0);
 
   const statusCounts = Object.fromEntries(
-    ALL_STATUSES.map((s) => [
-      s,
-      MOCK_RECORDS.filter((r) => r.status === s).length,
-    ]),
+    ALL_STATUSES.map((s) => [s, RECORDS.filter((r) => r.status === s).length]),
   );
 
   const hasFilters = !!(
@@ -374,7 +203,7 @@ export function ReturnMoneyQueue() {
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <SlidersHorizontal className="h-3.5 w-3.5" />
             <span>
-              {filtered.length} of {MOCK_RECORDS.length} records
+              {filtered.length} of {RECORDS.length} records
             </span>
             {filtered.some((r) => r.status === "Pending") && (
               <span className="ml-2 text-amber-700 font-medium">
@@ -477,11 +306,18 @@ export function ReturnMoneyQueue() {
             {filtered.length === 0 && (
               <tbody>
                 <tr>
-                  <td
-                    colSpan={11}
-                    className="px-4 py-12 text-center text-sm text-muted-foreground"
-                  >
-                    No records match the current filters.
+                  <td colSpan={11} className="px-4 py-16 text-center">
+                    <Wallet className="h-10 w-10 text-muted-foreground/35 mx-auto mb-3" />
+                    <h3 className="font-semibold text-sm text-foreground">
+                      {hasFilters
+                        ? "No matching records"
+                        : "No return money records"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-80 mx-auto">
+                      {hasFilters
+                        ? "No records match the current filters. Try clearing them to see the full queue."
+                        : "Refunds arising from over-subscription or rejected applications will appear here once offers are allotted."}
+                    </p>
                   </td>
                 </tr>
               </tbody>
