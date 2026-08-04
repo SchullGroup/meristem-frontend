@@ -215,6 +215,47 @@ export const getConsolidationUploadJob = async (jobId: string) => {
   }
 };
 
+export interface AccountConsolidationSuggestion {
+  chn: string;
+  registerId: string;
+  suggestedName: string | null;
+  bvn: string | null;
+  accountCount: number;
+  accounts: {
+    holderId: string;
+    accountNo: string;
+    name: string | null;
+    address: string | null;
+    bvn: string | null;
+    nin: string | null;
+    phone: string | null;
+    email: string | null;
+    dateOfBirth: string | null;
+    units: number | null;
+    status: string | null;
+  }[];
+}
+
+// System-suggested account-consolidation candidates for a register (read-only discovery):
+// shareholders (one CHN) holding 2+ accounts in the register.
+export const getAccountConsolidationSuggestions = async (
+  registerId: string,
+  page = 0,
+  size = 50,
+) => {
+  try {
+    const res = await api.get<ApiResponse<AccountConsolidationSuggestion[]>>(
+      `/consolidations/suggestions`,
+      { params: { registerId, page, size } },
+    );
+
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 ////////////// KYC Changes ////////////////////
 
 export const getAccounts = async (params: AccountFilters) => {
@@ -230,10 +271,14 @@ export const getAccounts = async (params: AccountFilters) => {
   }
 };
 
-export const getAccount = async (accountNumber: string) => {
+export const getAccount = async (
+  accountNumber: string,
+  registerId?: string,
+) => {
   try {
     const res = await api.get<ApiResponse<ShareholderAccount>>(
       `/accounts/${accountNumber}`,
+      { params: { registerId } },
     );
 
     return res.data;

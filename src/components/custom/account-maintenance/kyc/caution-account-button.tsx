@@ -80,6 +80,7 @@ export function CautionAccountButton({
       {
         accountNumber: selectedShareholder.accountNumber,
         data: {
+          registerId: selectedShareholder.registerId,
           cautionReasonCode: selectedReason.code,
           additionalNotes: notes.trim() || undefined,
           supportingDocumentUrl: evidence[0]?.url,

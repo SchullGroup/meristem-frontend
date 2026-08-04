@@ -65,11 +65,12 @@ export function StandardKyc({ onBack }: { onBack: () => void }) {
     reason: string,
     evidence: { name: string; url: string }[],
   ) => {
-    if (!currentUser) return;
+    if (!currentUser || !selectedShareholder) return;
     try {
       await createKycMutation.mutateAsync({
         accountNumber,
         data: {
+          registerId: selectedShareholder.registerId,
           changeType,
           changes: [{ field, newValue }],
           supportingDocuments: evidence.length ? evidence : undefined,
@@ -258,6 +259,7 @@ export function StandardKyc({ onBack }: { onBack: () => void }) {
                 <KycDocumentsTab
                   currentUserEmail={currentUser?.email ?? ""}
                   accountNumber={selectedShareholder.accountNumber}
+                  registerId={selectedShareholder.registerId}
                 />
               </TabsContent>
 

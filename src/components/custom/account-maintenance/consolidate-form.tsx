@@ -22,6 +22,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  Crown,
   Eye,
   Loader2,
   SlidersHorizontal,
@@ -39,9 +40,11 @@ import { GetImageUrl } from "@/lib/utils/get-image-url";
 import BulkAccountConsolidation from "./bulk-account-consolidation";
 import { AdvancedAccountSearch } from "./advanced-account-search";
 import { ShareholderAccount } from "@/types/account-maintenance";
+import type { AccountConsolidationSuggestion } from "@/actions/accountMaintenanceActions";
 import type { ShareholderSearchResult } from "@/types/enquiry";
 
-const MAX_SOURCES = 10;
+// Matches the backend SubmitConsolidationRequest @Size(min=2, max=20) for account consolidation.
+const MAX_SOURCES = 20;
 const MAX_DOCS = 3;
 
 interface SourceAccount {
@@ -52,6 +55,109 @@ interface SourceAccount {
   units: number;
   registerSymbol: string;
   status: string;
+}
+
+// ─── Suggestion → form-state mappers ───────────────────────────────────────────
+// Used when the officer clicks "Consolidate These" on a system suggestion: the
+// suggestion's accounts are loaded straight into the form (no re-search).
+
+type SuggestionAccount = AccountConsolidationSuggestion["accounts"][number];
+
+function splitName(name?: string | null): { firstName: string; lastName: string } {
+  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+function suggestionToSource(
+  acc: SuggestionAccount,
+  sugg: AccountConsolidationSuggestion,
+): SourceAccount {
+  return {
+    holderId: acc.holderId,
+    accountNumber: acc.accountNo ?? "",
+    name: acc.name ?? sugg.suggestedName ?? "",
+    chn: sugg.chn ?? "",
+    units: acc.units ?? 0,
+    registerSymbol: sugg.registerId ?? "",
+    status: acc.status ?? "",
+  };
+}
+
+function suggestionToDestination(
+  acc: SuggestionAccount,
+  sugg: AccountConsolidationSuggestion,
+): ShareholderAccount {
+  const { firstName, lastName } = splitName(acc.name ?? sugg.suggestedName);
+  return {
+    id: acc.holderId,
+    registerId: sugg.registerId ?? "",
+    registerSymbol: sugg.registerId ?? "",
+    accountNumber: acc.accountNo ?? "",
+    lastName,
+    firstName,
+    otherNames: "",
+    gender: "",
+    holderType: "",
+    email: acc.email ?? "",
+    phone: acc.phone ?? "",
+    phone2: "",
+    address: acc.address ?? "",
+    state: "",
+    bvn: acc.bvn ?? "",
+    nin: acc.nin ?? "",
+    chn: sugg.chn ?? "",
+    bankName: "",
+    bankAccountNumber: "",
+    holdings: acc.units ?? 0,
+    status: acc.status ?? "",
+    cautionReason: "",
+    noTax: false,
+  };
+}
+
+// Promote an already-loaded source row to the surviving (destination) account, and
+// vice-versa — lets the officer re-designate the survivor without searching again.
+function sourceToDestination(src: SourceAccount): ShareholderAccount {
+  const { firstName, lastName } = splitName(src.name);
+  return {
+    id: src.holderId,
+    registerId: src.registerSymbol,
+    registerSymbol: src.registerSymbol,
+    accountNumber: src.accountNumber,
+    lastName,
+    firstName,
+    otherNames: "",
+    gender: "",
+    holderType: "",
+    email: "",
+    phone: "",
+    phone2: "",
+    address: "",
+    state: "",
+    bvn: "",
+    nin: "",
+    chn: src.chn,
+    bankName: "",
+    bankAccountNumber: "",
+    holdings: src.units,
+    status: src.status,
+    cautionReason: "",
+    noTax: false,
+  };
+}
+
+function destinationToSource(dest: ShareholderAccount): SourceAccount {
+  return {
+    holderId: dest.id,
+    accountNumber: dest.accountNumber ?? "",
+    name: `${dest.firstName ?? ""} ${dest.lastName ?? ""}`.trim(),
+    chn: dest.chn ?? "",
+    units: dest.holdings ?? 0,
+    registerSymbol: dest.registerSymbol ?? "",
+    status: dest.status ?? "",
+  };
 }
 
 interface AttachedDoc {
@@ -301,10 +407,22 @@ function DocAttachments({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function Consolidate({ tab }: { tab: string }) {
+export default function Consolidate({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  tab,
+  prefill,
+  onPrefillConsumed,
+}: {
+  tab: string;
+  /** A system suggestion to load straight into the form (no re-search). */
+  prefill?: AccountConsolidationSuggestion | null;
+  /** Called once the prefill has been applied, so the parent can clear it. */
+  onPrefillConsumed?: () => void;
+}) {
   const currentUser = useStore((state) => state.currentUser);
   const [mode, setMode] = useState<"single" | "bulk">("single");
+  // Note shown when the form was populated from a system suggestion.
+  const [prefillNote, setPrefillNote] = useState<string | null>(null);
 
   // source search
   const srcSearchRef = useRef<HTMLDivElement | null>(null);
@@ -368,6 +486,63 @@ export default function Consolidate({ tab }: { tab: string }) {
 
   const createConsolidation = useCreateConsolidation();
 
+  // ── Prefill from a system suggestion ──────────────────────────────────────
+  // When the officer clicks "Consolidate These", load that shareholder's fragmented
+  // accounts directly: the largest holding becomes the surviving (destination) account,
+  // the rest become sources. No searching required.
+  const appliedPrefillRef = useRef<AccountConsolidationSuggestion | null>(null);
+  useEffect(() => {
+    if (!prefill || appliedPrefillRef.current === prefill) return;
+    appliedPrefillRef.current = prefill;
+
+    const accts = prefill.accounts ?? [];
+    if (accts.length === 0) {
+      onPrefillConsumed?.();
+      return;
+    }
+
+    // Default surviving account = the largest holding.
+    const survivor = accts.reduce(
+      (best, a) => ((a.units ?? 0) > (best.units ?? 0) ? a : best),
+      accts[0],
+    );
+    let sources = accts.filter((a) => a.holderId !== survivor.holderId);
+
+    let note = `Loaded ${accts.length} account${accts.length === 1 ? "" : "s"} from a system suggestion — the largest holding is set as the surviving account. Use “Set as surviving” on any row to change it.`;
+    if (sources.length > MAX_SOURCES) {
+      const shown = MAX_SOURCES + 1; // sources + the surviving account
+      note = `Loaded the first ${shown} of ${accts.length} accounts (the maximum per request). Consolidate the remaining ${accts.length - shown} in a follow-up request.`;
+      sources = sources.slice(0, MAX_SOURCES);
+    }
+
+    // One-time prop→state hydration when a suggestion is chosen. The appliedPrefillRef guard
+    // above ensures this runs once per distinct prefill, so it does not cascade renders.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setMode("single");
+    setSourceAccounts(sources.map((a) => suggestionToSource(a, prefill)));
+    setDestinationAccount(suggestionToDestination(survivor, prefill));
+    setReason("");
+    setSupportingDocs([]);
+    setPreviewExpanded(true);
+    setPrefillNote(note);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    onPrefillConsumed?.();
+  }, [prefill, onPrefillConsumed]);
+
+  // Re-designate which already-loaded account survives, without searching again.
+  function makeSurviving(holderId: string) {
+    const src = sourceAccounts.find((a) => a.holderId === holderId);
+    if (!src) return;
+    const newDest = sourceToDestination(src);
+    setSourceAccounts((prev) => {
+      const rest = prev.filter((a) => a.holderId !== holderId);
+      return destinationAccount
+        ? [...rest, destinationToSource(destinationAccount)]
+        : rest;
+    });
+    setDestinationAccount(newDest);
+  }
+
   const totalHoldings = sourceAccounts.reduce((sum, a) => sum + a.units, 0);
   const combinedTotal = totalHoldings + (destinationAccount?.holdings ?? 0);
 
@@ -380,8 +555,11 @@ export default function Consolidate({ tab }: { tab: string }) {
       sourceRegisters.length > 0 &&
       !sourceRegisters.includes(destinationAccount.registerSymbol));
 
+  // A consolidation needs at least 2 accounts total: ≥1 source to merge + the surviving
+  // (destination) account. The backend enforces the same (sourceAccountIds @Size(min=2),
+  // with the destination counted among them).
   const canSubmit =
-    sourceAccounts.length >= 2 &&
+    sourceAccounts.length >= 1 &&
     !!destinationAccount &&
     reason.trim().length > 0;
 
@@ -475,9 +653,19 @@ export default function Consolidate({ tab }: { tab: string }) {
 
   function doConfirmedSubmit() {
     if (!destinationAccount || !currentUser?.email) return;
+    // sourceAccountIds is the full set of accounts involved. The backend requires ≥2 and
+    // skips the destination during apply, so include the destination only when needed to
+    // reach the minimum (i.e. a 2-account merge). This also avoids exceeding the max of 10.
+    let sourceAccountIds = sourceAccounts.map((a) => a.holderId);
+    if (
+      sourceAccountIds.length < 2 &&
+      !sourceAccountIds.includes(destinationAccount.id)
+    ) {
+      sourceAccountIds = [...sourceAccountIds, destinationAccount.id];
+    }
     createConsolidation.mutate(
       {
-        sourceAccountIds: sourceAccounts.map((a) => a.holderId),
+        sourceAccountIds,
         destinationAccountId: destinationAccount.id,
         comment: reason,
         initiatedBy: currentUser.email,
@@ -493,6 +681,7 @@ export default function Consolidate({ tab }: { tab: string }) {
           setDestinationAccount(null);
           setReason("");
           setSupportingDocs([]);
+          setPrefillNote(null);
         },
         onError: (err) =>
           toast.error(err.message || "Failed to submit consolidation."),
@@ -503,7 +692,7 @@ export default function Consolidate({ tab }: { tab: string }) {
   const destName = destinationAccount
     ? `${destinationAccount.firstName} ${destinationAccount.lastName}`
     : "";
-  const showPreview = sourceAccounts.length >= 2 && !!destinationAccount;
+  const showPreview = sourceAccounts.length >= 1 && !!destinationAccount;
 
   return (
     <div className="space-y-6">
@@ -529,6 +718,22 @@ export default function Consolidate({ tab }: { tab: string }) {
 
       {mode === "single" && (
         <div className="space-y-6">
+          {/* Prefill banner — shown when accounts were loaded from a system suggestion. */}
+          {prefillNote && (
+            <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800/40 dark:bg-blue-900/20 dark:text-blue-300">
+              <Crown className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{prefillNote}</span>
+              <button
+                type="button"
+                onClick={() => setPrefillNote(null)}
+                className="ml-auto shrink-0 text-blue-800/70 hover:text-blue-800 dark:text-blue-300/70 dark:hover:text-blue-300 transition-colors cursor-pointer"
+                aria-label="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* ── Row 1: Source | Destination ── */}
           <div className="grid grid-cols-5 gap-6">
             {/* left: source accounts */}
@@ -702,6 +907,14 @@ export default function Consolidate({ tab }: { tab: string }) {
                           </div>
                           <button
                             type="button"
+                            onClick={() => makeSurviving(acc.holderId)}
+                            title="Set as the surviving (destination) account"
+                            className="shrink-0 flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors cursor-pointer"
+                          >
+                            <Crown className="h-3 w-3" /> Set as surviving
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => removeAccount(acc.holderId)}
                             className="shrink-0 text-muted-foreground hover:text-destructive transition-colors ml-1 cursor-pointer"
                             aria-label="Remove"
@@ -714,9 +927,9 @@ export default function Consolidate({ tab }: { tab: string }) {
 
                     <div className="flex items-center justify-between pt-2 border-t">
                       <div className="text-xs">
-                        {sourceAccounts.length < 2 && (
+                        {!destinationAccount && (
                           <span className="text-amber-600 font-medium">
-                            ⚠ Add at least 2 accounts to consolidate
+                            ⚠ Choose a surviving account on the right
                           </span>
                         )}
                       </div>
@@ -731,7 +944,8 @@ export default function Consolidate({ tab }: { tab: string }) {
                   </div>
                 ) : (
                   <p className="text-center text-sm text-muted-foreground py-4">
-                    Search and add at least 2 source accounts above.
+                    Search and add the account(s) to merge above, or load a set from
+                    the System Suggestions tab.
                   </p>
                 )}
               </Card>

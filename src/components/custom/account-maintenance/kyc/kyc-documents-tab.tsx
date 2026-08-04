@@ -111,11 +111,13 @@ interface ArchivedSignature {
 interface KycDocumentsTabProps {
   currentUserEmail: string;
   accountNumber: string;
+  registerId: string;
 }
 
 export function KycDocumentsTab({
   accountNumber,
   currentUserEmail,
+  registerId,
 }: KycDocumentsTabProps) {
   const [docSubTab, setDocSubTab] = useState("upload");
 
@@ -226,6 +228,7 @@ export function KycDocumentsTab({
       {
         accountNumber,
         data: {
+          registerId,
           signatureUrl: sigEntry.url,
           reason: sigReason.trim(),
           initiatedBy: currentUserEmail || undefined,
@@ -301,6 +304,7 @@ export function KycDocumentsTab({
       {
         accountNumber,
         data: {
+          registerId,
           documents: readyDocs.map((doc) => ({
             documentType: doc.documentType || "OTHER",
             documentUrl: doc.url,

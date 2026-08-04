@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,304 +17,268 @@ import {
   Plus,
   ArrowLeft,
   Search,
-  ChevronDown,
-  ChevronRight,
   Layers,
   X,
-  CheckSquare,
+  Crown,
+  Loader2,
   AlertCircle,
-  Pencil,
+  AlertTriangle,
+  CheckSquare,
 } from "lucide-react";
+import { useGetAccounts } from "@/hooks/useAccountMaintenance";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
-  MOCK_HOLDERS,
-  SEED_CONSOLIDATION_REQUESTS,
-  ConsolidationRequest,
-  MockHolder,
-  MockAccountShare,
-  generateConsolidationCertNo,
-} from "./consolidation-mock";
+  submitConsolidationRequest,
+  CertConsolidationSuggestion,
+} from "@/actions/certConsolidation";
+import type { CertificateConsolidation } from "@/types/cscs";
+import type { ShareholderAccount } from "@/types/account-maintenance";
+import { useStore } from "@/lib/store";
 import { formatNumber } from "@/lib/utils/format";
 import { toast } from "sonner";
 
+const MAX_SOURCES = 10;
+
+// One account involved in a consolidation. The surviving (destination) account is one of these.
+interface PickedAccount {
+  holderId: string;
+  accountNumber: string;
+  name: string;
+  chn: string;
+  units: number;
+  registerSymbol: string;
+  status: string;
+}
+
 interface Props {
-  requests: ConsolidationRequest[];
-  onCreateRequest: (req: ConsolidationRequest) => void;
-  onEditRequest: (id: string, updates: Partial<ConsolidationRequest>) => void;
-  prefillHolder?: MockHolder | null;
-  prefillRegister?: string;
+  requests: CertificateConsolidation[];
+  loading?: boolean;
+  onRefetch: () => void;
+  /** A system suggestion to load straight into the create form (no re-search). */
+  prefill?: CertConsolidationSuggestion | null;
   onPrefillConsumed?: () => void;
 }
 
 type FilterStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 
+function holderToPicked(h: ShareholderAccount): PickedAccount {
+  return {
+    holderId: h.id,
+    accountNumber: h.accountNumber ?? "",
+    name: `${h.firstName ?? ""} ${h.lastName ?? ""}`.trim(),
+    chn: h.chn ?? "",
+    units: h.holdings ?? 0,
+    registerSymbol: h.registerSymbol ?? "",
+    status: h.status ?? "",
+  };
+}
+
+// Keep a valid surviving account: the current one if still present, else the largest holding.
+function pickDestination(list: PickedAccount[], current: string): string {
+  if (list.some((a) => a.holderId === current)) return current;
+  if (list.length === 0) return "";
+  return list.reduce((best, a) => (a.units > best.units ? a : best), list[0])
+    .holderId;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const s = (status || "").toUpperCase();
+  if (s === "APPROVED")
+    return (
+      <Badge className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300">
+        Approved
+      </Badge>
+    );
+  if (s === "REJECTED")
+    return (
+      <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300">
+        Rejected
+      </Badge>
+    );
+  return (
+    <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300">
+      Pending Teamlead Review
+    </Badge>
+  );
+}
+
+function fmtDate(iso: string) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString();
+}
+
 export function ConsolidationRequests({
   requests,
-  onCreateRequest,
-  onEditRequest,
-  prefillHolder,
-  prefillRegister,
+  loading,
+  onRefetch,
+  prefill,
   onPrefillConsumed,
 }: Props) {
-  // ── View ──────────────────────────────────────────────────────────────────
-  const [view, setView] = useState<"list" | "new" | "edit">("list");
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const currentUser = useStore((s) => s.currentUser);
+  const [view, setView] = useState<"list" | "new">("list");
 
-  // ── List state ────────────────────────────────────────────────────────────
+  // ── list state ──────────────────────────────────────────────────────────
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("ALL");
-  const [viewDetails, setViewDetails] = useState<ConsolidationRequest | null>(
-    null,
-  );
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detail, setDetail] = useState<CertificateConsolidation | null>(null);
 
-  // ── Form state ────────────────────────────────────────────────────────────
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState<MockHolder[]>([]);
-  const [foundHolder, setFoundHolder] = useState<MockHolder | null>(null);
-  const [selectedRegister, setSelectedRegister] = useState<string | null>(null);
-  const [expandedRegisters, setExpandedRegisters] = useState<Set<string>>(
-    new Set(),
-  );
-  const [selectedCertIds, setSelectedCertIds] = useState<Set<string>>(
-    new Set(),
-  );
+  // ── form state ──────────────────────────────────────────────────────────
+  const [accounts, setAccounts] = useState<PickedAccount[]>([]);
+  const [destinationId, setDestinationId] = useState<string>("");
   const [reason, setReason] = useState("");
+  const [prefillNote, setPrefillNote] = useState<string | null>(null);
 
-  // ── Prefill effect ────────────────────────────────────────────────────────
+  // ── account search ──────────────────────────────────────────────────────
+  const searchRef = useRef<HTMLDivElement | null>(null);
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const debounced = useDebounce(search, 500);
+  const { data: results, isFetching: searching } = useGetAccounts(
+    { q: debounced.trim(), pageSize: 20 },
+    { enabled: debounced.trim().length > 2 },
+  );
+
   useEffect(() => {
-    if (prefillHolder && view === "list") {
-      setFoundHolder(prefillHolder);
-      if (prefillRegister) {
-        setSelectedRegister(prefillRegister);
-        const expanded = prefillHolder.accounts
-          .filter((a) => a.shares.some((s) => s.register === prefillRegister))
-          .map((a) => a.accountNo);
-        setExpandedRegisters(new Set(expanded));
-      } else {
-        setExpandedRegisters(
-          new Set(prefillHolder.accounts.map((a) => a.accountNo)),
-        );
-      }
-      setView("new");
+    function handler(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node))
+        setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // ── Prefill from a system suggestion ──────────────────────────────────────
+  const appliedRef = useRef<CertConsolidationSuggestion | null>(null);
+  useEffect(() => {
+    if (!prefill || appliedRef.current === prefill) return;
+    appliedRef.current = prefill;
+
+    const accts = prefill.accounts ?? [];
+    if (accts.length === 0) {
       onPrefillConsumed?.();
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefillHolder]);
+    // Default surviving account = the largest certificate holding.
+    const survivor = accts.reduce(
+      (best, a) => ((a.totalUnits ?? 0) > (best.totalUnits ?? 0) ? a : best),
+      accts[0],
+    );
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+    let chosen = accts;
+    let note = `Loaded ${accts.length} account${accts.length === 1 ? "" : "s"} from a system suggestion — the largest holding is the surviving account. Use the “Surviving” toggle on any row to change it.`;
+    if (chosen.length > MAX_SOURCES) {
+      const others = accts
+        .filter((a) => a.holderId !== survivor.holderId)
+        .slice(0, MAX_SOURCES - 1);
+      chosen = [survivor, ...others];
+      note = `Loaded ${MAX_SOURCES} of ${accts.length} accounts (the maximum per request). Consolidate the remaining ${accts.length - MAX_SOURCES} in a follow-up request.`;
+    }
 
-  function resetForm() {
-    setSearchTerm("");
-    setSearchResults([]);
-    setFoundHolder(null);
-    setSelectedRegister(null);
-    setExpandedRegisters(new Set());
-    setSelectedCertIds(new Set());
+    // One-time prop→state hydration when a suggestion is chosen. The appliedRef guard above
+    // ensures this runs once per distinct prefill, so it does not cascade renders.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setAccounts(
+      chosen.map((a) => ({
+        holderId: a.holderId,
+        accountNumber: a.accountNo,
+        name: a.name ?? prefill.holderName,
+        chn: a.chn,
+        units: a.totalUnits ?? 0,
+        registerSymbol: prefill.register,
+        status: "",
+      })),
+    );
+    setDestinationId(survivor.holderId);
     setReason("");
-    setEditingId(null);
+    setPrefillNote(note);
+    setView("new");
+    /* eslint-enable react-hooks/set-state-in-effect */
+    onPrefillConsumed?.();
+  }, [prefill, onPrefillConsumed]);
+
+  // ── form helpers ──────────────────────────────────────────────────────────
+  function resetForm() {
+    setAccounts([]);
+    setDestinationId("");
+    setReason("");
+    setPrefillNote(null);
+    setSearch("");
+    setOpen(false);
   }
 
-  function handleSearch() {
-    const term = searchTerm.toLowerCase().trim();
-    if (!term) return;
-    const results = MOCK_HOLDERS.filter(
-      (h) =>
-        h.name.toLowerCase().includes(term) ||
-        h.accounts.some(
-          (a) =>
-            a.accountNo.toLowerCase().includes(term) ||
-            a.chn.toLowerCase().includes(term),
-        ),
-    );
-    setSearchResults(results);
-  }
-
-  function handleSelectHolder(holder: MockHolder) {
-    setFoundHolder(holder);
-    setSearchResults([]);
-    setSearchTerm("");
-    setSelectedRegister(null);
-    setSelectedCertIds(new Set());
-    setExpandedRegisters(new Set(holder.accounts.map((a) => a.accountNo)));
-  }
-
-  function getUniqueRegisters(holder: MockHolder) {
-    const map = new Map<
-      string,
-      {
-        register: string;
-        registerName: string;
-        accountCount: number;
-        totalCerts: number;
-        totalUnits: number;
-      }
-    >();
-    for (const account of holder.accounts) {
-      for (const share of account.shares) {
-        const existing = map.get(share.register);
-        const certCount = share.certificates.length;
-        const units = share.certificates.reduce((s, c) => s + c.units, 0);
-        if (existing) {
-          existing.accountCount += 1;
-          existing.totalCerts += certCount;
-          existing.totalUnits += units;
-        } else {
-          map.set(share.register, {
-            register: share.register,
-            registerName: share.registerName,
-            accountCount: 1,
-            totalCerts: certCount,
-            totalUnits: units,
-          });
-        }
-      }
-    }
-    return Array.from(map.values());
-  }
-
-  function getAccountsForRegister(holder: MockHolder, register: string) {
-    return holder.accounts.filter((a) =>
-      a.shares.some((s) => s.register === register),
-    );
-  }
-
-  function getSelectedCerts() {
-    if (!foundHolder || !selectedRegister)
-      return [] as {
-        cert: ConsolidationRequest["certificates"][number];
-        accountNo: string;
-      }[];
-    const result: {
-      cert: ConsolidationRequest["certificates"][number];
-      accountNo: string;
-    }[] = [];
-    for (const account of foundHolder.accounts) {
-      for (const share of account.shares) {
-        if (share.register !== selectedRegister) continue;
-        for (const cert of share.certificates) {
-          if (selectedCertIds.has(cert.id)) {
-            result.push({ cert, accountNo: account.accountNo });
-          }
-        }
-      }
-    }
-    return result;
-  }
-
-  function handleToggleCert(certId: string) {
-    setSelectedCertIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(certId)) next.delete(certId);
-      else next.add(certId);
-      return next;
-    });
-  }
-
-  function handleToggleAccount(accountNo: string) {
-    setExpandedRegisters((prev) => {
-      const next = new Set(prev);
-      if (next.has(accountNo)) next.delete(accountNo);
-      else next.add(accountNo);
-      return next;
-    });
-  }
-
-  function handleSubmit() {
-    if (!foundHolder || !selectedRegister) return;
-
-    const selectedCerts = getSelectedCerts();
-
-    if (selectedCerts.length < 2) {
-      toast.error("Select at least 2 certificates to consolidate");
+  function addAccount(h: ShareholderAccount) {
+    if (accounts.some((a) => a.holderId === h.id)) {
+      toast.info("Account already added.");
       return;
     }
-
-    const accountNos = new Set(selectedCerts.map((s) => s.accountNo));
-    if (accountNos.size < 2) {
-      toast.error("Select certificates from at least 2 different accounts");
+    if (accounts.length >= MAX_SOURCES) {
+      toast.error(`Maximum ${MAX_SOURCES} accounts allowed per request.`);
       return;
     }
-
-    if (!reason.trim()) {
-      toast.error("Please enter a reason");
-      return;
-    }
-
-    let registerName = "";
-    for (const account of foundHolder.accounts) {
-      const share = account.shares.find((s) => s.register === selectedRegister);
-      if (share) {
-        registerName = share.registerName;
-        break;
-      }
-    }
-
-    const firstAccountNo = selectedCerts[0].accountNo;
-
-    const newReq: ConsolidationRequest = {
-      id: "CON" + String(Date.now()).slice(-4),
-      createdAt: "16 Jul 2026",
-      holderName: foundHolder.name,
-      holderBvn: foundHolder.bvn,
-      accountNo: firstAccountNo,
-      register: selectedRegister,
-      registerName,
-      certificates: selectedCerts.map((s) => s.cert),
-      newCertNo: generateConsolidationCertNo(selectedRegister, requests),
-      totalUnits: selectedCerts.reduce((s, c) => s + c.cert.units, 0),
-      reason: reason.trim(),
-      submittedBy: "admin@RegisPro.com",
-      status: "PENDING",
-    };
-
-    if (view === "edit" && editingId) {
-      onEditRequest(editingId, { ...newReq, status: "PENDING" });
-    } else {
-      onCreateRequest(newReq);
-    }
-
-    toast.success("Consolidation request submitted for Teamlead approval.");
-    resetForm();
-    setView("list");
+    const next = [...accounts, holderToPicked(h)];
+    setAccounts(next);
+    setDestinationId((d) => pickDestination(next, d));
+    setSearch("");
+    setOpen(false);
   }
 
-  // ── Filtered requests ─────────────────────────────────────────────────────
+  function removeAccount(holderId: string) {
+    const next = accounts.filter((a) => a.holderId !== holderId);
+    setAccounts(next);
+    setDestinationId((d) => pickDestination(next, d));
+  }
 
-  const filteredRequests = requests.filter((r) => {
-    if (filterStatus === "ALL") return true;
-    return r.status === filterStatus;
+  const submitMut = useMutation({
+    mutationFn: () =>
+      submitConsolidationRequest({
+        registerId:
+          accounts.find((a) => a.holderId === destinationId)?.registerSymbol ||
+          undefined,
+        sourceAccountIds: accounts.map((a) => a.holderId),
+        destinationAccountId: destinationId,
+        comment: reason.trim(),
+        initiatedBy: currentUser?.email,
+      }),
+    onSuccess: () => {
+      toast.success("Consolidation request submitted for Teamlead approval.");
+      resetForm();
+      setView("list");
+      onRefetch();
+    },
+    onError: (err: Error) =>
+      toast.error(err.message || "Failed to submit consolidation request."),
   });
 
-  // ── Derived form values ───────────────────────────────────────────────────
-
-  const uniqueRegisters = foundHolder ? getUniqueRegisters(foundHolder) : [];
-  const accountsForRegister =
-    foundHolder && selectedRegister
-      ? getAccountsForRegister(foundHolder, selectedRegister)
-      : [];
-  const selectedCerts = getSelectedCerts();
-  const totalSelectedUnits = selectedCerts.reduce(
-    (s, c) => s + c.cert.units,
-    0,
+  // ── derived ────────────────────────────────────────────────────────────────
+  const filteredRequests = requests.filter((r) =>
+    filterStatus === "ALL" ? true : r.status?.toUpperCase() === filterStatus,
   );
+  const totalUnits = accounts.reduce((s, a) => s + a.units, 0);
+  const sourceRegisters = [...new Set(accounts.map((a) => a.registerSymbol))];
+  const mixedRegisters = sourceRegisters.length > 1;
+  const canSubmit =
+    accounts.length >= 2 && !!destinationId && reason.trim().length > 0;
 
-  // ── LIST VIEW ─────────────────────────────────────────────────────────────
-
+  // ── LIST VIEW ───────────────────────────────────────────────────────────────
   if (view === "list") {
     return (
       <div className="space-y-4">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-semibold">Consolidation Requests</h3>
             <Badge variant="secondary">{requests.length}</Badge>
           </div>
-          <Button onClick={() => setView("new")}>
+          <Button
+            onClick={() => {
+              resetForm();
+              setView("new");
+            }}
+          >
             <Plus className="h-4 w-4 mr-2" />
             New Consolidation Request
           </Button>
         </div>
 
-        {/* Status filter chips */}
         <div className="flex gap-2 mt-3">
           {(["ALL", "PENDING", "APPROVED", "REJECTED"] as FilterStatus[]).map(
             (status) => (
@@ -331,140 +296,95 @@ export function ConsolidationRequests({
           )}
         </div>
 
-        {/* Table */}
         <Card className="mrpsl-card overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="mrpsl-table-header">
-              <tr>
-                <th className="p-3">ID</th>
-                <th className="p-3">DATE</th>
-                <th className="p-3">HOLDER</th>
-                <th className="p-3">REGISTER</th>
-                <th className="p-3">CERTS #</th>
-                <th className="p-3">TOTAL UNITS</th>
-                <th className="p-3">STATUS</th>
-                <th className="p-3">ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y text-[13px]">
-              {filteredRequests.map((req) => (
-                <tr
-                  key={req.id}
-                  className={`mrpsl-table-row${req.status === "REJECTED" ? " bg-red-50/30" : ""}`}
-                >
-                  <td className="p-3 font-mono text-xs">{req.id}</td>
-                  <td className="p-3 text-muted-foreground">{req.createdAt}</td>
-                  <td className="p-3 font-medium">{req.holderName}</td>
-                  <td className="p-3">
-                    <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded dark:bg-blue-950 dark:text-blue-300">
-                      {req.register}
-                    </span>
-                  </td>
-                  <td className="p-3 tabular-nums">
-                    {req.certificates.length}
-                  </td>
-                  <td className="p-3 tabular-nums font-semibold">
-                    {formatNumber(req.totalUnits)}
-                  </td>
-                  <td className="p-3">
-                    {req.status === "PENDING" && (
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300">
-                        Pending Teamlead Review
-                      </Badge>
-                    )}
-                    {req.status === "APPROVED" && (
-                      <Badge className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300">
-                        Approved
-                      </Badge>
-                    )}
-                    {req.status === "REJECTED" && (
-                      <Badge className="bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300">
-                        Rejected
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    {req.status === "REJECTED" ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="mrpsl-table-header">
+                <tr>
+                  <th className="p-3">ID</th>
+                  <th className="p-3">SUBMITTED</th>
+                  <th className="p-3">HOLDER</th>
+                  <th className="p-3">REGISTER</th>
+                  <th className="p-3">CERTS #</th>
+                  <th className="p-3">TOTAL UNITS</th>
+                  <th className="p-3">STATUS</th>
+                  <th className="p-3">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-[13px]">
+                {filteredRequests.map((req) => (
+                  <tr
+                    key={req.id}
+                    className={`mrpsl-table-row${req.status?.toUpperCase() === "REJECTED" ? " bg-red-50/30 dark:bg-red-950/10" : ""}`}
+                  >
+                    <td className="p-3 font-mono text-xs" title={req.id}>
+                      {req.id?.slice(0, 8)}
+                    </td>
+                    <td className="p-3 text-muted-foreground whitespace-nowrap">
+                      {fmtDate(req.submittedAt)}
+                    </td>
+                    <td className="p-3 font-medium">{req.holderName}</td>
+                    <td className="p-3">
+                      <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded dark:bg-blue-950 dark:text-blue-300">
+                        {req.registerSymbol}
+                      </span>
+                    </td>
+                    <td className="p-3 tabular-nums">{req.certCount}</td>
+                    <td className="p-3 tabular-nums font-semibold">
+                      {formatNumber(req.totalUnits)}
+                    </td>
+                    <td className="p-3">
+                      <StatusBadge status={req.status} />
+                    </td>
+                    <td className="p-3">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-950"
-                        onClick={() => {
-                          const editHolder =
-                            MOCK_HOLDERS.find((h) => h.bvn === req.holderBvn) ??
-                            null;
-                          setEditingId(req.id);
-                          setFoundHolder(editHolder);
-                          setSelectedRegister(req.register);
-                          setSelectedCertIds(
-                            new Set(req.certificates.map((c) => c.id)),
-                          );
-                          setReason(req.reason);
-                          if (editHolder) {
-                            const expanded = editHolder.accounts
-                              .filter((a) =>
-                                a.shares.some(
-                                  (s) => s.register === req.register,
-                                ),
-                              )
-                              .map((a) => a.accountNo);
-                            setExpandedRegisters(new Set(expanded));
-                          }
-                          setView("edit");
-                        }}
-                      >
-                        <Pencil className="h-3 w-3 mr-1" />
-                        Edit & Resubmit
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setViewDetails(req);
-                          setDetailOpen(true);
-                        }}
+                        onClick={() => setDetail(req)}
                       >
                         View
                       </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {filteredRequests.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="p-12 text-center text-muted-foreground"
-                  >
-                    <div className="flex flex-col items-center gap-3">
-                      <Layers className="h-10 w-10 opacity-30" />
-                      <span>No consolidation requests found.</span>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    </td>
+                  </tr>
+                ))}
+                {filteredRequests.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="p-12 text-center text-muted-foreground"
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-8 w-8 animate-spin opacity-40" />
+                            <span>Loading consolidation requests…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Layers className="h-10 w-10 opacity-30" />
+                            <span>No consolidation requests found.</span>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </Card>
 
-        {/* Detail Dialog */}
-        {viewDetails && (
-          <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        {/* Detail dialog */}
+        {detail && (
+          <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
             <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 flex-wrap">
-                  Consolidation Request — {viewDetails.id}
-                  {viewDetails.status === "APPROVED" && (
-                    <Badge className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300">
-                      Approved
-                    </Badge>
-                  )}
-                  {viewDetails.status === "PENDING" && (
-                    <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300">
-                      Pending Teamlead Review
-                    </Badge>
-                  )}
+                  Consolidation Request
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {detail.id?.slice(0, 8)}
+                  </span>
+                  <StatusBadge status={detail.status} />
                 </DialogTitle>
               </DialogHeader>
 
@@ -474,47 +394,56 @@ export function ConsolidationRequests({
                     <p className="text-xs text-muted-foreground mb-0.5">
                       Holder
                     </p>
-                    <p className="font-medium">{viewDetails.holderName}</p>
+                    <p className="font-medium">{detail.holderName}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">
-                      Register
+                      Destination Account
                     </p>
                     <p className="font-mono text-xs">
-                      {viewDetails.register} — {viewDetails.registerName}
+                      {detail.accountNumber} · {detail.registerSymbol}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">
                       New Cert No
                     </p>
-                    <p className="font-mono text-xs">{viewDetails.newCertNo}</p>
+                    <p className="font-mono text-xs">
+                      {detail.newCertNumber ?? "— (minted on approval)"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">
                       Total Units
                     </p>
                     <p className="font-semibold tabular-nums">
-                      {formatNumber(viewDetails.totalUnits)}
+                      {formatNumber(detail.totalUnits)}
                     </p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs text-muted-foreground mb-0.5">
                       Reason
                     </p>
-                    <p>{viewDetails.reason}</p>
+                    <p>{detail.reason}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">
                       Submitted By
                     </p>
-                    <p>{viewDetails.submittedBy}</p>
+                    <p>{detail.submittedBy}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">
+                      Submitted At
+                    </p>
+                    <p>{fmtDate(detail.submittedAt)}</p>
                   </div>
                 </div>
 
-                {/* Cert table */}
                 <div>
-                  <p className="font-medium mb-2">Certificates</p>
+                  <p className="font-medium mb-2">
+                    Certificates ({detail.certCount})
+                  </p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs border rounded-lg overflow-hidden">
                       <thead className="bg-muted">
@@ -524,66 +453,56 @@ export function ConsolidationRequests({
                           <th className="p-2 text-left font-medium">
                             ISSUE DATE
                           </th>
-                          <th className="p-2 text-left font-medium">STATUS</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {viewDetails.certificates.map((cert) => (
-                          <tr key={cert.id}>
-                            <td className="p-2 font-mono">{cert.certNo}</td>
+                        {detail.certificates?.map((cert, i) => (
+                          <tr key={`${cert.certNumber}-${i}`}>
+                            <td className="p-2 font-mono">{cert.certNumber}</td>
                             <td className="p-2 text-right tabular-nums">
                               {formatNumber(cert.units)}
                             </td>
                             <td className="p-2">{cert.issueDate}</td>
-                            <td className="p-2">
-                              {cert.status === "DEACTIVATED" ? (
-                                <span className="text-red-600 font-medium">
-                                  DEACTIVATED
-                                </span>
-                              ) : (
-                                <span className="text-green-600">
-                                  {cert.status}
-                                </span>
-                              )}
-                            </td>
                           </tr>
                         ))}
+                        {(!detail.certificates ||
+                          detail.certificates.length === 0) && (
+                          <tr>
+                            <td
+                              colSpan={3}
+                              className="p-3 text-center text-muted-foreground"
+                            >
+                              No certificate breakdown available.
+                            </td>
+                          </tr>
+                        )}
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                {/* Rejection box */}
-                {viewDetails.status === "REJECTED" &&
-                  viewDetails.rejectionComment && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3">
-                      <div className="flex items-start gap-2">
-                        <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="font-medium text-amber-800 dark:text-amber-300 mb-1">
-                            Rejection Reason
-                          </p>
-                          <p className="text-amber-700 dark:text-amber-400">
-                            {viewDetails.rejectionComment}
-                          </p>
-                          {viewDetails.rejectedBy && (
-                            <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                              By {viewDetails.rejectedBy}
-                              {viewDetails.rejectedAt
-                                ? ` · ${viewDetails.rejectedAt}`
-                                : ""}
-                            </p>
-                          )}
-                        </div>
+                {detail.authoriserComment && (
+                  <div
+                    className={`rounded-lg border p-3 ${detail.status?.toUpperCase() === "REJECTED" ? "border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800" : "border-muted bg-muted/40"}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-medium text-amber-800 dark:text-amber-300 mb-1">
+                          {detail.status?.toUpperCase() === "REJECTED"
+                            ? "Rejection Reason"
+                            : "Authoriser Comment"}
+                        </p>
+                        <p className="text-amber-700 dark:text-amber-400">
+                          {detail.authoriserComment}
+                        </p>
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
 
                 <div className="flex justify-end pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setDetailOpen(false)}
-                  >
+                  <Button variant="outline" onClick={() => setDetail(null)}>
                     Close
                   </Button>
                 </div>
@@ -595,11 +514,9 @@ export function ConsolidationRequests({
     );
   }
 
-  // ── CREATE / EDIT FORM VIEW ───────────────────────────────────────────────
-
+  // ── CREATE FORM VIEW ─────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
-      {/* Back + Title */}
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -612,303 +529,243 @@ export function ConsolidationRequests({
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back
         </Button>
-        <h3 className="text-lg font-semibold">
-          {view === "edit"
-            ? "Edit Consolidation Request"
-            : "New Consolidation Request"}
-        </h3>
+        <h3 className="text-lg font-semibold">New Consolidation Request</h3>
       </div>
 
-      {/* STEP 1 — Holder */}
-      <Card className="mrpsl-card p-4 space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Step 1 — Select Holder
-        </p>
+      {prefillNote && (
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-800/40 dark:bg-blue-900/20 dark:text-blue-300">
+          <Crown className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{prefillNote}</span>
+          <button
+            type="button"
+            onClick={() => setPrefillNote(null)}
+            className="ml-auto shrink-0 text-blue-800/70 hover:text-blue-800 dark:text-blue-300/70 dark:hover:text-blue-300 transition-colors cursor-pointer"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
-        {!foundHolder ? (
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search by holder name, account no or CHN"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSearch();
-                }}
-              />
-              <Button onClick={handleSearch}>
-                <Search className="h-4 w-4 mr-2" />
-                Search
-              </Button>
-            </div>
-
-            {searchResults.length > 0 && (
-              <div className="space-y-2">
-                {searchResults.map((holder) => (
-                  <div
-                    key={holder.id}
-                    className="border rounded-lg p-3 cursor-pointer hover:bg-accent transition-colors"
-                    onClick={() => handleSelectHolder(holder)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold text-sm">{holder.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          BVN: {holder.bvn}
-                        </p>
-                      </div>
-                      <div className="text-right text-xs text-muted-foreground">
-                        <p>{holder.accounts.length} account(s)</p>
-                        <p>
-                          {holder.accounts.reduce(
-                            (s, a) =>
-                              s +
-                              a.shares.reduce(
-                                (ss, sh) => ss + sh.certificates.length,
-                                0,
-                              ),
-                            0,
-                          )}{" "}
-                          cert(s)
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {searchResults.length === 0 && searchTerm && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No holders found. Try a different search term.
-              </p>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-start justify-between border rounded-lg p-3 bg-accent/30">
-            <div>
-              <p className="font-semibold text-sm">{foundHolder.name}</p>
-              <p className="text-xs text-muted-foreground">
-                BVN: {foundHolder.bvn}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {foundHolder.phone} · {foundHolder.email}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {foundHolder.accounts.length} account(s)
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setFoundHolder(null);
-                setSelectedRegister(null);
-                setSelectedCertIds(new Set());
-                setExpandedRegisters(new Set());
-                setSearchTerm("");
-              }}
-            >
-              <X className="h-4 w-4 mr-1" />
-              Change
-            </Button>
-          </div>
-        )}
-      </Card>
-
-      {/* STEP 2 — Select Register */}
-      {foundHolder && (
-        <Card className="mrpsl-card p-4 space-y-3">
+      {/* Step 1 — accounts */}
+      <Card className="mrpsl-card p-4 space-y-4 overflow-visible">
+        <div className="flex items-baseline justify-between">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Step 2 — Select Register to Consolidate
+            Accounts to consolidate{" "}
+            <span className="font-normal normal-case">
+              (2–10 accounts on the same register — every ACTIVE certificate is
+              merged into the surviving account)
+            </span>
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {uniqueRegisters.map((reg) => {
-              const canConsolidate = reg.accountCount >= 2;
-              const isSelected = selectedRegister === reg.register;
+          <span className="text-xs text-muted-foreground">
+            {accounts.length}/{MAX_SOURCES}
+          </span>
+        </div>
+
+        {/* search */}
+        <div ref={searchRef} className="relative">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search by name, account number or CHN…"
+              className="pl-9 pr-8 mrpsl-input"
+              value={search}
+              disabled={accounts.length >= MAX_SOURCES}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setOpen(true);
+              }}
+              onFocus={() => setOpen(true)}
+            />
+            {search.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {open && debounced.trim().length > 2 && (
+            <div className="absolute top-full left-0 right-0 mt-1 border rounded-lg shadow-lg bg-background z-20 overflow-hidden">
+              {searching ? (
+                <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Searching…
+                </div>
+              ) : (results?.data?.data?.length ?? 0) === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  No accounts found.
+                </div>
+              ) : (
+                <div className="divide-y max-h-64 overflow-y-auto">
+                  {results?.data?.data?.map((holder) => {
+                    const added = accounts.some((a) => a.holderId === holder.id);
+                    return (
+                      <button
+                        key={holder.id}
+                        type="button"
+                        disabled={added}
+                        onClick={() => addAccount(holder)}
+                        className={`w-full text-left px-4 py-3 transition-colors ${added ? "opacity-50 cursor-default bg-muted/30" : "hover:bg-muted/40 cursor-pointer"}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {holder.firstName} {holder.lastName}
+                            </p>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {holder.accountNumber}
+                              </span>
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {holder.chn}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {(holder.holdings ?? 0).toLocaleString()} units
+                            </span>
+                            <span className="text-primary font-mono text-xs font-semibold">
+                              {holder.registerSymbol}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* picked accounts */}
+        {accounts.length > 0 ? (
+          <div className="space-y-2">
+            {accounts.map((acc) => {
+              const isDest = acc.holderId === destinationId;
               return (
                 <div
-                  key={reg.register}
-                  className={[
-                    "border rounded-lg p-3 transition-colors select-none",
-                    canConsolidate
-                      ? "cursor-pointer hover:bg-accent"
-                      : "opacity-50 cursor-not-allowed",
-                    isSelected ? "ring-2 ring-primary" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => {
-                    if (!canConsolidate) return;
-                    setSelectedRegister(reg.register);
-                    setSelectedCertIds(new Set());
-                    const expanded = getAccountsForRegister(
-                      foundHolder,
-                      reg.register,
-                    ).map((a) => a.accountNo);
-                    setExpandedRegisters(new Set(expanded));
-                  }}
+                  key={acc.holderId}
+                  className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm ${isDest ? "border-primary/40 bg-primary/5" : "bg-muted/10"}`}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <span className="font-mono text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded dark:bg-blue-950 dark:text-blue-300 shrink-0">
-                      {reg.register}
+                  <div className="flex-1 min-w-0 grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-0.5">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {acc.accountNumber}
                     </span>
-                    {canConsolidate ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-200 text-xs dark:bg-green-900/30 dark:text-green-300 whitespace-nowrap">
-                        Consolidation Recommended
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="secondary"
-                        className="text-xs whitespace-nowrap"
-                      >
-                        Single Account
-                      </Badge>
-                    )}
+                    <span className="font-medium truncate">
+                      {acc.name}
+                      {isDest && (
+                        <span className="ml-2 text-[11px] font-semibold text-primary">
+                          SURVIVING
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-primary font-mono text-xs font-semibold">
+                      {acc.registerSymbol}
+                    </span>
+                    <span className="font-mono text-xs text-muted-foreground col-start-1">
+                      {acc.chn}
+                    </span>
+                    <span className="font-mono text-xs">
+                      {acc.units.toLocaleString()} units
+                    </span>
                   </div>
-                  <p className="font-semibold text-sm">{reg.registerName}</p>
-                  <div className="flex gap-3 mt-1.5 text-xs text-muted-foreground">
-                    <span>{reg.accountCount} account(s)</span>
-                    <span>{reg.totalCerts} cert(s)</span>
-                    <span>{formatNumber(reg.totalUnits)} units</span>
-                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setDestinationId(acc.holderId)}
+                    title="Set as the surviving (destination) account"
+                    disabled={isDest}
+                    className={`shrink-0 flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] transition-colors ${isDest ? "border-primary/40 text-primary cursor-default" : "text-muted-foreground hover:text-primary hover:border-primary/50 cursor-pointer"}`}
+                  >
+                    <Crown className="h-3 w-3" />
+                    {isDest ? "Surviving" : "Set as surviving"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeAccount(acc.holderId)}
+                    className="shrink-0 text-muted-foreground hover:text-destructive transition-colors ml-1 cursor-pointer"
+                    aria-label="Remove"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               );
             })}
-          </div>
-        </Card>
-      )}
 
-      {/* STEP 3 — Select Certificates */}
-      {foundHolder && selectedRegister && (
-        <Card className="mrpsl-card p-4 space-y-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Step 3 — Select Certificates
-          </p>
-
-          {accountsForRegister.map((account) => {
-            const share = account.shares.find(
-              (s) => s.register === selectedRegister,
-            );
-            if (!share) return null;
-            const isExpanded = expandedRegisters.has(account.accountNo);
-
-            return (
-              <div
-                key={account.accountNo}
-                className="border rounded-lg overflow-hidden"
-              >
-                <button
-                  type="button"
-                  className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors text-sm text-left"
-                  onClick={() => handleToggleAccount(account.accountNo)}
-                >
-                  <span className="font-mono font-medium">
-                    {account.accountNo}{" "}
-                    <span className="font-sans font-normal text-muted-foreground">
-                      (CHN: {account.chn})
-                    </span>
+            <div className="flex items-center justify-between pt-2 border-t">
+              <div className="text-xs">
+                {accounts.length < 2 && (
+                  <span className="text-amber-600 font-medium">
+                    ⚠ Add at least 2 accounts to consolidate
                   </span>
-                  {isExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  )}
-                </button>
-
-                {isExpanded && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/30">
-                        <tr>
-                          <th className="p-2 w-8"></th>
-                          <th className="p-2 text-left font-medium">CERT NO</th>
-                          <th className="p-2 text-right font-medium">UNITS</th>
-                          <th className="p-2 text-left font-medium">
-                            ISSUE DATE
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {share.certificates.map((cert) => {
-                          const checked = selectedCertIds.has(cert.id);
-                          return (
-                            <tr
-                              key={cert.id}
-                              className={`cursor-pointer hover:bg-accent transition-colors${checked ? " bg-primary/5" : ""}`}
-                              onClick={() => handleToggleCert(cert.id)}
-                            >
-                              <td className="p-2 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => handleToggleCert(cert.id)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="rounded cursor-pointer"
-                                />
-                              </td>
-                              <td className="p-2 font-mono">{cert.certNo}</td>
-                              <td className="p-2 text-right tabular-nums">
-                                {formatNumber(cert.units)}
-                              </td>
-                              <td className="p-2">{cert.issueDate}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
                 )}
               </div>
-            );
-          })}
-
-          {/* Summary bar */}
-          <div className="rounded-lg bg-muted/50 border p-3 text-sm">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <span>
-                <span className="font-semibold">{selectedCertIds.size}</span>{" "}
-                certificate(s) selected
-                {selectedCertIds.size > 0 && (
-                  <>
-                    {" "}
-                    — Total:{" "}
-                    <span className="font-semibold tabular-nums">
-                      {formatNumber(totalSelectedUnits)}
-                    </span>{" "}
-                    units
-                  </>
-                )}
-              </span>
-              {selectedCertIds.size >= 2 && (
-                <span className="text-xs text-muted-foreground font-mono">
-                  New cert:{" "}
-                  {generateConsolidationCertNo(selectedRegister, requests)}
-                </span>
-              )}
+              <div className="text-sm font-semibold">
+                Total:{" "}
+                <span className="font-mono text-primary">
+                  {formatNumber(totalUnits)}
+                </span>{" "}
+                units
+              </div>
             </div>
-          </div>
 
-          {/* Reason */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Reason</label>
-            <Textarea
-              placeholder="Reason for consolidation..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              rows={3}
-            />
+            {mixedRegisters && (
+              <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>
+                  Accounts span multiple registers ({sourceRegisters.join(", ")}
+                  ). Certificate consolidation merges holdings within a single
+                  register — confirm before submitting.
+                </span>
+              </div>
+            )}
           </div>
+        ) : (
+          <p className="text-center text-sm text-muted-foreground py-4">
+            Search and add the accounts to consolidate, or load a set from the
+            System Suggestions tab.
+          </p>
+        )}
+      </Card>
 
-          {/* Submit */}
-          <Button className="w-full" onClick={handleSubmit}>
-            <CheckSquare className="h-4 w-4 mr-2" />
-            {view === "edit"
-              ? "Update Consolidation Request"
-              : "Create Consolidation Request"}
-          </Button>
-        </Card>
-      )}
+      {/* Step 2 — reason + submit */}
+      <Card className="mrpsl-card p-4 space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">
+            Reason <span className="text-destructive">*</span>
+          </label>
+          <Textarea
+            placeholder="Reason for consolidation…"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+          />
+        </div>
+
+        <Button
+          className="w-full"
+          disabled={!canSubmit || submitMut.isPending}
+          onClick={() => submitMut.mutate()}
+        >
+          {submitMut.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting…
+            </>
+          ) : (
+            <>
+              <CheckSquare className="h-4 w-4 mr-2" />
+              Create Consolidation Request
+            </>
+          )}
+        </Button>
+      </Card>
     </div>
   );
 }

@@ -324,15 +324,16 @@ export const useGetAccountKycHistory = (
 
 export const useGetAccount = (
   accountNumber: string,
+  registerId?: string,
   options?: Omit<
     UseQueryOptions<ApiResponse<ShareholderAccount>>,
     "queryKey" | "queryFn"
   >,
 ) =>
   useQuery({
-    queryKey: ["accounts", accountNumber],
-    queryFn: () => getAccount(accountNumber),
-    enabled: !!accountNumber,
+    queryKey: ["accounts", accountNumber, registerId],
+    queryFn: () => getAccount(accountNumber, registerId),
+    enabled: !!accountNumber && !!registerId,
     refetchOnWindowFocus: false,
     ...options,
   });

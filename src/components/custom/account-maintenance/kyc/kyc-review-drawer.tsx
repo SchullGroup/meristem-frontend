@@ -151,7 +151,7 @@ export function KycReviewDrawer({
     isLoading,
     isError,
     refetch,
-  } = useGetAccount(row?.accountNumber ?? "");
+  } = useGetAccount(row?.accountNumber ?? "", undefined);
 
   const account = accountRes?.data ?? null;
 

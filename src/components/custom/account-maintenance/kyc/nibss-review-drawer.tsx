@@ -156,7 +156,7 @@ export function NibssReviewDrawer({
     isLoading,
     isError,
     refetch,
-  } = useGetAccount(row?.bvn ?? "");
+  } = useGetAccount(row?.bvn ?? "", row?.symbol);
 
   const account = accountRes?.data ?? null;
 

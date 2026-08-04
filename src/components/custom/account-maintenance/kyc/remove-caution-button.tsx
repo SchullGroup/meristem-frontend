@@ -54,7 +54,7 @@ export function RemoveCautionButton({
     removeMutation.mutate(
       {
         accountNumber: selectedShareholder.accountNumber,
-        params: { reason: reason.trim(), initiatedBy: currentUser.email },
+        params: { registerId: selectedShareholder.registerId, reason: reason.trim(), initiatedBy: currentUser.email },
       },
       {
         onSuccess: () => {
