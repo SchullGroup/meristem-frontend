@@ -7,25 +7,24 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, Users, ChevronRight, Layers, Loader2 } from "lucide-react";
 import {
-  getCertConsolidationSuggestions,
-  CertConsolidationSuggestion,
-} from "@/actions/certConsolidation";
+  getAccountConsolidationSuggestions,
+  AccountConsolidationSuggestion,
+} from "@/actions/accountMaintenanceActions";
 import { useGetRegisters } from "@/hooks/useRegisters";
 import { formatNumber } from "@/lib/utils/format";
 
 interface Props {
-  onCreateFromSuggestion: (suggestion: CertConsolidationSuggestion) => void;
+  onUseSuggestion?: (suggestion: AccountConsolidationSuggestion) => void;
 }
 
-export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
+export function ConsolidationSuggested({ onUseSuggestion }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [registerId, setRegisterId] = useState<string>("");
 
-  // Registers for the scope selector.
   const { data: registers } = useGetRegisters({ size: 500, status: "ACTIVE" });
 
-  // Read-only discovery: fragmented shareholders (2+ accounts in the selected register).
-  // Re-runs on register change and on Refresh.
+  // Read-only discovery: fragmented shareholders (2+ accounts under one CHN) in the selected
+  // register. Re-runs on register change and on Refresh.
   const {
     data: suggestions = [],
     isFetching,
@@ -33,8 +32,8 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["cert-consolidation-suggestions", registerId],
-    queryFn: () => getCertConsolidationSuggestions(registerId),
+    queryKey: ["account-consolidation-suggestions", registerId],
+    queryFn: () => getAccountConsolidationSuggestions(registerId),
     enabled: !!registerId,
     select: (d) => d.data ?? [],
   });
@@ -48,14 +47,17 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
     });
   }
 
+  const combinedUnits = (s: AccountConsolidationSuggestion) =>
+    s.accounts.reduce((sum, a) => sum + (a.units ?? 0), 0);
+
   return (
     <div className="flex flex-col gap-4">
       {/* Header: description + register selector + refresh */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground max-w-2xl">
-            The system identifies shareholders who hold certificates in the same register across
-            multiple accounts. Select a register to find consolidation candidates.
+            The system identifies shareholders who hold more than one account in the same register
+            (fragmented accounts). Select a register to find consolidation candidates.
           </p>
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-muted-foreground">Register</label>
@@ -89,7 +91,6 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
         </Button>
       </div>
 
-      {/* Info banner */}
       {registerId && !isError && (
         <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800/40 dark:bg-amber-900/20 dark:text-amber-300">
           <Users className="h-4 w-4 shrink-0" />
@@ -113,34 +114,28 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
         </div>
       )}
 
-      {/* Suggestion table */}
       <Card className="mrpsl-card overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="mrpsl-table-header">
             <tr>
               <th className="w-8 p-3" />
-              <th className="p-3">HOLDER NAME</th>
+              <th className="p-3">CHN</th>
+              <th className="p-3">SUGGESTED NAME</th>
               <th className="p-3">BVN</th>
               <th className="p-3">REGISTER</th>
               <th className="p-3">ACCOUNTS</th>
-              <th className="p-3">TOTAL CERTS</th>
               <th className="p-3">COMBINED UNITS</th>
               <th className="p-3">ACTION</th>
             </tr>
           </thead>
           <tbody className="divide-y text-[13px]">
             {suggestions.map((row) => {
-              const isExpanded = expandedIds.has(row.id);
-              const totalCerts = row.accounts.reduce(
-                (sum, acc) => sum + acc.certCount,
-                0,
-              );
-
+              const isExpanded = expandedIds.has(row.chn);
               return (
-                <Fragment key={row.id}>
+                <Fragment key={row.chn}>
                   <tr
                     className="mrpsl-table-row cursor-pointer"
-                    onClick={() => toggleExpanded(row.id)}
+                    onClick={() => toggleExpanded(row.chn)}
                   >
                     <td className="p-3">
                       <button
@@ -149,7 +144,7 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
                         className="flex h-5 w-5 items-center justify-center rounded border text-muted-foreground transition-colors hover:bg-muted"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleExpanded(row.id);
+                          toggleExpanded(row.chn);
                         }}
                       >
                         <ChevronRight
@@ -157,31 +152,28 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
                         />
                       </button>
                     </td>
-                    <td className="p-3 font-medium">{row.holderName}</td>
-                    <td className="p-3 font-mono text-muted-foreground">{row.bvn}</td>
+                    <td className="p-3 font-mono">{row.chn}</td>
+                    <td className="p-3 font-medium">{row.suggestedName ?? "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{row.bvn ?? "—"}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-1.5">
                         <Layers className="h-3.5 w-3.5 text-muted-foreground" />
                         <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300">
-                          {row.register}
+                          {row.registerId}
                         </Badge>
                       </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {row.registerName}
-                      </p>
                     </td>
                     <td className="p-3">
                       <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300">
-                        {row.accounts.length} accounts
+                        {row.accountCount} accounts
                       </Badge>
                     </td>
-                    <td className="p-3 tabular-nums">{totalCerts}</td>
                     <td className="p-3 font-semibold tabular-nums">
-                      {formatNumber(row.combinedUnits)}
+                      {formatNumber(combinedUnits(row))}
                     </td>
                     <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" onClick={() => onCreateFromSuggestion(row)}>
-                        Create Consolidation Request
+                      <Button size="sm" onClick={() => onUseSuggestion?.(row)}>
+                        Consolidate These
                       </Button>
                     </td>
                   </tr>
@@ -190,14 +182,13 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
                     <tr>
                       <td colSpan={8} className="bg-muted/30 px-8 py-3">
                         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Accounts Detail &mdash; {row.registerName} &middot; compare the PII below to confirm these accounts belong to the same person
+                          Accounts Detail &mdash; compare the PII below to confirm these accounts belong to the same person
                         </p>
                         <div className="overflow-x-auto">
-                          <table className="w-full min-w-[1000px] text-[12px]">
+                          <table className="w-full min-w-[900px] text-[12px]">
                             <thead>
                               <tr className="border-b text-muted-foreground">
                                 <th className="py-1.5 pr-6 text-left font-medium">Account No</th>
-                                <th className="py-1.5 pr-6 text-left font-medium">CHN</th>
                                 <th className="py-1.5 pr-6 text-left font-medium">Name</th>
                                 <th className="py-1.5 pr-6 text-left font-medium">Address</th>
                                 <th className="py-1.5 pr-6 text-left font-medium">BVN</th>
@@ -205,17 +196,14 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
                                 <th className="py-1.5 pr-6 text-left font-medium">Phone</th>
                                 <th className="py-1.5 pr-6 text-left font-medium">Email</th>
                                 <th className="py-1.5 pr-6 text-left font-medium">DOB</th>
-                                <th className="py-1.5 pr-6 text-left font-medium">Certificates</th>
-                                <th className="py-1.5 text-left font-medium">Units</th>
+                                <th className="py-1.5 pr-6 text-left font-medium">Units</th>
+                                <th className="py-1.5 text-left font-medium">Status</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
                               {row.accounts.map((acc) => (
-                                <tr key={acc.accountNo}>
+                                <tr key={acc.holderId}>
                                   <td className="py-1.5 pr-6 font-mono whitespace-nowrap">{acc.accountNo}</td>
-                                  <td className="py-1.5 pr-6 font-mono text-muted-foreground">
-                                    {acc.chn}
-                                  </td>
                                   <td className="py-1.5 pr-6">{acc.name ?? "—"}</td>
                                   <td
                                     className="max-w-[220px] truncate py-1.5 pr-6"
@@ -233,11 +221,13 @@ export function ConsolidationSuggested({ onCreateFromSuggestion }: Props) {
                                     {acc.email ?? "—"}
                                   </td>
                                   <td className="py-1.5 pr-6 whitespace-nowrap">{acc.dateOfBirth ?? "—"}</td>
-                                  <td className="py-1.5 pr-6 tabular-nums">
-                                    {acc.certCount} cert{acc.certCount !== 1 ? "s" : ""}
+                                  <td className="py-1.5 pr-6 font-semibold tabular-nums">
+                                    {formatNumber(acc.units ?? 0)}
                                   </td>
-                                  <td className="py-1.5 font-semibold tabular-nums">
-                                    {formatNumber(acc.totalUnits)}
+                                  <td className="py-1.5">
+                                    <Badge className="bg-muted text-foreground">
+                                      {acc.status ?? "—"}
+                                    </Badge>
                                   </td>
                                 </tr>
                               ))}

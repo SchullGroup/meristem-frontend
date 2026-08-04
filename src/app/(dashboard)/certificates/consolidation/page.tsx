@@ -1,76 +1,39 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ConsolidationSuggested } from "@/components/custom/certificate-consolidation/consolidation-suggested";
 import { ConsolidationRequests } from "@/components/custom/certificate-consolidation/consolidation-requests";
 import { ConsolidationIcu } from "@/components/custom/certificate-consolidation/consolidation-icu";
 import {
-  SEED_CONSOLIDATION_REQUESTS,
-  ConsolidationRequest,
-  ConsolidationStatus,
-  SuggestedConsolidation,
-  MOCK_HOLDERS,
-  MockHolder,
-} from "@/components/custom/certificate-consolidation/consolidation-mock";
+  getAllConsolidationRequests,
+  CertConsolidationSuggestion,
+} from "@/actions/certConsolidation";
 
 export default function ConsolidationPage() {
-  const [requests, setRequests] = useState<ConsolidationRequest[]>(SEED_CONSOLIDATION_REQUESTS);
   const [activeTab, setActiveTab] = useState<string>("suggested");
-  const [prefillHolder, setPrefillHolder] = useState<MockHolder | null>(null);
-  const [prefillRegister, setPrefillRegister] = useState<string>("");
+  // A suggestion the officer chose to "Create Consolidation Request" from — handed to the create
+  // form so it loads those accounts directly, with no re-search. Cleared once consumed.
+  const [prefill, setPrefill] = useState<CertConsolidationSuggestion | null>(
+    null,
+  );
 
+  // Real consolidation requests. Low-volume maker-checker queue, so one query feeds both the
+  // Requests list and the Teamlead Approval tab (and the badge counts); mutations refetch it.
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["cert-consolidations"],
+    queryFn: () => getAllConsolidationRequests({ page: 1, pageSize: 200 }),
+    select: (d) => d.data?.content ?? [],
+  });
+
+  const requests = data ?? [];
+  const totalCount = requests.length;
   const pendingCount = requests.filter((r) => r.status === "PENDING").length;
-  const icuPendingCount = pendingCount;
 
-  function createRequest(req: ConsolidationRequest) {
-    setRequests((prev) => [...prev, req]);
-  }
-
-  function editRequest(id: string, updates: Partial<ConsolidationRequest>) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, ...updates, status: "PENDING" as ConsolidationStatus } : r
-      )
-    );
-  }
-
-  function approveRequest(id: string) {
-    setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        return {
-          ...r,
-          status: "APPROVED" as ConsolidationStatus,
-          approvedBy: "Teamlead",
-          approvedAt: "16 Jul 2026",
-          certificates: r.certificates.map((c) => ({ ...c, status: "DEACTIVATED" as const })),
-        };
-      })
-    );
-  }
-
-  function rejectRequest(id: string, comment: string) {
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: "REJECTED" as ConsolidationStatus,
-              rejectionComment: comment,
-              rejectedBy: "Teamlead",
-              rejectedAt: "16 Jul 2026",
-            }
-          : r
-      )
-    );
-  }
-
-  function handleCreateFromSuggestion(suggestion: SuggestedConsolidation) {
-    const holder = MOCK_HOLDERS.find((h) => h.bvn === suggestion.bvn) || null;
-    setPrefillHolder(holder);
-    setPrefillRegister(suggestion.register);
+  function handleCreateFromSuggestion(suggestion: CertConsolidationSuggestion) {
+    setPrefill(suggestion);
     setActiveTab("requests");
   }
 
@@ -79,7 +42,8 @@ export default function ConsolidationPage() {
       <div>
         <h1 className="text-2xl font-bold">Certificate Consolidation</h1>
         <p className="text-muted-foreground">
-          Combine multiple share certificates across accounts into a single consolidated certificate.
+          Combine multiple share certificates across accounts into a single
+          consolidated certificate.
         </p>
       </div>
 
@@ -88,42 +52,35 @@ export default function ConsolidationPage() {
           <TabsTrigger value="suggested">System Suggestions</TabsTrigger>
           <TabsTrigger value="requests">
             Consolidation Requests
-            {requests.length > 0 && (
-              <Badge className="ml-2">{requests.length}</Badge>
-            )}
+            {totalCount > 0 && <Badge className="ml-2">{totalCount}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="icu">
             Teamlead Approval
-            {icuPendingCount > 0 && (
-              <Badge className="ml-2">{icuPendingCount}</Badge>
-            )}
+            {pendingCount > 0 && <Badge className="ml-2">{pendingCount}</Badge>}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="suggested">
-          <ConsolidationSuggested onCreateFromSuggestion={handleCreateFromSuggestion} />
+          <ConsolidationSuggested
+            onCreateFromSuggestion={handleCreateFromSuggestion}
+          />
         </TabsContent>
 
         <TabsContent value="requests">
           <ConsolidationRequests
             requests={requests}
-            onCreateRequest={createRequest}
-            onEditRequest={editRequest}
-            prefillHolder={prefillHolder}
-            prefillRegister={prefillRegister}
-            onPrefillConsumed={() => {
-              setPrefillHolder(null);
-              setPrefillRegister("");
-            }}
+            loading={isLoading}
+            onRefetch={refetch}
+            prefill={prefill}
+            onPrefillConsumed={() => setPrefill(null)}
           />
         </TabsContent>
 
         <TabsContent value="icu">
           <ConsolidationIcu
             requests={requests.filter((r) => r.status === "PENDING")}
-            allRequests={requests}
-            onApprove={approveRequest}
-            onReject={rejectRequest}
+            loading={isLoading}
+            onRefetch={refetch}
           />
         </TabsContent>
       </Tabs>

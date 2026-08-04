@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import UpdateReconciliation from "@/components/custom/certificate-reconciliation/update-reconciliation";
 import GeneralCertificateReconciliation from "@/components/custom/certificate-reconciliation/general-certificate-recon";
+import { FragmentationPanel } from "@/components/custom/shared/fragmentation-panel";
 
 const tabTriggerClass =
   "rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground " +
@@ -26,8 +27,9 @@ function ReconciliationContent() {
       className="w-full flex! flex-col!"
     >
       <TabsList className="h-auto p-1 bg-muted rounded-xl w-fit gap-0.5">
-        <TabsTrigger value="cscs"    className={tabTriggerClass}>CSCS Update Reconciliation</TabsTrigger>
-        <TabsTrigger value="general" className={tabTriggerClass}>General Certificate Reconciliation</TabsTrigger>
+        <TabsTrigger value="cscs"      className={tabTriggerClass}>CSCS Update Reconciliation</TabsTrigger>
+        <TabsTrigger value="general"   className={tabTriggerClass}>General Certificate Reconciliation</TabsTrigger>
+        <TabsTrigger value="fragmented" className={tabTriggerClass}>Fragmented Accounts</TabsTrigger>
       </TabsList>
 
       <div className="mt-6 space-y-4">
@@ -36,6 +38,9 @@ function ReconciliationContent() {
         </TabsContent>
         <TabsContent value="general" className="space-y-4">
           <GeneralCertificateReconciliation />
+        </TabsContent>
+        <TabsContent value="fragmented" className="space-y-4">
+          <FragmentationPanel description="Shareholders with more than one account (same CHN) in the selected register — reconcile by consolidating these fragmented accounts." />
         </TabsContent>
       </div>
     </Tabs>

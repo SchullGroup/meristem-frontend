@@ -159,11 +159,19 @@ export interface ConsolidationRequestParams {
   pageSize?: number;
 }
 
+// Certificate consolidation is account-based: the backend merges every ACTIVE certificate
+// held by 2–10 source accounts (by Holder UUID) on the same register into one new certificate
+// on the destination account. There is no per-certificate cherry-picking.
 export interface SubmitConsolidationRequest {
-  certIds: string[];
-  newCertNumber: string;
-  reason: string;
-  submittedBy: string;
+  /** Register token (symbol or legacy code); optional — the backend defaults to the destination's. */
+  registerId?: string;
+  /** Holder UUIDs of the 2–10 source accounts (the destination may be one of them). */
+  sourceAccountIds: string[];
+  /** Holder UUID of the surviving/destination account. */
+  destinationAccountId: string;
+  comment: string;
+  initiatedBy?: string;
+  supportingDocuments?: { name: string; url: string }[];
 }
 
 export interface BatchConsolidationRequestPayload {
@@ -191,27 +199,27 @@ export interface Certificate {
   updatedAt: string;
 }
 
+// Mirrors the backend ConsolidationRequestResponse.
 export interface CertificateConsolidation {
   id: string;
   registerId: string;
   registerSymbol: string;
   accountNumber: string;
   holderName: string;
-  newCertNumber: string;
+  newCertNumber: string | null;
   certCount: number;
   totalUnits: number;
-  certificates: [
-    {
-      certNumber: string;
-      units: number;
-      issueDate: string;
-    },
-  ];
+  certificates: {
+    certNumber: string;
+    units: number;
+    issueDate: string;
+  }[];
   reason: string;
-  status: string;
+  status: string; // PENDING | APPROVED | REJECTED
   submittedBy: string;
   submittedAt: string;
-  authoriserComment: string;
+  authoriserComment: string | null;
+  supportingDocuments?: { name: string; url: string }[];
 }
 export type CertificateStatus =
   | "ACTIVE"

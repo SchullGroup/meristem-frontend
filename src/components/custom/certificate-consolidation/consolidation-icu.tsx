@@ -4,46 +4,74 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogHeader,
-} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   CheckCircle2,
   X,
-  AlertTriangle,
   ArrowLeft,
   FileCheck,
+  Loader2,
 } from "lucide-react";
-import { ConsolidationRequest } from "./consolidation-mock";
+import { useMutation } from "@tanstack/react-query";
+import {
+  approveConsolidationRequest,
+  rejectConsolidationRequest,
+} from "@/actions/certConsolidation";
+import { useStore } from "@/lib/store";
+import type { CertificateConsolidation } from "@/types/cscs";
 import { formatNumber } from "@/lib/utils/format";
 import { toast } from "sonner";
 
 interface Props {
-  requests: ConsolidationRequest[];
-  allRequests: ConsolidationRequest[];
-  onApprove: (id: string) => void;
-  onReject: (id: string, comment: string) => void;
+  requests: CertificateConsolidation[]; // already filtered to PENDING by the parent
+  loading?: boolean;
+  onRefetch: () => void; // call after a successful approve/reject
 }
 
-export function ConsolidationIcu({
-  requests,
-  allRequests,
-  onApprove,
-  onReject,
-}: Props) {
+export function ConsolidationIcu({ requests, loading, onRefetch }: Props) {
+  const currentUser = useStore((state) => state.currentUser);
   const [selectedRequest, setSelectedRequest] =
-    useState<ConsolidationRequest | null>(null);
+    useState<CertificateConsolidation | null>(null);
   const [comment, setComment] = useState("");
 
+  const approveMutation = useMutation({
+    mutationFn: (id: string) =>
+      approveConsolidationRequest(id, {
+        comment,
+        authorisedBy: currentUser?.email ?? "",
+      }),
+    onSuccess: () => {
+      toast.success("Consolidation approved. New certificate issued.");
+      setSelectedRequest(null);
+      setComment("");
+      onRefetch();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) =>
+      rejectConsolidationRequest(id, {
+        comment,
+        authorisedBy: currentUser?.email ?? "",
+      }),
+    onSuccess: () => {
+      toast.success("Consolidation request rejected.");
+      setSelectedRequest(null);
+      setComment("");
+      onRefetch();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const isPending = approveMutation.isPending || rejectMutation.isPending;
+
   const handleApprove = (id: string) => {
-    onApprove(id);
-    toast.success("Consolidation approved. Certificates updated.");
-    setSelectedRequest(null);
-    setComment("");
+    approveMutation.mutate(id);
   };
 
   const handleReject = (id: string) => {
@@ -51,18 +79,10 @@ export function ConsolidationIcu({
       toast.error("Please enter a rejection reason");
       return;
     }
-    onReject(id, comment);
-    toast.error("Request rejected.");
-    setSelectedRequest(null);
-    setComment("");
+    rejectMutation.mutate(id);
   };
 
   if (selectedRequest) {
-    const totalUnits = selectedRequest.certificates.reduce(
-      (sum, cert) => sum + cert.units,
-      0
-    );
-
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
@@ -95,14 +115,11 @@ export function ConsolidationIcu({
 
             <div className="space-y-1">
               <p className="font-bold text-lg">{selectedRequest.holderName}</p>
-              <p className="font-mono text-sm text-muted-foreground">
-                BVN: {selectedRequest.holderBvn}
-              </p>
               <p className="text-sm text-muted-foreground">
-                Account No: {selectedRequest.accountNo}
+                Account No: {selectedRequest.accountNumber}
               </p>
               <Badge className="mt-1 bg-blue-100 text-blue-800 border-blue-200">
-                {selectedRequest.register}
+                {selectedRequest.registerSymbol}
               </Badge>
             </div>
 
@@ -123,8 +140,13 @@ export function ConsolidationIcu({
                 </thead>
                 <tbody>
                   {selectedRequest.certificates.map((cert) => (
-                    <tr key={cert.certNo} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-mono">{cert.certNo}</td>
+                    <tr
+                      key={cert.certNumber}
+                      className="border-b last:border-0"
+                    >
+                      <td className="py-2 pr-4 font-mono">
+                        {cert.certNumber}
+                      </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
                         {formatNumber(cert.units)}
                       </td>
@@ -138,7 +160,7 @@ export function ConsolidationIcu({
                       {selectedRequest.certificates.length} certificates
                     </td>
                     <td className="py-2 pr-4 text-right font-bold tabular-nums">
-                      {formatNumber(totalUnits)}
+                      {formatNumber(selectedRequest.totalUnits)}
                     </td>
                     <td className="py-2 text-right font-bold text-muted-foreground text-xs">
                       total units
@@ -166,7 +188,7 @@ export function ConsolidationIcu({
                   New Certificate Number
                 </p>
                 <p className="font-mono font-bold text-lg">
-                  {selectedRequest.newCertNo}
+                  {selectedRequest.newCertNumber ?? "— (minted on approval)"}
                 </p>
               </div>
 
@@ -175,7 +197,7 @@ export function ConsolidationIcu({
                   Total Units
                 </p>
                 <p className="font-bold text-xl tabular-nums">
-                  {formatNumber(totalUnits)}
+                  {formatNumber(selectedRequest.totalUnits)}
                 </p>
               </div>
 
@@ -194,7 +216,9 @@ export function ConsolidationIcu({
                 </p>
                 <p>
                   <span className="text-muted-foreground">Date: </span>
-                  <span>{selectedRequest.createdAt}</span>
+                  <span>
+                    {new Date(selectedRequest.submittedAt).toLocaleDateString()}
+                  </span>
                 </p>
               </div>
             </Card>
@@ -212,17 +236,27 @@ export function ConsolidationIcu({
               <div className="flex gap-3">
                 <Button
                   variant="outline"
+                  disabled={isPending}
                   className="flex-1 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground gap-1"
                   onClick={() => handleReject(selectedRequest.id)}
                 >
-                  <X className="h-4 w-4" />
+                  {rejectMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <X className="h-4 w-4" />
+                  )}
                   Reject
                 </Button>
                 <Button
                   className="flex-1 gap-1"
+                  disabled={isPending}
                   onClick={() => handleApprove(selectedRequest.id)}
                 >
-                  <CheckCircle2 className="h-4 w-4" />
+                  {approveMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
                   Approve
                 </Button>
               </div>
@@ -248,7 +282,12 @@ export function ConsolidationIcu({
         </Badge>
       </div>
 
-      {requests.length === 0 ? (
+      {loading && requests.length === 0 ? (
+        <Card className="p-12 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="font-medium">Loading…</p>
+        </Card>
+      ) : requests.length === 0 ? (
         <Card className="p-12 flex flex-col items-center justify-center text-center gap-3">
           <FileCheck className="h-10 w-10 text-muted-foreground/50" />
           <p className="font-medium">No pending consolidation requests.</p>
@@ -290,51 +329,50 @@ export function ConsolidationIcu({
                 </tr>
               </thead>
               <tbody>
-                {requests.map((req) => {
-                  const totalUnits = req.certificates.reduce(
-                    (sum, cert) => sum + cert.units,
-                    0
-                  );
-                  return (
-                    <tr key={req.id} className="border-b last:border-0 hover:bg-muted/20">
-                      <td className="py-3 px-4 font-mono font-bold text-xs">
-                        {req.id}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">{req.createdAt}</td>
-                      <td className="py-3 px-4 font-bold whitespace-nowrap">
-                        {req.holderName}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                          {req.register}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                          {req.certificates.length}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold tabular-nums whitespace-nowrap">
-                        {formatNumber(totalUnits)}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {req.submittedBy}
-                      </td>
-                      <td className="py-3 px-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedRequest(req);
-                            setComment("");
-                          }}
-                        >
-                          Review &amp; Decide
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {requests.map((req) => (
+                  <tr
+                    key={req.id}
+                    className="border-b last:border-0 hover:bg-muted/20"
+                  >
+                    <td className="py-3 px-4 font-mono font-bold text-xs">
+                      {req.id.slice(0, 8)}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {new Date(req.submittedAt).toLocaleDateString()}
+                    </td>
+                    <td className="py-3 px-4 font-bold whitespace-nowrap">
+                      {req.holderName}
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                        {req.registerSymbol}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                        {req.certCount}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold tabular-nums whitespace-nowrap">
+                      {formatNumber(req.totalUnits)}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      {req.submittedBy}
+                    </td>
+                    <td className="py-3 px-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedRequest(req);
+                          setComment("");
+                        }}
+                      >
+                        Review &amp; Decide
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

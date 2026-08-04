@@ -246,6 +246,7 @@ export interface KycFieldChange {
 }
 
 export interface CreateKycChangeRequest {
+  registerId: string;
   changeType: string;
   changes: KycFieldChange[];
   supportingDocUrl?: string;
@@ -292,6 +293,7 @@ export interface AccountSearchParams {
 }
 
 export interface CautionAccountRequest {
+  registerId: string;
   cautionReasonCode: string;
   additionalNotes?: string;
   supportingDocumentUrl?: string;
@@ -300,6 +302,7 @@ export interface CautionAccountRequest {
 }
 
 export interface RemoveCautionParams {
+  registerId: string;
   reason: string;
   initiatedBy?: string;
 }
@@ -312,6 +315,7 @@ export interface KycDocumentEntry {
 }
 
 export interface SubmitKycDocumentsRequest {
+  registerId: string;
   documents: KycDocumentEntry[];
   reason: string;
   initiatedBy?: string;
@@ -338,6 +342,7 @@ export interface AccountKycDocument {
 }
 
 export interface SubmitSignatureRequest {
+  registerId: string;
   signatureUrl: string;
   reason: string;
   initiatedBy?: string;
