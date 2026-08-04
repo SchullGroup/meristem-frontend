@@ -16,6 +16,8 @@ import {
   CalendarIcon,
   Undo2,
   ArrowLeft,
+  Eye,
+  ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -57,6 +59,7 @@ import {
   getHolderAdmonRecords,
   getHolderKycDocuments,
   getHolderSignature,
+  getHolderSignatureArchive,
   getHolderStatement,
   getDividendStatement,
 } from "@/actions/enquiryActions";
@@ -301,6 +304,34 @@ export default function HolderEnquiryPage() {
     uploadedAt: string;
     status: string;
   }[] = kycDocsData?.data ?? [];
+
+  // Full signature history — a holder can have several signatures on file (active + superseded).
+  const { data: sigArchiveData, isLoading: isLoadingArchive } = useQuery({
+    queryKey: ["holderSignatureArchive", holder?.id],
+    queryFn: () => getHolderSignatureArchive(holder!.id),
+    enabled: !!holder?.id,
+  });
+  const sigArchive: {
+    id: string;
+    signatureUrl: string;
+    capturedAt: string;
+    lastUpdatedAt: string;
+  }[] = sigArchiveData?.data ?? [];
+
+  // Signatures to show in the widget — the full archive, falling back to the active one.
+  // The active signature is `sigOnFile` (matched by id).
+  const sigList = sigArchive.length > 0 ? sigArchive : sigOnFile ? [sigOnFile] : [];
+  const [selectedSigId, setSelectedSigId] = useState<string | null>(null);
+  const selectedSig =
+    sigList.find((s) => s.id === selectedSigId) ??
+    sigList.find((s) => s.id === sigOnFile?.id) ??
+    sigList[0] ??
+    null;
+
+  // KYC document opened in the in-app A4 preview popup (image inline / PDF in an iframe).
+  const [previewDoc, setPreviewDoc] = useState<(typeof kycDocs)[number] | null>(
+    null,
+  );
 
   type HolderModal =
     | "statement"
@@ -1552,87 +1583,153 @@ export default function HolderEnquiryPage() {
         onOpenChange={setReversalOpen}
       />
 
-      {/* ── Signature Modal ── */}
+      {/* ── Signature Modal — active + history, large A4 preview ── */}
       <Dialog
         open={activeModal === "signature"}
         onOpenChange={(o) => !o && setActiveModal(null)}
       >
-        <DialogContent className="max-w-sm flex flex-col p-0 gap-0">
-          <DialogHeader className="pl-6 pr-14 pt-6 pb-4 border-b shrink-0">
-            <DialogTitle>Signature on File</DialogTitle>
+        <DialogContent className="max-w-5xl w-[95vw] h-[92vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="pl-6 pr-14 pt-5 pb-4 border-b shrink-0">
+            <DialogTitle>Signatures on File</DialogTitle>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {holder?.lastName}, {holder?.firstName}
+              {holder?.lastName}, {holder?.firstName} · {holder?.accountNumber}
             </p>
           </DialogHeader>
-          <div className="p-6 space-y-4">
-            {isLoadingSig ? (
-              <div className="flex items-center justify-center gap-2 h-40 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading signature…
+
+          {isLoadingSig || isLoadingArchive ? (
+            <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading signatures…
+            </div>
+          ) : sigList.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+              <PenLine className="h-10 w-10 text-muted-foreground/30" />
+              No signature on file
+            </div>
+          ) : (
+            <div className="flex flex-1 min-h-0">
+              {/* Left: signature list (active + history) */}
+              <div className="w-60 shrink-0 border-r overflow-y-auto p-3 space-y-2">
+                <p className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {sigList.length} signature{sigList.length !== 1 ? "s" : ""}
+                </p>
+                {sigList.map((s, i) => {
+                  const isActive = s.id === sigOnFile?.id;
+                  const isSelected = s.id === selectedSig?.id;
+                  return (
+                    <button
+                      key={s.id ?? i}
+                      type="button"
+                      onClick={() => setSelectedSigId(s.id)}
+                      className={`w-full rounded-lg border p-2 text-left transition-colors ${isSelected ? "border-primary ring-1 ring-primary bg-primary/5" : "hover:bg-muted/40"}`}
+                    >
+                      <div className="flex h-20 w-full items-center justify-center overflow-hidden rounded border bg-white">
+                        {s.signatureUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={s.signatureUrl}
+                            alt="signature thumbnail"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <PenLine className="h-5 w-5 text-muted-foreground/30" />
+                        )}
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between gap-1">
+                        <span className="text-[11px] font-mono text-muted-foreground">
+                          {s.capturedAt || "—"}
+                        </span>
+                        {isActive && (
+                          <Badge className="border-0 bg-green-100 text-green-800 text-[10px]">
+                            Active
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            ) : sigOnFile?.signatureUrl ? (
-              <>
-                <div className="rounded-xl border bg-muted/10 flex items-center justify-center p-4 min-h-40">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={sigOnFile.signatureUrl}
-                    alt="Holder signature"
-                    className="max-h-36 max-w-full object-contain"
-                  />
-                </div>
-                <div className="text-[12px] text-muted-foreground space-y-1">
-                  {sigOnFile.capturedAt && (
-                    <div className="flex justify-between">
-                      <span>Captured:</span>
-                      <span className="font-mono">{sigOnFile.capturedAt}</span>
+
+              {/* Right: large A4 preview of the selected signature */}
+              <div className="flex flex-1 min-w-0 flex-col">
+                <div className="flex-1 min-h-0 overflow-auto bg-muted/10 p-4 flex items-start justify-center">
+                  {selectedSig?.signatureUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={selectedSig.signatureUrl}
+                      alt="Signature"
+                      className="w-auto max-w-full object-contain bg-white shadow-sm"
+                      style={{ maxHeight: "100%" }}
+                    />
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <PenLine className="h-10 w-10 text-muted-foreground/30" />
+                      No image for this signature
                     </div>
                   )}
-                  {sigOnFile.lastUpdatedAt && (
-                    <div className="flex justify-between">
-                      <span>Last updated:</span>
-                      <span className="font-mono">
-                        {sigOnFile.lastUpdatedAt}
+                </div>
+                <div className="flex shrink-0 items-center justify-between gap-3 border-t px-6 py-3">
+                  <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
+                    {selectedSig?.id === sigOnFile?.id && (
+                      <Badge className="border-0 bg-green-100 text-green-800 text-[10px]">
+                        Active
+                      </Badge>
+                    )}
+                    {selectedSig?.capturedAt && (
+                      <span>
+                        Captured{" "}
+                        <span className="font-mono">
+                          {selectedSig.capturedAt}
+                        </span>
                       </span>
-                    </div>
-                  )}
+                    )}
+                    {selectedSig?.lastUpdatedAt && (
+                      <span>
+                        · Updated{" "}
+                        <span className="font-mono">
+                          {selectedSig.lastUpdatedAt}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!selectedSig?.signatureUrl}
+                      onClick={() =>
+                        selectedSig?.signatureUrl &&
+                        window.open(selectedSig.signatureUrl, "_blank")
+                      }
+                    >
+                      <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!selectedSig?.signatureUrl}
+                      onClick={() =>
+                        holder &&
+                        selectedSig &&
+                        printSignatureOnFile(
+                          {
+                            name: `${holder.lastName}, ${holder.firstName}`,
+                            accountNumber: holder.accountNumber,
+                            registerSymbol: holder.registerSymbol,
+                            chn: holder.chn,
+                            address: holder.contact?.address,
+                          },
+                          selectedSig,
+                        )
+                      }
+                    >
+                      <Printer className="mr-1.5 h-3.5 w-3.5" /> Print
+                    </Button>
+                  </div>
                 </div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-2 h-40 text-sm text-muted-foreground">
-                <PenLine className="h-8 w-8 text-muted-foreground/30" />
-                No signature on file
               </div>
-            )}
-          </div>
-          <div className="px-6 pb-5 flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!sigOnFile?.signatureUrl}
-              onClick={() =>
-                holder &&
-                printSignatureOnFile(
-                  {
-                    name: `${holder.lastName}, ${holder.firstName}`,
-                    accountNumber: holder.accountNumber,
-                    registerSymbol: holder.registerSymbol,
-                    chn: holder.chn,
-                    address: holder.contact?.address,
-                  },
-                  sigOnFile,
-                )
-              }
-            >
-              <Printer className="mr-1.5 h-3.5 w-3.5" /> Print
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveModal(null)}
-            >
-              Close
-            </Button>
-          </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1691,9 +1788,9 @@ export default function HolderEnquiryPage() {
                         variant="ghost"
                         size="sm"
                         className="h-7 text-[12px]"
-                        onClick={() => window.open(doc.documentUrl, "_blank")}
+                        onClick={() => setPreviewDoc(doc)}
                       >
-                        View
+                        <Eye className="mr-1 h-3.5 w-3.5" /> Preview
                       </Button>
                     </div>
                   </div>
@@ -1703,6 +1800,57 @@ export default function HolderEnquiryPage() {
           </div>
           <div className="px-6 py-4 border-t flex justify-end shrink-0">
             <Button variant="ghost" onClick={() => setActiveModal(null)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── KYC Document Preview (in-app popup, A4) ── */}
+      <Dialog open={!!previewDoc} onOpenChange={(o) => !o && setPreviewDoc(null)}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="pl-6 pr-14 pt-5 pb-4 border-b shrink-0">
+            <DialogTitle className="truncate">
+              {previewDoc?.documentName || previewDoc?.documentType || "Document"}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {previewDoc?.documentType}
+              {previewDoc?.documentRef ? ` · ${previewDoc.documentRef}` : ""}
+            </p>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 overflow-auto bg-muted/10 p-4 flex items-start justify-center">
+            {previewDoc &&
+              (/\.pdf(\?|#|$)/i.test(previewDoc.documentUrl || "") ? (
+                <iframe
+                  src={previewDoc.documentUrl}
+                  title={previewDoc.documentName || "Document"}
+                  className="h-full w-full border-0 bg-white"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewDoc.documentUrl}
+                  alt={previewDoc.documentName || "Document"}
+                  className="w-auto max-w-full object-contain bg-white shadow-sm"
+                  style={{ maxHeight: "100%" }}
+                />
+              ))}
+          </div>
+          <div className="flex shrink-0 justify-end gap-2 border-t px-6 py-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                previewDoc && window.open(previewDoc.documentUrl, "_blank")
+              }
+            >
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open in new tab
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPreviewDoc(null)}
+            >
               Close
             </Button>
           </div>

@@ -465,3 +465,16 @@ export const getHolderSignature = async (holderId: string) => {
     throw new Error(returnErrorMessage(err));
   }
 };
+
+// Full signature history for a holder (a holder can have several signatures on file).
+export const getHolderSignatureArchive = async (holderId: string) => {
+  try {
+    const res = await api.get(
+      `/holders/signature/archive?holderId=${encodeURIComponent(holderId)}`,
+    );
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
