@@ -194,13 +194,7 @@ export function KycDocumentsTab({
           status: "done",
         }));
       } else {
-        const r = res?.result;
-        const msg =
-          r instanceof Error
-            ? r.message
-            : typeof r === "string"
-              ? r
-              : "Upload failed";
+        const msg = res?.result || "Upload failed";
         setSigEntry((prev) => ({
           ...prev,
           status: "error",
@@ -273,13 +267,7 @@ export function KycDocumentsTab({
       if (res?.type === "success") {
         updateKycDocEntry(id, { url: res.result as string, status: "done" });
       } else {
-        const r = res?.result;
-        const errorMsg =
-          r instanceof Error
-            ? r.message
-            : typeof r === "string"
-              ? r
-              : "Upload failed";
+        const errorMsg = res?.result || "Upload failed";
         updateKycDocEntry(id, { status: "error", errorMsg, file: null });
       }
     } catch (err: unknown) {

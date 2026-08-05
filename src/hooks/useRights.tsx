@@ -7,22 +7,11 @@ import {
 
 import {
   getAllRightsIssues,
-  getRightsIssueById,
-  createRightsIssue,
-  submitForApproval,
-  rejectRightsIssue,
   icuReject,
   icuApprove,
-  approveRightsIssue,
   getRightsIssueShareholders,
   computeEntitlements,
-  uploadAllotment,
-  processAllotment,
   getAllotment,
-  getTradedRights,
-  createTradedRights,
-  deleteTradedRights,
-  getStickyLabels,
   getTradedRightsReport,
   exportStateAnalysisReport,
   getRightsEntitlementReport,
@@ -30,7 +19,6 @@ import {
   exportNonAcceptanceReport,
   exportAllotmentReport,
   exportAcceptanceSummaryReport,
-  lodgeRightsIssueDeclaration,
   emailShareholders,
   getOrCreateRightsDeclaration,
   createRightsReturnBatch,
@@ -55,7 +43,6 @@ import {
   type AllotmentBand,
 } from "@/actions/rightsActions";
 import {
-  CreateRightsIssue,
   RightsIssueParams,
   Shareholder,
   AllotmentParams,
@@ -100,15 +87,6 @@ export interface TransformedResponse<T> {
   };
 }
 
-export interface TransformedShareholderProfileResponse<T> {
-  content: T[];
-  pagination: {
-    total: number;
-    page: number;
-    totalPages: number;
-  };
-}
-
 export const useAllRightsIssues = (params?: RightsIssueParams, options?: Omit<
   UseQueryOptions<
     PaginatedResponse<RightsIssue>,
@@ -139,56 +117,6 @@ export const useAllRightsIssues = (params?: RightsIssueParams, options?: Omit<
     },
     refetchOnWindowFocus: false,
     ...options,
-  });
-};
-
-export const useRightsIssueById = (id: string) => {
-  return useQuery({
-    queryKey: ["rightsIssues", id],
-    queryFn: () => getRightsIssueById(id),
-    refetchOnWindowFocus: false,
-  });
-};
-
-export const useCreateRightsIssue = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: CreateRightsIssue) => createRightsIssue(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["rightsIssues"] });
-    },
-  });
-};
-
-export const useSubmitForApproval = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => submitForApproval(id),
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["rightsIssues", id] });
-      queryClient.invalidateQueries({ queryKey: ["rightsIssues"] });
-    },
-  });
-};
-
-export const useRejectRightsIssue = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: {
-      id: string;
-      decision: string;
-      comment: string;
-      createdBy: string;
-    }) => rejectRightsIssue(payload),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["rightsIssues", variables.id],
-      });
-      queryClient.invalidateQueries({ queryKey: ["rightsIssues"] });
-    },
   });
 };
 
@@ -242,26 +170,6 @@ export const useIcuApprove = () => {
   });
 };
 
-export const useApproveRightsIssue = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: {
-      id: string;
-      decision: string;
-      comment: string;
-      createdBy: string;
-    }) => approveRightsIssue(data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["rightsIssues", variables.id],
-      });
-      queryClient.invalidateQueries({ queryKey: ["rightsIssues"] });
-      queryClient.invalidateQueries({ queryKey: ["rightsIssues"] });
-    },
-  });
-};
-
 export const useGetRightsIssueShareholders = ({
   params,
   options,
@@ -292,37 +200,6 @@ export const useGetRightsIssueShareholders = ({
     },
     refetchOnMount: "always",
     ...options,
-  });
-};
-
-export const useUploadAllotment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: FormData }) =>
-      uploadAllotment(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["rightsIssues", variables.id],
-      });
-    },
-  });
-};
-
-export const useProcessAllotment = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: FormData }) =>
-      processAllotment(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["rightsIssues", variables.id],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["rightsIssues", variables.id, "allotment"],
-      });
-    },
   });
 };
 
@@ -368,127 +245,6 @@ export const useGetAllotment = (
         total: data?.data?.content?.length ?? 0,
       },
     }),
-    ...options,
-  });
-};
-
-export const useGetTradedRights = (params: RightsIssueParams) => {
-  return useQuery({
-    queryKey: ["rightsIssues", params.id, "traded-rights", params],
-    queryFn: () => getTradedRights(params),
-    enabled: !!params.id,
-    select: (data) => {
-      return {
-        content: data.data.content,
-        pagination: {
-          total: data.data.totalElements,
-          page: data.data.number,
-          totalPages: data.data.totalPages,
-        },
-      };
-    },
-  });
-};
-
-export const useCreateTradedRights = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: {
-        shareholderId: string;
-        volume: number;
-        memberCode: string;
-      };
-    }) => createTradedRights({ id, data }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["rightsIssues", variables.id, "traded-rights"],
-      });
-    },
-  });
-};
-
-export const useDeleteTradedRights = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (params: { id: string; entryId: string }) =>
-      deleteTradedRights(params),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["rightsIssues", variables.id, "traded-rights"],
-      });
-    },
-  });
-};
-
-export const useLodgeRightsIssueDeclaration = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: {
-        lodgmentDate: string;
-        lodgmentRef: string;
-        notes: string;
-        processedBy: string;
-      };
-    }) => lodgeRightsIssueDeclaration(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ["rightsIssues", variables.id, "traded-rights"],
-      });
-    },
-  });
-};
-
-export const useGetStickyLabels = (
-  params: RightsIssueParams,
-  options?: Omit<
-    UseQueryOptions<
-      PaginatedResponse<{
-        shareholderId: string;
-        shareholderName: string;
-        accountNumber: string;
-        email: string;
-        address: string;
-        issueName: string;
-      }>,
-      Error,
-      TransformedShareholderProfileResponse<{
-        shareholderId: string;
-        shareholderName: string;
-        accountNumber: string;
-        email: string;
-        address: string;
-        issueName: string;
-      }>
-    >,
-    "queryKey" | "queryFn"
-  >,
-) => {
-  return useQuery({
-    queryKey: ["rightsIssues", params.id, "sticky-label", params],
-    queryFn: () => getStickyLabels(params),
-    select: (data) => {
-      return {
-        content: data?.data?.content,
-        pagination: {
-          total: data?.data?.totalElements,
-          page: data?.data?.number,
-          totalPages: data?.data?.totalPages,
-        },
-      };
-    },
     ...options,
   });
 };

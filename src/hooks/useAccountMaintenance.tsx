@@ -2,7 +2,6 @@ import {
   authoriseAdmon,
   authoriseAdmonReversal,
   authoriseConsolidation,
-  authoriseKycChange,
   batchAuthoriseAdmons,
   batchAuthoriseAdmonReversals,
   batchAuthoriseConsolidations,
@@ -18,18 +17,13 @@ import {
   createKycChange,
   firstApproveKycChange,
   icuApproveKycChange,
-  exportAccountKycHistory,
-  getAccount,
   getAccountKycHistory,
   getAccounts,
-  getAdmon,
   getAdmonReversals,
   getAdmons,
-  getConsolidation,
   getConsolidations,
   getConsolidationUploadJob,
   getKycChanges,
-  getKycChangesUploadJob,
   rejectAdmon,
   rejectAdmonReversal,
   cancelKycChange,
@@ -37,19 +31,6 @@ import {
   rejectKycChange,
   reverseConsolidation,
   uploadConsolidations,
-  uploadKycChanges,
-  uploadHolderSignature,
-  uploadHolderKycDocuments,
-  getHolderKycDocuments,
-  verifyHolderKycDocument,
-  rejectHolderKycDocument,
-  getHolderSignature,
-  getHolderSignatureArchive,
-  previewKycBulkUpload,
-  submitKycBulkUpload,
-  previewNibssMandateUpload,
-  submitNibssMandateUpload,
-  searchAccounts,
   cautionAccount,
   removeCautionAccount,
   getAccountCautionReasons,
@@ -93,14 +74,6 @@ import {
   KycDecisionRequest,
   KycCancelRequest,
   IcuApproveRequest,
-  KycUploadJob,
-  KycBulkPreviewResponse,
-  KycBulkSubmitRequest,
-  KycBulkSubmitResponse,
-  NibssMandatePreviewResponse,
-  NibssMandateSubmitRequest,
-  NibssMandateSubmitResponse,
-  ShareholderAccount,
   AdmonListResponse,
   AdmonDecisionRequest,
   BatchAdmonRequest,
@@ -108,11 +81,6 @@ import {
   BatchAdmonReversalRequest,
   BatchAdmonReversalResponse,
   AdmonReversalListResponse,
-  HolderKycDocRequest,
-  HolderSignatureRequest,
-  HolderKycDocument,
-  AccountSearchResult,
-  AccountSearchParams,
   CautionAccountRequest,
   RemoveCautionParams,
   SubmitKycDocumentsRequest,
@@ -144,21 +112,6 @@ export const useGetConsolidations = (
         },
       };
     },
-    ...options,
-  });
-
-export const useGetConsolidation = (
-  id: number,
-  options?: Omit<
-    UseQueryOptions<ApiResponse<Consolidation>>,
-    "queryKey" | "queryFn"
-  >,
-) =>
-  useQuery({
-    queryKey: ["consolidation", id],
-    queryFn: () => getConsolidation(id),
-    enabled: !!id,
-    refetchOnWindowFocus: false,
     ...options,
   });
 
@@ -322,38 +275,7 @@ export const useGetAccountKycHistory = (
     ...options,
   });
 
-export const useGetAccount = (
-  accountNumber: string,
-  registerId?: string,
-  options?: Omit<
-    UseQueryOptions<ApiResponse<ShareholderAccount>>,
-    "queryKey" | "queryFn"
-  >,
-) =>
-  useQuery({
-    queryKey: ["accounts", accountNumber, registerId],
-    queryFn: () => getAccount(accountNumber, registerId),
-    enabled: !!accountNumber && !!registerId,
-    refetchOnWindowFocus: false,
-    ...options,
-  });
-
 // ── Account-scoped KYC: search, caution, documents & signatures ──────────────
-
-export const useSearchAccounts = (
-  params: AccountSearchParams,
-  options?: Omit<
-    UseQueryOptions<ApiResponse<AccountSearchResult[]>>,
-    "queryKey" | "queryFn"
-  >,
-) =>
-  useQuery({
-    queryKey: ["accounts-search", params],
-    queryFn: () => searchAccounts(params),
-    enabled: (params.q?.trim().length ?? 0) > 0,
-    refetchOnWindowFocus: false,
-    ...options,
-  });
 
 // Active caution reason codes for the caution dialog (account-scoped endpoint).
 export const useGetAccountCautionReasons = (
@@ -537,29 +459,6 @@ export const useCreateKycChange = (
     },
   });
 };
-export const useAuthoriseKycChange = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<KycChange>,
-      Error,
-      {
-        id: number;
-        data: KycDecisionRequest;
-      }
-    >,
-    "mutationFn"
-  >,
-) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }) => authoriseKycChange(id, data),
-    ...options,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
-    },
-  });
-};
-
 // 1st-level approval (moves a pending change to FIRST_APPROVED).
 export const useFirstApproveKycChange = (
   options?: Omit<
@@ -635,17 +534,6 @@ export const useRejectKycChange = (
   });
 };
 
-// Export an account's full KYC change history as .xlsx (returns a Blob).
-export const useExportAccountKycHistory = (
-  options?: Omit<
-    UseMutationOptions<Blob, Error, { accountNumber: string }>,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: ({ accountNumber }) => exportAccountKycHistory(accountNumber),
-    ...options,
-  });
 export const useCancelKycChange = (
   options?: Omit<
     UseMutationOptions<
@@ -711,210 +599,6 @@ export const useBatchRejectKycChanges = (
   });
 };
 
-export const useUploadKycChanges = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<KycUploadJob>,
-      Error,
-      {
-        file: File;
-        registerId?: string;
-      }
-    >,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: ({ file, registerId }) => uploadKycChanges(file, registerId),
-    ...options,
-  });
-
-export const useGetBulkKycChangesUploadJob = (
-  jobId: string,
-  options?: Omit<
-    UseQueryOptions<ApiResponse<KycUploadJob>>,
-    "queryKey" | "queryFn"
-  >,
-) =>
-  useQuery({
-    queryKey: ["kyc-changes-upload", jobId],
-    queryFn: () => getKycChangesUploadJob(jobId),
-    ...options,
-  });
-
-export const usePreviewKycBulkUpload = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<KycBulkPreviewResponse>,
-      Error,
-      { file: File; registerId?: string }
-    >,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: ({ file, registerId }) =>
-      previewKycBulkUpload(file, registerId),
-    ...options,
-  });
-
-export const useSubmitKycBulkUpload = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<KycBulkSubmitResponse>,
-      Error,
-      KycBulkSubmitRequest
-    >,
-    "mutationFn"
-  >,
-) => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: submitKycBulkUpload,
-    ...options,
-    onSuccess: (...args) => {
-      queryClient.invalidateQueries({ queryKey: ["kyc-changes"] });
-      options?.onSuccess?.(...args);
-    },
-  });
-};
-
-export const usePreviewNibssMandateUpload = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<NibssMandatePreviewResponse>,
-      Error,
-      { file: File }
-    >,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: ({ file }) => previewNibssMandateUpload(file),
-    ...options,
-  });
-
-export const useSubmitNibssMandateUpload = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<NibssMandateSubmitResponse>,
-      Error,
-      NibssMandateSubmitRequest
-    >,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: submitNibssMandateUpload,
-    ...options,
-  });
-
-export const useUploadHolderSignature = (
-  options?: Omit<
-    UseMutationOptions<ApiResponse<any>, Error, HolderSignatureRequest>,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: uploadHolderSignature,
-    ...options,
-  });
-
-export const useUploadHolderKycDocuments = (
-  options?: Omit<
-    UseMutationOptions<ApiResponse<any>, Error, HolderKycDocRequest>,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: uploadHolderKycDocuments,
-    ...options,
-  });
-
-export const useGetHolderSignature = (
-  holderId: string,
-  options?: Omit<
-    UseQueryOptions<{ data: { signatureUrl: string } | null }>,
-    "queryKey" | "queryFn"
-  >,
-) =>
-  useQuery({
-    queryKey: ["holder-signature", holderId],
-    queryFn: () => getHolderSignature(holderId),
-    enabled: !!holderId,
-    refetchOnWindowFocus: false,
-    ...options,
-  });
-
-export const useGetHolderSignatureArchive = (
-  holderId: string,
-  options?: Omit<
-    UseQueryOptions<{
-      data: {
-        id: string;
-        signatureUrl: string;
-        status: "ACTIVE" | "ARCHIVED";
-        uploadedAt: string;
-        uploadedBy: string;
-        approvedAt?: string;
-        approvedBy?: string;
-      }[];
-    }>,
-    "queryKey" | "queryFn"
-  >,
-) =>
-  useQuery({
-    queryKey: ["holder-signature-archive", holderId],
-    queryFn: () => getHolderSignatureArchive(holderId),
-    enabled: !!holderId,
-    refetchOnWindowFocus: false,
-    ...options,
-  });
-
-export const useGetHolderKycDocuments = (
-  holderId: string,
-  options?: Omit<
-    UseQueryOptions<{ data: HolderKycDocument[] }>,
-    "queryKey" | "queryFn"
-  >,
-) =>
-  useQuery({
-    queryKey: ["holder-kyc-documents", holderId],
-    queryFn: () => getHolderKycDocuments(holderId),
-    enabled: !!holderId,
-    refetchOnWindowFocus: false,
-    ...options,
-  });
-
-export const useVerifyHolderKycDocument = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<any>,
-      Error,
-      { id: string; actionBy: string }
-    >,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: (data) => verifyHolderKycDocument(data, data.id),
-    ...options,
-  });
-
-export const useRejectHolderKycDocument = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<any>,
-      Error,
-      { id: string; actionBy: string }
-    >,
-    "mutationFn"
-  >,
-) =>
-  useMutation({
-    mutationFn: (data) => rejectHolderKycDocument(data, data.id),
-    ...options,
-  });
 
 export const useGetAdmons = (
   params?: AdmonFilters,
@@ -926,18 +610,6 @@ export const useGetAdmons = (
   useQuery({
     queryKey: ["admons", params],
     queryFn: () => getAdmons(params),
-    refetchOnWindowFocus: false,
-    ...options,
-  });
-
-export const useGetAdmon = (
-  id: number,
-  options?: Omit<UseQueryOptions<ApiResponse<Admon>>, "queryKey" | "queryFn">,
-) =>
-  useQuery({
-    queryKey: ["admon", id],
-    queryFn: () => getAdmon(id),
-    enabled: !!id,
     refetchOnWindowFocus: false,
     ...options,
   });

@@ -1,6 +1,5 @@
 import {
   useMutation,
-  UseMutationOptions,
   useQuery,
   useQueryClient,
   UseQueryOptions,
@@ -31,15 +30,9 @@ import {
   getApplicationOfferSummaryReport,
   exportApplicationOfferSummaryReport,
   approveLodgment,
-  getRejectedOpsBatches,
-  opsReviewRefundSubscriber,
-  icuReviewRefundSubscriber,
-  opsReviewRefundBatch,
-  icuReviewRefundBatch,
-  getRefundEligibleSubscribers,
 } from "@/actions/ipoActions";
 
-import { ApiResponse, ContentPaginatedResponse } from "@/types";
+import { ContentPaginatedResponse } from "@/types";
 import {
   IPO,
   IPOBatchType,
@@ -52,10 +45,6 @@ import {
   FullSubscriptionListResponse,
   ApplicationOfferResponse,
   ApplicationOfferSummaryResponse,
-  IpoRefundSubscriber,
-  RefundReviewRequest,
-  RefundBatchReviewResponse,
-  RefundEligibleParams,
 } from "@/types/ipo";
 
 export const ipoKeys = {
@@ -218,17 +207,6 @@ export const useOpsRejectIpo = () => {
         queryKey: ["ipo", "detail", variables.batchRef],
       });
     },
-  });
-};
-
-export const useGetRejectedIpoBatches = (
-  params?: PendingApprovalParams,
-  options?: Omit<UseQueryOptions<ContentPaginatedResponse<IPO>, Error, ContentPaginatedResponse<IPO>>, "queryKey" | "queryFn">,
-) => {
-  return useQuery({
-    queryKey: ["ipo", "rejected", params],
-    queryFn: () => getRejectedOpsBatches(params),
-    ...options,
   });
 };
 
@@ -519,184 +497,6 @@ export const useApproveBatchLodgment = () => {
 };
 
 
-export const useOpsReviewRefundSubscriber = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<IpoRefundSubscriber>,
-      Error,
-      {
-        subscriberId: string;
-        payload: RefundReviewRequest;
-      }
-    >,
-    "mutationKey" | "mutationFn"
-  >,
-) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      subscriberId,
-      payload,
-    }) =>
-      opsReviewRefundSubscriber(
-        subscriberId,
-        payload,
-      ),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["refund-eligible-subscribers"],
-      });
-    },
-
-    ...options,
-  });
-};
-
-export const useIcuReviewRefundSubscriber = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<IpoRefundSubscriber>,
-      Error,
-      {
-        subscriberId: string;
-        payload: RefundReviewRequest;
-      }
-    >,
-    "mutationKey" | "mutationFn"
-  >,
-) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      subscriberId,
-      payload,
-    }) =>
-      icuReviewRefundSubscriber(
-        subscriberId,
-        payload,
-      ),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["refund-eligible-subscribers"],
-      });
-    },
-
-    ...options,
-  });
-};
-
-export const useOpsReviewRefundBatch = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<RefundBatchReviewResponse>,
-      Error,
-      {
-        batchRef: string;
-        payload: RefundReviewRequest;
-      }
-    >,
-    "mutationKey" | "mutationFn"
-  >,
-) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      batchRef,
-      payload,
-    }) =>
-      opsReviewRefundBatch(
-        batchRef,
-        payload,
-      ),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["refund-eligible-subscribers"],
-      });
-    },
-
-    ...options,
-  });
-};
-
-export const useIcuReviewRefundBatch = (
-  options?: Omit<
-    UseMutationOptions<
-      ApiResponse<RefundBatchReviewResponse>,
-      Error,
-      {
-        batchRef: string;
-        payload: RefundReviewRequest;
-      }
-    >,
-    "mutationKey" | "mutationFn"
-  >,
-) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({
-      batchRef,
-      payload,
-    }) =>
-      icuReviewRefundBatch(
-        batchRef,
-        payload,
-      ),
-
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["refund-eligible-subscribers"],
-      });
-    },
-
-    ...options,
-  });
-};
-
-export const useGetRefundEligibleSubscribers = (
-  batchRef: string,
-  params?: RefundEligibleParams,
-  options?: Omit<
-    UseQueryOptions<
-      ApiResponse<ContentPaginatedResponse<IpoRefundSubscriber>>,
-      Error,
-      TransformedResponse<IpoRefundSubscriber>
-    >,
-    "queryKey" | "queryFn"
-  >,
-) => {
-  return useQuery({
-    queryKey: [
-      "refund-eligible-subscribers",
-      batchRef,
-      params,
-    ],
-    queryFn: () =>
-      getRefundEligibleSubscribers(
-        batchRef,
-        params,
-      ),
-    enabled: !!batchRef,
-    select: (data) => {
-      return {
-        content: data?.data?.content,
-        pagination: {
-          total: data?.data?.totalElements,
-          page: data?.data?.page,
-          totalPages: data?.data?.totalPages,
-        }
-      }
-    },
-    refetchOnWindowFocus: false,
-    ...options,
-  });
-};
 // ── IPO backend integration (drafts): allotment, vetting, SEC, preview ───────
 import {
   listIpoBatchesByOffer,
@@ -826,7 +626,6 @@ import {
   uploadIpoReversalFile,
   initiateIpoReversal,
   downloadIpoReversalErrorList,
-  emailIpoShareholders,
   downloadIpoStickyLabels,
   listIpoBatchesByStatus,
   getIpoEmailPreview,
@@ -850,12 +649,6 @@ export const useInitiateIpoReversal = () =>
 
 export const useDownloadIpoReversalErrorList = () =>
   useMutation({ mutationFn: (batchRef: string) => downloadIpoReversalErrorList(batchRef) });
-
-export const useEmailIpoShareholders = () =>
-  useMutation({
-    mutationFn: ({ batchRef, subject, sentBy }: { batchRef: string; subject?: string; sentBy: string }) =>
-      emailIpoShareholders(batchRef, { subject, sentBy }),
-  });
 
 export const useDownloadIpoStickyLabels = () =>
   useMutation({ mutationFn: (batchRef: string) => downloadIpoStickyLabels(batchRef) });

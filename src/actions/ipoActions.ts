@@ -9,14 +9,10 @@ import {
   FullSubscriptionListResponse,
   IPO,
   IPOBatchType,
-  IpoRefundSubscriber,
   IPOSubscriber,
   LodgementResponse,
   PendingApprovalParams,
   RangeAnalysisResponse,
-  RefundBatchReviewResponse,
-  RefundEligibleParams,
-  RefundReviewRequest,
   StateSummaryResponse,
   IpoReversalUploadResponse,
   IpoEmailPreview,
@@ -117,21 +113,6 @@ export const opsRejectIpo = async (
   }
 };
 
-// REJECTED IPO BATCH
-export const getRejectedOpsBatches = async (params?: PendingApprovalParams) => {
-  try {
-    const response = await api.get<ApiResponse<ContentPaginatedResponse<IPO>>>(
-      `/ipo/batches`,
-      { params: { ...params, status: "OPS_REJECTED" } },
-    );
-
-    return response.data.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
 // REVIEW IPO AS ICU
 export const icuReviewIpo = async (
   batchRef: string,
@@ -179,19 +160,6 @@ export const getIpoBatchSubscribers = async (params: {
       { params: rest },
     );
     return response.data.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-// EXPORT BATCH TO SHEET
-export const exportIpoBatch = async (batchRef: string, type: IPOBatchType) => {
-  try {
-    const response = await api.get<string>(
-      `/ipo/batches/${batchRef}/export/${type}`,
-    );
-    return response.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));
@@ -437,104 +405,6 @@ export const exportApplicationOfferSummaryReport = async (
 };
 
 
-export const opsReviewRefundSubscriber = async (
-  subscriberId: string,
-  payload: RefundReviewRequest,
-) => {
-  try {
-    const response = await api.patch<
-      ApiResponse<IpoRefundSubscriber>
-    >(
-      `/ipo/subscribers/${subscriberId}/refund/ops-review`,
-      payload,
-    );
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const icuReviewRefundSubscriber = async (
-  subscriberId: string,
-  payload: RefundReviewRequest,
-) => {
-  try {
-    const response = await api.patch<
-      ApiResponse<IpoRefundSubscriber>
-    >(
-      `/ipo/subscribers/${subscriberId}/refund/icu-review`,
-      payload,
-    );
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const opsReviewRefundBatch = async (
-  batchRef: string,
-  payload: RefundReviewRequest,
-) => {
-  try {
-    const response = await api.patch<
-      ApiResponse<RefundBatchReviewResponse>
-    >(
-      `/ipo/batches/${batchRef}/refund/ops-review`,
-      payload,
-    );
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const icuReviewRefundBatch = async (
-  batchRef: string,
-  payload: RefundReviewRequest,
-) => {
-  try {
-    const response = await api.patch<
-      ApiResponse<RefundBatchReviewResponse>
-    >(
-      `/ipo/batches/${batchRef}/refund/icu-review`,
-      payload,
-    );
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const getRefundEligibleSubscribers = async (
-  batchRef: string,
-  params?: RefundEligibleParams,
-) => {
-  try {
-    const response = await api.get<
-      ApiResponse<
-        ContentPaginatedResponse<IpoRefundSubscriber>
-      >
-    >(
-      `/ipo/batches/${batchRef}/refund-eligible`,
-      {
-        params,
-      },
-    );
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
 // ============================================================================
 // IPO backend integration (drafts) — allotment, vetting, SEC reports, file
 // ============================================================================
@@ -758,19 +628,6 @@ export const exportIpoSecReport = async (batchRef: string, reportId: string) => 
   }
 };
 
-// Download the raw uploaded subscription file stored for a batch.
-export const downloadIpoBatchFile = async (batchRef: string) => {
-  try {
-    const response = await api.get<Blob>(`/ipo/batches/${batchRef}/file`, {
-      responseType: "blob",
-    });
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
 // ── Allotment dry-run preview (per-band, from real approved subscribers) ─────
 
 export interface IpoAllotmentPreviewBand {
@@ -862,22 +719,6 @@ export const downloadIpoReversalErrorList = async (batchRef: string) => {
 };
 
 // ── IPO Dispatch ─────────────────────────────────────────────────────────
-
-export const emailIpoShareholders = async (
-  batchRef: string,
-  data: { subject?: string; sentBy: string },
-) => {
-  try {
-    const response = await api.post<ApiResponse<{ sent: number }>>(
-      `/ipo/batches/${batchRef}/email-shareholders`,
-      data,
-    );
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
 
 export const downloadIpoStickyLabels = async (batchRef: string) => {
   try {
