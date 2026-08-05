@@ -1,122 +1,233 @@
 "use client";
 
-import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Search } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ShareholderSearchInput } from "@/components/custom/shareholder-search-input";
+import { ShareholderQueryBuilder } from "@/components/custom/shareholder-query-builder";
+import { TablePagination } from "@/components/custom/table-pagination";
 import { ResolutionDesk } from "./resolution-desk";
-import { useReconSearch } from "@/hooks/useReconciliation";
-import type { ReconSearchResult } from "@/actions/reconciliationActions";
+import { useSearchShareholders } from "@/hooks/useEnquiry";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import type { ShareholderSearchCriteria, Shareholder } from "@/types/enquiry";
+
+const STATUS_BADGE: Record<string, string> = {
+  ACTIVE: "bg-green-100 text-green-800",
+  DORMANT: "bg-gray-100 text-gray-600",
+  CAUTIONED: "bg-amber-100 text-amber-800",
+  SUSPENDED: "bg-red-100 text-red-700",
+};
+
+type AppliedCriteria = Omit<ShareholderSearchCriteria, "page" | "size" | "sort">;
+const EMPTY_CRITERIA: AppliedCriteria = { combinator: "AND", rules: [] };
+
+function displayName(s: {
+  firstName?: string;
+  lastName?: string;
+  otherNames?: string;
+  name?: string;
+}) {
+  const parts = [s.lastName, s.firstName].filter(Boolean).join(", ");
+  return [parts, s.otherNames].filter(Boolean).join(" ") || s.name || "—";
+}
+
+interface DeskTarget {
+  chn: string;
+  register: string;
+  holderName: string;
+}
 
 export default function GeneralCertificateReconciliation() {
-  const [term, setTerm] = useState(""); // committed query
-  const [input, setInput] = useState("");
-  const { data: results, isLoading, isError, error } = useReconSearch(term, term.length >= 2);
+  // The (holder, register) pair currently open on the resolution desk.
+  const [target, setTarget] = useState<DeskTarget | null>(null);
 
-  // Selected shareholder + register for the desk.
-  const [holder, setHolder] = useState<ReconSearchResult | null>(null);
-  const [register, setRegister] = useState<string>("");
+  const [applied, setApplied] = useState<AppliedCriteria>(EMPTY_CRITERIA);
+  const [searched, setSearched] = useState(false);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
-  const runSearch = () => {
-    if (input.trim().length < 2) { toast.error("Enter at least 2 characters (CHN, BVN, name, or phone)."); return; }
-    setTerm(input.trim());
-  };
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registers = useMemo(
+    () =>
+      (registersData?.content ?? [])
+        .filter((r) => r?.status === "ACTIVE")
+        .map((r) => ({ symbol: r.symbol, registerName: r.registerName })),
+    [registersData],
+  );
 
-  // ── Desk ──
-  if (holder && register) {
-    return (
-      <ResolutionDesk
-        chn={holder.chn}
-        register={register}
-        holderName={holder.name}
-        backLabel="Back to Search"
-        onBack={() => { setHolder(null); setRegister(""); }}
-      />
-    );
+  const criteria: ShareholderSearchCriteria = useMemo(
+    () => ({ ...applied, page, size: pageSize, sort: "createdAt,desc" }),
+    [applied, page, pageSize],
+  );
+
+  const { data, isFetching, error } = useSearchShareholders(criteria, {
+    enabled: searched,
+  });
+
+  const rows = data?.content ?? [];
+  const total = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 1;
+  const from = total === 0 ? 0 : page * pageSize + 1;
+  const to = Math.min((page + 1) * pageSize, total);
+
+  function applySearch(next: AppliedCriteria) {
+    setApplied(next);
+    setPage(0);
+    setSearched(true);
+  }
+  function clearSearch() {
+    setApplied(EMPTY_CRITERIA);
+    setPage(0);
+    setSearched(false);
   }
 
-  // ── Register picker (selected holder has multiple registers) ──
-  if (holder && !register) {
+  // Open the reconciliation desk for a specific holding. Reconciliation is keyed on
+  // (CHN, register symbol) — each search result is already scoped to one register, so a
+  // selection resolves straight to the desk without a separate register-picker step.
+  function openDesk(chn: string, register: string, holderName: string) {
+    if (!chn) {
+      toast.error("This shareholder has no CHN on record — reconciliation is keyed on CHN.");
+      return;
+    }
+    if (!register) {
+      toast.error("This holding has no register symbol — pick a register-scoped result to reconcile.");
+      return;
+    }
+    setTarget({ chn, register, holderName });
+  }
+
+  function onQuickSelect(s: Shareholder) {
+    openDesk(s.chn, s.registerSymbol, displayName(s));
+  }
+
+  // ── Desk ──
+  if (target) {
     return (
-      <Card className="mrpsl-card p-5 space-y-4">
-        <div>
-          <p className="font-semibold text-sm">{holder.name}</p>
-          <p className="text-[12px] text-muted-foreground font-mono">{holder.chn}{holder.bvn ? ` · BVN: ${holder.bvn}` : ""}</p>
-        </div>
-        <p className="text-sm text-muted-foreground">Select a register to reconcile:</p>
-        <div className="flex flex-wrap gap-2">
-          {holder.registers.map((r) => (
-            <Button key={r} variant="outline" onClick={() => setRegister(r)}>{r}</Button>
-          ))}
-          {holder.registers.length === 0 && <p className="text-sm text-muted-foreground italic">No registers on record for this shareholder.</p>}
-        </div>
-        <Button variant="ghost" size="sm" onClick={() => setHolder(null)}>Back to Search</Button>
-      </Card>
+      <ResolutionDesk
+        chn={target.chn}
+        register={target.register}
+        holderName={target.holderName}
+        backLabel="Back to Search"
+        onBack={() => setTarget(null)}
+      />
     );
   }
 
   // ── Search ──
   return (
-    <Card className="mrpsl-card p-5 space-y-5">
-      <div className="space-y-1.5">
-        <label className="mrpsl-label">Find Shareholder</label>
-        <div className="flex gap-2 max-w-xl">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              className="mrpsl-input h-9 pl-9"
-              placeholder="Search by CHN, BVN, name or phone…"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
-            />
+    <div className="space-y-5">
+      {/* Quick jump-to-holder typeahead */}
+      <ShareholderSearchInput
+        className="w-full max-w-2xl"
+        placeholder="Quick find — type a surname, account no or CHN to reconcile a holding…"
+        onSelect={onQuickSelect}
+      />
+
+      {/* Interactive query builder — build conditions, restrict to a register or search across all */}
+      <ShareholderQueryBuilder
+        registers={registers}
+        onSearch={applySearch}
+        onClear={clearSearch}
+        loading={isFetching}
+      />
+
+      {/* Results */}
+      {!searched ? (
+        <Card className="mrpsl-card p-12 text-center text-sm text-muted-foreground">
+          Build a query above (or use quick find) and press Search, then select a holding to reconcile.
+        </Card>
+      ) : error ? (
+        <Card className="mrpsl-card p-12 text-center text-red-500 text-sm font-medium">
+          Failed to load shareholders. Please try again.
+        </Card>
+      ) : isFetching && rows.length === 0 ? (
+        <Card className="mrpsl-card p-12 flex items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </Card>
+      ) : rows.length === 0 ? (
+        <Card className="mrpsl-card p-12 text-center text-sm text-muted-foreground">
+          No shareholders match the current search.
+        </Card>
+      ) : (
+        <>
+          <div className="text-[13px] text-muted-foreground">
+            {isFetching ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching…
+              </span>
+            ) : (
+              <span>
+                <span className="font-semibold text-foreground">{total.toLocaleString()}</span>{" "}
+                {total === 1 ? "holding" : "holdings"} found — select one to reconcile
+              </span>
+            )}
           </div>
-          <Button onClick={runSearch} className="gap-1.5">Search</Button>
-        </div>
-      </div>
 
-      {isLoading && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Searching…</div>
-      )}
-      {isError && <p className="text-sm text-red-600">{(error as Error)?.message ?? "Search failed."}</p>}
-
-      {!isLoading && !isError && term.length >= 2 && (
-        (results ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">No shareholders found matching &quot;{term}&quot;.</p>
-        ) : (
-          <div className="border border-border rounded-xl overflow-hidden">
-            <div className="px-4 py-2 bg-muted/30 text-[12px] font-bold uppercase tracking-wider text-muted-foreground">
-              {(results ?? []).length} record{(results ?? []).length !== 1 ? "s" : ""} found — select to continue
-            </div>
-            {(results ?? []).map((s) => (
+          <Card className="mrpsl-card overflow-hidden divide-y">
+            {rows.map((s) => (
               <button
-                key={s.chn}
-                className="w-full flex items-start justify-between px-4 py-3 hover:bg-accent/50 border-t border-border/50 text-left transition-colors"
-                onClick={() => {
-                  setHolder(s);
-                  if (s.registers.length === 1) setRegister(s.registers[0]);
-                }}
+                key={s.id}
+                type="button"
+                onClick={() => openDesk(s.chn, s.registerSymbol, displayName(s))}
+                className="w-full text-left px-4 py-3 transition-colors hover:bg-muted/40 cursor-pointer"
               >
-                <div className="space-y-0.5">
-                  <p className="font-medium text-sm">{s.name}</p>
-                  <p className="text-[12px] text-muted-foreground font-mono">
-                    CHN: {s.chn}{s.bvn ? ` · BVN: ${s.bvn}` : ""}{s.phone ? ` · ${s.phone}` : ""}
-                  </p>
-                  {s.matchedOn && <p className="text-[11px] text-muted-foreground">matched on {s.matchedOn}</p>}
-                </div>
-                <div className="flex gap-1 mt-0.5 shrink-0 flex-wrap justify-end max-w-40">
-                  {s.registers.map((r) => (
-                    <Badge key={r} className="border-0 text-[11px] bg-gray-100 text-gray-700">{r}</Badge>
-                  ))}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-[13px] truncate">{displayName(s)}</span>
+                      <Badge
+                        className={`border-0 text-[10px] shrink-0 ${STATUS_BADGE[s.status] ?? "bg-muted text-muted-foreground"}`}
+                      >
+                        {s.status}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[11px] text-muted-foreground font-mono">
+                      <span>Acct {s.accountNumber || "—"}</span>
+                      <span>CHN {s.chn || "—"}</span>
+                      {s.bvn && <span>BVN {s.bvn}</span>}
+                      {s.nin && <span>NIN {s.nin}</span>}
+                      {(s.address || s.state) && (
+                        <span className="not-italic">
+                          {[s.address, s.state].filter(Boolean).join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <div className="text-primary font-mono text-xs font-semibold">
+                        {s.registerSymbol || "—"}
+                      </div>
+                      <div className="font-mono text-[11px] text-muted-foreground">
+                        {(s.holdings ?? 0).toLocaleString()} units
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[12px] font-medium text-primary">
+                      Reconcile <ArrowRight className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
                 </div>
               </button>
             ))}
-          </div>
-        )
+          </Card>
+
+          <TablePagination
+            page={page + 1}
+            pageSize={pageSize}
+            totalPages={totalPages}
+            from={from}
+            to={to}
+            total={total}
+            onPageChange={(p) => setPage(p - 1)}
+            onPageSizeChange={(sz) => {
+              setPageSize(sz);
+              setPage(0);
+            }}
+          />
+        </>
       )}
-    </Card>
+    </div>
   );
 }

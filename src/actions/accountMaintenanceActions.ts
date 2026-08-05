@@ -30,13 +30,6 @@ import {
   KycCancelRequest,
   IcuApproveRequest,
   KycUploadJob,
-  KycBulkPreviewResponse,
-  KycBulkSubmitRequest,
-  KycBulkSubmitResponse,
-  NibssMandatePreviewResponse,
-  NibssMandateSubmitRequest,
-  NibssMandateSubmitResponse,
-  ShareholderAccount,
   AdmonListResponse,
   AdmonDecisionRequest,
   BatchAdmonRequest,
@@ -46,8 +39,6 @@ import {
   AdmonReversalListResponse,
   HolderKycDocRequest,
   HolderSignatureRequest,
-  AccountSearchResult,
-  AccountSearchParams,
   CautionAccountRequest,
   RemoveCautionParams,
   SubmitKycDocumentsRequest,
@@ -77,19 +68,6 @@ export const getConsolidations = async (params?: ConsolidationFilters) => {
       {
         params,
       },
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const getConsolidation = async (id: number) => {
-  try {
-    const res = await api.get<ApiResponse<Consolidation>>(
-      `/consolidations/${id}`,
     );
 
     return res.data;
@@ -271,38 +249,6 @@ export const getAccounts = async (params: AccountFilters) => {
   }
 };
 
-export const getAccount = async (
-  accountNumber: string,
-  registerId?: string,
-) => {
-  try {
-    const res = await api.get<ApiResponse<ShareholderAccount>>(
-      `/accounts/${accountNumber}`,
-      { params: { registerId } },
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-// Account picker search across ALL registers (consolidation).
-export const searchAccounts = async (params: AccountSearchParams) => {
-  try {
-    const res = await api.get<ApiResponse<AccountSearchResult[]>>(
-      "/accounts/search",
-      { params },
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
 // List active caution reason codes for the caution dialog (account-scoped).
 export const getAccountCautionReasons = async () => {
   try {
@@ -452,21 +398,6 @@ export const getAccountKycHistory = async (
   }
 };
 
-// Export full KYC change history for an account as an .xlsx file.
-export const exportAccountKycHistory = async (accountNumber: string) => {
-  try {
-    const res = await api.get<Blob>(
-      `/accounts/${accountNumber}/kyc-changes/export`,
-      { responseType: "blob" },
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
 export const createKycChange = async (
   accountNumber: string,
   data: CreateKycChangeRequest,
@@ -474,24 +405,6 @@ export const createKycChange = async (
   try {
     const res = await api.post<ApiResponse<KycChange>>(
       `/accounts/${accountNumber}/kyc-changes`,
-      data,
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-// @deprecated per api-docs.json — use firstApproveKycChange (/first-approve).
-export const authoriseKycChange = async (
-  id: number,
-  data: KycDecisionRequest,
-) => {
-  try {
-    const res = await api.put<ApiResponse<KycChange>>(
-      `/accounts/kyc-changes/${id}/authorise`,
       data,
     );
 
@@ -596,140 +509,10 @@ export const batchRejectKycChanges = async (data: BatchKycActionRequest) => {
   }
 };
 
-export const uploadKycChanges = async (file: File, registerId?: string) => {
-  try {
-    const formData = new FormData();
-
-    formData.append("file", file);
-
-    const res = await api.post<ApiResponse<KycUploadJob>>(
-      "/accounts/kyc-changes/bulk-upload",
-      formData,
-      {
-        params: {
-          registerId,
-        },
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      },
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
 export const getKycUploadJob = async (jobId: string) => {
   try {
     const res = await api.get<ApiResponse<KycUploadJob>>(
       `/accounts/kyc-changes/bulk-upload/${jobId}`,
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const downloadKycTemplate = async (format: "csv" | "xlsx" = "csv") => {
-  try {
-    const res = await api.get<Blob>(
-      "/accounts/kyc-changes/bulk-upload/template",
-      {
-        params: { format },
-        responseType: "blob",
-      },
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const getKycChangesUploadJob = async (jobId: string) => {
-  try {
-    const res = await api.get<ApiResponse<KycUploadJob>>(
-      `/accounts/kyc-changes/bulk-upload/${jobId}`,
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-// ── KYC bulk upload: preview + submit (see backend_changes.md §6a) ──
-
-export const previewKycBulkUpload = async (
-  file: File,
-  registerId?: string,
-) => {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    if (registerId) formData.append("registerId", registerId);
-
-    const res = await api.post<ApiResponse<KycBulkPreviewResponse>>(
-      "/accounts/kyc-changes/bulk-upload/preview",
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } },
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const submitKycBulkUpload = async (data: KycBulkSubmitRequest) => {
-  try {
-    const res = await api.post<ApiResponse<KycBulkSubmitResponse>>(
-      "/accounts/kyc-changes/bulk-upload/submit",
-      data,
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-// ── NIBSS BVN mandate bulk upload: preview + submit (see backend_changes.md §6b) ──
-
-export const previewNibssMandateUpload = async (file: File) => {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await api.post<ApiResponse<NibssMandatePreviewResponse>>(
-      "/accounts/kyc-changes/nibss-mandates/bulk-upload/preview",
-      formData,
-      { headers: { "Content-Type": "multipart/form-data" } },
-    );
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const submitNibssMandateUpload = async (
-  data: NibssMandateSubmitRequest,
-) => {
-  try {
-    const res = await api.post<ApiResponse<NibssMandateSubmitResponse>>(
-      "/accounts/kyc-changes/nibss-mandates/bulk-upload/submit",
-      data,
     );
 
     return res.data;
@@ -755,17 +538,6 @@ export const getAdmons = async (params?: AdmonFilters) => {
     const res = await api.get<ApiResponse<AdmonListResponse>>("/admon", {
       params,
     });
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const getAdmon = async (id: number) => {
-  try {
-    const res = await api.get<ApiResponse<Admon>>(`/admon/${id}`);
 
     return res.data;
   } catch (error) {
@@ -968,46 +740,6 @@ export const getHolderKycDocuments = async (holderId: string) => {
   }
 };
 
-export const getHolderSignature = async (holderId: string) => {
-  try {
-    const res = await api.get(
-      `/holders/signature?holderId=${encodeURIComponent(holderId)}`,
-    );
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const verifyHolderKycDocument = async (
-  data: { id: string; actionBy: string },
-  id: string,
-) => {
-  try {
-    const res = await api.patch(`/holders/kyc-documents/${id}/verify`, data);
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const rejectHolderKycDocument = async (
-  data: { id: string; actionBy: string },
-  id: string,
-) => {
-  try {
-    const res = await api.patch(`/holders/kyc-documents/${id}/reject`, data);
-
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
 export const uploadHolderSignature = async (data: HolderSignatureRequest) => {
   try {
     const res = await api.post("/holders/signature", data);
@@ -1019,28 +751,3 @@ export const uploadHolderSignature = async (data: HolderSignatureRequest) => {
   }
 };
 
-export const getHolderSignatureArchive = async (holderId: string) => {
-  try {
-    const res = await api.get(
-      `/holders/signature/archive?holderId=${encodeURIComponent(holderId)}`,
-    );
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const validateBankDetails = async (data: {
-  bankCode: string;
-  accountNumber?: string;
-  bvn?: string;
-}) => {
-  try {
-    const res = await api.post("/nibss/validate-bank-details", data);
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};

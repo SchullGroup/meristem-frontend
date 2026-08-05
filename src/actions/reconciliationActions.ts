@@ -49,15 +49,6 @@ export interface ShareholderTxn {
   status: string | null;
 }
 
-export interface ReconSearchResult {
-  chn: string;
-  name: string;
-  bvn: string | null;
-  phone: string | null;
-  registers: string[];
-  matchedOn: string | null;
-}
-
 export interface ReconSaveEntry {
   date: string; // yyyy-MM-dd
   type: string; // BUY | SELL | RIGHTS | BONUS | IPO
@@ -98,17 +89,6 @@ export const GET_SHAREHOLDER_TX_HISTORY = async (chn: string, register: string) 
   try {
     const res = await api.get(`/cscs/shareholder-transaction-history`, { params: { chn, register } });
     return (res.data.data ?? []) as ShareholderTxn[];
-  } catch (error) {
-    throw new Error(returnErrorMessage(error as ErrorLike));
-  }
-};
-
-/* ─── General tab — shareholder search ─────────────────────────────────────── */
-
-export const SEARCH_RECON_SHAREHOLDERS = async (q: string) => {
-  try {
-    const res = await api.get(`/reconciliation/general/search`, { params: { q } });
-    return (res.data.data?.results ?? []) as ReconSearchResult[];
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }

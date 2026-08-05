@@ -38,7 +38,6 @@ const SEED_AGENT_TYPES: AgentType[] = [
   },
 ];
 import { RightsIssue } from "@/types/rights";
-import { seedStore as seedStoreData } from "../mocks/seed";
 import { TransferRequest } from "@/types/cscs";
 
 export interface RejectedBatch {
@@ -144,9 +143,6 @@ export interface AppState {
   addJob: (job: BulkJob) => void;
   updateJob: (id: string, updates: Partial<BulkJob>) => void;
   removeJob: (id: string) => void;
-
-  // Utilities
-  seedStore: () => void;
 }
 
 export const useStore = create<AppState>()(
@@ -277,12 +273,6 @@ export const useStore = create<AppState>()(
           ],
         })),
 
-      seedStore: () =>
-        set((state) => {
-          if (state.principals.length > 0) return {}; // Already seeded
-          const data = seedStoreData();
-          return { ...data };
-        }),
       setRejectedRightsIssue: (data) => set({ rejectedRightsIssue: data }),
       addRejectedBatch: (batch) =>
         set((state) => ({

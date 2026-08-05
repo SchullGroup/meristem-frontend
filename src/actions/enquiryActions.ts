@@ -16,7 +16,6 @@ import {
   HolderStatement,
   HolderStatementParams,
   HolderTransfer,
-  RightsHolderDetail,
   RightsSearchResponse,
   SearchAgentsParams,
   SearchRightsParams,
@@ -38,19 +37,6 @@ export const getWarrants = async (params: SearchWarrantsParams) => {
       {
         params,
       },
-    );
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const getWarrantDetail = async (warrantNo: string) => {
-  try {
-    const response = await api.get<ApiResponse<Warrant>>(
-      `/enquiry/warrants/${warrantNo}`,
     );
 
     return response.data;
@@ -113,22 +99,6 @@ export const getRightsEntitlements = async (params: SearchRightsParams) => {
     const response = await api.get<RightsSearchResponse>("/enquiry/rights", {
       params,
     });
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const getRightsHolderDetail = async (
-  rightsIssueId: string,
-  accountNo: string,
-) => {
-  try {
-    const response = await api.get<ApiResponse<RightsHolderDetail>>(
-      `/enquiry/rights/${rightsIssueId}/holders/${accountNo}`,
-    );
 
     return response.data;
   } catch (error) {
@@ -350,19 +320,6 @@ export const getCertificates = async (params?: CertificatesParams) => {
       {
         params,
       },
-    );
-
-    return response.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
-export const getCertificateDetail = async (certificateNo: string) => {
-  try {
-    const response = await api.get<ApiResponse<Certificate>>(
-      `/enquiry/certificates/${certificateNo}`,
     );
 
     return response.data;
