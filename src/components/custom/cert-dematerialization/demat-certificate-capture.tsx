@@ -6,6 +6,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils/format";
 import { useGetShareholdersCertificate } from "@/hooks/useCertificates";
@@ -13,16 +20,55 @@ import {
   useCaptureDematFromCertificates,
   useGetAllCertificateDemat,
 } from "@/hooks/useCertDematerialisation";
+import { useGetRegisters } from "@/hooks/useRegisters";
 import type { CscsShareholder } from "@/types/cscs";
 import type { Demat } from "@/actions/certDematActions";
 
+const REG_ANY = "__ANY__";
+
+// Searchable certificate fields, each with a sensible default match type
+// (identifiers default to exact "equals" — index-friendly; names default to "contains").
+const CERT_FIELDS = [
+  { value: "certNumber", label: "Certificate No", defaultOp: "equals" },
+  { value: "accountNumber", label: "Account No", defaultOp: "equals" },
+  { value: "shareholderName", label: "Shareholder Name", defaultOp: "contains" },
+] as const;
+
+const OPERATORS = [
+  { value: "equals", label: "equals" },
+  { value: "startsWith", label: "starts with" },
+  { value: "contains", label: "contains" },
+] as const;
+
+const FIELD_LABEL: Record<string, string> = Object.fromEntries(CERT_FIELDS.map((f) => [f.value, f.label]));
+const OP_LABEL: Record<string, string> = Object.fromEntries(OPERATORS.map((o) => [o.value, o.label]));
+
+type Applied = { field: string; operator: string; value: string; registerId: string };
+
 export function DematCertificateCapture() {
-  const [input, setInput] = useState("");
-  const [term, setTerm] = useState("");
+  const [field, setField] = useState<string>("certNumber");
+  const [operator, setOperator] = useState<string>("equals");
+  const [value, setValue] = useState("");
+  const [registerId, setRegisterId] = useState("");
+  const [applied, setApplied] = useState<Applied | null>(null); // committed query
+
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registers = useMemo(
+    () =>
+      (registersData?.content ?? [])
+        .filter((r) => r?.status === "ACTIVE")
+        .map((r) => ({ symbol: r.symbol, registerName: r.registerName })),
+    [registersData],
+  );
 
   const { data: lookup, isLoading, isError, error } = useGetShareholdersCertificate(
-    { search: term },
-    { enabled: term.trim().length >= 2 },
+    {
+      search: applied?.value ?? "",
+      registerId: applied?.registerId || undefined,
+      field: applied?.field,
+      operator: applied?.operator,
+    },
+    { enabled: !!applied },
   );
   const results = useMemo(() => (lookup?.data ?? []) as CscsShareholder[], [lookup]);
 
@@ -30,9 +76,21 @@ export function DematCertificateCapture() {
   const returned = useGetAllCertificateDemat({ status: "REJECTED", size: 100 });
   const returnedRecords = useMemo(() => returned.data?.content ?? [], [returned.data]);
 
+  // Changing the field snaps the match type to that field's sensible default.
+  const changeField = (f: string) => {
+    setField(f);
+    const meta = CERT_FIELDS.find((x) => x.value === f);
+    if (meta) setOperator(meta.defaultOp);
+  };
+
   const runSearch = () => {
-    if (input.trim().length < 2) { toast.error("Enter a certificate number or shareholder name (min 2 characters)."); return; }
-    setTerm(input.trim());
+    const v = value.trim();
+    const minLen = operator === "equals" ? 1 : 2;
+    if (v.length < minLen) {
+      toast.error(`Enter at least ${minLen} character${minLen > 1 ? "s" : ""} for the ${FIELD_LABEL[field] ?? "field"}.`);
+      return;
+    }
+    setApplied({ field, operator, value: v, registerId });
   };
 
   const beginFromHit = (s: CscsShareholder) => {
@@ -65,20 +123,71 @@ export function DematCertificateCapture() {
 
   return (
     <div className="space-y-6">
-      {/* Certificate lookup (search) */}
+      {/* Certificate lookup — field-targeted query builder */}
       <Card className="mrpsl-card p-5 space-y-4">
         <div>
           <p className="font-semibold text-sm">Certificate Lookup</p>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            Search for a shareholder certificate by certificate number or shareholder name to begin a new dematerialisation request.
+            Choose a field to search, then a match type — searching a certificate or account number with
+            &ldquo;equals&rdquo; is fastest. Scope to a register to narrow the very large certificate store.
           </p>
         </div>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="mrpsl-input h-10 pl-9" placeholder="Certificate number or shareholder name…" value={input}
-              onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }} />
+
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-col gap-1">
+            <label className="mrpsl-label">Register</label>
+            <Select value={registerId || REG_ANY} onValueChange={(v) => setRegisterId(!v || v === REG_ANY ? "" : v)}>
+              <SelectTrigger className="w-48 mrpsl-input h-10 text-[13px]">
+                <SelectValue>{(v) => (v && v !== REG_ANY ? String(v) : "All Registers")}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={REG_ANY}>All Registers</SelectItem>
+                {registers.map((r) => (
+                  <SelectItem key={r.symbol} value={r.symbol}>
+                    <span className="font-semibold">{r.symbol}</span> — {r.registerName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="mrpsl-label">Field</label>
+            <Select value={field} onValueChange={(v) => { if (v) changeField(v); }}>
+              <SelectTrigger className="w-44 mrpsl-input h-10 text-[13px]">
+                <SelectValue>{(v) => FIELD_LABEL[String(v ?? "")] ?? "Field"}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {CERT_FIELDS.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="mrpsl-label">Match</label>
+            <Select value={operator} onValueChange={(v) => { if (v) setOperator(v); }}>
+              <SelectTrigger className="w-36 mrpsl-input h-10 text-[13px]">
+                <SelectValue>{(v) => OP_LABEL[String(v ?? "")] ?? ""}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {OPERATORS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="mrpsl-label">Value</label>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input className="mrpsl-input h-10 pl-9" placeholder={`Enter ${(FIELD_LABEL[field] ?? "value").toLowerCase()}…`} value={value}
+                onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }} />
+            </div>
+          </div>
+
           <Button className="h-10 gap-1.5" onClick={runSearch}><Search className="h-4 w-4" /> Search</Button>
         </div>
 
@@ -86,12 +195,18 @@ export function DematCertificateCapture() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-4"><Loader2 className="h-4 w-4 animate-spin" /> Searching…</div>
         ) : isError ? (
           <p className="text-sm text-red-600">{(error as Error)?.message ?? "Search failed."}</p>
-        ) : term.length >= 2 && results.length === 0 ? (
+        ) : applied && results.length === 0 ? (
           <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
-            <AlertTriangle className="h-4 w-4 shrink-0" /> No certificate found matching &quot;{term}&quot;.
+            <AlertTriangle className="h-4 w-4 shrink-0" /> No certificate found where {FIELD_LABEL[applied.field] ?? applied.field} {OP_LABEL[applied.operator] ?? applied.operator} &quot;{applied.value}&quot;.
           </div>
         ) : results.length > 0 ? (
-          <div className="border border-border rounded-xl overflow-hidden">
+          <div className="space-y-2">
+            {results.length >= 100 && (
+              <p className="text-[12px] text-amber-700">
+                Showing the first {results.length} matches — refine your search or pick a register to narrow it down.
+              </p>
+            )}
+            <div className="border border-border rounded-xl overflow-hidden">
             <table className="w-full text-left text-sm">
               <thead className="mrpsl-table-header">
                 <tr>
@@ -120,6 +235,7 @@ export function DematCertificateCapture() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2 py-10 text-muted-foreground/70">

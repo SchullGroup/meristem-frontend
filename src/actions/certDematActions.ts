@@ -82,21 +82,6 @@ export interface Demat {
   highValue?: boolean;
 }
 
-/** A holder row for the Shareholder Verification tab (from GET /holders). */
-export interface DematHolder {
-  id?: string;
-  name?: string;
-  chn?: string;
-  registerSymbol?: string;
-  register?: string;
-  broker?: string;
-  stockbrokerCode?: string;
-  cscsAccountNo?: string;
-  accountNo?: string;
-  bvn?: string;
-  units?: number;
-  status?: string;
-}
 
 /** A stockbroker (dealing member) row for the Verification tab (from GET /holders/stockbrokers). */
 export interface DematStockbroker {
@@ -381,21 +366,6 @@ export const notifyDematReversal = async (data: { to?: string; subject: string; 
   }
 };
 
-// Shareholder Verification — search holders (+ stockbroker info carried on the holder record)
-export const searchDematHolders = async (params: {
-  name?: string;
-  chn?: string;
-  registerId?: string;
-  page?: number;
-  size?: number;
-}) => {
-  try {
-    const res = await api.get<ContentPaginatedResponse<DematHolder>>(`/holders`, { params });
-    return res.data;
-  } catch (error) {
-    throw new Error(returnErrorMessage(error as ErrorLike));
-  }
-};
 
 // Stockbroker Verification — search distinct stockbrokers by firm name or CSCS code
 export const searchDematStockbrokers = async (q: string) => {

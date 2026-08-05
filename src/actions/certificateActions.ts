@@ -69,6 +69,8 @@ export const DISABLE_CERTIFICATE = async (
 export const GET_SHAREHOLDERS_CERTIFICATE = async (params: {
   search: string;
   registerId?: string;
+  field?: string;
+  operator?: string;
 }) => {
   try {
     const res = await api.get<ApiResponse<CscsShareholder[]>>(

@@ -20,7 +20,6 @@ import {
   bulkAuthorizeDematRequest,
   processDematReversal,
   notifyDematReversal,
-  searchDematHolders,
   searchDematStockbrokers,
   getDematRecordById,
   getWorkflowStageCounts,
@@ -28,7 +27,6 @@ import {
   Demat,
   CaptureDematRequest,
   CaptureFromCertificatesRequest,
-  DematHolder,
   DematStockbroker,
 } from "@/actions/certDematActions";
 import { ContentPaginatedResponse } from "@/types";
@@ -186,16 +184,6 @@ export const useNotifyDematReversal = () =>
     mutationFn: (data: { to?: string; subject: string; body: string }) => notifyDematReversal(data),
   });
 
-export const useSearchDematHolders = (
-  params: { name?: string; chn?: string; registerId?: string; page?: number; size?: number },
-  enabled: boolean,
-) =>
-  useQuery<ContentPaginatedResponse<DematHolder>>({
-    queryKey: ["demat", "holders", params],
-    queryFn: () => searchDematHolders(params),
-    enabled,
-    refetchOnWindowFocus: false,
-  });
 
 export const useSearchDematStockbrokers = (q: string, enabled: boolean) =>
   useQuery<DematStockbroker[]>({

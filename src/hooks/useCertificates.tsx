@@ -87,7 +87,7 @@ export const useDisableCertificate = () => {
 };
 
 export const useGetShareholdersCertificate = (
-  params: { search: string; registerId?: string },
+  params: { search: string; registerId?: string; field?: string; operator?: string },
   options?: Omit<
     UseQueryOptions<
       ApiResponse<CscsShareholder[]>,
