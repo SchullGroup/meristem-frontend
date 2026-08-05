@@ -1,24 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import {
-  Search,
-  CheckCircle,
-  Merge,
-  Scissors,
-  ArrowRight,
-  Loader2,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle, Merge, Scissors, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -27,244 +12,80 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { TablePagination } from "@/components/custom/table-pagination";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { CertificateQueryBuilder } from "@/components/custom/certificate-query-builder";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useGetRegisters } from "@/hooks/useRegisters";
-import { getCertificates } from "@/actions/enquiryActions";
-import type { CertificatesParams } from "@/types/enquiry";
+import { searchCertificatesAdvanced } from "@/actions/enquiryActions";
+import type { CertificateSearchCriteria } from "@/types/enquiry";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// Filter keys persisted to the URL (the page's source of truth)
-const FILTER_KEYS = [
-  "registerSymbol",
-  "transferNo",
-  "accountNo",
-  "certificateNo",
-  "exactUnits",
-  "minUnits",
-] as const;
+type AppliedCriteria = Omit<CertificateSearchCriteria, "page" | "size" | "sort">;
 
 export default function CertificateEnquiryPage() {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
-  // Filter inputs — seeded from the URL so they survive a back navigation.
-  const [registerFilter, setRegisterFilter] = useState(
-    searchParams.get("registerSymbol") ?? "",
-  );
-  const [transferNo, setTransferNo] = useState(
-    searchParams.get("transferNo") ?? "",
-  );
-  const [accountNo, setAccountNo] = useState(
-    searchParams.get("accountNo") ?? "",
-  );
-  const [certificateNo, setCertificateNo] = useState(
-    searchParams.get("certificateNo") ?? "",
-  );
-  const [exactUnits, setExactUnits] = useState(
-    searchParams.get("exactUnits") ?? "",
-  );
-  const [minUnits, setMinUnits] = useState(searchParams.get("minUnits") ?? "");
+  const [applied, setApplied] = useState<AppliedCriteria | null>(null);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
 
-  // The URL is the source of truth for what's actually applied/displayed.
-  const hasFilters = FILTER_KEYS.some((k) => searchParams.get(k));
-  const page = Number(searchParams.get("page") ?? 0);
-  const pageSize = Number(searchParams.get("size") ?? 20);
-
-  const appliedFilters = useMemo<CertificatesParams | null>(() => {
-    if (!hasFilters) return null;
-    const f: CertificatesParams = {};
-    const reg = searchParams.get("registerSymbol");
-    const trf = searchParams.get("transferNo");
-    const acct = searchParams.get("accountNo");
-    const cert = searchParams.get("certificateNo");
-    const exact = searchParams.get("exactUnits");
-    const min = searchParams.get("minUnits");
-    if (reg) f.registerSymbol = reg;
-    if (trf) f.transferNo = trf;
-    if (acct) f.accountNo = acct;
-    if (cert) f.certificateNo = cert;
-    if (exact) f.exactUnits = Number(exact);
-    if (min) f.minUnits = Number(min);
-    return f;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  const { data: registersData, isLoading: isRegisterLoading } = useGetRegisters(
-    { size: 100 },
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registers = useMemo(
+    () =>
+      (registersData?.content ?? [])
+        .filter((r) => r.status === "ACTIVE")
+        .map((r) => ({ symbol: r.symbol, registerName: r.registerName })),
+    [registersData],
   );
-  const activeRegisters =
-    registersData?.content?.filter((r) => r.status === "ACTIVE") ?? [];
+
+  const criteria = useMemo<CertificateSearchCriteria | null>(
+    () => (applied ? { ...applied, page, size: pageSize, sort: "createdAt,desc" } : null),
+    [applied, page, pageSize],
+  );
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["certificates", appliedFilters, page, pageSize],
-    queryFn: () =>
-      getCertificates({
-        ...appliedFilters,
-        page,
-        size: pageSize,
-      }),
-    enabled: !!appliedFilters,
+    queryKey: ["certificate-search", criteria],
+    queryFn: () => searchCertificatesAdvanced(criteria!),
+    enabled: !!criteria,
   });
   const certificates = data?.content ?? [];
 
   useEffect(() => {
     if (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to load certificates.",
-      );
+      toast.error(error instanceof Error ? error.message : "Failed to load certificates.");
     }
   }, [error]);
 
-  // Keep the inputs in sync with the URL on back/forward navigation.
-  useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setRegisterFilter(searchParams.get("registerSymbol") ?? "");
-    setTransferNo(searchParams.get("transferNo") ?? "");
-    setAccountNo(searchParams.get("accountNo") ?? "");
-    setCertificateNo(searchParams.get("certificateNo") ?? "");
-    setExactUnits(searchParams.get("exactUnits") ?? "");
-    setMinUnits(searchParams.get("minUnits") ?? "");
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [searchParams]);
-
-  // Push the current URL (filters + page/size) — adds a history entry.
-  function pushParams(params: URLSearchParams) {
-    router.push(`${pathname}?${params.toString()}`);
+  function applySearch(next: AppliedCriteria) {
+    setApplied(next);
+    setPage(0);
   }
-  // Update part of the URL in place (no extra history entry) — used for paging.
-  function replaceParams(updates: Record<string, string | number>) {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([k, v]) => params.set(k, String(v)));
-    router.replace(`${pathname}?${params.toString()}`);
+  function clearSearch() {
+    setApplied(null);
+    setPage(0);
   }
 
-  function handleSearch() {
-    const params = new URLSearchParams();
-    if (registerFilter) params.set("registerSymbol", registerFilter);
-    if (transferNo.trim()) params.set("transferNo", transferNo.trim());
-    if (accountNo.trim()) params.set("accountNo", accountNo.trim());
-    if (certificateNo.trim()) params.set("certificateNo", certificateNo.trim());
-    if (exactUnits.trim()) params.set("exactUnits", exactUnits.trim());
-    if (minUnits.trim()) params.set("minUnits", minUnits.trim());
-
-    if ([...params.keys()].length === 0) {
-      toast.error("Set at least one filter before searching.");
-      return;
-    }
-
-    params.set("page", "0");
-    params.set("size", String(pageSize));
-    pushParams(params);
-  }
+  const total = data?.totalElements ?? 0;
+  const totalPages = Math.max(1, data?.totalPages ?? 1);
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            Certificate Enquiry
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Search, verify, and action physical certificates
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Certificate Enquiry</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Build a query to search physical certificates, then verify, amalgamate, split or transfer them.
+        </p>
       </div>
 
-      <Card className="mrpsl-card p-5">
-        <div className="flex gap-4 items-end flex-nowrap overflow-x-auto pb-1">
-          <div className="">
-            <label className="mrpsl-label">Register</label>
-            <Select
-              value={registerFilter || "all"}
-              onValueChange={(v) =>
-                setRegisterFilter(v && v !== "all" ? v : "")
-              }
-            >
-              <SelectTrigger className="w-48 mrpsl-input">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                {isRegisterLoading ? (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  </div>
-                ) : (
-                  <>
-                    <SelectItem value="">All Registers</SelectItem>
-                    {activeRegisters.map((r) => (
-                      <SelectItem key={r.registerId} value={r.symbol}>
-                        <span className="font-bold">{r.registerName}</span> -
-                        <span className="text-sm">{r.symbol}</span>
-                      </SelectItem>
-                    ))}
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="mrpsl-label">Transfer No</label>
-            <Input
-              className="mrpsl-input w-36"
-              value={transferNo}
-              onChange={(e) => setTransferNo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="mrpsl-label">Account No</label>
-            <Input
-              className="mrpsl-input w-36"
-              value={accountNo}
-              onChange={(e) => setAccountNo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="mrpsl-label">Certificate No</label>
-            <Input
-              className="mrpsl-input w-40"
-              value={certificateNo}
-              onChange={(e) => setCertificateNo(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="mrpsl-label">Units</label>
-            <Input
-              type="number"
-              placeholder="Exactly X units"
-              className="mrpsl-input w-40"
-              value={exactUnits}
-              onChange={(e) => setExactUnits(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="mrpsl-label">Holder Units</label>
-            <Input
-              type="number"
-              placeholder="≥ X units"
-              className="mrpsl-input w-40"
-              value={minUnits}
-              onChange={(e) => setMinUnits(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            />
-          </div>
-          <Button
-            size="lg"
-            className="h-10 px-8 cursor-pointer"
-            onClick={handleSearch}
-          >
-            <Search className="mr-2 h-4 w-4" /> Search
-          </Button>
-        </div>
-      </Card>
+      <CertificateQueryBuilder
+        registers={registers}
+        onSearch={applySearch}
+        onClear={clearSearch}
+        loading={isLoading}
+      />
 
-      {appliedFilters && (
+      {applied && (
         <Card className="mrpsl-card animate-in fade-in">
           <TooltipProvider delay={2000}>
             <div className="overflow-x-auto">
@@ -286,63 +107,31 @@ export default function CertificateEnquiryPage() {
                   {isLoading ? (
                     Array.from({ length: pageSize }).map((_, i) => (
                       <tr key={i}>
-                        <td className="p-3">
-                          <Skeleton className="h-4 w-24" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-4 w-20" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-4 w-36" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-4 w-24" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-4 w-16 ml-auto" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-5 w-16 mx-auto rounded-full" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
-                        </td>
-                        <td className="p-3">
-                          <Skeleton className="h-7 w-7 mx-auto rounded-md" />
-                        </td>
+                        <td className="p-3"><Skeleton className="h-4 w-24" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-20" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-36" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-24" /></td>
+                        <td className="p-3"><Skeleton className="h-4 w-16 ml-auto" /></td>
+                        <td className="p-3"><Skeleton className="h-5 w-16 mx-auto rounded-full" /></td>
+                        <td className="p-3"><Skeleton className="h-7 w-7 mx-auto rounded-md" /></td>
+                        <td className="p-3"><Skeleton className="h-7 w-7 mx-auto rounded-md" /></td>
+                        <td className="p-3"><Skeleton className="h-7 w-7 mx-auto rounded-md" /></td>
+                        <td className="p-3"><Skeleton className="h-7 w-7 mx-auto rounded-md" /></td>
                       </tr>
                     ))
                   ) : certificates.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={11}
-                        className="p-12 text-center text-muted-foreground font-sans"
-                      >
-                        No certificates match the selected filters.
+                      <td colSpan={11} className="p-12 text-center text-muted-foreground font-sans">
+                        No certificates match the current query.
                       </td>
                     </tr>
                   ) : (
                     certificates.map((cert) => (
-                      <tr
-                        key={cert.certificateNo}
-                        className="hover:bg-accent/5"
-                      >
-                        <td className="p-3 text-primary font-bold">
-                          {cert.certificateNo}
-                        </td>
+                      <tr key={cert.certificateNo} className="hover:bg-accent/5">
+                        <td className="p-3 text-primary font-bold">{cert.certificateNo}</td>
                         <td className="p-3">{cert.accountNo}</td>
-                        <td className="p-3 font-sans font-medium">
-                          {cert.holderName}
-                        </td>
-                        <td className="p-3 font-sans text-muted-foreground text-[13px]">
-                          {cert.dateIssued}
-                        </td>
+                        <td className="p-3 font-sans font-medium">{cert.holderName}</td>
+                        <td className="p-3 font-sans text-muted-foreground text-[13px]">{cert.dateIssued}</td>
                         <td className="p-3 text-right font-bold text-sm">
                           {(cert.units ?? 0).toLocaleString()}
                         </td>
@@ -367,19 +156,14 @@ export default function CertificateEnquiryPage() {
                                   size="icon"
                                   disabled={cert.status !== "ACTIVE"}
                                   className="cursor-pointer"
-                                  onClick={() =>
-                                    router.push(
-                                      `/certificates/dematerialisation`,
-                                    )
-                                  }
+                                  onClick={() => router.push(`/certificates/dematerialisation`)}
                                 >
                                   <CheckCircle className="h-4 w-4 text-muted-foreground" />
                                 </Button>
                               }
                             />
                             <TooltipContent>
-                              Verify this certificate before issuing a
-                              replacement
+                              Verify this certificate before issuing a replacement
                             </TooltipContent>
                           </Tooltip>
                         </td>
@@ -396,9 +180,7 @@ export default function CertificateEnquiryPage() {
                                     router.push(
                                       `/certificates/consolidation?register=${encodeURIComponent(
                                         cert.registerSymbol,
-                                      )}&accountNo=${encodeURIComponent(
-                                        cert.accountNo,
-                                      )}`,
+                                      )}&accountNo=${encodeURIComponent(cert.accountNo)}`,
                                     )
                                   }
                                 >
@@ -407,8 +189,7 @@ export default function CertificateEnquiryPage() {
                               }
                             />
                             <TooltipContent>
-                              Amalgamate — combine multiple certificates into
-                              one
+                              Amalgamate — combine multiple certificates into one
                             </TooltipContent>
                           </Tooltip>
                         </td>
@@ -423,9 +204,7 @@ export default function CertificateEnquiryPage() {
                                   className="cursor-pointer"
                                   onClick={() =>
                                     router.push(
-                                      `/certificates/split?search=${encodeURIComponent(
-                                        cert.holderName,
-                                      )}`,
+                                      `/certificates/split?search=${encodeURIComponent(cert.holderName)}`,
                                     )
                                   }
                                 >
@@ -433,9 +212,7 @@ export default function CertificateEnquiryPage() {
                                 </Button>
                               }
                             />
-                            <TooltipContent>
-                              Split this certificate into smaller holdings
-                            </TooltipContent>
+                            <TooltipContent>Split this certificate into smaller holdings</TooltipContent>
                           </Tooltip>
                         </td>
                         <td className="p-3 text-center">
@@ -459,9 +236,7 @@ export default function CertificateEnquiryPage() {
                                 </Button>
                               }
                             />
-                            <TooltipContent>
-                              Transfer this certificate to another holder
-                            </TooltipContent>
+                            <TooltipContent>Transfer this certificate to another holder</TooltipContent>
                           </Tooltip>
                         </td>
                       </tr>
@@ -475,16 +250,15 @@ export default function CertificateEnquiryPage() {
                 <TablePagination
                   page={page + 1}
                   pageSize={pageSize}
-                  totalPages={Math.max(1, data.totalPages ?? 1)}
-                  from={
-                    (data.totalElements ?? 0) === 0 ? 0 : page * pageSize + 1
-                  }
-                  to={Math.min((page + 1) * pageSize, data.totalElements ?? 0)}
-                  total={data.totalElements ?? 0}
-                  onPageChange={(p) => replaceParams({ page: p - 1 })}
-                  onPageSizeChange={(sz) =>
-                    replaceParams({ size: sz, page: 0 })
-                  }
+                  totalPages={totalPages}
+                  from={total === 0 ? 0 : page * pageSize + 1}
+                  to={Math.min((page + 1) * pageSize, total)}
+                  total={total}
+                  onPageChange={(p) => setPage(p - 1)}
+                  onPageSizeChange={(sz) => {
+                    setPageSize(sz);
+                    setPage(0);
+                  }}
                 />
               </div>
             )}
