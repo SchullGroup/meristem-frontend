@@ -5,7 +5,7 @@ import {
   AgentMandate,
   AgentMandatesParams,
   Certificate,
-  CertificatesParams,
+  CertificateSearchCriteria,
   DividendStatement,
   HolderAdmonRecord,
   HolderDividend,
@@ -313,16 +313,14 @@ export const getHolderKycChanges = async (
   }
 };
 
-export const getCertificates = async (params?: CertificatesParams) => {
+export const searchCertificatesAdvanced = async (
+  criteria: CertificateSearchCriteria,
+): Promise<ContentPaginatedResponse<Certificate>> => {
   try {
-    const response = await api.get<ContentPaginatedResponse<Certificate>>(
-      "/enquiry/certificates",
-      {
-        params,
-      },
-    );
-
-    return response.data;
+    const response = await api.post<
+      ApiResponse<ContentPaginatedResponse<Certificate>>
+    >("/enquiry/certificates/search", criteria);
+    return response.data.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));

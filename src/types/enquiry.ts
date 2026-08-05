@@ -230,17 +230,6 @@ export interface Certificate {
   notes: string;
 }
 
-export interface CertificatesParams {
-  registerSymbol?: string;
-  accountNo?: string;
-  certificateNo?: string;
-  transferNo?: string;
-  exactUnits?: number;
-  minUnits?: number;
-  page?: number;
-  size?: number;
-}
-
 export interface Certificate {
   certificateNo: string;
   accountNo: string;
@@ -256,15 +245,32 @@ export interface Certificate {
   notes: string;
 }
 
-export interface CertificatesParams {
+// ── Certificate query-builder search (mirrors the shareholder query builder) ──
+export type CertificateSearchField =
+  | "certNumber"
+  | "accountNumber"
+  | "transferNumber"
+  | "units";
+
+// text fields: equals | startsWith · units: equals | gte (≥) | lte (≤)
+export type CertificateSearchOperator = "equals" | "startsWith" | "gte" | "lte";
+
+export interface CertificateSearchRule {
+  field: CertificateSearchField;
+  operator: CertificateSearchOperator;
+  value: string;
+}
+
+// Flat rule set joined by a single combinator (match ALL / match ANY), optionally scoped to a
+// register. The UI + backend enforce an "anchor" (register, or an exact ID) so a search can never
+// scan the whole 56M-row certificate store.
+export interface CertificateSearchCriteria {
+  combinator: "AND" | "OR";
+  rules: CertificateSearchRule[];
   registerSymbol?: string;
-  accountNo?: string;
-  certificateNo?: string;
-  transferNo?: string;
-  exactUnits?: number;
-  minUnits?: number;
   page?: number;
   size?: number;
+  sort?: string;
 }
 
 export type CertificateMovementType =
