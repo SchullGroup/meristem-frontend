@@ -8,7 +8,6 @@ import {
   Edit2,
   Trash2,
   Loader2,
-  Search,
   Check,
   Minus,
   ChevronDown,
@@ -43,7 +42,11 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { useRoles } from "@/hooks/useRoles";
+import {
+  useRoles,
+  usePermissionCatalog,
+  type CatalogPermission,
+} from "@/hooks/useRoles";
 import { Role } from "@/lib/types";
 import {
   CREATE_ROLE,
@@ -61,7 +64,7 @@ interface SubmoduleDef {
   label: string;
   adminOnly?: boolean;
   actions: {
-    read: string;
+    read?: string;
     write?: string;
     approve?: string[];
   };
@@ -75,778 +78,174 @@ interface ModuleDef {
   submodules: SubmoduleDef[];
 }
 
-const PERMISSION_MATRIX: ModuleDef[] = [
-  {
-    id: "setup",
-    label: "Setup",
-    colorClass: "border-l-rose-500",
-    submodules: [
-      {
-        id: "principals",
-        label: "Principals",
-        actions: {
-          read: "setup.principals.read",
-          write: "setup.principals.write",
-        },
-      },
-      {
-        id: "registers",
-        label: "Registers",
-        actions: {
-          read: "setup.registers.read",
-          write: "setup.registers.write",
-        },
-      },
-      {
-        id: "roles",
-        label: "Roles",
-        adminOnly: true,
-        actions: { read: "setup.roles.read", write: "setup.roles.write" },
-      },
-      {
-        id: "users",
-        label: "Users",
-        adminOnly: true,
-        actions: { read: "setup.users.read", write: "setup.users.write" },
-      },
-      {
-        id: "agents",
-        label: "Agents",
-        actions: { read: "setup.agents.read", write: "setup.agents.write" },
-      },
-      {
-        id: "other_parameters",
-        label: "Other Parameters",
-        actions: {
-          read: "setup.other_parameters.read",
-          write: "setup.other_parameters.write",
-        },
-      },
-    ],
-  },
-  {
-    id: "offer_administration",
+// ─── Permission matrix — built from the backend catalogue ───────────────────────
+//
+// The set of assignable permissions is owned by the backend: the seeded `permissions`
+// table, served by GET /permissions. The config below is PRESENTATION ONLY — module
+// display order, human labels, left-border colour, and which card a permission shows
+// under. Anything the backend returns that isn't described here still renders (with a
+// humanized label, a default colour, sorted last), so a newly added permission can
+// never be hidden from this UI. Edit this only to restyle/regroup — never to gate access.
+
+interface ModuleLayout {
+  label: string;
+  colorClass: string;
+  order: number;
+  adminOnly?: boolean;
+  /** Fold this module's submodules into another module's card. Keys are unchanged. */
+  mergeInto?: string;
+}
+
+const MODULE_LAYOUT: Record<string, ModuleLayout> = {
+  setup: { label: "Setup", colorClass: "border-l-rose-500", order: 10 },
+  offer_administration: {
     label: "Offer Administration",
     colorClass: "border-l-violet-500",
-    submodules: [
-      {
-        id: "ipo_upload",
-        label: "IPO — Upload",
-        actions: {
-          read: "offer_administration.ipo_upload.read",
-          write: "offer_administration.ipo_upload.write",
-        },
-      },
-      {
-        id: "ipo_approval",
-        label: "IPO — Approval",
-        actions: {
-          read: "offer_administration.ipo_approval.read",
-          approve: ["offer_administration.ipo_approval.approve"],
-        },
-      },
-      {
-        id: "ipo_icu_approval",
-        label: "IPO — ICU Approval",
-        actions: {
-          read: "offer_administration.ipo_icu_approval.read",
-          approve: ["offer_administration.ipo_icu_approval.approve"],
-        },
-      },
-      {
-        id: "ipo_lodgement",
-        label: "IPO — Lodgement",
-        actions: {
-          read: "offer_administration.ipo_lodgement.read",
-          write: "offer_administration.ipo_lodgement.write",
-        },
-      },
-      {
-        id: "rights_declaration",
-        label: "Rights — Declaration",
-        actions: {
-          read: "offer_administration.rights_declaration.read",
-          write: "offer_administration.rights_declaration.write",
-        },
-      },
-      {
-        id: "rights_approval",
-        label: "Rights — Approval",
-        actions: {
-          read: "offer_administration.rights_approval.read",
-          approve: ["offer_administration.rights_approval.approve"],
-        },
-      },
-      {
-        id: "rights_icu_approval",
-        label: "Rights — ICU Approval",
-        actions: {
-          read: "offer_administration.rights_icu_approval.read",
-          approve: ["offer_administration.rights_icu_approval.approve"],
-        },
-      },
-      {
-        id: "rights_allotment",
-        label: "Rights — Allotment",
-        actions: {
-          read: "offer_administration.rights_allotment.read",
-          write: "offer_administration.rights_allotment.write",
-          approve: ["offer_administration.rights_allotment.approve"],
-        },
-      },
-      {
-        id: "bonus_declaration",
-        label: "Bonus — Declaration",
-        actions: {
-          read: "offer_administration.bonus_declaration.read",
-          write: "offer_administration.bonus_declaration.write",
-        },
-      },
-      {
-        id: "bonus_approval",
-        label: "Bonus — Approval",
-        actions: {
-          read: "offer_administration.bonus_approval.read",
-          approve: ["offer_administration.bonus_approval.approve"],
-        },
-      },
-      {
-        id: "bonus_icu_approval",
-        label: "Bonus — ICU Approval",
-        actions: {
-          read: "offer_administration.bonus_icu_approval.read",
-          approve: ["offer_administration.bonus_icu_approval.approve"],
-        },
-      },
-      {
-        id: "bonus_allotment",
-        label: "Bonus — Allotment",
-        actions: {
-          read: "offer_administration.bonus_allotment.read",
-          write: "offer_administration.bonus_allotment.write",
-          approve: ["offer_administration.bonus_allotment.approve"],
-        },
-      },
-      {
-        id: "return_money",
-        label: "Return Money",
-        actions: {
-          read: "offer_administration.return_money.read",
-          write: "offer_administration.return_money.write",
-          approve: ["offer_administration.return_money.approve"],
-        },
-      },
-      {
-        id: "ipo_setup",
-        label: "IPO — Offer Setup",
-        actions: {
-          read: "offer_administration.ipo_setup.read",
-          write: "offer_administration.ipo_setup.write",
-        },
-      },
-      {
-        id: "rights_setup",
-        label: "Rights — Offer Setup",
-        actions: {
-          read: "offer_administration.rights_setup.read",
-          write: "offer_administration.rights_setup.write",
-        },
-      },
-      {
-        id: "rights_returns",
-        label: "Rights — Returns Capture",
-        actions: {
-          read: "offer_administration.rights_returns.read",
-          write: "offer_administration.rights_returns.write",
-        },
-      },
-      {
-        id: "bonus_setup",
-        label: "Bonus — Offer Setup",
-        actions: {
-          read: "offer_administration.bonus_setup.read",
-          write: "offer_administration.bonus_setup.write",
-        },
-      },
-    ],
+    order: 20,
   },
-  {
-    id: "certificate_management",
+  certificate_management: {
     label: "Certificate Management",
     colorClass: "border-l-green-500",
-    submodules: [
-      {
-        id: "cscs_updates_upload",
-        label: "CSCS Updates — Upload",
-        actions: {
-          read: "certificate_management.cscs_updates_upload.read",
-          write: "certificate_management.cscs_updates_upload.write",
-        },
-      },
-      {
-        id: "cscs_updates_approve",
-        label: "CSCS Updates — Approve",
-        actions: {
-          read: "certificate_management.cscs_updates_approve.read",
-          approve: ["certificate_management.cscs_updates_approve.approve"],
-        },
-      },
-      {
-        id: "reconciliation_view",
-        label: "Reconciliation — View",
-        actions: { read: "certificate_management.reconciliation_view.read" },
-      },
-      {
-        id: "reconciliation_update",
-        label: "Reconciliation — Update",
-        actions: {
-          read: "certificate_management.reconciliation_update.read",
-          write: "certificate_management.reconciliation_update.write",
-          approve: ["certificate_management.reconciliation_update.approve"],
-        },
-      },
-      {
-        id: "dematerialisation_capture",
-        label: "Dematerialisation — Capture",
-        actions: {
-          read: "certificate_management.dematerialisation_capture.read",
-          write: "certificate_management.dematerialisation_capture.write",
-        },
-      },
-      {
-        id: "dematerialisation_approve",
-        label: "Dematerialisation — Approve",
-        actions: {
-          read: "certificate_management.dematerialisation_approve.read",
-          approve: ["certificate_management.dematerialisation_approve.approve"],
-        },
-      },
-      {
-        id: "dematerialisation_icu",
-        label: "Dematerialisation — ICU",
-        actions: {
-          read: "certificate_management.dematerialisation_icu.read",
-          approve: ["certificate_management.dematerialisation_icu.approve"],
-        },
-      },
-      {
-        id: "dematerialisation_lodge",
-        label: "Dematerialisation — Lodge",
-        actions: {
-          read: "certificate_management.dematerialisation_lodge.read",
-          write: "certificate_management.dematerialisation_lodge.write",
-        },
-      },
-      {
-        id: "dematerialisation_coo",
-        label: "Dematerialisation — COO/CEO Approval",
-        actions: {
-          read: "certificate_management.dematerialisation_coo.read",
-          approve: ["certificate_management.dematerialisation_coo.approve"],
-        },
-      },
-      {
-        id: "dematerialisation_reversal",
-        label: "Dematerialisation — Reversal",
-        actions: {
-          read: "certificate_management.dematerialisation_reversal.read",
-          write: "certificate_management.dematerialisation_reversal.write",
-        },
-      },
-      {
-        id: "certificate_split",
-        label: "Certificate Split",
-        actions: {
-          read: "certificate_management.certificate_split.read",
-          write: "certificate_management.certificate_split.write",
-          approve: ["certificate_management.certificate_split.approve"],
-        },
-      },
-      {
-        id: "certificate_consolidation",
-        label: "Certificate Consolidation",
-        actions: {
-          read: "certificate_management.certificate_consolidation.read",
-          write: "certificate_management.certificate_consolidation.write",
-          approve: ["certificate_management.certificate_consolidation.approve"],
-        },
-      },
-      {
-        id: "certificate_transfer",
-        label: "Certificate Transfer",
-        actions: {
-          read: "certificate_management.certificate_transfer.read",
-          write: "certificate_management.certificate_transfer.write",
-          approve: ["certificate_management.certificate_transfer.approve"],
-        },
-      },
-      // ── CSCS Pipeline (daily-advice ingestion → apply → reconciliation) ──
-      // Keys are the backend `cscs_pipeline.*` module; displayed here under Certificate Management.
-      {
-        id: "cscs_pipeline_batches",
-        label: "CSCS Pipeline — Batches",
-        actions: {
-          read: "cscs_pipeline.batches.read",
-          write: "cscs_pipeline.batches.write",
-        },
-      },
-      {
-        id: "cscs_pipeline_bank_changes",
-        label: "CSCS Pipeline — Bank Changes",
-        actions: { read: "cscs_pipeline.bank_changes.read" },
-      },
-      {
-        id: "cscs_pipeline_trade_balances",
-        label: "CSCS Pipeline — Trade Balances",
-        actions: {
-          read: "cscs_pipeline.trade_balances.read",
-          write: "cscs_pipeline.trade_balances.write",
-        },
-      },
-      {
-        id: "cscs_pipeline_processed_log",
-        label: "CSCS Pipeline — Processed Log",
-        actions: { read: "cscs_pipeline.processed_log.read" },
-      },
-      {
-        id: "cscs_pipeline_finalize",
-        label: "CSCS Pipeline — Finalize Batch",
-        actions: {
-          read: "cscs_pipeline.finalize.read",
-          write: "cscs_pipeline.finalize.write",
-        },
-      },
-      {
-        id: "cscs_pipeline_reconciliation",
-        label: "CSCS Pipeline — Reconciliation",
-        actions: {
-          read: "cscs_pipeline.reconciliation.read",
-          write: "cscs_pipeline.reconciliation.write",
-          approve: ["cscs_pipeline.reconciliation.approve"],
-        },
-      },
-    ],
+    order: 30,
   },
-  {
-    id: "dividend_management",
+  // CSCS pipeline is shown inside the Certificate Management card (ops preference).
+  // The permission keys stay `cscs_pipeline.*` — exactly what the endpoints enforce.
+  cscs_pipeline: {
+    label: "CSCS Pipeline",
+    colorClass: "border-l-green-500",
+    order: 31,
+    mergeInto: "certificate_management",
+  },
+  dividend_management: {
     label: "Dividend Management",
     colorClass: "border-l-amber-500",
-    submodules: [
-      {
-        id: "declaration_initiate",
-        label: "Declaration — Initiate",
-        actions: {
-          read: "dividend_management.declaration_initiate.read",
-          write: "dividend_management.declaration_initiate.write",
-        },
-      },
-      {
-        id: "declaration_approve_1st",
-        label: "Declaration — Approve (1st)",
-        actions: {
-          read: "dividend_management.declaration_approve_1st.read",
-          approve: ["dividend_management.declaration_approve_1st.approve"],
-        },
-      },
-      {
-        id: "declaration_icu_approve",
-        label: "Declaration — ICU Approve",
-        actions: {
-          read: "dividend_management.declaration_icu_approve.read",
-          approve: ["dividend_management.declaration_icu_approve.approve"],
-        },
-      },
-      {
-        id: "new_mandate_initiate",
-        label: "New Mandate — Initiate",
-        actions: {
-          read: "dividend_management.new_mandate_initiate.read",
-          write: "dividend_management.new_mandate_initiate.write",
-        },
-      },
-      {
-        id: "new_mandate_approve_1st",
-        label: "New Mandate — Approve (1st)",
-        actions: {
-          read: "dividend_management.new_mandate_approve_1st.read",
-          approve: ["dividend_management.new_mandate_approve_1st.approve"],
-        },
-      },
-      {
-        id: "new_mandate_icu_approve",
-        label: "New Mandate — ICU Approve",
-        actions: {
-          read: "dividend_management.new_mandate_icu_approve.read",
-          approve: ["dividend_management.new_mandate_icu_approve.approve"],
-        },
-      },
-      {
-        id: "payment_initiate",
-        label: "Payment — Initiate",
-        actions: {
-          read: "dividend_management.payment_initiate.read",
-          write: "dividend_management.payment_initiate.write",
-        },
-      },
-      {
-        id: "payment_approve",
-        label: "Payment — Approve",
-        actions: {
-          read: "dividend_management.payment_approve.read",
-          approve: ["dividend_management.payment_approve.approve"],
-        },
-      },
-      {
-        id: "dividend_split",
-        label: "Dividend Split",
-        actions: {
-          read: "dividend_management.dividend_split.read",
-          write: "dividend_management.dividend_split.write",
-          approve: ["dividend_management.dividend_split.approve"],
-        },
-      },
-      {
-        id: "warrant_mark_off",
-        label: "Warrant Mark-Off",
-        actions: {
-          read: "dividend_management.warrant_mark_off.read",
-          write: "dividend_management.warrant_mark_off.write",
-          approve: ["dividend_management.warrant_mark_off.approve"],
-        },
-      },
-      {
-        id: "reports_view",
-        label: "Reports — View",
-        actions: { read: "dividend_management.reports_view.read" },
-      },
-      {
-        id: "return_money",
-        label: "Return of Money",
-        actions: {
-          read: "dividend_management.return_money.read",
-          write: "dividend_management.return_money.write",
-          approve: ["dividend_management.return_money.approve"],
-        },
-      },
-      {
-        id: "reversal",
-        label: "Dividend Reversals",
-        actions: {
-          read: "dividend_management.reversal.read",
-          write: "dividend_management.reversal.write",
-          approve: ["dividend_management.reversal.approve"],
-        },
-      },
-    ],
+    order: 40,
   },
-  {
-    id: "fund_subscription_redemption",
+  fund_subscription_redemption: {
     label: "Fund Subscription / Redemption",
     colorClass: "border-l-pink-500",
-    submodules: [
-      {
-        id: "create_subscriber",
-        label: "Create Subscriber",
-        actions: {
-          read: "fund_subscription_redemption.create_subscriber.read",
-          write: "fund_subscription_redemption.create_subscriber.write",
-        },
-      },
-      {
-        id: "subscription_initiate",
-        label: "Subscription — Initiate",
-        actions: {
-          read: "fund_subscription_redemption.subscription_initiate.read",
-          write: "fund_subscription_redemption.subscription_initiate.write",
-        },
-      },
-      {
-        id: "subscription_approve",
-        label: "Subscription — Approve",
-        actions: {
-          read: "fund_subscription_redemption.subscription_approve.read",
-          approve: [
-            "fund_subscription_redemption.subscription_approve.approve",
-          ],
-        },
-      },
-      {
-        id: "redemption_initiate",
-        label: "Redemption — Initiate",
-        actions: {
-          read: "fund_subscription_redemption.redemption_initiate.read",
-          write: "fund_subscription_redemption.redemption_initiate.write",
-        },
-      },
-      {
-        id: "redemption_approve",
-        label: "Redemption — Approve",
-        actions: {
-          read: "fund_subscription_redemption.redemption_approve.read",
-          approve: ["fund_subscription_redemption.redemption_approve.approve"],
-        },
-      },
-    ],
+    order: 50,
   },
-  {
-    id: "account_maintenance",
+  account_maintenance: {
     label: "Account Maintenance",
     colorClass: "border-l-sky-500",
-    submodules: [
-      {
-        id: "account_consolidation_submit",
-        label: "Account Consolidation — Submit",
-        actions: {
-          read: "account_maintenance.account_consolidation_submit.read",
-          write: "account_maintenance.account_consolidation_submit.write",
-        },
-      },
-      {
-        id: "account_consolidation_approve",
-        label: "Account Consolidation — Approve",
-        actions: {
-          read: "account_maintenance.account_consolidation_approve.read",
-          approve: [
-            "account_maintenance.account_consolidation_approve.approve",
-          ],
-        },
-      },
-      {
-        id: "account_consolidation_reverse",
-        label: "Account Consolidation — Reverse",
-        actions: {
-          read: "account_maintenance.account_consolidation_reverse.read",
-          approve: [
-            "account_maintenance.account_consolidation_reverse.approve",
-          ],
-        },
-      },
-      {
-        id: "kyc_update_submit",
-        label: "KYC Update — Submit",
-        actions: {
-          read: "account_maintenance.kyc_update_submit.read",
-          write: "account_maintenance.kyc_update_submit.write",
-        },
-      },
-      {
-        id: "kyc_update_approve_1st",
-        label: "KYC Update — Approve (1st)",
-        actions: {
-          read: "account_maintenance.kyc_update_approve_1st.read",
-          approve: ["account_maintenance.kyc_update_approve_1st.approve"],
-        },
-      },
-      {
-        id: "kyc_update_icu_approve",
-        label: "KYC Update — ICU Approve",
-        actions: {
-          read: "account_maintenance.kyc_update_icu_approve.read",
-          approve: ["account_maintenance.kyc_update_icu_approve.approve"],
-        },
-      },
-      {
-        id: "admon_submit",
-        label: "ADMON — Submit",
-        actions: {
-          read: "account_maintenance.admon_submit.read",
-          write: "account_maintenance.admon_submit.write",
-        },
-      },
-      {
-        id: "admon_approve",
-        label: "ADMON — Approve",
-        actions: {
-          read: "account_maintenance.admon_approve.read",
-          approve: ["account_maintenance.admon_approve.approve"],
-        },
-      },
-      {
-        id: "admon_reverse",
-        label: "ADMON — Reverse",
-        actions: {
-          read: "account_maintenance.admon_reverse.read",
-          approve: ["account_maintenance.admon_reverse.approve"],
-        },
-      },
-    ],
+    order: 60,
   },
-  {
-    id: "enquiry",
-    label: "Enquiry",
-    colorClass: "border-l-cyan-500",
-    submodules: [
-      {
-        id: "holder_enquiry",
-        label: "Holder Enquiry",
-        actions: { read: "enquiry.holder_enquiry.read" },
-      },
-      {
-        id: "certificate_enquiry",
-        label: "Certificate Enquiry",
-        actions: { read: "enquiry.certificate_enquiry.read" },
-      },
-      {
-        id: "warrant_enquiry",
-        label: "Warrant Enquiry",
-        actions: { read: "enquiry.warrant_enquiry.read" },
-      },
-      {
-        id: "rights_enquiry",
-        label: "Rights Enquiry",
-        actions: { read: "enquiry.rights_enquiry.read" },
-      },
-      {
-        id: "agent_enquiry",
-        label: "Agent Enquiry",
-        actions: { read: "enquiry.agent_enquiry.read" },
-      },
-    ],
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    colorClass: "border-l-teal-500",
-    submodules: [
-      {
-        id: "holder_reports",
-        label: "Holder Reports",
-        actions: {
-          read: "reports.holder_reports_view.read",
-          write: "reports.holder_reports_export.write",
-        },
-      },
-      {
-        id: "dividend_reports",
-        label: "Dividend Reports",
-        actions: {
-          read: "reports.dividend_reports_view.read",
-          write: "reports.dividend_reports_export.write",
-        },
-      },
-      {
-        id: "certificate_reports",
-        label: "Certificate Reports",
-        actions: {
-          read: "reports.certificate_reports_view.read",
-          write: "reports.certificate_reports_export.write",
-        },
-      },
-      {
-        id: "issue_reports",
-        label: "Issue Reports",
-        actions: {
-          read: "reports.issue_reports_view.read",
-          write: "reports.issue_reports_export.write",
-        },
-      },
-      {
-        id: "sec_reports",
-        label: "SEC Reports",
-        actions: {
-          read: "reports.sec_reports_view.read",
-          write: "reports.sec_reports_export.write",
-        },
-      },
-      {
-        id: "audit_trail",
-        label: "Audit Trail",
-        actions: {
-          read: "reports.audit_trail_view.read",
-          write: "reports.audit_trail_export.write",
-        },
-      },
-      {
-        id: "fund_reports",
-        label: "Fund Reports",
-        actions: {
-          read: "reports.fund_reports_view.read",
-          write: "reports.fund_reports_export.write",
-        },
-      },
-    ],
-  },
-  {
-    id: "admin_system",
+  enquiry: { label: "Enquiry", colorClass: "border-l-cyan-500", order: 70 },
+  reports: { label: "Reports", colorClass: "border-l-teal-500", order: 80 },
+  admin_system: {
     label: "Admin (System)",
     colorClass: "border-l-red-600",
+    order: 90,
     adminOnly: true,
-    submodules: [
-      {
-        id: "manage_caution_flags",
-        label: "Manage Caution Flags",
-        adminOnly: true,
-        actions: {
-          read: "admin_system.manage_caution_flags.read",
-          write: "admin_system.manage_caution_flags.write",
-          approve: ["admin_system.manage_caution_flags.approve"],
-        },
-      },
-      {
-        id: "manage_extraction",
-        label: "Manage Extraction",
-        adminOnly: true,
-        actions: {
-          read: "admin_system.manage_extraction.read",
-          write: "admin_system.manage_extraction.write",
-        },
-      },
-      {
-        id: "administration_auth",
-        label: "Administration Auth",
-        adminOnly: true,
-        actions: {
-          read: "admin_system.administration_auth.read",
-          write: "admin_system.administration_auth.write",
-          approve: ["admin_system.administration_auth.approve"],
-        },
-      },
-      {
-        id: "authorise_administration",
-        label: "Authorise Administration",
-        adminOnly: true,
-        actions: {
-          read: "admin_system.authorise_administration.read",
-          approve: ["admin_system.authorise_administration.approve"],
-        },
-      },
-      {
-        id: "authorise_advisors",
-        label: "Authorise Advisors",
-        adminOnly: true,
-        actions: {
-          read: "admin_system.authorise_advisors.read",
-          approve: ["admin_system.authorise_advisors.approve"],
-        },
-      },
-      {
-        id: "correct_holder_info",
-        label: "Correct Holder Info",
-        adminOnly: true,
-        actions: {
-          read: "admin_system.correct_holder_info.read",
-          write: "admin_system.correct_holder_info.write",
-          approve: ["admin_system.correct_holder_info.approve"],
-        },
-      },
-      {
-        id: "session_management",
-        label: "Session Management",
-        adminOnly: true,
-        actions: {
-          read: "admin_system.session_management.read",
-          write: "admin_system.session_management.write",
-        },
-      },
-    ],
   },
-];
+};
+
+const DEFAULT_MODULE_COLOR = "border-l-slate-400";
+const UNLISTED_MODULE_ORDER = 999;
+
+function humanizeSlug(slug: string): string {
+  return slug
+    .split(/[._]/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Assemble the display matrix from the flat backend catalogue. Action rows are grouped
+ * by (display-module, submodule); each submodule collects its read/write/approve keys.
+ */
+function buildPermissionMatrix(
+  catalog: CatalogPermission[] | undefined,
+): ModuleDef[] {
+  if (!catalog?.length) return [];
+
+  interface SubAgg {
+    id: string;
+    label: string;
+    adminOnly: boolean;
+    read?: string;
+    write?: string;
+    approve: string[];
+  }
+  // display-module → submodule-key → aggregate
+  const byModule = new Map<string, Map<string, SubAgg>>();
+
+  for (const p of catalog) {
+    // Only granular rows belong in the matrix; skip legacy/uncategorised permissions.
+    if (!p.module || !p.submodule || !p.action) continue;
+
+    const layout = MODULE_LAYOUT[p.module];
+    const displayModule = layout?.mergeInto ?? p.module;
+    // When folding one module into another, namespace the submodule key so two source
+    // modules can't collide on the same slug.
+    const subKey = layout?.mergeInto
+      ? `${p.module}__${p.submodule}`
+      : p.submodule;
+
+    let subs = byModule.get(displayModule);
+    if (!subs) {
+      subs = new Map();
+      byModule.set(displayModule, subs);
+    }
+    let agg = subs.get(subKey);
+    if (!agg) {
+      agg = {
+        id: subKey,
+        label: p.label || humanizeSlug(p.submodule),
+        adminOnly: !!p.adminOnly,
+        approve: [],
+      };
+      subs.set(subKey, agg);
+    }
+    if (p.label) agg.label = p.label;
+    if (p.adminOnly) agg.adminOnly = true;
+    if (p.action === "read") agg.read = p.name;
+    else if (p.action === "write") agg.write = p.name;
+    else if (p.action === "approve") agg.approve.push(p.name);
+  }
+
+  const modules: ModuleDef[] = [];
+  for (const [displayModule, subs] of byModule) {
+    const layout = MODULE_LAYOUT[displayModule];
+    const submodules: SubmoduleDef[] = [...subs.values()]
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .map((s) => ({
+        id: s.id,
+        label: s.label,
+        adminOnly: s.adminOnly || undefined,
+        actions: {
+          read: s.read,
+          write: s.write,
+          approve: s.approve.length ? s.approve : undefined,
+        },
+      }));
+    const allAdmin =
+      submodules.length > 0 && submodules.every((s) => s.adminOnly);
+    modules.push({
+      id: displayModule,
+      label: layout?.label ?? humanizeSlug(displayModule),
+      colorClass: layout?.colorClass ?? DEFAULT_MODULE_COLOR,
+      adminOnly: layout?.adminOnly ?? (allAdmin || undefined),
+      submodules,
+    });
+  }
+
+  modules.sort(
+    (a, b) =>
+      (MODULE_LAYOUT[a.id]?.order ?? UNLISTED_MODULE_ORDER) -
+        (MODULE_LAYOUT[b.id]?.order ?? UNLISTED_MODULE_ORDER) ||
+      a.label.localeCompare(b.label),
+  );
+  return modules;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getAllModulePerms(module: ModuleDef): string[] {
   return module.submodules.flatMap((sub) => [
-    sub.actions.read,
+    ...(sub.actions.read ? [sub.actions.read] : []),
     ...(sub.actions.write ? [sub.actions.write] : []),
     ...(sub.actions.approve ?? []),
   ]);
@@ -875,7 +274,7 @@ function applyPermToggle(
   const write = sub.actions.write;
   const approve = sub.actions.approve ?? [];
 
-  if (key === "read") {
+  if (key === "read" && read) {
     if (next.includes(read)) {
       const remove = new Set([read, ...(write ? [write] : []), ...approve]);
       return next.filter((p) => !remove.has(p));
@@ -885,7 +284,11 @@ function applyPermToggle(
   if (key === "write" && write) {
     if (next.includes(write)) return next.filter((p) => p !== write);
     return [
-      ...new Set([...next, write, ...(!next.includes(read) ? [read] : [])]),
+      ...new Set([
+        ...next,
+        write,
+        ...(read && !next.includes(read) ? [read] : []),
+      ]),
     ];
   }
   if (key === "approve" && approve.length > 0) {
@@ -895,7 +298,7 @@ function applyPermToggle(
       ...new Set([
         ...next,
         ...approve,
-        ...(!next.includes(read) ? [read] : []),
+        ...(read && !next.includes(read) ? [read] : []),
       ]),
     ];
   }
@@ -1015,7 +418,10 @@ function ModulePermCard({
                 const rowLocked = !!sub.adminOnly && !isSuperAdmin;
                 const rowDisabled = !isEditing || rowLocked;
 
-                const readChecked = permissions.includes(sub.actions.read);
+                const readChecked =
+                  sub.actions.read != null
+                    ? permissions.includes(sub.actions.read)
+                    : null;
                 const writeChecked =
                   sub.actions.write != null
                     ? permissions.includes(sub.actions.write)
@@ -1039,12 +445,18 @@ function ModulePermCard({
 
                     {/* Read */}
                     <td className="px-4 py-3 text-center">
-                      <Checkbox
-                        checked={readChecked}
-                        disabled={rowDisabled}
-                        onCheckedChange={() => onTogglePerm(sub, "read")}
-                        className="mx-auto cursor-pointer"
-                      />
+                      {readChecked !== null ? (
+                        <Checkbox
+                          checked={readChecked}
+                          disabled={rowDisabled}
+                          onCheckedChange={() => onTogglePerm(sub, "read")}
+                          className="mx-auto cursor-pointer"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground/30 text-base">
+                          —
+                        </span>
+                      )}
                     </td>
 
                     {/* Write / Initiate */}
@@ -1105,6 +517,16 @@ export default function RolesPage() {
 
   const queryClient = useQueryClient();
   const { data: roles, isLoading } = useRoles();
+
+  // The assignable-permission catalogue comes from the backend, so the matrix can
+  // never drift from what the server enforces.
+  const { data: permissionCatalog, isLoading: catalogLoading } =
+    usePermissionCatalog();
+  const permissionMatrix = useMemo(
+    () => buildPermissionMatrix(permissionCatalog),
+    [permissionCatalog],
+  );
+
   const [selectedRole, setSelectedRole] = useState(
     !isLoading ? roles?.[0]?.name : "ADMIN",
   );
@@ -1617,15 +1039,20 @@ export default function RolesPage() {
             </div>
 
             {/* Module permission cards */}
-            {isLoading ? (
+            {isLoading || catalogLoading ? (
               <div className="space-y-4">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="h-36 w-full rounded-xl" />
                 ))}
               </div>
+            ) : permissionMatrix.length === 0 ? (
+              <div className="text-sm text-muted-foreground border border-border/60 rounded-xl p-6 text-center">
+                Could not load the permission catalogue. Refresh the page to try
+                again.
+              </div>
             ) : (
               <div className="space-y-4">
-                {PERMISSION_MATRIX.map((module) => (
+                {permissionMatrix.map((module) => (
                   <ModulePermCard
                     key={module.id}
                     module={module}
@@ -1736,7 +1163,7 @@ export default function RolesPage() {
                 </p>
               </div>
               <div className="space-y-4">
-                {PERMISSION_MATRIX.map((module) => (
+                {permissionMatrix.map((module) => (
                   <ModulePermCard
                     key={module.id}
                     module={module}
@@ -1871,7 +1298,7 @@ export default function RolesPage() {
                 </p>
               </div>
               <div className="space-y-4">
-                {PERMISSION_MATRIX.map((module) => (
+                {permissionMatrix.map((module) => (
                   <ModulePermCard
                     key={module.id}
                     module={module}

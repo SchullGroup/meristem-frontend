@@ -26,6 +26,18 @@ export const GET_PERMISSIONS_BY_ROLE = async (roles: string[]) => {
   }
 };
 
+// Full assignable-permission catalogue (the seeded `permissions` table). The roles
+// UI builds its matrix from this so it can never drift from what the server enforces.
+export const GET_PERMISSIONS = async () => {
+  try {
+    const res = await api.get(`/permissions`);
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const CREATE_ROLE = async (data: {
   name: string;
   description: string;
