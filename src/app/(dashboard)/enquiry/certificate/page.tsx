@@ -204,7 +204,9 @@ export default function CertificateEnquiryPage() {
                                   className="cursor-pointer"
                                   onClick={() =>
                                     router.push(
-                                      `/certificates/split?search=${encodeURIComponent(cert.holderName)}`,
+                                      `/certificates/split?certificateNo=${encodeURIComponent(
+                                        cert.certificateNo,
+                                      )}&register=${encodeURIComponent(cert.registerSymbol)}`,
                                     )
                                   }
                                 >

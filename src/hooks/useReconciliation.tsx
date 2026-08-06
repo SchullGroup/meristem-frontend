@@ -5,8 +5,9 @@ import {
   GET_RECON_FLAGGED,
   RESOLVE_RECON_FLAGGED,
   GET_SHAREHOLDER_TX_HISTORY,
-  SAVE_RECONCILIATION,
-  type ReconSaveEntry,
+  GET_HOLDER_CERTIFICATES,
+  SAVE_RECONCILIATION_CERTIFICATES,
+  type ReconCertEntry,
 } from "@/actions/reconciliationActions";
 
 export const useReconFlagged = (params?: {
@@ -37,17 +38,25 @@ export const useShareholderTxHistory = (chn?: string, register?: string) =>
     enabled: !!chn && !!register,
   });
 
-export const useSaveReconciliation = () => {
+/** Left panel: the shareholder's certificate ledger, grouped per account (multi-CHN aware). */
+export const useHolderCertificates = (chn?: string, register?: string) =>
+  useQuery({
+    queryKey: ["reconciliation", "holder-certificates", chn ?? "", register ?? ""],
+    queryFn: () => GET_HOLDER_CERTIFICATES(chn!, register!),
+    enabled: !!chn && !!register,
+  });
+
+export const useSaveReconciliationCertificates = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: {
-      chn: string;
       register: string;
       flaggedItemId?: string;
-      transactions: ReconSaveEntry[];
-    }) => SAVE_RECONCILIATION(payload),
-    onSuccess: (_d, v) => {
-      qc.invalidateQueries({ queryKey: ["reconciliation", "tx-history", v.chn, v.register] });
+      note?: string;
+      entries: ReconCertEntry[];
+    }) => SAVE_RECONCILIATION_CERTIFICATES(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reconciliation", "holder-certificates"] });
       qc.invalidateQueries({ queryKey: ["reconciliation", "flagged"] });
     },
   });

@@ -27,18 +27,6 @@ export const GET_PENDING_SPLIT_REQUESTS = async () => {
   }
 };
 
-export const GET_CSCS_SHAREHOLDER_LOOKUP = async (search: string) => {
-  try {
-    const res = await api.get(`/certificates/shareholders/lookup`, {
-      params: { search },
-    });
-    return res.data;
-  } catch (error) {
-    const err = error as ErrorLike;
-    throw new Error(returnErrorMessage(err));
-  }
-};
-
 export const APPROVE_CERTIFICATE_SPLIT = async ({
   payload,
   splitId,

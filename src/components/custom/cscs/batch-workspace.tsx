@@ -1,15 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, Check, FileText } from "lucide-react";
+import { ArrowLeft, Check, FileText, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { StepRegistersRecords } from "./step-registers-records";
 import { StepResolveStates } from "./step-resolve-states";
 import { StepReviewBankChanges } from "./step-review-bank-changes";
 import { StepComputeTrades } from "./step-compute-trades";
 import { StepApplyHandoff } from "./step-apply-handoff";
 import { ProcessedLogView } from "./processed-log-view";
-import { useCscsBatch } from "@/hooks/useCscsPipeline";
+import { useCscsBatch, useDeleteCscsBatch } from "@/hooks/useCscsPipeline";
 
 type StepNum = 1 | 2 | 3 | 4 | 5;
 type ViewMode = "step" | "log";
@@ -44,6 +53,24 @@ export function BatchWorkspace({ batch, onBack }: BatchWorkspaceProps) {
   const batchCompleted = (batchDetail?.status ?? batch.status) === "COMPLETED";
   const statesLocked = !!batchDetail?.statesCommitted || batchCompleted;
 
+  // Delete is blocked once balances are applied — those ledger writes can't be undone here.
+  const applied = !!batchDetail?.balancesApplied;
+  const del = useDeleteCscsBatch();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const handleDelete = () => {
+    del.mutate(
+      { batchRef: batch.batchRef },
+      {
+        onSuccess: () => {
+          toast.success("Batch deleted.");
+          setConfirmOpen(false);
+          onBack();
+        },
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  };
+
   const markComplete = (step: StepNum) => {
     setCompletedSteps((prev) => new Set([...prev, step]));
     if (step < 5) setActiveStep((step + 1) as StepNum);
@@ -72,7 +99,53 @@ export function BatchWorkspace({ batch, onBack }: BatchWorkspaceProps) {
         <span className="font-mono text-sm font-semibold">
           {batch.batchRef}
         </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10 disabled:opacity-50"
+          disabled={applied || del.isPending}
+          title={
+            applied
+              ? "Balances have been applied — this batch can no longer be deleted."
+              : "Delete this batch and all its staged data"
+          }
+          onClick={() => setConfirmOpen(true)}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete batch
+        </Button>
       </div>
+
+      {/* Delete confirmation */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete this batch?</DialogTitle>
+            <DialogDescription>
+              This permanently removes batch{" "}
+              <span className="font-mono font-semibold">{batch.batchRef}</span> and all its staged data —
+              registers, KYC records, transactions and computed trade balances. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={del.isPending}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={del.isPending}
+              onClick={handleDelete}
+            >
+              {del.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete batch
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Horizontal stepper */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1">

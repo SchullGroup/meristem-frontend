@@ -132,15 +132,14 @@ export interface CscsTradeBalanceItem {
 }
 
 export interface CscsTradeBalanceListResponse {
-  summary: { total: number; balanced: number; flagged: number; multiAccount?: number; applied?: boolean };
+  summary: { total: number; balanced: number; flagged: number; multiAccount?: number; applied?: boolean; applying?: boolean };
   data: CscsTradeBalanceItem[];
+  meta?: { page: number; pageSize: number; total: number; totalPages: number };
 }
 
-export interface CscsTradeBalanceApplyResponse {
-  appliedCount: number;
-  flaggedCount: number;
-  logEntriesWritten: number;
-  multiAccountCount?: number;
+export interface CscsTradeBalanceApplyAck {
+  batchRef: string;
+  status: string; // "APPLYING"
 }
 
 export interface CscsBatchSummary {
@@ -224,6 +223,15 @@ export const GET_CSCS_BATCH = async (batchRef: string) => {
   }
 };
 
+export const DELETE_CSCS_BATCH = async (batchRef: string) => {
+  try {
+    const res = await api.delete(`/cscs/batches/${encodeURIComponent(batchRef)}`);
+    return res.data.data as string;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
 /* ─── Step 1: per-register stats ────────────────────────────────────────── */
 
 export const GET_CSCS_BATCH_REGISTERS = async (batchRef: string) => {
@@ -298,7 +306,7 @@ export const GET_CSCS_BANK_CHANGES = async (batchRef: string) => {
 
 export const GET_CSCS_TRADE_BALANCES = async (
   batchRef: string,
-  params?: { register?: string; status?: string },
+  params?: { register?: string; status?: string; page?: number; pageSize?: number },
 ) => {
   try {
     const res = await api.get(`/cscs/batches/${encodeURIComponent(batchRef)}/trade-balances`, { params });
@@ -311,7 +319,7 @@ export const GET_CSCS_TRADE_BALANCES = async (
 export const APPLY_CSCS_TRADE_BALANCES = async (batchRef: string) => {
   try {
     const res = await api.post(`/cscs/batches/${encodeURIComponent(batchRef)}/trade-balances/apply`);
-    return res.data.data as CscsTradeBalanceApplyResponse;
+    return res.data.data as CscsTradeBalanceApplyAck;
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }

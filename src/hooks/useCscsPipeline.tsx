@@ -6,6 +6,7 @@ import {
   UPLOAD_CSCS_BATCH,
   PROCESS_CSCS_BATCH,
   GET_CSCS_BATCH,
+  DELETE_CSCS_BATCH,
   GET_CSCS_BATCH_REGISTERS,
   GET_CSCS_BATCH_HOLDERS,
   UPDATE_CSCS_HOLDER_STATE,
@@ -20,6 +21,7 @@ import {
   type CscsBatchStatus,
   type CscsStateSource,
   type CscsBatchListResponse,
+  type CscsTradeBalanceListResponse,
 } from "@/actions/cscsPipelineActions";
 
 type BatchesQuery = Query<CscsBatchListResponse, Error, CscsBatchListResponse, readonly unknown[]>;
@@ -62,6 +64,14 @@ export const useCscsBatch = (batchRef?: string, refetchInterval?: number) =>
     enabled: !!batchRef,
     refetchInterval,
   });
+
+export const useDeleteCscsBatch = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ batchRef }: { batchRef: string }) => DELETE_CSCS_BATCH(batchRef),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cscs-pipeline", "batches"] }),
+  });
+};
 
 /* ─── Step 1: registers ─────────────────────────────────────────────────── */
 
@@ -134,14 +144,26 @@ export const useCscsBankChanges = (batchRef?: string) =>
 
 /* ─── Step 4: trade balances ────────────────────────────────────────────── */
 
+type TradeBalancesQuery = Query<
+  CscsTradeBalanceListResponse,
+  Error,
+  CscsTradeBalanceListResponse,
+  readonly unknown[]
+>;
+
 export const useCscsTradeBalances = (
   batchRef?: string,
-  params?: { register?: string; status?: string },
+  params?: { register?: string; status?: string; page?: number; pageSize?: number },
+  refetchInterval?:
+    | number
+    | false
+    | ((query: TradeBalancesQuery) => number | false | undefined),
 ) =>
   useQuery({
     queryKey: ["cscs-pipeline", "trade-balances", batchRef ?? "", params ?? {}],
     queryFn: () => GET_CSCS_TRADE_BALANCES(batchRef!, params),
     enabled: !!batchRef,
+    refetchInterval,
   });
 
 export const useApplyCscsTradeBalances = () => {
