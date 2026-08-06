@@ -83,9 +83,11 @@ interface ModuleDef {
 // The set of assignable permissions is owned by the backend: the seeded `permissions`
 // table, served by GET /permissions. The config below is PRESENTATION ONLY — module
 // display order, human labels, left-border colour, and which card a permission shows
-// under. Anything the backend returns that isn't described here still renders (with a
-// humanized label, a default colour, sorted last), so a newly added permission can
-// never be hidden from this UI. Edit this only to restyle/regroup — never to gate access.
+// under. Any module/submodule the backend returns that isn't described here still renders
+// (humanized label, default colour, sorted last), so a newly added module or submodule can
+// never be hidden from this UI. (Actions are the fixed read/write/approve set — the three
+// rendered columns; adding a 4th backend PermissionAction would need a matching column here.)
+// Edit this only to restyle/regroup — never to gate access.
 
 interface ModuleLayout {
   label: string;
