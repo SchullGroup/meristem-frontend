@@ -236,6 +236,38 @@ const PERMISSION_MATRIX: ModuleDef[] = [
           approve: ["offer_administration.return_money.approve"],
         },
       },
+      {
+        id: "ipo_setup",
+        label: "IPO — Offer Setup",
+        actions: {
+          read: "offer_administration.ipo_setup.read",
+          write: "offer_administration.ipo_setup.write",
+        },
+      },
+      {
+        id: "rights_setup",
+        label: "Rights — Offer Setup",
+        actions: {
+          read: "offer_administration.rights_setup.read",
+          write: "offer_administration.rights_setup.write",
+        },
+      },
+      {
+        id: "rights_returns",
+        label: "Rights — Returns Capture",
+        actions: {
+          read: "offer_administration.rights_returns.read",
+          write: "offer_administration.rights_returns.write",
+        },
+      },
+      {
+        id: "bonus_setup",
+        label: "Bonus — Offer Setup",
+        actions: {
+          read: "offer_administration.bonus_setup.read",
+          write: "offer_administration.bonus_setup.write",
+        },
+      },
     ],
   },
   {
@@ -306,6 +338,22 @@ const PERMISSION_MATRIX: ModuleDef[] = [
         },
       },
       {
+        id: "dematerialisation_coo",
+        label: "Dematerialisation — COO/CEO Approval",
+        actions: {
+          read: "certificate_management.dematerialisation_coo.read",
+          approve: ["certificate_management.dematerialisation_coo.approve"],
+        },
+      },
+      {
+        id: "dematerialisation_reversal",
+        label: "Dematerialisation — Reversal",
+        actions: {
+          read: "certificate_management.dematerialisation_reversal.read",
+          write: "certificate_management.dematerialisation_reversal.write",
+        },
+      },
+      {
         id: "certificate_split",
         label: "Certificate Split",
         actions: {
@@ -330,6 +378,51 @@ const PERMISSION_MATRIX: ModuleDef[] = [
           read: "certificate_management.certificate_transfer.read",
           write: "certificate_management.certificate_transfer.write",
           approve: ["certificate_management.certificate_transfer.approve"],
+        },
+      },
+      // ── CSCS Pipeline (daily-advice ingestion → apply → reconciliation) ──
+      // Keys are the backend `cscs_pipeline.*` module; displayed here under Certificate Management.
+      {
+        id: "cscs_pipeline_batches",
+        label: "CSCS Pipeline — Batches",
+        actions: {
+          read: "cscs_pipeline.batches.read",
+          write: "cscs_pipeline.batches.write",
+        },
+      },
+      {
+        id: "cscs_pipeline_bank_changes",
+        label: "CSCS Pipeline — Bank Changes",
+        actions: { read: "cscs_pipeline.bank_changes.read" },
+      },
+      {
+        id: "cscs_pipeline_trade_balances",
+        label: "CSCS Pipeline — Trade Balances",
+        actions: {
+          read: "cscs_pipeline.trade_balances.read",
+          write: "cscs_pipeline.trade_balances.write",
+        },
+      },
+      {
+        id: "cscs_pipeline_processed_log",
+        label: "CSCS Pipeline — Processed Log",
+        actions: { read: "cscs_pipeline.processed_log.read" },
+      },
+      {
+        id: "cscs_pipeline_finalize",
+        label: "CSCS Pipeline — Finalize Batch",
+        actions: {
+          read: "cscs_pipeline.finalize.read",
+          write: "cscs_pipeline.finalize.write",
+        },
+      },
+      {
+        id: "cscs_pipeline_reconciliation",
+        label: "CSCS Pipeline — Reconciliation",
+        actions: {
+          read: "cscs_pipeline.reconciliation.read",
+          write: "cscs_pipeline.reconciliation.write",
+          approve: ["cscs_pipeline.reconciliation.approve"],
         },
       },
     ],
@@ -425,6 +518,24 @@ const PERMISSION_MATRIX: ModuleDef[] = [
         id: "reports_view",
         label: "Reports — View",
         actions: { read: "dividend_management.reports_view.read" },
+      },
+      {
+        id: "return_money",
+        label: "Return of Money",
+        actions: {
+          read: "dividend_management.return_money.read",
+          write: "dividend_management.return_money.write",
+          approve: ["dividend_management.return_money.approve"],
+        },
+      },
+      {
+        id: "reversal",
+        label: "Dividend Reversals",
+        actions: {
+          read: "dividend_management.reversal.read",
+          write: "dividend_management.reversal.write",
+          approve: ["dividend_management.reversal.approve"],
+        },
       },
     ],
   },
@@ -643,6 +754,14 @@ const PERMISSION_MATRIX: ModuleDef[] = [
         actions: {
           read: "reports.audit_trail_view.read",
           write: "reports.audit_trail_export.write",
+        },
+      },
+      {
+        id: "fund_reports",
+        label: "Fund Reports",
+        actions: {
+          read: "reports.fund_reports_view.read",
+          write: "reports.fund_reports_export.write",
         },
       },
     ],
