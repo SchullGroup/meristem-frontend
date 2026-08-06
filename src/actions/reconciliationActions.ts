@@ -49,13 +49,6 @@ export interface ShareholderTxn {
   status: string | null;
 }
 
-export interface ReconSaveEntry {
-  date: string; // yyyy-MM-dd
-  type: string; // BUY | SELL | RIGHTS | BONUS | IPO
-  transferNo?: string;
-  units: number;
-}
-
 /* ─── CSCS Update tab — flagged shortfalls ─────────────────────────────────── */
 
 export const GET_RECON_FLAGGED = async (params?: {
@@ -94,17 +87,65 @@ export const GET_SHAREHOLDER_TX_HISTORY = async (chn: string, register: string) 
   }
 };
 
-/* ─── Save Records — persist added rows + update holder balance ────────────── */
+/* ─── Holder certificate ledger (left panel) — grouped by account ──────────── */
 
-export const SAVE_RECONCILIATION = async (payload: {
-  chn: string;
+export interface HolderCertificate {
+  id: string;
+  certNumber: string | null;
+  type: "BUY" | "SELL";
+  units: number; // signed (+/−) ledger units
+  status: string | null;
+  issueDate: string | null;
+  transferNo: string | null;
+  notes: string | null;
+}
+
+export interface HolderAccountPanel {
+  accountNo: string;
+  chn: string | null;
+  holderName: string | null;
+  holderId: string | null;
+  totalUnits: number;
+  primary: boolean;
+  certificates: HolderCertificate[];
+}
+
+export interface HolderCertificatesResponse {
+  register: string;
+  accounts: HolderAccountPanel[];
+}
+
+export interface ReconCertEntry {
+  accountNo: string;
+  chn?: string;
+  type: string; // BUY | SELL | RIGHTS | BONUS | IPO (only the sign is used server-side)
+  units: number;
+  transferNo?: string;
+  date?: string; // yyyy-MM-dd
+}
+
+export const GET_HOLDER_CERTIFICATES = async (chn: string, register: string) => {
+  try {
+    const res = await api.get(`/reconciliation/cscs/holder-certificates`, { params: { chn, register } });
+    return res.data.data as HolderCertificatesResponse;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
+export const SAVE_RECONCILIATION_CERTIFICATES = async (payload: {
   register: string;
   flaggedItemId?: string;
-  transactions: ReconSaveEntry[];
+  note?: string;
+  entries: ReconCertEntry[];
 }) => {
   try {
-    const res = await api.post(`/cscs/reconciliation/save`, payload);
-    return res.data.data as { chn: string; register: string; savedCount: number; newBalance: number };
+    const res = await api.post(`/reconciliation/cscs/certificates`, payload);
+    return res.data.data as {
+      certificatesWritten: number;
+      accountsRecomputed: string[];
+      flaggedResolved: boolean;
+    };
   } catch (error) {
     throw new Error(returnErrorMessage(error as ErrorLike));
   }

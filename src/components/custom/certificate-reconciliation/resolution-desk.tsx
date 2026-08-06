@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2,
-  Plus, RefreshCw, Upload, X, Zap,
+  Plus, RefreshCw, Upload, X, Zap, Layers,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils/format";
-import { useShareholderTxHistory, useSaveReconciliation, useResolveReconFlagged } from "@/hooks/useReconciliation";
-import type { ShareholderTxn } from "@/actions/reconciliationActions";
+import { useHolderCertificates, useSaveReconciliationCertificates } from "@/hooks/useReconciliation";
+import type { HolderAccountPanel, HolderCertificate } from "@/actions/reconciliationActions";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type TxType = "BUY" | "SELL" | "RIGHTS" | "BONUS" | "IPO";
@@ -27,8 +27,9 @@ interface LedgerEntry {
   isoDate: string; // yyyy-MM-dd (for save)
   type: TxType;
   transferNo: string;
-  units: number;
+  units: number; // display magnitude (always positive; sign implied by type/colour)
   status?: string;
+  accountNo?: string; // which account this entry belongs to / targets
 }
 
 export interface ShortfallContext {
@@ -74,21 +75,18 @@ function inDateRange(iso: string, from: string, to: string): boolean {
   return true;
 }
 
-/** Map a backend cscs_transactions row to a ledger entry (entryMode carries BONUS/RIGHTS/IPO). */
-function txnToEntry(t: ShareholderTxn): LedgerEntry {
-  const mode = (t.entryMode ?? "").toUpperCase();
-  const semantic: TxType =
-    mode === "BONUS" || mode === "RIGHTS" || mode === "IPO"
-      ? (mode as TxType)
-      : ((t.type ?? "BUY").toUpperCase() === "SELL" ? "SELL" : "BUY");
+/** Map a certificate ledger row (signed units) to a display ledger entry (positive units + type). */
+function certToEntry(c: HolderCertificate, accountNo: string): LedgerEntry {
+  const type: TxType = (c.units ?? 0) < 0 ? "SELL" : "BUY";
   return {
-    id: t.id,
-    displayDate: fmtDisplay(t.transactionDate),
-    isoDate: t.transactionDate ?? "",
-    type: semantic,
-    transferNo: t.transferNo ?? "",
-    units: t.units ?? 0,
-    status: t.status ?? undefined,
+    id: c.id,
+    displayDate: fmtDisplay(c.issueDate),
+    isoDate: c.issueDate ?? "",
+    type,
+    transferNo: c.transferNo ?? "",
+    units: Math.abs(c.units ?? 0),
+    status: c.status ?? undefined,
+    accountNo,
   };
 }
 
@@ -120,31 +118,36 @@ function parseCscsCsv(text: string): LedgerEntry[] {
 
 // ── Add Transaction modal ────────────────────────────────────────────────
 function InsertModal({
-  open, onClose, prefill, chn, register, onInserted,
+  open, onClose, prefill, chn, register, accounts, initialAccountNo, onInserted,
 }: {
   open: boolean;
   onClose: () => void;
   prefill: LedgerEntry | null;
   chn: string;
   register: string;
+  accounts: HolderAccountPanel[];
+  initialAccountNo: string;
   onInserted: (entry: LedgerEntry) => void;
 }) {
   const [units, setUnits] = useState(String(prefill?.units ?? ""));
   const [isoDate, setIsoDate] = useState(prefill?.isoDate ?? "");
   const [txNo, setTxNo] = useState(prefill?.transferNo ?? "");
   const [type, setType] = useState<TxType | "">(prefill?.type ?? "");
+  const [accountNo, setAccountNo] = useState(initialAccountNo);
 
   const handleSubmit = () => {
+    if (!accountNo) { toast.error("Select the account to post to."); return; }
     if (!units || Number(units) <= 0) { toast.error("Enter a valid unit count."); return; }
     if (!type) { toast.error("Select a transaction type."); return; }
     if (!isoDate) { toast.error("Select a transaction date."); return; }
     onInserted({
-      id: `added-${txNo.trim() || "tx"}-${units}-${isoDate}`,
+      id: `added-${accountNo}-${txNo.trim() || "tx"}-${units}-${isoDate}`,
       isoDate,
       displayDate: fmtDisplay(isoDate),
       type: type as TxType,
       transferNo: txNo.trim(),
       units: Number(units),
+      accountNo,
     });
     onClose();
   };
@@ -153,9 +156,9 @@ function InsertModal({
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
         <div className="px-6 pt-6 pb-4 border-b border-border">
-          <DialogTitle className="text-lg font-bold leading-tight">Add Transaction</DialogTitle>
+          <DialogTitle className="text-lg font-bold leading-tight">Add Certificate Movement</DialogTitle>
           <p className="text-[13px] text-muted-foreground mt-1.5">
-            CHN <span className="font-mono text-foreground">{chn}</span> · {register}
+            CHN <span className="font-mono text-foreground">{chn}</span> · {register} — posts a certificate ledger row on save.
           </p>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -166,13 +169,26 @@ function InsertModal({
             </div>
           )}
           <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+            <div className="space-y-1.5 col-span-2">
+              <label className="mrpsl-label">Post to account</label>
+              <Select value={accountNo} onValueChange={(v) => v && setAccountNo(v)}>
+                <SelectTrigger className="mrpsl-input"><SelectValue placeholder="Select account" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.accountNo} value={a.accountNo}>
+                      Acct {a.accountNo}{a.chn ? ` · CHN ${a.chn}` : ""}{a.primary ? " (flagged)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <label className="mrpsl-label">Transaction Date</label>
               <Input type="date" className="mrpsl-input" value={isoDate} onChange={(e) => setIsoDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <label className="mrpsl-label">Transfer Number</label>
-              <Input className="mrpsl-input font-mono" value={txNo} onChange={(e) => setTxNo(e.target.value)} placeholder="e.g. TRF-DANGCEM-001" />
+              <Input className="mrpsl-input font-mono" value={txNo} onChange={(e) => setTxNo(e.target.value)} placeholder="e.g. TRF-001" />
             </div>
             <div className="space-y-1.5">
               <label className="mrpsl-label">Units</label>
@@ -183,25 +199,78 @@ function InsertModal({
               <Select value={type} onValueChange={(v) => setType(v as TxType)}>
                 <SelectTrigger className="mrpsl-input"><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="BUY">BUY</SelectItem>
-                  <SelectItem value="SELL">SELL</SelectItem>
-                  <SelectItem value="RIGHTS">RIGHTS</SelectItem>
-                  <SelectItem value="BONUS">BONUS</SelectItem>
+                  <SelectItem value="BUY">BUY (+)</SelectItem>
+                  <SelectItem value="SELL">SELL (−)</SelectItem>
+                  <SelectItem value="RIGHTS">RIGHTS (+)</SelectItem>
+                  <SelectItem value="BONUS">BONUS (+)</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-1.5 col-span-2">
-              <label className="mrpsl-label">Symbol / Register</label>
-              <Input className="mrpsl-input bg-muted/40 text-muted-foreground" value={register} disabled />
             </div>
           </div>
         </div>
         <div className="px-6 py-4 border-t border-border bg-muted/20 flex justify-end gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>Add Transaction</Button>
+          <Button onClick={handleSubmit}>Add Movement</Button>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── One account's certificate-ledger panel ──────────────────────────────────
+function AccountPanel({
+  account, entries, onAdd,
+}: {
+  account: HolderAccountPanel;
+  entries: LedgerEntry[];
+  onAdd: () => void;
+}) {
+  const addedCount = entries.filter((e) => e.id.startsWith("added-")).length;
+  return (
+    <Card className="mrpsl-card overflow-hidden">
+      <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <Layers className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            Acct {account.accountNo}
+          </span>
+          {account.chn && (
+            <Badge className="border-0 text-[11px] bg-gray-100 text-gray-700 font-mono">CHN {account.chn}</Badge>
+          )}
+          {account.primary ? (
+            <Badge className="border-0 text-[11px] bg-amber-100 text-amber-800">Flagged account</Badge>
+          ) : (
+            <Badge className="border-0 text-[11px] bg-blue-50 text-blue-700">Other account</Badge>
+          )}
+          {addedCount > 0 && <Badge className="border-0 text-[11px] bg-green-100 text-green-700">+{addedCount} added</Badge>}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground">Position</span>
+          <span className="font-mono font-bold text-[13px]">{formatNumber(account.totalUnits)}</span>
+          <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1" onClick={onAdd}>
+            <Plus className="h-3 w-3" /> Add
+          </Button>
+        </div>
+      </div>
+      <div className="divide-y divide-border/60 text-[13px]">
+        {entries.map((e) => (
+          <div key={e.id} className="flex items-center justify-between px-4 py-2.5">
+            <div>
+              <p className="font-medium">{e.displayDate} <span className={txColor(e.type)}>({e.type})</span></p>
+              <p className="text-[11px] text-muted-foreground font-mono">
+                {e.transferNo || "—"}{e.status ? ` · ${e.status}` : ""}
+              </p>
+            </div>
+            <span className="font-mono font-bold">{formatNumber(e.units)}</span>
+          </div>
+        ))}
+        {entries.length === 0 && (
+          <p className="px-4 py-6 text-center text-muted-foreground text-[13px] italic">
+            No certificate movements for this account.
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -210,9 +279,8 @@ export function ResolutionDesk({
   chn, register, holderName, onBack, backLabel = "Back", context, onSaved,
 }: ResolutionDeskProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { data: history, isLoading, isError, error } = useShareholderTxHistory(chn, register);
-  const save = useSaveReconciliation();
-  const resolveFlagged = useResolveReconFlagged();
+  const { data: certData, isLoading, isError, error } = useHolderCertificates(chn, register);
+  const save = useSaveReconciliationCertificates();
 
   const [cscsEntries, setCscsEntries] = useState<LedgerEntry[]>([]);
   const [cscsFileName, setCscsFileName] = useState("");
@@ -226,9 +294,20 @@ export function ResolutionDesk({
 
   const [insertOpen, setInsertOpen] = useState(false);
   const [insertPrefill, setInsertPrefill] = useState<LedgerEntry | null>(null);
+  const [insertAccountNo, setInsertAccountNo] = useState("");
 
-  const historyEntries = useMemo(() => (history ?? []).map(txnToEntry), [history]);
-  const effectiveMrpsl = useMemo(() => [...historyEntries, ...addedMrpsl], [historyEntries, addedMrpsl]);
+  const accounts = useMemo(() => certData?.accounts ?? [], [certData]);
+  const primaryAccountNo = useMemo(
+    () => accounts.find((a) => a.primary)?.accountNo ?? accounts[0]?.accountNo ?? "",
+    [accounts],
+  );
+
+  // Certificate rows from all accounts (union), used for the CSCS comparison.
+  const allCertEntries = useMemo(
+    () => accounts.flatMap((a) => a.certificates.map((c) => certToEntry(c, a.accountNo))),
+    [accounts],
+  );
+  const effectiveMrpsl = useMemo(() => [...allCertEntries, ...addedMrpsl], [allCertEntries, addedMrpsl]);
 
   const mrpslTransferNos = new Set(effectiveMrpsl.map((e) => e.transferNo).filter(Boolean));
   const cscsTransferNos = new Set(cscsEntries.map((e) => e.transferNo).filter(Boolean));
@@ -248,17 +327,23 @@ export function ResolutionDesk({
       .sort((a, b) => new Date(a.mrpsl?.isoDate ?? a.cscs?.isoDate ?? "").getTime() - new Date(b.mrpsl?.isoDate ?? b.cscs?.isoDate ?? "").getTime());
   }, [showDiscrepancy, effectiveMrpsl, cscsEntries]);
 
-  const displayMrpsl = effectiveMrpsl.filter((e) => {
-    if (!inDateRange(e.isoDate, dateFrom, dateTo)) return false;
-    if (hideMatched && cscsEntries.length > 0 && cscsTransferNos.has(e.transferNo)) return false;
-    return true;
-  });
   const displayCscs = cscsEntries.filter((e) => {
     if (!inDateRange(e.isoDate, dateFrom, dateTo)) return false;
     if (hideMatched && mrpslTransferNos.has(e.transferNo)) return false;
     return true;
   });
   const displayAligned = alignedRows.filter((r) => inDateRange(r.mrpsl?.isoDate ?? r.cscs?.isoDate ?? "", dateFrom, dateTo));
+
+  // Per-account display entries (account's certs + added rows targeting it), filtered.
+  const accountEntries = (a: HolderAccountPanel): LedgerEntry[] => {
+    const base = a.certificates.map((c) => certToEntry(c, a.accountNo));
+    const added = addedMrpsl.filter((e) => e.accountNo === a.accountNo);
+    return [...base, ...added].filter((e) => {
+      if (!inDateRange(e.isoDate, dateFrom, dateTo)) return false;
+      if (hideMatched && cscsEntries.length > 0 && cscsTransferNos.has(e.transferNo)) return false;
+      return true;
+    });
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -277,46 +362,44 @@ export function ResolutionDesk({
     e.target.value = "";
   };
 
-  const openInsertFromCscs = (cscsEntry: LedgerEntry) => {
-    setInsertPrefill(cscsEntry);
+  const openAdd = (accountNo: string, prefill: LedgerEntry | null) => {
+    setInsertAccountNo(accountNo || primaryAccountNo);
+    setInsertPrefill(prefill);
     setInsertOpen(true);
   };
 
   const addAllMissing = () => {
     const fresh = cscsEntries.filter((e) => e.transferNo && !mrpslTransferNos.has(e.transferNo));
-    setAddedMrpsl((prev) => [...prev, ...fresh.map((e) => ({ ...e, id: `added-${e.transferNo}`, status: undefined }))]);
-    toast.success(`${fresh.length} missing transaction${fresh.length !== 1 ? "s" : ""} added to the MRPSL register.`);
+    setAddedMrpsl((prev) => [...prev, ...fresh.map((e) => ({ ...e, id: `added-${primaryAccountNo}-${e.transferNo}`, status: undefined, accountNo: primaryAccountNo }))]);
+    toast.success(`${fresh.length} missing transaction${fresh.length !== 1 ? "s" : ""} added to account ${primaryAccountNo}.`);
   };
 
   const handleSave = async () => {
     if (addedMrpsl.length === 0 && !context?.flaggedItemId) {
-      toast.info("No new transactions to save.");
+      toast.info("No new movements to save.");
       return;
     }
     try {
-      if (addedMrpsl.length > 0) {
-        await save.mutateAsync({
+      await save.mutateAsync({
+        register,
+        flaggedItemId: context?.flaggedItemId,
+        note: undefined,
+        entries: addedMrpsl.map((e) => ({
+          accountNo: e.accountNo || primaryAccountNo,
           chn,
-          register,
-          flaggedItemId: context?.flaggedItemId,
-          transactions: addedMrpsl.map((e) => ({
-            date: e.isoDate,
-            type: e.type,
-            transferNo: e.transferNo || undefined,
-            units: e.units,
-          })),
-        });
-      }
-      if (context?.flaggedItemId) {
-        await resolveFlagged.mutateAsync({ id: context.flaggedItemId, note: `Reconciled — ${addedMrpsl.length} record(s) added.` });
-      }
+          type: e.type,
+          units: e.units,
+          transferNo: e.transferNo || undefined,
+          date: e.isoDate || undefined,
+        })),
+      });
       setSaved(true);
     } catch (err) {
       toast.error((err as Error).message);
     }
   };
 
-  const saving = save.isPending || resolveFlagged.isPending;
+  const saving = save.isPending;
 
   // ── Saved confirmation ──
   if (saved) {
@@ -334,7 +417,7 @@ export function ResolutionDesk({
           <p className="font-semibold text-lg">Records Saved</p>
           <p className="text-sm text-muted-foreground text-center max-w-sm">
             {addedMrpsl.length > 0
-              ? `${addedMrpsl.length} transaction${addedMrpsl.length !== 1 ? "s" : ""} saved for ${holderName} (${chn}) — the shareholder's balance has been updated.`
+              ? `${addedMrpsl.length} certificate movement${addedMrpsl.length !== 1 ? "s" : ""} posted for ${holderName} (${chn}) — the affected account positions have been recomputed.`
               : `Reconciliation for ${holderName} (${chn}) has been marked resolved.`}
           </p>
           <Button onClick={() => { onSaved?.(); onBack(); }}>{backLabel}</Button>
@@ -353,6 +436,9 @@ export function ResolutionDesk({
         <div className="h-4 w-px bg-border" />
         <h2 className="text-base font-bold tracking-tight">Resolution Desk: {holderName} ({chn})</h2>
         <Badge className="ml-auto border-0 bg-gray-100 text-gray-700 shrink-0">{register}</Badge>
+        {accounts.length > 1 && (
+          <Badge className="border-0 text-[12px] bg-amber-100 text-amber-800 shrink-0">{accounts.length} accounts</Badge>
+        )}
         {cscsFileName && (
           <Badge className="border-0 text-[12px] bg-blue-100 text-blue-800 shrink-0">{cscsEntries.length} CSCS records</Badge>
         )}
@@ -367,7 +453,8 @@ export function ResolutionDesk({
             <strong>{formatNumber(context.attemptedSell ?? 0)} units</strong> in {register}
             {context.transactionDate ? ` on ${fmtDisplay(context.transactionDate)}` : ""}, but only held{" "}
             <strong>{formatNumber(context.holdingsAtFlag ?? 0)} units</strong> — a shortfall of{" "}
-            <strong>{formatNumber(context.shortfall ?? 0)} units</strong>. Add the missing earlier purchase(s) to reconcile.
+            <strong>{formatNumber(context.shortfall ?? 0)} units</strong>. Review the account ledgers on the left
+            (including the shareholder&apos;s other accounts) and add the missing movement(s) to reconcile.
           </p>
         </div>
       )}
@@ -376,7 +463,7 @@ export function ResolutionDesk({
         <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
           <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
           <p className="text-sm font-medium text-green-800">
-            MRPSL and CSCS records are fully balanced — all {effectiveMrpsl.length} transactions match.
+            MRPSL and CSCS records are fully balanced — all {effectiveMrpsl.length} movements match.
           </p>
         </div>
       )}
@@ -415,12 +502,12 @@ export function ResolutionDesk({
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading transaction history…
+          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading certificate ledger…
         </div>
       ) : isError ? (
-        <div className="py-16 text-center text-red-600 text-sm">{(error as Error)?.message ?? "Failed to load transaction history."}</div>
+        <div className="py-16 text-center text-red-600 text-sm">{(error as Error)?.message ?? "Failed to load certificate ledger."}</div>
       ) : showDiscrepancy ? (
-        /* Discrepancy / aligned view */
+        /* Discrepancy / aligned view (union of all accounts vs CSCS) */
         <Card className="mrpsl-card overflow-hidden">
           <div className="px-4 py-2.5 bg-amber-50/60 border-b border-amber-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -431,12 +518,12 @@ export function ResolutionDesk({
             </div>
             {mrpslMissingCount > 0 && (
               <Button size="sm" variant="outline" className="h-7 text-[12px] border-red-200 text-red-700 hover:bg-red-50 gap-1" onClick={addAllMissing}>
-                <Plus className="h-3 w-3" /> Add All Missing to MRPSL
+                <Plus className="h-3 w-3" /> Add All Missing to Acct {primaryAccountNo}
               </Button>
             )}
           </div>
           <div className="grid grid-cols-2 border-b border-border/60">
-            <div className="px-4 py-2 bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-r border-border/60">MRPSL Register Records</div>
+            <div className="px-4 py-2 bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-r border-border/60">MRPSL Certificate Ledger (all accounts)</div>
             <div className="px-4 py-2 bg-muted/30 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">CSCS Cleared Records</div>
           </div>
           <div className="divide-y divide-border/50 text-[13px]">
@@ -445,7 +532,7 @@ export function ResolutionDesk({
                 {row.mrpsl === null ? (
                   <div className="flex items-center justify-between px-4 py-3 bg-red-50/50 border-r border-border/60">
                     <span className="text-[13px] italic text-muted-foreground">Missing</span>
-                    <Button size="sm" variant="outline" className="h-6 w-6 p-0 border-red-200 text-red-600 hover:bg-red-50 shrink-0" title="Add to MRPSL" onClick={() => row.cscs && openInsertFromCscs(row.cscs)}>
+                    <Button size="sm" variant="outline" className="h-6 w-6 p-0 border-red-200 text-red-600 hover:bg-red-50 shrink-0" title="Add to MRPSL" onClick={() => row.cscs && openAdd(primaryAccountNo, row.cscs)}>
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
@@ -453,7 +540,7 @@ export function ResolutionDesk({
                   <div className="flex items-center justify-between px-4 py-3 border-r border-border/60">
                     <div>
                       <p className="font-medium">{row.mrpsl.displayDate} <span className={txColor(row.mrpsl.type)}>({row.mrpsl.type})</span></p>
-                      <p className="text-[11px] text-muted-foreground font-mono">{row.mrpsl.transferNo || "—"}</p>
+                      <p className="text-[11px] text-muted-foreground font-mono">{row.mrpsl.transferNo || "—"}{row.mrpsl.accountNo ? ` · acct ${row.mrpsl.accountNo}` : ""}</p>
                     </div>
                     <span className="font-mono font-bold text-[12px] shrink-0 ml-2">{formatNumber(row.mrpsl.units)}</span>
                   </div>
@@ -479,39 +566,26 @@ export function ResolutionDesk({
           </div>
         </Card>
       ) : (
-        /* Side-by-side */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* MRPSL / shareholder history */}
-          <Card className="mrpsl-card overflow-hidden">
-            <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">MRPSL Register Records</span>
-                {addedMrpsl.length > 0 && <Badge className="border-0 text-[11px] bg-blue-100 text-blue-700">+{addedMrpsl.length} added</Badge>}
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold">{displayMrpsl.length} records</span>
-                <Button size="sm" variant="outline" className="h-6 text-[11px] px-2 gap-1" onClick={() => { setInsertPrefill(null); setInsertOpen(true); }}>
-                  <Plus className="h-3 w-3" /> Add Transaction
-                </Button>
-              </div>
-            </div>
-            <div className="divide-y divide-border/60 text-[13px]">
-              {displayMrpsl.map((e) => (
-                <div key={e.id} className="flex items-center justify-between px-4 py-2.5">
-                  <div>
-                    <p className="font-medium">{e.displayDate} <span className={txColor(e.type)}>({e.type})</span></p>
-                    <p className="text-[11px] text-muted-foreground font-mono">{e.transferNo || "—"}</p>
-                  </div>
-                  <span className="font-mono font-bold">{formatNumber(e.units)}</span>
-                </div>
-              ))}
-              {displayMrpsl.length === 0 && (
-                <p className="px-4 py-6 text-center text-muted-foreground text-[13px] italic">
-                  {effectiveMrpsl.length === 0 ? "No transaction history for this shareholder in this register." : "No records match the current filter."}
+        /* Side-by-side: left = stacked per-account certificate ledgers, right = CSCS upload */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          <div className="space-y-4">
+            {accounts.length === 0 ? (
+              <Card className="mrpsl-card">
+                <p className="px-4 py-10 text-center text-muted-foreground text-[13px] italic">
+                  No holder account found for this CHN in {register}.
                 </p>
-              )}
-            </div>
-          </Card>
+              </Card>
+            ) : (
+              accounts.map((a) => (
+                <AccountPanel
+                  key={a.accountNo}
+                  account={a}
+                  entries={accountEntries(a)}
+                  onAdd={() => openAdd(a.accountNo, null)}
+                />
+              ))
+            )}
+          </div>
 
           {/* CSCS upload */}
           <Card className="mrpsl-card overflow-hidden">
@@ -562,12 +636,14 @@ export function ResolutionDesk({
       </Button>
 
       <InsertModal
-        key={insertPrefill?.id ?? "manual"}
+        key={`${insertAccountNo}-${insertPrefill?.id ?? "manual"}`}
         open={insertOpen}
         onClose={() => setInsertOpen(false)}
         prefill={insertPrefill}
         chn={chn}
         register={register}
+        accounts={accounts}
+        initialAccountNo={insertAccountNo || primaryAccountNo}
         onInserted={(entry) => setAddedMrpsl((prev) => [...prev, entry])}
       />
     </div>

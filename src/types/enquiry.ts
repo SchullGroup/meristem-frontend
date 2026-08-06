@@ -217,20 +217,7 @@ export interface HolderKycChange {
 }
 
 export interface Certificate {
-  certificateNo: string;
-  accountNo: string;
-  holderName: string;
-  registerId: string;
-  registerSymbol: string;
-  dateIssued: string;
-  units: number;
-  status: string;
-  transferNo: string;
-  stockbrokerCode: string;
-  notes: string;
-}
-
-export interface Certificate {
+  certificateId?: string;
   certificateNo: string;
   accountNo: string;
   holderName: string;

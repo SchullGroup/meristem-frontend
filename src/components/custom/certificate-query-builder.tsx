@@ -66,13 +66,17 @@ export function CertificateQueryBuilder({
   onSearch,
   onClear,
   loading = false,
+  initial,
 }: {
   registers: { symbol: string; registerName: string }[];
   onSearch: (criteria: Omit<CertificateSearchCriteria, "page" | "size" | "sort">) => void;
   onClear: () => void;
   loading?: boolean;
+  /** Optional seed for the rule set + register scope (e.g. deep-linked from another page). */
+  initial?: { registerSymbol?: string; rules?: CertificateSearchRule[] };
 }) {
-  const keyRef = useRef(0);
+  const seeded: DraftRule[] = (initial?.rules ?? []).map((r, i) => ({ key: i, ...r }));
+  const keyRef = useRef(seeded.length > 0 ? seeded.length - 1 : 0);
   const makeRule = (): DraftRule => {
     keyRef.current += 1;
     return { key: keyRef.current, field: "certNumber", operator: "equals", value: "" };
@@ -80,8 +84,8 @@ export function CertificateQueryBuilder({
   const firstRule = (): DraftRule => ({ key: 0, field: "certNumber", operator: "equals", value: "" });
 
   const [combinator, setCombinator] = useState<"AND" | "OR">("AND");
-  const [rules, setRules] = useState<DraftRule[]>(() => [firstRule()]);
-  const [registerSymbol, setRegisterSymbol] = useState("");
+  const [rules, setRules] = useState<DraftRule[]>(() => (seeded.length > 0 ? seeded : [firstRule()]));
+  const [registerSymbol, setRegisterSymbol] = useState(initial?.registerSymbol ?? "");
 
   function updateRule(key: number, patch: Partial<DraftRule>) {
     setRules((prev) =>

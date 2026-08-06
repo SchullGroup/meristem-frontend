@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Check, Scissors, AlertCircle, X, Pencil, Loader2, Plus, History } from "lucide-react";
+import { Check, Scissors, X, Pencil, Loader2, Plus, History } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,13 +31,22 @@ import {
   APPROVE_CERTIFICATE_SPLIT,
   BATCH_CERTIFICATE_SPLIT_DECISION,
   DISABLE_CERTIFICATE,
-  GET_CSCS_SHAREHOLDER_LOOKUP,
   GET_PENDING_SPLIT_REQUESTS,
   REJECT_CERTIFICATE_SPLIT,
   SUBMIT_CERTIFICATE_SPLIT_FOR_APPROVAL,
 } from "@/actions/certSplitAction";
 import { getUser } from "@/services/AuthServices";
 import { formatCustomDate, generateCertString } from "@/utils/helperFunctions";
+import { CertificateQueryBuilder } from "@/components/custom/certificate-query-builder";
+import { useGetRegisters } from "@/hooks/useRegisters";
+import { searchCertificatesAdvanced } from "@/actions/enquiryActions";
+import type {
+  Certificate,
+  CertificateSearchCriteria,
+  CertificateSearchRule,
+} from "@/types/enquiry";
+
+type AppliedCriteria = Omit<CertificateSearchCriteria, "page" | "size" | "sort">;
 
 type PendingSplit = {
   id: string;
@@ -91,13 +100,16 @@ const STATUS_BADGE: Record<string, string> = {
 export default function SplitPage() {
   const user = getUser();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("history");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(
+    searchParams.get("certificateNo") || searchParams.get("accountNo") || searchParams.get("register")
+      ? "split"
+      : "history",
+  );
   const [activeCert, setActiveCert] = useState<SplitProp | null>(null);
-  const [certFound, setCertFound] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<PendingSplit | null>(null);
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set());
-  const [lastRejComment, setLastRejComment] = useState("");
   const [rejectComment, setRejectComment] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchRejectOpen, setBatchRejectOpen] = useState(false);
@@ -106,46 +118,89 @@ export default function SplitPage() {
   const [numParts, setNumParts] = useState("2");
   const [partUnits, setPartUnits] = useState(["", ""]);
   const [splitReason, setSplitReason] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeSearchTerm, setActiveSearchTerm] = useState("");
-
-  const { data: lookUpData, isLoading: isLookUpLoading } = useQuery({
-    queryKey: ["cscs-shareholder-lookup", activeSearchTerm],
-    queryFn: () => GET_CSCS_SHAREHOLDER_LOOKUP(activeSearchTerm),
-    enabled: !!activeSearchTerm,
-  });
-
-  const [lookUpDataState, setLookUpDataState] = useState<any>(null);
-
-  useEffect(() => {
-    if (lookUpData?.data) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLookUpDataState(lookUpData?.data);
-    }
-  }, [lookUpData]);
-
-  const handleSearch = () => {
-    if (!searchTerm.trim()) {
-      toast.error("Search term is required");
-      return;
-    }
-    setActiveSearchTerm(searchTerm);
-    setCertFound(true);
-  };
-
-  // Prefill + auto-search when navigated from the certificate enquiry page
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    const search = searchParams.get("search");
-    if (search) {
-      //eslint-disable-next-line
-      setSearchTerm(search);
-      setActiveSearchTerm(search);
-      setCertFound(true);
-      setActiveTab("split");
-    }
+  // ── Certificate search (advanced query builder → /enquiry/certificates/search) ──
+  // Prefill from a deep-link (e.g. the certificate enquiry page's "Split" action).
+  const initialFromUrl = useMemo<{ registerSymbol?: string; rules: CertificateSearchRule[] } | null>(() => {
+    const certNo = searchParams.get("certificateNo");
+    const acct = searchParams.get("accountNo");
+    const reg = searchParams.get("register") ?? undefined;
+    if (certNo) return { registerSymbol: reg, rules: [{ field: "certNumber", operator: "equals", value: certNo }] };
+    if (acct) return { registerSymbol: reg, rules: [{ field: "accountNumber", operator: "equals", value: acct }] };
+    if (reg) return { registerSymbol: reg, rules: [] };
+    return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const { data: registersData } = useGetRegisters({ size: 100 });
+  const registers = useMemo(
+    () =>
+      (registersData?.content ?? [])
+        .filter((r) => r?.status === "ACTIVE")
+        .map((r) => ({ symbol: r.symbol, registerName: r.registerName })),
+    [registersData],
+  );
+
+  const [applied, setApplied] = useState<AppliedCriteria | null>(
+    initialFromUrl
+      ? { combinator: "AND", rules: initialFromUrl.rules, registerSymbol: initialFromUrl.registerSymbol }
+      : null,
+  );
+  const [searchPage, setSearchPage] = useState(0);
+  const [searchPageSize, setSearchPageSize] = useState(20);
+
+  const searchCriteria = useMemo<CertificateSearchCriteria | null>(
+    () => (applied ? { ...applied, page: searchPage, size: searchPageSize, sort: "createdAt,desc" } : null),
+    [applied, searchPage, searchPageSize],
+  );
+
+  const { data: searchData, isFetching: isSearching } = useQuery({
+    queryKey: ["certificate-split-search", searchCriteria],
+    queryFn: () => searchCertificatesAdvanced(searchCriteria!),
+    enabled: !!searchCriteria,
+  });
+  const searchResults = searchData?.content ?? [];
+
+  function applyCertSearch(next: AppliedCriteria) {
+    setApplied(next);
+    setSearchPage(0);
+  }
+  function clearCertSearch() {
+    setApplied(null);
+    setSearchPage(0);
+    setActiveCert(null);
+  }
+
+  // Load a selected certificate row into the split configurator.
+  function selectCertificate(c: Certificate) {
+    if (!c.certificateId) {
+      toast.error("This certificate row has no id on record and cannot be split.");
+      return;
+    }
+    if ((c.units ?? 0) <= 0) {
+      toast.error("This certificate has no positive units to split.");
+      return;
+    }
+    const parts = Number(numParts) || 2;
+    setEditingRejected(null);
+    setActiveCert({
+      id: c.certificateId,
+      certificateId: c.certificateId,
+      sourceCertId: c.certificateId,
+      status: c.status,
+      submittedAt: "",
+      sourceCertNumber: c.certificateNo,
+      holderName: c.holderName,
+      accountNumber: c.accountNo,
+      registerId: c.registerId,
+      registerSymbol: c.registerSymbol,
+      totalUnits: c.units ?? 0,
+      parts,
+      submittedBy: "",
+      splits: [],
+    });
+    setPartUnits(Array(parts).fill(""));
+    setSplitReason("");
+  }
 
   const { data: splitsData } = useQuery({
     queryKey: ["pending-splits"],
@@ -205,7 +260,6 @@ export default function SplitPage() {
       queryClient.invalidateQueries({ queryKey: ["pending-splits"] });
       setReviewOpen(false);
       setActiveCert(null);
-      setCertFound(false);
       setPartUnits([""]);
       setNumParts("1");
       setSplitReason("");
@@ -221,14 +275,11 @@ export default function SplitPage() {
       toast.success("Split request submitted successfully!");
       queryClient.invalidateQueries({ queryKey: ["pending-splits"] });
       setEditingRejected(null);
-      setCertFound(false);
       setPartUnits([""]);
       setNumParts("1");
       setSplitReason("");
       setActiveCert(null);
-      setLookUpDataState(null);
-      setActiveSearchTerm("");
-      setSearchTerm("");
+      setApplied(null);
       setActiveTab("history");
     },
     onError: (error) => {
@@ -296,6 +347,14 @@ export default function SplitPage() {
       toast.error("Please enter valid units for all parts");
       return;
     }
+    const sum = partUnits.reduce((s, v) => s + (Number(v) || 0), 0);
+    const total = activeCert?.totalUnits ?? 0;
+    if (total > 0 && sum !== total) {
+      toast.error(
+        `Parts must sum to the certificate's ${total.toLocaleString()} units (currently ${sum.toLocaleString()}).`,
+      );
+      return;
+    }
     if (!splitReason) {
       toast.error("Please enter a reason");
       return;
@@ -345,7 +404,8 @@ export default function SplitPage() {
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -368,7 +428,6 @@ export default function SplitPage() {
     };
     batchApproveMutation.mutate({ payload });
     setRejectedIds((prev) => new Set([...prev, ...selectedIds]));
-    setLastRejComment(batchComment);
     setSelectedIds(new Set());
     setBatchComment("");
     setBatchRejectOpen(false);
@@ -399,7 +458,6 @@ export default function SplitPage() {
       authorizedAt: split.authorizedAt,
     });
     setEditingRejected(split);
-    setCertFound(true);
     setNumParts(String(split.parts));
     setPartUnits(split.partUnits.map(String));
     setSplitReason("");
@@ -480,7 +538,6 @@ export default function SplitPage() {
                 onClick={() => {
                   setEditingRejected(null);
                   setActiveCert(null);
-                  setCertFound(false);
                   setPartUnits(["", ""]);
                   setNumParts("2");
                   setSplitReason("");
@@ -604,7 +661,6 @@ export default function SplitPage() {
                 <button
                   onClick={() => {
                     setEditingRejected(null);
-                    setCertFound(false);
                     setActiveCert(null);
                   }}
                   className="text-amber-500 hover:text-amber-700"
@@ -613,74 +669,81 @@ export default function SplitPage() {
                 </button>
               </Card>
             )}
-            <div className="grid grid-cols-5 gap-6">
-              <div className="col-span-2 space-y-4">
-                <h3 className="font-semibold text-sm text-muted-foreground">
-                  Find Certificate
-                </h3>
-                <Card className="mrpsl-card p-4 space-y-4">
-                  <Input
-                    placeholder="Name, Account No, or CHN"
-                    className="mrpsl-input"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <Button className="w-full" onClick={handleSearch}>
-                    Search
-                  </Button>
-                  {isLookUpLoading ? (
-                    <div className="mt-4 pt-4 border-t text-center py-6">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    </div>
-                  ) : lookUpDataState?.length > 0 ? (
-                    <div className="mt-4 pt-4 border-t animate-in fade-in space-y-4 max-h-100 overflow-y-auto">
-                      {lookUpDataState?.map((item: any) => (
-                        <div
-                          key={item.id}
-                          onClick={() => setActiveCert(item)}
-                          className={`space-y-2 cursor-pointer p-4 rounded-xl border transition-colors ${activeCert?.id === item.id
-                              ? "bg-primary/5 border-primary"
-                              : "hover:bg-muted/50 border-transparent"
-                            }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="font-mono text-lg font-bold">
-                              {item?.registerName}
-                            </div>
-                            {item.status === "ACTIVE" && (
-                              <Badge className="bg-green-100 text-green-700 border-0 text-[12px]">
-                                ACTIVE
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-[12px] font-semibold text-primary/80 bg-primary/8 px-2 py-0.5 rounded inline-block">
-                            {item?.registerId}
-                          </div>
-                          <div className="text-sm">
-                            Holder:{" "}
-                            <span className="font-medium">
-                              {item.firstName + " " + item.lastName}
-                            </span>
-                          </div>
-                          <div className="text-sm text-muted-foreground font-mono">
-                            {item.accountNumber || item.chn || "N/A"}
-                          </div>
-                          <div className="text-3xl tabular-nums font-bold mt-2">
-                            {item?.holdings?.toLocaleString() || 0}
-                          </div>
-                          <div className="text-[13px] text-muted-foreground">
-                            units
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : activeSearchTerm ? (
-                    <div className="mt-4 pt-4 border-t text-center py-6 text-sm text-muted-foreground">
-                      No certificates found for &quot;{activeSearchTerm}&quot;
-                    </div>
-                  ) : null}
-                </Card>
-              </div>
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm text-muted-foreground">
+                Find Certificate
+              </h3>
+              <CertificateQueryBuilder
+                registers={registers}
+                onSearch={applyCertSearch}
+                onClear={clearCertSearch}
+                loading={isSearching}
+                initial={initialFromUrl ?? undefined}
+              />
+              <div className="grid grid-cols-5 gap-6">
+                <div className="col-span-2 space-y-3">
+                  {!applied ? (
+                    <Card className="mrpsl-card p-8 text-center text-sm text-muted-foreground">
+                      Build a query above and press Search to find a certificate to split.
+                    </Card>
+                  ) : isSearching && searchResults.length === 0 ? (
+                    <Card className="mrpsl-card p-8 flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </Card>
+                  ) : searchResults.length === 0 ? (
+                    <Card className="mrpsl-card p-8 text-center text-sm text-muted-foreground">
+                      No certificates match the current query.
+                    </Card>
+                  ) : (
+                    <>
+                      <Card className="mrpsl-card overflow-hidden divide-y max-h-[32rem] overflow-y-auto">
+                        {searchResults.map((c) => {
+                          const isSel = activeCert?.certificateId === c.certificateId;
+                          return (
+                            <button
+                              key={c.certificateId ?? c.certificateNo}
+                              type="button"
+                              onClick={() => selectCertificate(c)}
+                              className={`w-full text-left p-4 transition-colors ${isSel ? "bg-primary/5 border-l-2 border-l-primary" : "hover:bg-muted/40"}`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-mono font-bold text-sm">{c.certificateNo}</span>
+                                <Badge
+                                  className={`border-0 text-[11px] ${c.status === "ACTIVE" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}
+                                >
+                                  {c.status}
+                                </Badge>
+                              </div>
+                              <div className="text-sm font-medium mt-1">{c.holderName}</div>
+                              <div className="text-[12px] text-muted-foreground font-mono">
+                                {c.accountNo} · {c.registerSymbol}
+                              </div>
+                              <div className="text-xl tabular-nums font-bold mt-1">
+                                {(c.units ?? 0).toLocaleString()}{" "}
+                                <span className="text-[12px] font-normal text-muted-foreground">units</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </Card>
+                      {searchData && (
+                        <TablePagination
+                          page={searchPage + 1}
+                          pageSize={searchPageSize}
+                          totalPages={Math.max(1, searchData.totalPages ?? 1)}
+                          from={(searchData.totalElements ?? 0) === 0 ? 0 : searchPage * searchPageSize + 1}
+                          to={Math.min((searchPage + 1) * searchPageSize, searchData.totalElements ?? 0)}
+                          total={searchData.totalElements ?? 0}
+                          onPageChange={(p) => setSearchPage(p - 1)}
+                          onPageSizeChange={(sz) => {
+                            setSearchPageSize(sz);
+                            setSearchPage(0);
+                          }}
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
 
               <div className="col-span-3 space-y-4">
                 <h3 className="font-semibold text-sm text-muted-foreground">
@@ -736,16 +799,10 @@ export default function SplitPage() {
                     </div>
                     <div className="bg-green-50 border border-green-200 text-green-800 p-2 rounded text-sm font-mono text-center">
                       Sum:{" "}
-                      {partUnits
-                        .reduce((s, v) => s + (Number(v) || 0), 0)
-                        .toLocaleString()}{" "}
-                      /{" "}
-                      {editingRejected
-                        ? editingRejected.totalUnits.toLocaleString()
-                        : "—"}{" "}
-                      units{" "}
-                      {partUnits.reduce((s, v) => s + (Number(v) || 0), 0) ===
-                        (editingRejected?.totalUnits ?? 0) && editingRejected
+                      {partUnits.reduce((s, v) => s + (Number(v) || 0), 0).toLocaleString()}{" "}
+                      / {(activeCert?.totalUnits ?? 0).toLocaleString()} units{" "}
+                      {activeCert &&
+                      partUnits.reduce((s, v) => s + (Number(v) || 0), 0) === activeCert.totalUnits
                         ? "✓"
                         : ""}
                     </div>
@@ -776,6 +833,7 @@ export default function SplitPage() {
                   </Card>
                 )}
               </div>
+            </div>
             </div>
           </TabsContent>
 
