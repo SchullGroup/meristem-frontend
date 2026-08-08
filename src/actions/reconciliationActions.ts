@@ -76,6 +76,31 @@ export const RESOLVE_RECON_FLAGGED = async (id: string, note?: string) => {
   }
 };
 
+export interface AllowTradeResponse {
+  id: string;
+  status: string;
+  projectedUnits: number;
+  certificatesWritten: number;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+}
+
+/**
+ * Officer override — force-apply a flagged trade to the register (mandatory reason). The backend
+ * refuses (422 OVERSELL_BLOCKED) if the holder's true position would go negative.
+ */
+export const ALLOW_RECON_TRADE = async (id: string, reason: string) => {
+  try {
+    const res = await api.post(
+      `/reconciliation/cscs/flagged/${encodeURIComponent(id)}/allow`,
+      { reason },
+    );
+    return res.data.data as AllowTradeResponse;
+  } catch (error) {
+    throw new Error(returnErrorMessage(error as ErrorLike));
+  }
+};
+
 /* ─── Shared — a shareholder's unified transaction history (left panel) ─────── */
 
 export const GET_SHAREHOLDER_TX_HISTORY = async (chn: string, register: string) => {

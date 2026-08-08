@@ -36,6 +36,7 @@ export default function WarrantEnquiryPage() {
     paymentType?: WarrantPaymentType;
     warrantNo?: string;
     accountNo?: string;
+    registerId?: number;
     registerSymbol?: string;
   }>({});
 
@@ -47,6 +48,7 @@ export default function WarrantEnquiryPage() {
       paymentType: searchParams.paymentType || "DIVIDEND_WARRANT",
       warrantNo: searchParams.warrantNo,
       accountNo: searchParams.accountNo,
+      registerId: searchParams.registerId,
       registerSymbol: searchParams.registerSymbol || undefined,
       page: page,
       size: pageSize,
@@ -62,10 +64,16 @@ export default function WarrantEnquiryPage() {
       return;
     }
 
+    // RegisterSelect emits the ticker symbol; resolve it to the unambiguous bigint registers.id
+    // so the backend scopes through the declaration's register FK rather than the (non-unique)
+    // symbol. Symbol is still sent as a fallback for the backend to resolve.
+    const reg = registersData?.content?.find((r) => r.symbol === selectedRegister);
+
     setSearchParams({
       paymentType: type,
       warrantNo: warrantNo.trim() || undefined,
       accountNo: accountNo.trim() || undefined,
+      registerId: reg?.id,
       registerSymbol: selectedRegister || undefined,
     });
     setPage(0);
@@ -114,10 +122,10 @@ export default function WarrantEnquiryPage() {
               <SelectValue placeholder="Select payment type to search..." />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="DIVIDEND_WARRRANT">
+              <SelectItem value="DIVIDEND_WARRANT">
                 Dividend Warrant
               </SelectItem>
-              <SelectItem value="INTEREST_WARRRANT">
+              <SelectItem value="INTEREST_WARRANT">
                 Interest Warrant
               </SelectItem>
               <SelectItem value="APPLICATION_RETURN_MONEY">

@@ -98,6 +98,7 @@ export default function ManualMarkoff({
 
     submitManualMutation.mutate(
       {
+        warrantId: warrant.id,
         warrantNumber: warrant.warrantNumber,
         reason: reason.trim(),
         submittedBy: currentUser?.email,

@@ -64,6 +64,13 @@ export interface ShareholderSummary {
   totalHoldings: number;
 }
 
+// One row of a register's "holders by state" (tax-jurisdiction) breakdown.
+export interface StateHolding {
+  state: string;
+  holderCount: number;
+  totalUnits: number;
+}
+
 // ── Query-builder search ────────────────────────────────────────────────────────
 
 export type ShareholderSearchField =
@@ -318,6 +325,9 @@ export interface SearchWarrantsParams {
   paymentType: WarrantPaymentType;
   warrantNo?: string;
   accountNo?: string;
+  // Prefer the bigint registers.id (unambiguous). registerSymbol is a fallback the backend
+  // resolves, but 4 symbols map to >1 register and 30 registers have none.
+  registerId?: number;
   registerSymbol?: string;
   page?: number;
   size?: number;

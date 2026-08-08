@@ -11,6 +11,7 @@ import {
   Pencil,
   Lock,
   Unlock,
+  Eye,
   // History,
   // Users,
 } from "lucide-react";
@@ -407,6 +408,15 @@ export default function RegistersPage() {
                           >
                             <Users className="mr-2 h-4 w-4" /> View Shareholders
                           </DropdownMenuItem> */}
+                          <DropdownMenuItem
+                            onClick={() =>
+                              router?.push(
+                                `/setup/registers/view?id=${r?.registerId}`,
+                              )
+                            }
+                          >
+                            <Eye className="mr-2 h-4 w-4" /> View Register
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEdit(r)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit Register
                           </DropdownMenuItem>

@@ -10,13 +10,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils/format";
-import { useHolderCertificates, useSaveReconciliationCertificates } from "@/hooks/useReconciliation";
-import type { HolderAccountPanel, HolderCertificate } from "@/actions/reconciliationActions";
+import {
+  useHolderCertificates,
+  useSaveReconciliationCertificates,
+  useAllowReconTrade,
+} from "@/hooks/useReconciliation";
+import type { HolderAccountPanel, HolderCertificate, AllowTradeResponse } from "@/actions/reconciliationActions";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type TxType = "BUY" | "SELL" | "RIGHTS" | "BONUS" | "IPO";
@@ -281,11 +286,15 @@ export function ResolutionDesk({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data: certData, isLoading, isError, error } = useHolderCertificates(chn, register);
   const save = useSaveReconciliationCertificates();
+  const allow = useAllowReconTrade();
 
   const [cscsEntries, setCscsEntries] = useState<LedgerEntry[]>([]);
   const [cscsFileName, setCscsFileName] = useState("");
   const [addedMrpsl, setAddedMrpsl] = useState<LedgerEntry[]>([]);
   const [saved, setSaved] = useState(false);
+  const [allowOpen, setAllowOpen] = useState(false);
+  const [allowReason, setAllowReason] = useState("");
+  const [allowResult, setAllowResult] = useState<AllowTradeResponse | null>(null);
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -399,7 +408,23 @@ export function ResolutionDesk({
     }
   };
 
+  // Officer override — let the flagged trade through on review (backend blocks a true oversell).
+  const handleAllow = async () => {
+    if (!context?.flaggedItemId) return;
+    if (!allowReason.trim()) { toast.error("Enter a reason for allowing this trade."); return; }
+    try {
+      const res = await allow.mutateAsync({ id: context.flaggedItemId, reason: allowReason.trim() });
+      setAllowOpen(false);
+      setAllowResult(res);
+      toast.success(`Trade allowed — the holder's position is now ${formatNumber(res.projectedUnits)}.`);
+      setSaved(true);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   const saving = save.isPending;
+  const allowing = allow.isPending;
 
   // ── Saved confirmation ──
   if (saved) {
@@ -414,9 +439,11 @@ export function ResolutionDesk({
           <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
-          <p className="font-semibold text-lg">Records Saved</p>
+          <p className="font-semibold text-lg">{allowResult ? "Trade Allowed" : "Records Saved"}</p>
           <p className="text-sm text-muted-foreground text-center max-w-sm">
-            {addedMrpsl.length > 0
+            {allowResult
+              ? `Trade allowed for ${holderName} (${chn}) — the parked trade was applied and the position recomputed to ${formatNumber(allowResult.projectedUnits)}.`
+              : addedMrpsl.length > 0
               ? `${addedMrpsl.length} certificate movement${addedMrpsl.length !== 1 ? "s" : ""} posted for ${holderName} (${chn}) — the affected account positions have been recomputed.`
               : `Reconciliation for ${holderName} (${chn}) has been marked resolved.`}
           </p>
@@ -446,16 +473,33 @@ export function ResolutionDesk({
 
       {/* Shortfall context (CSCS Update tab) */}
       {context?.shortfall != null && (
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-800">
-            <strong>Shortfall identified:</strong> {holderName} ({chn}) attempted to sell{" "}
-            <strong>{formatNumber(context.attemptedSell ?? 0)} units</strong> in {register}
-            {context.transactionDate ? ` on ${fmtDisplay(context.transactionDate)}` : ""}, but only held{" "}
-            <strong>{formatNumber(context.holdingsAtFlag ?? 0)} units</strong> — a shortfall of{" "}
-            <strong>{formatNumber(context.shortfall ?? 0)} units</strong>. Review the account ledgers on the left
-            (including the shareholder&apos;s other accounts) and add the missing movement(s) to reconcile.
-          </p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              <strong>Shortfall identified:</strong> {holderName} ({chn}) attempted to sell{" "}
+              <strong>{formatNumber(context.attemptedSell ?? 0)} units</strong> in {register}
+              {context.transactionDate ? ` on ${fmtDisplay(context.transactionDate)}` : ""}, but only held{" "}
+              <strong>{formatNumber(context.holdingsAtFlag ?? 0)} units</strong> — a shortfall of{" "}
+              <strong>{formatNumber(context.shortfall ?? 0)} units</strong>. Review the account ledgers on the left
+              (including the shareholder&apos;s other accounts) and add the missing movement(s) to reconcile.
+            </p>
+          </div>
+          {context.flaggedItemId && (
+            <div className="flex items-center justify-end gap-2 border-t border-amber-200/70 pt-2.5">
+              <span className="text-[12px] text-amber-700 mr-auto">
+                Reviewed and satisfied the holder is entitled to sell? Let the trade through.
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-amber-300 text-amber-800 hover:bg-amber-100"
+                onClick={() => { setAllowReason(""); setAllowOpen(true); }}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Allow Trade
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -646,6 +690,43 @@ export function ResolutionDesk({
         initialAccountNo={insertAccountNo || primaryAccountNo}
         onInserted={(entry) => setAddedMrpsl((prev) => [...prev, entry])}
       />
+
+      {/* Officer override — allow the flagged trade through */}
+      <Dialog open={allowOpen} onOpenChange={(o) => { if (!o) setAllowOpen(false); }}>
+        <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogTitle className="text-lg font-bold leading-tight">Allow Trade (override)</DialogTitle>
+            <p className="text-[13px] text-muted-foreground mt-1.5">
+              Posts the flagged trade to {register} for {holderName} ({chn}) and recomputes the position. It is
+              refused if the holder&apos;s true position (across all their certificates) would go negative. A
+              reason is required and recorded on the audit trail.
+            </p>
+            {addedMrpsl.length > 0 && (
+              <p className="text-[12px] text-amber-700 mt-2">
+                Note: {addedMrpsl.length} unsaved movement{addedMrpsl.length !== 1 ? "s" : ""} in the panels
+                below will not be included here — use the Save Records button for those instead.
+              </p>
+            )}
+          </div>
+          <div className="px-6 py-5 space-y-2">
+            <label className="mrpsl-label" htmlFor="allow-trade-reason">Reason / justification</label>
+            <Textarea
+              id="allow-trade-reason"
+              value={allowReason}
+              onChange={(e) => setAllowReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Confirmed the holder's 200 units are held on paper (ACTIVE) and cover the sale."
+            />
+          </div>
+          <div className="px-6 py-4 border-t border-border bg-muted/20 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setAllowOpen(false)} disabled={allowing}>Cancel</Button>
+            <Button onClick={handleAllow} disabled={allowing || !allowReason.trim()}>
+              {allowing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Allow Trade
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
