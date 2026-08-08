@@ -45,7 +45,7 @@ import { formatLargeNumber, exportToCSV } from "@/lib/utils";
 import type { Shareholder } from "@/types/enquiry";
 import type { DividendFlowRecord } from "@/types/dividend-declaration-flow";
 
-const PAGE_SIZE_DEFAULT = 20;
+const PAGE_SIZE_DEFAULT = 50;
 const TOP_N = 20;
 
 function holderName(s: Shareholder) {
@@ -130,6 +130,8 @@ export default function ViewRegisterPage() {
   const register = registerResp?.data;
   const registerSymbol = register?.symbol || "";
   const hasSymbol = !!registerSymbol;
+  // Prefer the unambiguous bigint id for the paginated list/reports (the fast, indexed backend path).
+  const registerPk = register?.id;
 
   // ── Summary (header metrics) ────────────────────────────────────────────────
   const { data: summaryResp } = useQuery({
@@ -142,10 +144,10 @@ export default function ViewRegisterPage() {
 
   // ── Shareholders list ───────────────────────────────────────────────────────
   const { data: holdersResp, isLoading: holdersLoading } = useQuery({
-    queryKey: ["reg-view-holders", registerSymbol, page, pageSize, q, statusFilter],
+    queryKey: ["reg-view-holders", registerPk, page, pageSize, q, statusFilter],
     queryFn: () =>
       getShareholders({
-        registerSymbol,
+        registerId: registerPk,
         page,
         size: pageSize,
         q: q || undefined,
@@ -157,7 +159,7 @@ export default function ViewRegisterPage() {
           | undefined,
         sort: "name,asc",
       }),
-    enabled: hasSymbol && activeTab === "shareholders",
+    enabled: !!registerPk && activeTab === "shareholders",
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
   });
@@ -182,15 +184,15 @@ export default function ViewRegisterPage() {
 
   // ── Reports: top-N holders ────────────────────────────────────────────────────
   const { data: topResp, isLoading: topLoading } = useQuery({
-    queryKey: ["reg-view-top", registerSymbol],
+    queryKey: ["reg-view-top", registerPk],
     queryFn: () =>
       getShareholders({
-        registerSymbol,
+        registerId: registerPk,
         page: 0,
         size: TOP_N,
         sort: "units,desc",
       }),
-    enabled: hasSymbol && activeTab === "reports",
+    enabled: !!registerPk && activeTab === "reports",
     refetchOnWindowFocus: false,
   });
   const topHolders = topResp?.content ?? [];
@@ -206,7 +208,7 @@ export default function ViewRegisterPage() {
     if (!registerSymbol) return;
     setExportingMembers(true);
     try {
-      const blob = await exportRegisterOfMembers({ registerSymbol });
+      const blob = await exportRegisterOfMembers({ registerId: registerPk, registerSymbol });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

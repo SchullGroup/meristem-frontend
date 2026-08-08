@@ -47,6 +47,8 @@ export interface HolderProfile extends Shareholder {
 }
 
 export interface ShareholdersParams {
+  // Prefer the bigint registers.id — the backend's fast, indexed register-scoped path.
+  registerId?: number;
   registerSymbol?: string;
   status?: "ACTIVE" | "DORMANT" | "CAUTIONED" | "SUSPENDED";
   q?: string;

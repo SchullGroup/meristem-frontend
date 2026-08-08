@@ -175,6 +175,7 @@ export const getHoldersByState = async (registerSymbol?: string) => {
 
 // Register dashboard — full register-of-members CSV export (bounded server-side).
 export const exportRegisterOfMembers = async (params?: {
+  registerId?: number;
   registerSymbol?: string;
   status?: string;
   q?: string;
