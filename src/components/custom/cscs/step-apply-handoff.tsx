@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils/format";
 import {
+  useCscsBatch,
   useCscsBatchSummary,
   useCscsTradeBalances,
   useFinalizeCscsBatch,
@@ -25,7 +26,12 @@ export function StepApplyHandoff({ batchRef, onViewLog }: StepApplyHandoffProps)
 
   const { data: summary, isLoading } = useCscsBatchSummary(batchRef);
   const { data: tradeBalances } = useCscsTradeBalances(batchRef, { status: "MULTI_ACCOUNT" });
+  const { data: batchDetail } = useCscsBatch(batchRef);
   const finalize = useFinalizeCscsBatch();
+
+  // A batch cannot be finalized until Step 2 states are committed to the live register — the
+  // backend enforces this (STATES_NOT_COMMITTED); disable here so it's visible before the click.
+  const statesCommitted = !!batchDetail?.statesCommitted;
 
   const multiAccountRows = useMemo(
     () => tradeBalances?.data?.filter((r) => r.status === "MULTI_ACCOUNT") ?? [],
@@ -101,10 +107,25 @@ export function StepApplyHandoff({ batchRef, onViewLog }: StepApplyHandoffProps)
             </div>
           </div>
           {!isCompleted && (
-            <Button onClick={handleFinalize} disabled={finalize.isPending}>
-              {finalize.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-              Finalize Batch
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                onClick={handleFinalize}
+                disabled={finalize.isPending || !statesCommitted}
+                title={
+                  !statesCommitted
+                    ? "Commit shareholder states on Step 2 (Resolve States) before finalizing."
+                    : undefined
+                }
+              >
+                {finalize.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                Finalize Batch
+              </Button>
+              {!statesCommitted && (
+                <p className="text-xs text-amber-600">
+                  Commit shareholder states on Step 2 first.
+                </p>
+              )}
+            </div>
           )}
         </div>
 

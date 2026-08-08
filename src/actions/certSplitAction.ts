@@ -27,6 +27,22 @@ export const GET_PENDING_SPLIT_REQUESTS = async () => {
   }
 };
 
+// Read-only legacy (pre-migration) split history — sliced (Previous/Next), no total count.
+export const GET_LEGACY_SPLIT_HISTORY = async (params: {
+  registerId?: number;
+  accountNo?: string;
+  page?: number; // 1-indexed
+  pageSize?: number;
+}) => {
+  try {
+    const res = await api.get(`/certificates/split/legacy-history`, { params });
+    return res.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
 export const APPROVE_CERTIFICATE_SPLIT = async ({
   payload,
   splitId,

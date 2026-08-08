@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   GET_RECON_FLAGGED,
   RESOLVE_RECON_FLAGGED,
+  ALLOW_RECON_TRADE,
   GET_SHAREHOLDER_TX_HISTORY,
   GET_HOLDER_CERTIFICATES,
   SAVE_RECONCILIATION_CERTIFICATES,
@@ -28,6 +29,18 @@ export const useResolveReconFlagged = () => {
   return useMutation({
     mutationFn: ({ id, note }: { id: string; note?: string }) => RESOLVE_RECON_FLAGGED(id, note),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["reconciliation", "flagged"] }),
+  });
+};
+
+/** Officer override — force-apply a flagged trade (mandatory reason; backend blocks true oversells). */
+export const useAllowReconTrade = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => ALLOW_RECON_TRADE(id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reconciliation", "flagged"] });
+      qc.invalidateQueries({ queryKey: ["reconciliation", "holder-certificates"] });
+    },
   });
 };
 

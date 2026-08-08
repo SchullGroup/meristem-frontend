@@ -23,6 +23,7 @@ import {
   Shareholder,
   ShareholdersParams,
   ShareholderSummary,
+  StateHolding,
   ShareholderSearchCriteria,
   ShareholderSearchResult,
   Warrant,
@@ -149,6 +150,42 @@ export const getShareholderSummary = async (registerSymbol?: string) => {
     );
 
     return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Register dashboard — shareholders grouped by geographical state (tax jurisdiction).
+export const getHoldersByState = async (registerSymbol?: string) => {
+  try {
+    const response = await api.get<ApiResponse<StateHolding[]>>(
+      "/enquiry/shareholders/by-state",
+      {
+        params: { registerSymbol },
+      },
+    );
+
+    return response.data;
+  } catch (error) {
+    const err = error as ErrorLike;
+    throw new Error(returnErrorMessage(err));
+  }
+};
+
+// Register dashboard — full register-of-members CSV export (bounded server-side).
+export const exportRegisterOfMembers = async (params?: {
+  registerSymbol?: string;
+  status?: string;
+  q?: string;
+}) => {
+  try {
+    const res = await api.get<Blob>("/enquiry/shareholders/export", {
+      params,
+      responseType: "blob",
+    });
+
+    return res.data;
   } catch (error) {
     const err = error as ErrorLike;
     throw new Error(returnErrorMessage(err));

@@ -49,6 +49,9 @@ export interface WarrantStatusResponse {
 }
 
 export interface ManualMarkoffRequest {
+    // Unique warrant id from the search result — preferred, unambiguous (warrant numbers are not
+    // unique). warrantNumber is still sent for display/back-compat.
+    warrantId?: number;
     warrantNumber: string;
     reason: string;
     submittedBy: string

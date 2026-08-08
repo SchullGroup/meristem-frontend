@@ -25,12 +25,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Check, Scissors, X, Pencil, Loader2, Plus, History } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
+import { useDebounce } from "@/hooks/useDebounce";
 import { TablePagination } from "@/components/custom/table-pagination";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   APPROVE_CERTIFICATE_SPLIT,
   BATCH_CERTIFICATE_SPLIT_DECISION,
   DISABLE_CERTIFICATE,
+  GET_LEGACY_SPLIT_HISTORY,
   GET_PENDING_SPLIT_REQUESTS,
   REJECT_CERTIFICATE_SPLIT,
   SUBMIT_CERTIFICATE_SPLIT_FOR_APPROVAL,
@@ -91,6 +93,18 @@ type SplitProp = {
   certificateId: string;
 };
 
+type LegacySplit = {
+  id: number;
+  date: string;
+  certNumber: string;
+  holderName: string;
+  accountNumber: string;
+  registerSymbol: string;
+  units: number;
+  entryType: string; // REVERSAL | PART
+  reference: string;
+};
+
 const STATUS_BADGE: Record<string, string> = {
   PENDING:  "bg-amber-100 text-amber-800",
   APPROVED: "bg-green-100 text-green-800",
@@ -147,6 +161,31 @@ export default function SplitPage() {
   );
   const [searchPage, setSearchPage] = useState(0);
   const [searchPageSize, setSearchPageSize] = useState(20);
+
+  // ── Legacy (pre-migration) split history — separate read-only tab, server-sliced ──
+  const LEGACY_PAGE_SIZE = 20;
+  const [legacyPage, setLegacyPage] = useState(0);
+  const [legacyRegister, setLegacyRegister] = useState(""); // register symbol
+  const [legacyAccountInput, setLegacyAccountInput] = useState("");
+  const legacyAccount = useDebounce(legacyAccountInput, 400);
+  const legacyRegisterId = useMemo(
+    () => registersData?.content?.find((r) => r.symbol === legacyRegister)?.id,
+    [registersData, legacyRegister],
+  );
+  const { data: legacyData, isFetching: legacyLoading } = useQuery({
+    queryKey: ["legacy-split-history", legacyRegisterId, legacyAccount, legacyPage],
+    queryFn: () =>
+      GET_LEGACY_SPLIT_HISTORY({
+        registerId: legacyRegisterId,
+        accountNo: legacyAccount || undefined,
+        page: legacyPage + 1,
+        pageSize: LEGACY_PAGE_SIZE,
+      }),
+    enabled: activeTab === "legacy",
+    placeholderData: (prev) => prev,
+  });
+  const legacyRows: LegacySplit[] = legacyData?.data?.content ?? [];
+  const legacyLast: boolean = legacyData?.data?.last ?? true;
 
   const searchCriteria = useMemo<CertificateSearchCriteria | null>(
     () => (applied ? { ...applied, page: searchPage, size: searchPageSize, sort: "createdAt,desc" } : null),
@@ -520,6 +559,12 @@ export default function SplitPage() {
             className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
           >
             Approved
+          </TabsTrigger>
+          <TabsTrigger
+            value="legacy"
+            className="rounded-lg px-5 py-2.5 text-[13px] font-medium whitespace-nowrap text-muted-foreground data-active:bg-background data-active:text-foreground data-active:shadow-sm hover:text-foreground transition-all"
+          >
+            Legacy History
           </TabsTrigger>
         </TabsList>
 
@@ -1020,6 +1065,144 @@ export default function SplitPage() {
               onPageChange={approvedPg.setPage}
               onPageSizeChange={approvedPg.setPageSize}
             />
+          </TabsContent>
+
+          {/* ── Legacy History (pre-migration) ── */}
+          <TabsContent value="legacy" className="space-y-4">
+            <Card className="mrpsl-card p-3 border-l-4 border-l-slate-400 bg-slate-50/60 flex items-start gap-3">
+              <History className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+              <p className="text-[13px] text-slate-700">
+                Splits performed before the system migration. Requester and approval
+                details were not recorded in the legacy system, so they are not shown.
+              </p>
+            </Card>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="w-64">
+                <Select
+                  value={legacyRegister || "ALL"}
+                  onValueChange={(v) => {
+                    setLegacyRegister(v && v !== "ALL" ? v : "");
+                    setLegacyPage(0);
+                  }}
+                >
+                  <SelectTrigger className="mrpsl-input">
+                    <SelectValue placeholder="All registers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All registers</SelectItem>
+                    {registers.map((r) => (
+                      <SelectItem key={r.symbol} value={r.symbol}>
+                        {r.registerName} — {r.symbol}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Input
+                placeholder="Filter by account number"
+                className="mrpsl-input w-56"
+                value={legacyAccountInput}
+                onChange={(e) => {
+                  setLegacyAccountInput(e.target.value);
+                  setLegacyPage(0);
+                }}
+              />
+              {legacyLoading && (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              )}
+            </div>
+
+            <Card className="mrpsl-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="mrpsl-table-header">
+                    <tr>
+                      <th className="p-3">DATE</th>
+                      <th className="p-3">CERTIFICATE</th>
+                      <th className="p-3">HOLDER</th>
+                      <th className="p-3">ACCOUNT</th>
+                      <th className="p-3">REGISTER</th>
+                      <th className="p-3 text-right">UNITS</th>
+                      <th className="p-3">TYPE</th>
+                      <th className="p-3">REFERENCE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-[13px]">
+                    {legacyRows.map((row) => (
+                      <tr key={row.id} className="mrpsl-table-row">
+                        <td className="p-3 text-muted-foreground whitespace-nowrap">
+                          {row.date || "-"}
+                        </td>
+                        <td className="p-3 font-mono whitespace-nowrap">
+                          {row.certNumber || "-"}
+                        </td>
+                        <td className="p-3 font-medium whitespace-nowrap">
+                          {row.holderName || "-"}
+                        </td>
+                        <td className="p-3 font-mono text-muted-foreground whitespace-nowrap">
+                          {row.accountNumber || "-"}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          {row.registerSymbol || "-"}
+                        </td>
+                        <td
+                          className={`p-3 text-right tabular-nums font-semibold whitespace-nowrap ${
+                            row.units < 0 ? "text-red-600" : ""
+                          }`}
+                        >
+                          {row.units?.toLocaleString()}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <Badge
+                            className={`border-0 text-[12px] ${
+                              row.entryType === "REVERSAL"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-blue-100 text-blue-800"
+                            }`}
+                          >
+                            {row.entryType}
+                          </Badge>
+                        </td>
+                        <td className="p-3 font-mono text-muted-foreground whitespace-nowrap">
+                          {row.reference || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                    {legacyRows.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="p-14 text-center text-muted-foreground">
+                          <History className="h-8 w-8 mx-auto mb-3 opacity-20" />
+                          {legacyLoading ? "Loading…" : "No legacy splits found."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={legacyPage === 0 || legacyLoading}
+                onClick={() => setLegacyPage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-[13px] text-muted-foreground">
+                Page {legacyPage + 1}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={legacyLast || legacyLoading}
+                onClick={() => setLegacyPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
           </TabsContent>
         </div>
       </Tabs>
